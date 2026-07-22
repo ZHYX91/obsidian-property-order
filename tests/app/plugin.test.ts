@@ -30,6 +30,27 @@ beforeEach(() => {
 });
 
 describe("PropertyOrderPlugin settings persistence", () => {
+  it("does not register controllers after unloading during async settings load", async () => {
+    const { plugin } = createPlugin(createDefaultSettings());
+    let resolveLoad!: (value: unknown) => void;
+    vi.spyOn(plugin, "loadData").mockImplementation(
+      () =>
+        new Promise<unknown>((resolve) => {
+          resolveLoad = resolve;
+        }),
+    );
+    const workspaceOn = (
+      plugin.app.workspace as unknown as { on: ReturnType<typeof vi.fn> }
+    ).on;
+
+    expect(plugin.onload()).toBeUndefined();
+    plugin.onunload();
+    resolveLoad(createDefaultSettings());
+    await vi.waitFor(() => expect(document.body.className).toBe(""));
+
+    expect(workspaceOn).not.toHaveBeenCalled();
+  });
+
   it("does not downgrade future settings and preserves unknown fields on explicit save", async () => {
     const storedSettings = {
       ...createDefaultSettings(),

@@ -125,7 +125,7 @@ export class PropertyValueOrderController {
 
     targetDocument.addEventListener("pointerdown", this.handlePointerDown, true);
     targetDocument.addEventListener("pointermove", this.handlePointerMove, true);
-    targetDocument.addEventListener("pointerup", this.handlePointerUp, true);
+    targetDocument.addEventListener("pointerup", this.handlePointerUpEvent, true);
     targetDocument.addEventListener("pointercancel", this.handlePointerCancel, true);
     targetDocument.addEventListener("contextmenu", this.handleContextMenu, true);
     targetDocument.addEventListener("dragstart", this.handleNativeDragStart, true);
@@ -143,7 +143,7 @@ export class PropertyValueOrderController {
     const cleanup = (): void => {
       targetDocument.removeEventListener("pointerdown", this.handlePointerDown, true);
       targetDocument.removeEventListener("pointermove", this.handlePointerMove, true);
-      targetDocument.removeEventListener("pointerup", this.handlePointerUp, true);
+      targetDocument.removeEventListener("pointerup", this.handlePointerUpEvent, true);
       targetDocument.removeEventListener("pointercancel", this.handlePointerCancel, true);
       targetDocument.removeEventListener("contextmenu", this.handleContextMenu, true);
       targetDocument.removeEventListener("dragstart", this.handleNativeDragStart, true);
@@ -235,6 +235,10 @@ export class PropertyValueOrderController {
     }
 
     this.applyActions(actions);
+  };
+
+  private readonly handlePointerUpEvent = (event: PointerEvent): void => {
+    void this.handlePointerUp(event);
   };
 
   private readonly handlePointerUp = async (event: PointerEvent): Promise<void> => {

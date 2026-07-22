@@ -1,6 +1,6 @@
 # Property Order Product Requirements
 
-This document defines the current Property Order 0.1.0 product boundary. It mirrors the authoritative Chinese version.
+This document defines the current Property Order 0.1.1 product boundary. It mirrors the authoritative Chinese version.
 
 ## Product goal
 
@@ -41,6 +41,6 @@ The enhancement must remain local, reversible, and fail-safe. Unrecognized host 
 - No nested lists, object lists, multiline flow sequences, source-mode drag, or cross-file moves.
 - Forced block-to-flow conversion may discard item comments and blank lines that only block form can represent.
 - Property-value reorder is disabled in the mobile app so Obsidian's native Edit, Remove from list, and Copy long-press menu remains available. Property-key suggestion ordering remains supported on mobile.
-- Desktop property-value reorder supports pointer input only. Version 0.1.0 has no direct keyboard reorder command or screen-reader drag live region.
+- Desktop property-value reorder supports pointer input only. Version 0.1.1 has no direct keyboard reorder command or screen-reader drag live region.
 - Key-suggestion enhancement depends on a recognizable public DOM shape; fail open is correct when host structure changes.
 - Only notes exposed by Obsidian as Properties are in scope; real-UI writeback is not promised for CR-only documents that the host does not expose.

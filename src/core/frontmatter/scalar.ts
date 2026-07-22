@@ -255,7 +255,7 @@ export function splitInlineComment(raw: string, context: "flow" | "scalar" = "sc
 
 function canStartQuotedScalar(raw: string, index: number, context: "flow" | "scalar"): boolean {
   const prefix = raw.slice(0, index).trimEnd();
-  return prefix.length === 0 || (context === "flow" && /[\[,{]$/.test(prefix));
+  return prefix.length === 0 || (context === "flow" && /[[,{]$/.test(prefix));
 }
 
 function isSafePlainScalar(value: string): boolean {
@@ -271,7 +271,7 @@ function isSafePlainScalar(value: string): boolean {
   // null, numeric, timestamp, infinity, or NaN resolution rules. Quoting all
   // such values is intentionally conservative: normalized writeback must not
   // turn an Obsidian text value into another YAML type.
-  if (/^[+\-\d.~]/.test(value)) {
+  if (/^[+\d.~-]/.test(value)) {
     return false;
   }
 

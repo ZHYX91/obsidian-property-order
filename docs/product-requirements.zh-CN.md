@@ -1,6 +1,6 @@
 # Property Order 产品需求
 
-本文描述 Property Order 0.1.0 的当前产品边界。英文版用于同步阅读；若实现、测试或翻译与本文冲突，以本文为准。
+本文描述 Property Order 0.1.1 的当前产品边界。英文版用于同步阅读；若实现、测试或翻译与本文冲突，以本文为准。
 
 ## 产品目标
 
@@ -41,6 +41,6 @@ Property Order 只增强 Obsidian Properties 的两类顺序：
 - 不支持嵌套列表、对象列表、多行 flow sequence、源码模式拖拽或跨文件移动。
 - 强制把 block list 转成 flow list 时，允许丢弃只有 block 形式能表达的项目注释和空行。
 - 移动应用禁用属性值重排，保留 Obsidian 原生的“编辑 / 从列表中移除 / 复制”长按菜单；属性名称候选排序仍支持移动端。
-- 桌面属性值重排只支持指针输入；0.1.0 不提供键盘直接重排命令或屏幕阅读器拖拽 live-region 播报。
+- 桌面属性值重排只支持指针输入；0.1.1 不提供键盘直接重排命令或屏幕阅读器拖拽 live-region 播报。
 - 属性键候选增强依赖可识别的公开 DOM 形态；宿主结构变化时以 fail open 为正确结果。
 - 插件只处理 Obsidian 实际暴露为 Properties 的笔记；宿主不呈现 Properties 的 CR-only 文档不承诺真实 UI 写回。

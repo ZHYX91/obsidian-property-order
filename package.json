@@ -1,7 +1,7 @@
 {
   "name": "obsidian-property-order",
-  "version": "0.1.0",
-  "description": "Reorder property values and customize property key suggestion order in Obsidian.",
+  "version": "0.1.1",
+  "description": "Reorder property values and customize native property name suggestions.",
   "main": "main.js",
   "scripts": {
     "dev": "node esbuild.config.mjs",

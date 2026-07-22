@@ -84,7 +84,9 @@ export class PropertyOrderSettingTab extends PluginSettingTab {
   }
 
   private displayGeneralSettings(containerEl: HTMLElement): void {
-    containerEl.createEl("h3", { text: this.t("settings.general.heading") });
+    new Setting(containerEl)
+      .setName(this.t("settings.general.heading"))
+      .setHeading();
 
     new Setting(containerEl)
       .setName(this.t("settings.language.name"))
@@ -119,7 +121,9 @@ export class PropertyOrderSettingTab extends PluginSettingTab {
   }
 
   private displayValueDragSettings(containerEl: HTMLElement): void {
-    containerEl.createEl("h3", { text: this.t("settings.valueDrag.heading") });
+    new Setting(containerEl)
+      .setName(this.t("settings.valueDrag.heading"))
+      .setHeading();
 
     if (Platform.isMobileApp) {
       addInactiveHint(containerEl, this.t("settings.valueDrag.mobileHint"));
@@ -186,7 +190,9 @@ export class PropertyOrderSettingTab extends PluginSettingTab {
   }
 
   private displayKeyOrderSettings(containerEl: HTMLElement): void {
-    containerEl.createEl("h3", { text: this.t("settings.keyOrder.heading") });
+    new Setting(containerEl)
+      .setName(this.t("settings.keyOrder.heading"))
+      .setHeading();
     const availableNames = getAvailablePropertyNames(this.app);
 
     new Setting(containerEl)
@@ -336,9 +342,9 @@ export class PropertyOrderSettingTab extends PluginSettingTab {
     const retryButton = this.saveStatusEl.ownerDocument.createElement("button");
     retryButton.type = "button";
     retryButton.textContent = this.t("settings.saveStatus.retry");
-    retryButton.addEventListener("click", async () => {
+    retryButton.addEventListener("click", () => {
       retryButton.disabled = true;
-      await this.persistSettings();
+      void this.persistSettings();
     });
     this.saveStatusEl.append(messageEl, retryButton);
   }
@@ -377,7 +383,7 @@ function addKeyListSetting(
       console.error("Property Order: failed to save property name rules", error);
     });
   }, getTargetWindow);
-  registerPendingSaveFlush(pendingSave.flush);
+  registerPendingSaveFlush(() => pendingSave.flush());
 
   new Setting(containerEl)
     .setName(name)

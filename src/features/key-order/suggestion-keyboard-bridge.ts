@@ -29,7 +29,9 @@ export function registerSuggestionKeyboardBridge(
     const visibleElements = getVisibleSuggestionElements(container);
 
     if (event.key === "Enter") {
-      handleEnter(event, container, visibleElements, options.onSynchronizationFailure);
+      handleEnter(event, container, visibleElements, (failedContainer) => {
+        options.onSynchronizationFailure(failedContainer);
+      });
       return;
     }
 

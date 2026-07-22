@@ -83,7 +83,7 @@ function parseBlockScalarHeader(line: string): BlockScalarState | null {
 
   for (const headerValue of headerValues) {
     const { rawValue } = splitInlineComment(headerValue.trim());
-    const match = /^(?:(?:![^\s]+|&[^\s]+)\s+)*[>|]([1-9+\-]{0,2})$/.exec(
+    const match = /^(?:(?:![^\s]+|&[^\s]+)\s+)*[>|]([1-9+-]{0,2})$/.exec(
       rawValue.trim(),
     );
 

@@ -1,6 +1,6 @@
 # Property Order Testing Strategy
 
-This document mirrors the authoritative current automated gates, real-host matrix, release contract, and evidence boundary for Property Order 0.1.0.
+This document mirrors the authoritative current automated gates, real-host matrix, release contract, and evidence boundary for Property Order 0.1.1.
 
 ## Automated gate
 
@@ -54,9 +54,9 @@ The Android emulator verifies:
 - The current desktop artifact was exercised in an isolated Windows 11 / Obsidian 1.12.7 Vault. Evidence includes block- and flow-style same-property writeback verified on disk, pinned/hidden/bottom suggestion ordering, keyboard selection and cancellation, and all three settings tabs.
 - The current mobile artifact was exercised in an independent Android 15 / API 35 emulator Vault. With the plugin enabled, startup completes without an eager whole-document suggestion scan; newly mounted suggestion menus are still observed and sorted, the narrow settings UI works in portrait and landscape, and the run produced no plugin error, crash, or ANR.
 - The final mobile artifact preserves Obsidian's native Edit, Copy, and Remove from list menu. A stationary long press and a long-press movement produced no plugin preview, indicator, drag cursor, or writeback; the fixture SHA-256 remained unchanged.
-- Mobile property-value drag is an explicit non-goal for 0.1.0 rather than an unverified release item.
+- Mobile property-value drag is an explicit non-goal for 0.1.1 rather than an unverified release item.
 - No physical Android evidence exists, so vendor input stacks, real haptics, physical pen, system font scaling, and large-Vault performance are not claimed.
-- Mobile property-value drag, keyboard property-value reorder, and screen-reader drag announcements are product non-goals, not 0.1.0 release debt.
+- Mobile property-value drag, keyboard property-value reorder, and screen-reader drag announcements are product non-goals, not 0.1.1 release debt.
 - CR-only byte preservation is automated; Obsidian 1.12.7 exposes no matching Properties UI, so a nonexistent host path is not required.
 
 ## CI and Release

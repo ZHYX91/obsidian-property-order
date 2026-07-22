@@ -17,7 +17,9 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 20
     permissions:
+      attestations: write
       contents: write
+      id-token: write
     steps:
       - name: Check out repository
         uses: actions/checkout@v7
@@ -59,6 +61,13 @@ jobs:
             property-order/main.js \
             property-order/manifest.json \
             property-order/styles.css)"
+
+      - name: Attest Obsidian release assets
+        uses: actions/attest@v4
+        with:
+          subject-path: |
+            dist/property-order/main.js
+            dist/property-order/styles.css
 
       - name: Publish GitHub release
         env:

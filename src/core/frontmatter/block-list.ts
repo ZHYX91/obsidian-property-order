@@ -138,7 +138,7 @@ function isSupportedBlockScalar(raw: string): boolean {
     return isValidQuotedScalar(trimmed);
   }
 
-  if (/^(?:[\[\]{?}&*!|>]|-(?:\s|$))/.test(trimmed) || /[\[\]{}]/.test(trimmed)) {
+  if (/^(?:[[\]{?}&*!|>]|-(?:\s|$))/.test(trimmed) || /[[\]{}]/.test(trimmed)) {
     return false;
   }
 

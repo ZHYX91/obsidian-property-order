@@ -28,10 +28,58 @@ export default class PropertyOrderPlugin extends Plugin {
   private persistedSettingsBaseline = createDefaultSettings();
   private storedSettings: unknown = null;
   private trackedDocuments = new Set<Document>();
+  private unloaded = false;
   propertyOrderSettings: PropertyOrderSettings = createDefaultSettings();
 
-  override async onload(): Promise<void> {
+  override onload(): void {
+    this.unloaded = false;
+    void this.initialize().catch((error: unknown) => {
+      console.error("Property Order: failed to initialize", error);
+    });
+  }
+
+  override onunload(): void {
+    this.unloaded = true;
+    for (const cleanup of this.cleanupCallbacks.splice(0)) {
+      cleanup();
+    }
+
+    for (const trackedDocument of this.trackedDocuments) {
+      trackedDocument.body.classList.remove(VALUE_DRAG_ENABLED_CLASS);
+    }
+
+    this.trackedDocuments.clear();
+    this.keySuggestionOrderController = null;
+  }
+
+  async loadSettings(): Promise<void> {
+    const storedSettings: unknown = await this.loadData();
+    this.storedSettings = storedSettings;
+    this.propertyOrderSettings = normalizeSettings(storedSettings);
+    this.persistedSettingsBaseline = normalizeSettings(storedSettings);
+    this.syncValueDragState();
+
+    if (
+      !hasFutureSettingsSchema(storedSettings) &&
+      JSON.stringify(storedSettings) !== JSON.stringify(this.propertyOrderSettings)
+    ) {
+      const settingsForStorage = prepareSettingsForStorage(
+        this.propertyOrderSettings,
+        storedSettings,
+      );
+      await this.saveData(settingsForStorage);
+      this.storedSettings = settingsForStorage;
+      this.persistedSettingsBaseline = normalizeSettings(settingsForStorage);
+    }
+  }
+
+  private async initialize(): Promise<void> {
     await this.loadSettings();
+
+    if (this.unloaded) {
+      return;
+    }
+
     this.registerEvent(
       this.app.workspace.on("window-open", (_workspaceWindow, targetWindow) => {
         this.applyValueDragState(targetWindow.document);
@@ -52,40 +100,6 @@ export default class PropertyOrderPlugin extends Plugin {
       () => this.propertyOrderSettings,
     );
     this.registerController(this.keySuggestionOrderController.initialize());
-  }
-
-  override onunload(): void {
-    for (const cleanup of this.cleanupCallbacks.splice(0)) {
-      cleanup();
-    }
-
-    for (const trackedDocument of this.trackedDocuments) {
-      trackedDocument.body.classList.remove(VALUE_DRAG_ENABLED_CLASS);
-    }
-
-    this.trackedDocuments.clear();
-    this.keySuggestionOrderController = null;
-  }
-
-  async loadSettings(): Promise<void> {
-    const storedSettings = await this.loadData();
-    this.storedSettings = storedSettings;
-    this.propertyOrderSettings = normalizeSettings(storedSettings);
-    this.persistedSettingsBaseline = normalizeSettings(storedSettings);
-    this.syncValueDragState();
-
-    if (
-      !hasFutureSettingsSchema(storedSettings) &&
-      JSON.stringify(storedSettings) !== JSON.stringify(this.propertyOrderSettings)
-    ) {
-      const settingsForStorage = prepareSettingsForStorage(
-        this.propertyOrderSettings,
-        storedSettings,
-      );
-      await this.saveData(settingsForStorage);
-      this.storedSettings = settingsForStorage;
-      this.persistedSettingsBaseline = normalizeSettings(settingsForStorage);
-    }
   }
 
   /**

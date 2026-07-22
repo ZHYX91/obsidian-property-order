@@ -27,4 +27,12 @@ describe("release workflow contract", () => {
     expect(workflow).toContain("--clobber");
     expect(workflow).toContain('gh release create "$GITHUB_REF_NAME"');
   });
+
+  it("attests the executable and stylesheet release assets", () => {
+    expect(workflow).toContain("attestations: write");
+    expect(workflow).toContain("id-token: write");
+    expect(workflow).toContain("uses: actions/attest@v4");
+    expect(workflow).toContain("dist/property-order/main.js");
+    expect(workflow).toContain("dist/property-order/styles.css");
+  });
 });

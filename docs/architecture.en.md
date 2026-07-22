@@ -1,10 +1,10 @@
 # Property Order Architecture
 
-This document mirrors the authoritative Chinese architecture for Property Order 0.1.0. If the implementation, tests, or this translation conflict with `architecture.zh-CN.md`, the Chinese document defines the intended boundaries and contracts.
+This document mirrors the authoritative Chinese architecture for Property Order 0.1.1. If the implementation, tests, or this translation conflict with `architecture.zh-CN.md`, the Chinese document defines the intended boundaries and contracts.
 
 ## Goals and Non-goals
 
-The plugin enhances two kinds of order in Obsidian Properties: values in top-level YAML list properties and native property-key suggestions. Version 0.1.0 provides desktop same-property drag, same-note cross-property moves, three YAML writeback modes, and cross-platform native key-suggestion ordering. The mobile app leaves property-value gestures to Obsidian.
+The plugin enhances two kinds of order in Obsidian Properties: values in top-level YAML list properties and native property-key suggestions. Version 0.1.1 provides desktop same-property drag, same-note cross-property moves, three YAML writeback modes, and cross-platform native key-suggestion ordering. The mobile app leaves property-value gestures to Obsidian.
 
 Nested lists, object lists, multiline flow sequences, source-mode dragging, and cross-file moves remain out of scope and fail closed. The refactor isolates parsing, interaction, DOM, and Vault boundaries; it is not a product expansion or a ground-up rewrite.
 

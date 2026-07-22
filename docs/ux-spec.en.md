@@ -1,6 +1,6 @@
 # Property Order UX Specification
 
-This document mirrors the authoritative current interaction and presentation contract for Property Order 0.1.0.
+This document mirrors the authoritative current interaction and presentation contract for Property Order 0.1.1.
 
 ## Property-value drag
 
