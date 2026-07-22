@@ -1,0 +1,37 @@
+{
+  "name": "obsidian-property-order",
+  "version": "0.1.0",
+  "description": "Reorder property values and customize property key suggestion order in Obsidian.",
+  "main": "main.js",
+  "scripts": {
+    "dev": "node esbuild.config.mjs",
+    "build": "node esbuild.config.mjs production",
+    "check": "npm run typecheck && npm test && npm run build && npm run check:release",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "check:release": "node scripts/check-release.mjs",
+    "acceptance:fixtures": "node scripts/create-acceptance-fixtures.mjs",
+    "acceptance:conflict": "node scripts/inject-acceptance-conflict.mjs"
+  },
+  "keywords": [
+    "obsidian",
+    "plugin",
+    "properties",
+    "yaml",
+    "frontmatter",
+    "sort"
+  ],
+  "author": "ZhengYX",
+  "license": "MIT",
+  "engines": {
+    "node": ">=20"
+  },
+  "devDependencies": {
+    "@types/node": "^20.19.0",
+    "esbuild": "0.28.1",
+    "happy-dom": "20.10.6",
+    "obsidian": "1.5.7",
+    "typescript": "6.0.3",
+    "vitest": "4.1.9"
+  }
+}

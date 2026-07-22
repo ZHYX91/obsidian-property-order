@@ -1,0 +1,84 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - "[0-9]*.[0-9]*.[0-9]*"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: write
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v7
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Verify release version
+        run: node scripts/check-release-version.mjs "$GITHUB_REF_NAME"
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run release gates
+        run: npm run check
+
+      - name: Build manual installation archive
+        shell: bash
+        run: |
+          archive_root="$RUNNER_TEMP/property-order"
+          archive_path="$GITHUB_WORKSPACE/dist/property-order/property-order-${GITHUB_REF_NAME}.zip"
+          mkdir -p "$archive_root"
+          cp \
+            dist/property-order/main.js \
+            dist/property-order/manifest.json \
+            dist/property-order/styles.css \
+            "$archive_root/"
+          (
+            cd "$RUNNER_TEMP"
+            zip -q "$archive_path" \
+              property-order/main.js \
+              property-order/manifest.json \
+              property-order/styles.css
+          )
+          test "$(unzip -Z1 "$archive_path")" = "$(printf '%s\n' \
+            property-order/main.js \
+            property-order/manifest.json \
+            property-order/styles.css)"
+
+      - name: Publish GitHub release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          assets=(
+            dist/property-order/main.js
+            dist/property-order/manifest.json
+            dist/property-order/styles.css
+            "dist/property-order/property-order-${GITHUB_REF_NAME}.zip"
+          )
+          if gh release view "$GITHUB_REF_NAME" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            gh release upload "$GITHUB_REF_NAME" "${assets[@]}" \
+              --repo "$GITHUB_REPOSITORY" \
+              --clobber
+          else
+            gh release create "$GITHUB_REF_NAME" "${assets[@]}" \
+              --repo "$GITHUB_REPOSITORY" \
+              --verify-tag \
+              --title "$GITHUB_REF_NAME" \
+              --generate-notes
+          fi

@@ -1,0 +1,208 @@
+.property-order-drop-indicator {
+  position: fixed;
+  z-index: 9999;
+  width: 4px;
+  border-radius: 999px;
+  background: #009e73;
+  box-shadow:
+    0 0 0 1px color-mix(in srgb, var(--background-primary) 35%, transparent),
+    0 0 12px color-mix(in srgb, #009e73 70%, transparent);
+  pointer-events: none;
+  opacity: 0;
+  transform: scaleY(0.98);
+  transition:
+    background 120ms ease,
+    box-shadow 120ms ease,
+    opacity 120ms ease,
+    transform 120ms ease,
+    width 120ms ease;
+}
+
+.property-order-drop-indicator.is-visible {
+  opacity: 1;
+  transform: scaleY(1);
+}
+
+.property-order-drop-indicator.is-move {
+  width: 6px;
+  background:
+    repeating-linear-gradient(
+      135deg,
+      #d55e00 0,
+      #d55e00 4px,
+      #ffb000 4px,
+      #ffb000 7px
+    );
+  box-shadow:
+    0 0 0 1px color-mix(in srgb, var(--background-primary) 30%, transparent),
+    0 0 18px color-mix(in srgb, #d55e00 82%, transparent),
+    0 0 0 2px color-mix(in srgb, #d55e00 45%, transparent);
+}
+
+.property-order-dragging {
+  opacity: 0.65;
+  cursor: default !important;
+  user-select: none;
+}
+
+body.property-order-drag-cursor-active,
+body.property-order-drag-cursor-active * {
+  cursor: default !important;
+}
+
+.property-order-cursor-refresh {
+  cursor: auto !important;
+}
+
+.property-order-drag-preview {
+  position: fixed;
+  z-index: 10000;
+  box-sizing: border-box;
+  pointer-events: none;
+  opacity: 1;
+  overflow: hidden;
+  padding: 0;
+  background: var(--background-primary);
+  border: 0;
+  border-radius: 999px;
+  box-shadow:
+    inset 0 0 0 1px color-mix(in srgb, var(--interactive-accent) 75%, var(--background-primary)),
+    0 10px 24px rgb(0 0 0 / 0.28),
+    0 0 0 1px color-mix(in srgb, var(--background-primary) 30%, transparent);
+  text-overflow: ellipsis;
+  transform: scale(1.06);
+  white-space: nowrap;
+}
+
+.property-order-drag-preview .multi-select-pill-content {
+  min-width: 1ch;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.property-order-drag-preview .multi-select-pill-remove-button {
+  display: none;
+}
+
+body.property-order-value-drag-enabled .metadata-property .multi-select-pill {
+  cursor: default;
+  touch-action: manipulation;
+}
+
+.property-order-suggestion-hidden {
+  display: none !important;
+}
+
+.property-order-settings-tabs {
+  align-items: flex-end;
+  display: flex;
+  flex-wrap: nowrap;
+  gap: 2px;
+  margin: 0 0 22px;
+  max-width: 100%;
+  overflow-x: auto;
+  overflow-y: hidden;
+  overscroll-behavior-inline: contain;
+  padding: 0;
+  border-bottom: 1px solid var(--background-modifier-border);
+  scrollbar-width: thin;
+}
+
+.property-order-settings-tab {
+  background: transparent;
+  border: 1px solid transparent;
+  border-bottom: 2px solid transparent;
+  border-radius: 5px 5px 0 0;
+  box-sizing: border-box;
+  box-shadow: none !important;
+  color: var(--text-muted);
+  cursor: pointer;
+  flex: 0 0 auto;
+  font-size: var(--font-ui-small);
+  height: 34px;
+  min-height: 34px;
+  margin-bottom: -1px;
+  padding: 0 12px;
+  white-space: nowrap;
+}
+
+.property-order-settings-tab:focus-visible {
+  outline: 2px solid var(--interactive-accent);
+  outline-offset: -2px;
+}
+
+.property-order-settings-tab:hover {
+  background: var(--interactive-hover);
+  border-color: var(--background-modifier-border);
+  color: var(--text-normal);
+}
+
+.property-order-settings-tab.is-active,
+.property-order-settings-tab.is-active:hover {
+  background: color-mix(in srgb, var(--interactive-accent) 12%, transparent);
+  border-color: var(--background-modifier-border);
+  border-bottom-color: var(--interactive-accent);
+  color: var(--text-normal);
+}
+
+.property-order-settings-hint {
+  color: var(--text-muted);
+  font-size: var(--font-ui-small);
+  margin: 4px 0 12px;
+}
+
+.property-order-settings-save-status {
+  align-items: center;
+  background: var(--background-modifier-error);
+  border: 1px solid var(--background-modifier-error-hover);
+  border-radius: var(--radius-s);
+  color: var(--text-normal);
+  display: flex;
+  gap: var(--size-4-3);
+  justify-content: space-between;
+  margin: 0 0 var(--size-4-4);
+  padding: var(--size-4-2) var(--size-4-3);
+}
+
+.property-order-settings-save-status[hidden] {
+  display: none;
+}
+
+.property-order-settings-save-status button {
+  flex: 0 0 auto;
+}
+
+.property-order-settings-panel {
+  min-width: 0;
+}
+
+.property-order-key-list-input {
+  max-width: 100%;
+}
+
+.property-order-property-name-input {
+  max-width: 100%;
+  min-width: 12rem;
+}
+
+@media (pointer: coarse) {
+  .property-order-settings-tab {
+    height: 44px;
+    min-height: 44px;
+  }
+}
+
+@media (max-width: 480px) {
+  .property-order-key-list-setting .setting-item-control {
+    align-items: stretch;
+    flex-direction: column;
+    width: 100%;
+  }
+
+  .property-order-key-list-input,
+  .property-order-property-name-input {
+    box-sizing: border-box;
+    min-width: 0;
+    width: 100%;
+  }
+}

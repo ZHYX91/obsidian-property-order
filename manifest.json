@@ -1,0 +1,10 @@
+{
+  "id": "property-order",
+  "name": "Property Order",
+  "version": "0.1.0",
+  "minAppVersion": "1.5.7",
+  "description": "Reorder property values and customize property key suggestion order in Obsidian.",
+  "author": "ZhengYX",
+  "authorUrl": "https://github.com/ZHYX91",
+  "isDesktopOnly": false
+}
