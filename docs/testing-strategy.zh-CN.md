@@ -6,10 +6,13 @@
 
 交付前运行 `npm run check`，顺序执行：
 
-1. TypeScript 严格类型检查；
-2. 当前完整 Vitest suite；
-3. production bundle；
-4. release 产物与源码、manifest、版本映射的逐字节一致性审计。
+1. 对插件入口与源码执行 Obsidian 官方 `eslint-plugin-obsidianmd` 推荐规则集及已记录的兼容性例外，所有已启用 warning 均阻断；
+2. TypeScript 严格类型检查；
+3. 当前完整 Vitest suite；
+4. production bundle；
+5. release 产物与源码、manifest、版本映射的逐字节一致性审计。
+
+Lint 使用当前 Obsidian API typings，兼容性仍以 `manifest.json` 为契约。只有在多窗口支持需要目标 `ownerDocument` 时才保留原生 DOM 创建。声明式设置定义暂不启用，直到完整的自定义三页签 UI 能在不改变 1.13 之前最低兼容行为的前提下等价表达。
 
 测试按职责分布在 `tests/core/`、`tests/features/`、`tests/obsidian/`、`tests/shared/`、`tests/app/` 和 `tests/scripts/`。固定契约覆盖：
 

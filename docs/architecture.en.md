@@ -97,7 +97,7 @@ Controllers do not retain stale settings that affect subsequent interactions: va
 - Product boundary: [`product-requirements.en.md`](product-requirements.en.md).
 - UX contract: [`ux-spec.en.md`](ux-spec.en.md).
 - Automated gates, real-host matrix, and current evidence boundary: [`testing-strategy.en.md`](testing-strategy.en.md).
-- Before release, `npm run check` must pass; it runs `npm run typecheck`, `npm test`, `npm run build`, and `npm run check:release` in sequence.
+- Before release, `npm run check` must pass; it runs the official Obsidian ESLint gate, `npm run typecheck`, `npm test`, `npm run build`, and `npm run check:release` in sequence.
 - CI performs a locked install and the complete gate on Node 20, then uploads `dist/property-order/`. A separate release workflow accepts only an exact `x.y.z` tag matching `manifest.json`, without a `v` prefix; after the gate passes, it publishes the loose `main.js`, `manifest.json`, and `styles.css` assets required by Obsidian plus `property-order-<version>.zip`. The archive contains exactly those three files under one `property-order/` directory. Re-running an existing tag replaces its assets instead of creating a duplicate Release.
 
 DOM-interaction and visual release gates require the real-host evidence defined by the testing strategy. Capabilities explicitly listed as product non-goals are not treated as unfinished release items.

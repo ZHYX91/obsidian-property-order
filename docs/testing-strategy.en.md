@@ -6,10 +6,13 @@ This document mirrors the authoritative current automated gates, real-host matri
 
 Run `npm run check` before handoff. It performs, in order:
 
-1. strict TypeScript checking;
-2. the complete current Vitest suite;
-3. the production bundle;
-4. byte-level release-asset verification against source, manifest, and version mapping.
+1. the official `eslint-plugin-obsidianmd` recommended rule set, with documented compatibility exceptions, against plugin entry and source files; all enabled warnings are treated as failures;
+2. strict TypeScript checking;
+3. the complete current Vitest suite;
+4. the production bundle;
+5. byte-level release-asset verification against source, manifest, and version mapping.
+
+The lint gate uses current Obsidian API typings while `manifest.json` remains the compatibility contract. Native DOM creation is retained only where the target `ownerDocument` is required for popout support. Declarative setting definitions remain disabled until the complete custom three-tab UI can be represented without changing behavior for the declared pre-1.13 minimum.
 
 Tests are organized under `tests/core/`, `tests/features/`, `tests/obsidian/`, `tests/shared/`, `tests/app/`, and `tests/scripts/`. Stable contracts cover:
 

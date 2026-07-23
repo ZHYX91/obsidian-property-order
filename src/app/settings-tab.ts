@@ -105,7 +105,7 @@ export class PropertyOrderSettingTab extends PluginSettingTab {
 
             this.plugin.propertyOrderSettings.language = value;
             await this.persistSettings();
-            this.display();
+            this.render(null);
           });
       });
 
@@ -141,7 +141,7 @@ export class PropertyOrderSettingTab extends PluginSettingTab {
           }
 
           await this.persistSettings();
-          this.display();
+          this.render(null);
         });
       });
 
@@ -204,7 +204,7 @@ export class PropertyOrderSettingTab extends PluginSettingTab {
           .onChange(async (value) => {
             this.plugin.propertyOrderSettings.enableNativeKeySuggestionOrder = value;
             await this.persistSettings(true);
-            this.display();
+            this.render(null);
           });
       });
 

@@ -7,7 +7,7 @@ export interface SettingsTabDefinition {
 
 export interface SettingsTabLayout {
   activeTabEl: HTMLButtonElement;
-  cleanup(): void;
+  readonly cleanup: () => void;
   panelEl: HTMLElement;
 }
 
