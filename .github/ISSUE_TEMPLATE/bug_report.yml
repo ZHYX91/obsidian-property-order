@@ -1,0 +1,61 @@
+name: Bug report
+description: Report a reproducible Property Order problem
+title: "[Bug]: "
+labels:
+  - bug
+body:
+  - type: markdown
+    attributes:
+      value: Thanks for helping improve Property Order. Remove private note content before attaching files or screenshots.
+  - type: input
+    id: versions
+    attributes:
+      label: Versions
+      description: Property Order, Obsidian, and operating-system versions
+      placeholder: Property Order 0.1.1; Obsidian 1.12.7; Windows 11
+    validations:
+      required: true
+  - type: dropdown
+    id: platform
+    attributes:
+      label: Platform
+      options:
+        - Windows
+        - macOS
+        - Linux
+        - Android
+        - iOS
+    validations:
+      required: true
+  - type: textarea
+    id: description
+    attributes:
+      label: What happened?
+      description: Describe the actual and expected behavior.
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Reproduction steps
+      placeholder: |
+        1. Open ...
+        2. Configure ...
+        3. Drag or select ...
+    validations:
+      required: true
+  - type: textarea
+    id: sample
+    attributes:
+      label: Minimal sample and logs
+      description: Include sanitized YAML, console errors, screenshots, or a minimal test Vault when useful.
+      render: shell
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Checklist
+      options:
+        - label: I reproduced this with the latest Property Order release.
+          required: true
+        - label: I removed private Vault content and credentials.
+          required: true
