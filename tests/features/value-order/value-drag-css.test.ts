@@ -16,6 +16,15 @@ describe("property value drag CSS", () => {
     );
   });
 
+  it("disables touch scrolling only for the value armed from the mobile menu", () => {
+    expect(styles).toMatch(
+      /\.property-order-mobile-reorder-armed\s*\{[^}]*outline:[^}]*touch-action:\s*none\s*!important;/s,
+    );
+    expect(styles).not.toMatch(
+      /body\.property-order-mobile-reorder-active \.metadata-property \.multi-select-pill\s*\{[^}]*touch-action:\s*none;/s,
+    );
+  });
+
   it("keeps the floating preview on one clipped line without consuming source content space", () => {
     expect(styles).toMatch(
       /\.property-order-drag-preview\s*\{[^}]*box-sizing:\s*border-box;[^}]*overflow:\s*hidden;[^}]*padding:\s*0;[^}]*border:\s*0;[^}]*box-shadow:\s*inset 0 0 0 1px[^}]*white-space:\s*nowrap;/s,

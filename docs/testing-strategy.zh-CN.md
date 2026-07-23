@@ -1,6 +1,6 @@
 # Property Order 测试策略
 
-本文定义 Property Order 0.1.1 的当前自动门禁、真实宿主矩阵、发布契约和证据边界。英文版用于同步阅读；若翻译冲突，以本文为准。
+本文定义 Property Order 0.2.0 的当前自动门禁、真实宿主矩阵、发布契约和证据边界。英文版用于同步阅读；若翻译冲突，以本文为准。
 
 ## 自动门禁
 
@@ -17,7 +17,7 @@ Lint 使用当前 Obsidian API typings，兼容性仍以 `manifest.json` 为契�
 测试按职责分布在 `tests/core/`、`tests/features/`、`tests/obsidian/`、`tests/shared/`、`tests/app/` 和 `tests/scripts/`。固定契约覆盖：
 
 - flow/block/empty、BOM、LF/CRLF/CR、引号、注释、空行、YAML core scalar 类型和不支持结构 fail closed；
-- 桌面 mouse/touch/pen 状态机、移动端运行时禁用、drop 几何、noop、取消、内容冲突、pane/file 身份和 stale async 防护；
+- 桌面 mouse/touch/pen 状态机、移动端原生菜单扩展与单次待拖动状态、drop 几何、noop、取消、内容冲突、pane/file 身份和 stale async 防护；
 - Properties 与候选 DOM adapter、可见候选排序、全部隐藏、键盘导航、焦点离开和 fail open；
 - settings 迁移、即时生效、保存失败、Retry、页签语义与窄屏 CSS；
 - release 标签、三个官方附件、手动安装 ZIP 和幂等 Release 更新。
@@ -47,7 +47,8 @@ npm run acceptance:conflict -- --vault <isolated-vault> --file <fixture> --delay
 
 Android 模拟器必须验证：
 
-- 属性值手势保持原生行为，包括“编辑 / 从列表中移除 / 复制”长按菜单；不得出现拖拽预览或写回；
+- 原生“编辑 / 从列表中移除 / 复制”与新增的“重排”或“重排或移动”同时保留；
+- 选择新增操作后只把该 pill 置为待拖动状态，下一次同 pill 触摸拖拽可完成重排或移动；点击其他位置、Escape、超时、切后台或停用插件都会干净取消；
 - 候选触摸选择、394px 级窄屏设置布局、横竖屏旋转和活动页签显露；
 - 前后台恢复、插件停用/重启用，以及无崩溃或 ANR。
 
@@ -55,11 +56,10 @@ Android 模拟器必须验证：
 
 - 自动门禁覆盖所有纯规则、可注入故障和发布契约。
 - 当前桌面产物已在 Windows 11 / Obsidian 1.12.7 隔离 Vault 中实测：block 与 flow 同属性写回均从磁盘核验；候选 pinned/hidden/bottom 排序、键盘选择与取消、三个设置页签均已覆盖。
-- 当前移动产物已在 Android 15 / API 35 独立模拟器 Vault 中实测：插件启用后可正常启动且不会急切扫描整份 document；后挂载的候选菜单仍会被观察和排序；窄屏设置页在横竖屏均可用；本轮没有插件错误、崩溃或 ANR。
-- 最终移动产物保留 Obsidian 原生的“编辑 / 复制 / 从列表中移除”菜单。静止长按和长按后移动均未产生插件预览、指示器、拖拽 cursor 或写回，夹具 SHA-256 保持不变。
-- 移动端属性值拖拽是 0.1.1 的明确非目标，不再是尚未验证的发布项。
+- 当前移动产物已在 Android 15 / API 35 独立模拟器 Vault 中实测，production 文件与部署文件的 SHA-256 一致。Obsidian 原生“编辑 / 复制 / 从列表中移除”与“重排或移动”同时存在；真实单指针流程完成同属性重排和跨属性移动，磁盘 YAML 符合预期。点击其他位置会取消待拖动状态且夹具不变，前后台恢复后没有插件错误、崩溃或 ANR。
+- 15 秒超时、Escape、宿主菜单不可用时 fail open 以及清理路径由自动测试覆盖，不在常规真实宿主验收中注入。
 - 尚无物理 Android 设备证据，因此不声称验证了厂商输入栈、真实触感、物理 pen、系统字体缩放或大 Vault 性能。
-- 移动端属性值拖拽、键盘属性值重排与屏幕阅读器拖拽播报都是产品非目标，不列为 0.1.1 发布欠项。
+- 键盘属性值重排与屏幕阅读器拖拽播报是产品非目标，不列为 0.2.0 发布欠项。
 - CR-only 字节保持由自动测试固定；Obsidian 1.12.7 不暴露相应 Properties UI，因此不要求不存在的真实 UI 路径。
 
 ## CI 与 Release

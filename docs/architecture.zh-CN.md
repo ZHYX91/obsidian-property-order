@@ -1,10 +1,10 @@
 # Property Order 架构
 
-本文是 Property Order 0.1.1 的权威架构说明。英文版用于同步阅读；实现、测试或英文文档与本文冲突时，以本文定义的边界和契约为准。
+本文是 Property Order 0.2.0 的权威架构说明。英文版用于同步阅读；实现、测试或英文文档与本文冲突时，以本文定义的边界和契约为准。
 
 ## 目标与非目标
 
-插件只增强 Obsidian Properties 的两类顺序：顶层 YAML 列表属性中的值顺序，以及原生属性键候选顺序。0.1.1 提供桌面端同属性拖拽、同笔记跨属性移动、三种 YAML 写回格式和跨平台原生键候选排序；移动应用中的属性值手势保留给 Obsidian。
+插件只增强 Obsidian Properties 的两类顺序：顶层 YAML 列表属性中的值顺序，以及原生属性键候选顺序。0.2.0 提供跨平台同属性拖拽、同笔记跨属性移动、三种 YAML 写回格式和原生键候选排序。
 
 不支持嵌套列表、对象列表、多行 flow sequence、源码模式拖拽或跨文件移动；这些结构必须 fail closed，不得修改笔记。模块化重构的目标是隔离解析、交互、DOM 和 Vault 边界，不是扩大产品范围或重写整个插件。
 
@@ -65,7 +65,9 @@
 
 拖拽开始前的异步读取只是补充冲突快照，不能替代激活时的同步 Metadata Cache 快照，也不能作为最终写入基底。活动 leaf/file 改变、source DOM 消失、`pointercancel`、Escape、window blur、noop drop 或内容冲突都必须安全取消，不得把旧状态写入当前文件或其他文件。
 
-`PropertyValueOrderController` 在移动应用中不注册任何 document listener，插件也不添加可拖拽 pill 的 body class，因此 Obsidian 原生属性值长按菜单保持可用。在桌面应用中，触屏 Windows 设备仍使用两阶段触摸处理：pill 保持 `touch-action: manipulation`，进入 dragging 后才由临时 capture、non-passive `touchmove` listener 阻止默认动作；capture `contextmenu` listener 只抑制这类桌面触摸拖拽产生的原生菜单，普通鼠标右键不受影响。
+移动端的 `PropertyValueOrderController` 监听 Obsidian 原生属性值 `contextmenu`，通过公开的 `Menu.forEvent` 只追加一项操作，不抑制或替换宿主菜单。用户选择后，只把该 pill 置为 15 秒单次待拖动状态；下一次 touch/pen 按下走纯状态机的 `startOnMove` 路径，移动达到鼠标级阈值后开始拖拽，并只消费一次。点击其他位置、Escape、超时、插件卸载、DOM 失效和事务清理都会取消该状态。仅在已经待拖动的按压期间抑制第二次原生菜单和默认触摸移动。若无法取得共享菜单，辅助函数 fail open，不改变宿主行为。
+
+桌面应用中的触屏 Windows 设备保留直接两阶段触摸路径：pill 使用 `touch-action: manipulation`，进入 dragging 后才由临时 capture、non-passive `touchmove` listener 阻止默认动作；capture `contextmenu` listener 只抑制活动桌面触摸拖拽产生的原生菜单，普通鼠标右键不受影响。
 
 浮动预览锁定 source pill 的实际渲染宽高，并以单行省略方式显示；定位使用预览自身 document 的 visual viewport，缺失时回退到该 window 的 layout viewport。过大的预览会缩小，每次移动都限制在 viewport 边距内，因此窄桌面窗口和次级窗口不会把预览挤成屏外竖条。
 

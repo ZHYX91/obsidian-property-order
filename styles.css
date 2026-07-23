@@ -89,6 +89,16 @@ body.property-order-value-drag-enabled .metadata-property .multi-select-pill {
   touch-action: manipulation;
 }
 
+.property-order-mobile-reorder-armed {
+  outline: 2px solid var(--interactive-accent);
+  outline-offset: 2px;
+  touch-action: none !important;
+}
+
+body.property-order-mobile-reorder-active .property-order-mobile-reorder-armed {
+  box-shadow: 0 0 0 4px color-mix(in srgb, var(--interactive-accent) 18%, transparent);
+}
+
 .property-order-suggestion-hidden {
   display: none !important;
 }

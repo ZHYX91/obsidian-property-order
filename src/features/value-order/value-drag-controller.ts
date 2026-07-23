@@ -37,6 +37,7 @@ import {
 import { resolveDropContextAtPoint, resolveDropTarget } from "./drop-targeting";
 import type { DropTarget } from "./types";
 import { writePropertyValueDrop } from "./writeback";
+import { addMobileReorderMenuItem } from "./mobile-reorder-menu";
 
 interface DragState {
   document: Document;
@@ -58,6 +59,10 @@ const TOUCH_MOVE_LISTENER_OPTIONS: AddEventListenerOptions = {
   passive: false,
 };
 
+export const MOBILE_REORDER_ARM_TIMEOUT_MS = 15_000;
+const MOBILE_REORDER_ACTIVE_CLASS = "property-order-mobile-reorder-active";
+const MOBILE_REORDER_ARMED_CLASS = "property-order-mobile-reorder-armed";
+
 export class PropertyValueOrderController {
   private dragState: DragState | null = null;
   private interactionState: DragInteractionState = createIdleDragInteractionState();
@@ -69,6 +74,10 @@ export class PropertyValueOrderController {
   private touchLongPressTimeoutId: number | null = null;
   private touchLongPressWindow: Window | null = null;
   private touchMoveDocument: Document | null = null;
+  private mobileArmedPill: HTMLElement | null = null;
+  private mobileArmTimeoutId: number | null = null;
+  private mobileArmWindow: Window | null = null;
+  private mobileDirectPointerId: number | null = null;
   private pendingDragX: number | null = null;
   private pendingDragY: number | null = null;
   private lastDiagnosticAt = 0;
@@ -84,10 +93,6 @@ export class PropertyValueOrderController {
   }
 
   initialize(): () => void {
-    if (Platform.isMobileApp) {
-      return () => undefined;
-    }
-
     this.initialized = true;
     this.lifecycleGeneration += 1;
     this.registerDocumentEvents(document);
@@ -166,7 +171,10 @@ export class PropertyValueOrderController {
 
   private clearInteractionForDocument(targetDocument: Document): void {
     const interactionDocument =
-      this.dragState?.document ?? this.pressedPill?.ownerDocument ?? null;
+      this.dragState?.document ??
+      this.pressedPill?.ownerDocument ??
+      this.mobileArmedPill?.ownerDocument ??
+      null;
 
     if (interactionDocument === targetDocument) {
       this.clearInteractionState();
@@ -175,6 +183,7 @@ export class PropertyValueOrderController {
 
   private readonly handlePointerDown = (event: PointerEvent): void => {
     if (!this.initialized || !this.getSettings().enablePropertyValueDrag) {
+      this.clearMobileArmState();
       return;
     }
 
@@ -194,6 +203,18 @@ export class PropertyValueOrderController {
     const pill = resolveDraggablePropertyPill(event.target);
 
     if (pill == null) {
+      if (Platform.isMobileApp) {
+        this.clearMobileArmState();
+      }
+      return;
+    }
+
+    const startsFromMobileMenu =
+      Platform.isMobileApp &&
+      event.pointerType !== "mouse" &&
+      this.consumeMobileArm(pill, event.pointerId);
+
+    if (Platform.isMobileApp && event.pointerType !== "mouse" && !startsFromMobileMenu) {
       return;
     }
 
@@ -204,6 +225,7 @@ export class PropertyValueOrderController {
       button: event.button,
       clientX: event.clientX,
       clientY: event.clientY,
+      startOnMove: startsFromMobileMenu,
     });
 
     this.pressedPill = pill;
@@ -211,6 +233,11 @@ export class PropertyValueOrderController {
 
     if (event.pointerType === "touch") {
       this.startTouchMoveCapture(pill.ownerDocument);
+    }
+
+    if (startsFromMobileMenu) {
+      event.preventDefault();
+      event.stopPropagation();
     }
 
     this.restoreNativeDragState = suppressNativeDrag(pill);
@@ -234,6 +261,10 @@ export class PropertyValueOrderController {
       event.preventDefault();
     }
 
+    if (this.mobileDirectPointerId === event.pointerId) {
+      event.stopPropagation();
+    }
+
     this.applyActions(actions);
   };
 
@@ -242,6 +273,13 @@ export class PropertyValueOrderController {
   };
 
   private readonly handlePointerUp = async (event: PointerEvent): Promise<void> => {
+    const isMobileDirectPointer = this.mobileDirectPointerId === event.pointerId;
+
+    if (isMobileDirectPointer) {
+      event.preventDefault();
+      event.stopPropagation();
+    }
+
     if (
       this.interactionState.phase === "dragging" &&
       this.interactionState.pointerId === event.pointerId
@@ -266,14 +304,21 @@ export class PropertyValueOrderController {
 
   private readonly handleTouchMove = (event: TouchEvent): void => {
     if (
-      this.interactionState.phase === "dragging" &&
-      this.dragState?.pointerType === "touch"
+      (this.mobileDirectPointerId != null &&
+        this.interactionState.phase === "pressing") ||
+      (this.interactionState.phase === "dragging" &&
+        this.dragState?.pointerType === "touch")
     ) {
       event.preventDefault();
     }
   };
 
   private readonly handleContextMenu = (event: MouseEvent): void => {
+    if (Platform.isMobileApp) {
+      this.handleMobileContextMenu(event);
+      return;
+    }
+
     if (
       (this.dragState?.pointerType ?? this.pressedPointerType) !== "touch" ||
       (this.interactionState.phase !== "pressing" &&
@@ -285,6 +330,106 @@ export class PropertyValueOrderController {
     event.preventDefault();
     event.stopImmediatePropagation();
   };
+
+  private handleMobileContextMenu(event: MouseEvent): void {
+    if (
+      this.mobileDirectPointerId != null ||
+      this.interactionState.phase === "pressing" ||
+      this.interactionState.phase === "dragging"
+    ) {
+      event.preventDefault();
+      event.stopImmediatePropagation();
+      return;
+    }
+
+    if (!this.initialized || !this.getSettings().enablePropertyValueDrag) {
+      this.clearMobileArmState();
+      return;
+    }
+
+    const pill = resolveDraggablePropertyPill(event.target);
+
+    if (pill == null) {
+      return;
+    }
+
+    addMobileReorderMenuItem({
+      event,
+      onSelect: () => {
+        this.armMobileReorder(pill);
+      },
+      title: this.t(
+        this.getSettings().enableCrossPropertyDrag
+          ? "menu.reorderOrMove"
+          : "menu.reorder",
+      ),
+    });
+  }
+
+  private armMobileReorder(pill: HTMLElement): void {
+    if (
+      !this.initialized ||
+      !this.getSettings().enablePropertyValueDrag ||
+      !pill.isConnected ||
+      resolvePropertyPillContext(pill) == null ||
+      resolvePaneFileContext(this.plugin, pill) == null
+    ) {
+      this.maybeShowDiagnostic("notice.unsupportedContext");
+      return;
+    }
+
+    this.clearInteractionState();
+    const targetWindow = pill.ownerDocument.defaultView;
+
+    if (targetWindow == null) {
+      this.maybeShowDiagnostic("notice.unsupportedContext");
+      return;
+    }
+
+    this.mobileArmedPill = pill;
+    this.mobileArmWindow = targetWindow;
+    pill.classList.add(MOBILE_REORDER_ARMED_CLASS);
+    pill.ownerDocument.body.classList.add(MOBILE_REORDER_ACTIVE_CLASS);
+    this.mobileArmTimeoutId = targetWindow.setTimeout(() => {
+      this.clearMobileArmState();
+    }, MOBILE_REORDER_ARM_TIMEOUT_MS);
+    new Notice(this.t("notice.mobileReorderArmed"));
+  }
+
+  private consumeMobileArm(pill: HTMLElement, pointerId: number): boolean {
+    const armedPill = this.mobileArmedPill;
+
+    if (armedPill == null) {
+      return false;
+    }
+
+    if (pill !== armedPill || !armedPill.isConnected) {
+      this.clearMobileArmState();
+      return false;
+    }
+
+    this.clearMobileArmTimer();
+    this.mobileDirectPointerId = pointerId;
+    return true;
+  }
+
+  private clearMobileArmTimer(): void {
+    if (this.mobileArmTimeoutId == null) {
+      return;
+    }
+
+    this.mobileArmWindow?.clearTimeout(this.mobileArmTimeoutId);
+    this.mobileArmTimeoutId = null;
+    this.mobileArmWindow = null;
+  }
+
+  private clearMobileArmState(): void {
+    this.clearMobileArmTimer();
+    const armedPill = this.mobileArmedPill;
+    armedPill?.classList.remove(MOBILE_REORDER_ARMED_CLASS);
+    armedPill?.ownerDocument.body.classList.remove(MOBILE_REORDER_ACTIVE_CLASS);
+    this.mobileArmedPill = null;
+  }
 
   private startTouchMoveCapture(targetDocument: Document): void {
     this.clearTouchMoveCapture();
@@ -327,7 +472,17 @@ export class PropertyValueOrderController {
   };
 
   private readonly handleKeyDown = (event: KeyboardEvent): void => {
-    if (event.key !== "Escape" || this.interactionState.phase === "idle") {
+    if (event.key !== "Escape") {
+      return;
+    }
+
+    if (this.mobileArmedPill != null && this.interactionState.phase === "idle") {
+      event.preventDefault();
+      this.clearMobileArmState();
+      return;
+    }
+
+    if (this.interactionState.phase === "idle") {
       return;
     }
 
@@ -391,6 +546,7 @@ export class PropertyValueOrderController {
     }
 
     this.restoreNativeDragState ??= suppressNativeDrag(context.pill);
+    this.clearMobileArmState();
     const previewElement = createPreviewElement(context.pill);
     const indicatorElement = createIndicatorElement(targetDocument);
     targetDocument.body.append(previewElement, indicatorElement);
@@ -643,6 +799,8 @@ export class PropertyValueOrderController {
     this.restoreNativeDragState = null;
     this.pressedPill = null;
     this.pressedPointerType = null;
+    this.mobileDirectPointerId = null;
+    this.clearMobileArmState();
   }
 
   private clearInteractionState(): void {
@@ -672,9 +830,11 @@ export class PropertyValueOrderController {
     this.restoreNativeDragState?.();
     this.restoreNativeDragState = null;
 
+    this.clearMobileArmState();
     this.dragState = null;
     this.pressedPill = null;
     this.pressedPointerType = null;
+    this.mobileDirectPointerId = null;
     this.interactionState = createIdleDragInteractionState();
   }
 

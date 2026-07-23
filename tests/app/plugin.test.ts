@@ -173,12 +173,12 @@ describe("PropertyOrderPlugin settings persistence", () => {
     expect(document.body.classList.contains(VALUE_DRAG_ENABLED_CLASS)).toBe(false);
   });
 
-  it("does not mark property values as draggable in the mobile app", async () => {
+  it("marks property values as available for menu-armed drag in the mobile app", async () => {
     Platform.isMobileApp = true;
     const { plugin } = createPlugin(createDefaultSettings());
 
     await plugin.loadSettings();
 
-    expect(document.body.classList.contains(VALUE_DRAG_ENABLED_CLASS)).toBe(false);
+    expect(document.body.classList.contains(VALUE_DRAG_ENABLED_CLASS)).toBe(true);
   });
 });

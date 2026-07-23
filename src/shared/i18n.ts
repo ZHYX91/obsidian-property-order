@@ -19,11 +19,11 @@ const EN_TRANSLATIONS = {
   "settings.valueDrag.heading": "Property value drag",
   "settings.valueDrag.enable.name": "Enable property value drag",
   "settings.valueDrag.enable.desc":
-    "On desktop, allows dragging multi-value property pills to reorder values in frontmatter.",
+    "Allows dragging multi-value property pills to reorder values in frontmatter. On mobile, first choose the reorder action from the native long-press menu.",
   "settings.valueDrag.disabledHint":
     "Property value drag is currently disabled. The settings below can still be prepared for later.",
   "settings.valueDrag.mobileHint":
-    "Property value drag runs on desktop only. These settings are saved for desktop use; Obsidian's native long-press menu remains available on mobile.",
+    "Long-press a property value and choose Reorder or move. The next touch-drag starts immediately; Obsidian's Edit, Remove from list, and Copy actions remain available.",
   "settings.writebackFormat.name": "List writeback format",
   "settings.writebackFormat.desc":
     "Controls whether drag writeback preserves each property's list format, or rewrites lists as flow or block lists. Converting bullet lists to bracket lists may drop item comments and blank lines.",
@@ -53,6 +53,8 @@ const EN_TRANSLATIONS = {
   "settings.keyOrder.hidden.name": "Hidden property name patterns",
   "settings.keyOrder.hidden.desc": "One pattern per line. Use * as a wildcard, for example TQ_*.",
   "settings.keyOrder.addExisting.placeholder": "Add existing property name...",
+  "menu.reorder": "Reorder",
+  "menu.reorderOrMove": "Reorder or move",
   "settings.diagnostics.name": "Show diagnostics",
   "settings.diagnostics.desc":
     "Shows extra notices when a property value can't be reordered, which helps troubleshooting.",
@@ -67,6 +69,8 @@ const EN_TRANSLATIONS = {
   "notice.unsupportedContext":
     "Property Order: can't resolve this property pill. Try updating Obsidian or theme.",
   "notice.settingsSaveFailed": "Property Order: failed to save settings. Try again.",
+  "notice.mobileReorderArmed":
+    "Property Order: drag the selected value now. Tap elsewhere or wait to cancel.",
 } as const;
 
 export type TranslationKey = keyof typeof EN_TRANSLATIONS;
@@ -89,10 +93,11 @@ export const TRANSLATIONS = {
     "settings.language.zhTw": "繁體中文",
     "settings.valueDrag.heading": "属性值拖拽",
     "settings.valueDrag.enable.name": "启用属性值拖拽",
-    "settings.valueDrag.enable.desc": "在桌面端允许拖拽多值属性胶囊，并将新的顺序写回 frontmatter。",
+    "settings.valueDrag.enable.desc":
+      "允许拖拽多值属性胶囊并将新顺序写回 frontmatter；移动端需先从原生长按菜单选择重排操作。",
     "settings.valueDrag.disabledHint": "属性值拖拽当前未启用。下方设置仍可预先配置，启用后生效。",
     "settings.valueDrag.mobileHint":
-      "属性值拖拽目前仅在桌面端运行。下方设置会保存供桌面端使用；移动端保留 Obsidian 原生长按菜单。",
+      "长按属性值并选择“重排或移动”，下一次触摸拖动会立即开始；Obsidian 原生的编辑、从列表中移除和复制操作仍然保留。",
     "settings.writebackFormat.name": "列表写回格式",
     "settings.writebackFormat.desc":
       "控制拖拽写回时保留各属性当前列表格式，还是统一写成中括号列表或无序列表。无序列表转为中括号列表时，列表项注释和空行可能无法保留。",
@@ -120,6 +125,8 @@ export const TRANSLATIONS = {
     "settings.keyOrder.hidden.name": "隐藏属性名称规则",
     "settings.keyOrder.hidden.desc": "每行一个规则。可使用 * 作为通配符，例如 TQ_*。",
     "settings.keyOrder.addExisting.placeholder": "添加已有属性名称...",
+    "menu.reorder": "重排",
+    "menu.reorderOrMove": "重排或移动",
     "settings.diagnostics.name": "显示诊断提示",
     "settings.diagnostics.desc": "当属性值无法重排时显示额外提示，便于排查原因。",
     "settings.saveStatus.failed": "设置未能保存，当前更改仅在本次会话中生效。",
@@ -132,6 +139,8 @@ export const TRANSLATIONS = {
     "notice.unsupportedProperty": "Property Order：该属性格式暂不支持重排。",
     "notice.unsupportedContext": "Property Order：无法识别该属性值组件，建议更新 Obsidian 或主题。",
     "notice.settingsSaveFailed": "Property Order：设置保存失败，请重试。",
+    "notice.mobileReorderArmed":
+      "Property Order：现在拖动已选中的值；点击其他位置或等待即可取消。",
   },
   "zh-TW": {
     "settings.tabsLabel": "Property Order 設定分類",
@@ -147,10 +156,11 @@ export const TRANSLATIONS = {
     "settings.language.zhTw": "繁體中文",
     "settings.valueDrag.heading": "屬性值拖曳",
     "settings.valueDrag.enable.name": "啟用屬性值拖曳",
-    "settings.valueDrag.enable.desc": "在桌面端允許拖曳多值屬性膠囊，並將新的順序寫回 frontmatter。",
+    "settings.valueDrag.enable.desc":
+      "允許拖曳多值屬性膠囊並將新順序寫回 frontmatter；行動端需先從原生長按選單選擇重排操作。",
     "settings.valueDrag.disabledHint": "屬性值拖曳目前未啟用。下方設定仍可預先設定，啟用後生效。",
     "settings.valueDrag.mobileHint":
-      "屬性值拖曳目前僅在桌面端運作。下方設定會儲存供桌面端使用；行動端保留 Obsidian 原生長按選單。",
+      "長按屬性值並選擇「重排或移動」，下一次觸控拖曳會立即開始；Obsidian 原生的編輯、從清單移除和複製操作仍然保留。",
     "settings.writebackFormat.name": "清單寫回格式",
     "settings.writebackFormat.desc":
       "控制拖曳寫回時保留各屬性目前的清單格式，還是統一寫成中括號清單或無序清單。無序清單轉為中括號清單時，清單項目註解和空行可能無法保留。",
@@ -178,6 +188,8 @@ export const TRANSLATIONS = {
     "settings.keyOrder.hidden.name": "隱藏屬性名稱規則",
     "settings.keyOrder.hidden.desc": "每行一個規則。可使用 * 作為萬用字元，例如 TQ_*。",
     "settings.keyOrder.addExisting.placeholder": "新增既有屬性名稱...",
+    "menu.reorder": "重排",
+    "menu.reorderOrMove": "重排或移動",
     "settings.diagnostics.name": "顯示診斷提示",
     "settings.diagnostics.desc": "當屬性值無法重排時顯示額外提示，便於排查原因。",
     "settings.saveStatus.failed": "設定未能儲存，目前變更僅在本次工作階段中生效。",
@@ -190,6 +202,8 @@ export const TRANSLATIONS = {
     "notice.unsupportedProperty": "Property Order：該屬性格式暫不支援重排。",
     "notice.unsupportedContext": "Property Order：無法識別該屬性值元件，建議更新 Obsidian 或佈景主題。",
     "notice.settingsSaveFailed": "Property Order：設定儲存失敗，請重試。",
+    "notice.mobileReorderArmed":
+      "Property Order：現在拖曳已選取的值；點擊其他位置或等待即可取消。",
   },
 } as const satisfies Record<ResolvedPluginLocale, TranslationDictionary>;
 

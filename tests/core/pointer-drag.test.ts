@@ -80,6 +80,33 @@ describe("transitionDragInteraction", () => {
     expect(cancelled.actions).toEqual([{ type: "clear-press" }]);
   });
 
+  it.each(["touch", "pen"] as const)(
+    "starts an armed %s drag from movement without scheduling a long press",
+    (pointerType) => {
+      const pressed = transition(createIdleDragInteractionState(), {
+        type: "press",
+        pointerId: 4,
+        pointerType,
+        button: 0,
+        clientX: 20,
+        clientY: 30,
+        startOnMove: true,
+      });
+      const started = transition(pressed.state, {
+        type: "move",
+        pointerId: 4,
+        clientX: 26,
+        clientY: 30,
+      });
+
+      expect(pressed.actions).toEqual([]);
+      expect(started.state).toEqual({ phase: "dragging", pointerId: 4 });
+      expect(started.actions).toEqual([
+        { type: "start-drag", pointerId: 4, clientX: 26, clientY: 30 },
+      ]);
+    },
+  );
+
   it("ignores unsupported pointer types, secondary buttons, and other pointer ids", () => {
     const idle = createIdleDragInteractionState();
     expect(
@@ -139,6 +166,7 @@ describe("transitionDragInteraction", () => {
       phase: "pressing",
       pointerId: 10,
       pointerType: "touch",
+      startOnMove: false,
       startX: 0,
       startY: 0,
     };

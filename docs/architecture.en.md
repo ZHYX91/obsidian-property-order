@@ -1,10 +1,10 @@
 # Property Order Architecture
 
-This document mirrors the authoritative Chinese architecture for Property Order 0.1.1. If the implementation, tests, or this translation conflict with `architecture.zh-CN.md`, the Chinese document defines the intended boundaries and contracts.
+This document mirrors the authoritative Chinese architecture for Property Order 0.2.0. If the implementation, tests, or this translation conflict with `architecture.zh-CN.md`, the Chinese document defines the intended boundaries and contracts.
 
 ## Goals and Non-goals
 
-The plugin enhances two kinds of order in Obsidian Properties: values in top-level YAML list properties and native property-key suggestions. Version 0.1.1 provides desktop same-property drag, same-note cross-property moves, three YAML writeback modes, and cross-platform native key-suggestion ordering. The mobile app leaves property-value gestures to Obsidian.
+The plugin enhances two kinds of order in Obsidian Properties: values in top-level YAML list properties and native property-key suggestions. Version 0.2.0 provides cross-platform same-property drag, same-note cross-property moves, three YAML writeback modes, and native key-suggestion ordering.
 
 Nested lists, object lists, multiline flow sequences, source-mode dragging, and cross-file moves remain out of scope and fail closed. The refactor isolates parsing, interaction, DOM, and Vault boundaries; it is not a product expansion or a ground-up rewrite.
 
@@ -65,7 +65,9 @@ Missing properties, unsupported values, index conflicts, and content conflicts r
 
 An asynchronous read at drag start is only a supplemental conflict snapshot. It cannot replace the synchronous Metadata Cache snapshot captured at activation and is never the final write base. An active leaf/file change, disappearing source DOM, `pointercancel`, Escape, window blur, no-op drop, or content conflict must cancel safely without writing stale state to the current file or another file.
 
-`PropertyValueOrderController` does not register any document listeners in the mobile app, and the plugin does not apply its draggable-pill body class there. Obsidian therefore retains its native property-value long-press menu. In the desktop app, touch handling has two phases for touch-capable Windows devices: pills retain `touch-action: manipulation`, and a temporary capture, non-passive `touchmove` listener suppresses the browser default only after dragging begins. A capture `contextmenu` listener prevents that desktop touch interaction from opening the native value menu; ordinary mouse context menus remain available.
+On mobile, `PropertyValueOrderController` listens for Obsidian's native property-value `contextmenu` event and uses public `Menu.forEvent` to append one action without suppressing or replacing the host menu. Selecting it arms only that pill for 15 seconds. Its next touch/pen press uses the pure state machine's `startOnMove` path, starts after the mouse-sized movement threshold, and consumes the arm once. Other taps, Escape, timeout, unload, DOM invalidation, and transaction cleanup cancel the state. During the armed press only, a second native context menu and default touch movement are suppressed. If the shared menu cannot be obtained, the helper fails open without changing host behavior.
+
+In the desktop app, touch handling retains the direct two-phase path for touch-capable Windows devices: pills use `touch-action: manipulation`, and a temporary capture, non-passive `touchmove` listener suppresses the browser default only after dragging begins. A capture `contextmenu` listener prevents that active desktop touch drag from opening the native value menu; ordinary mouse context menus remain available.
 
 The floating preview locks the source pill's rendered dimensions, stays on one clipped line, and is positioned against its own document's visual viewport (falling back to that window's layout viewport). Oversized previews are reduced and every position is clamped inside the viewport margin, including narrow desktop views and secondary windows.
 

@@ -1,12 +1,12 @@
 # Property Order UX Specification
 
-This document mirrors the authoritative current interaction and presentation contract for Property Order 0.1.1.
+This document mirrors the authoritative current interaction and presentation contract for Property Order 0.2.0.
 
 ## Property-value drag
 
-- Property-value drag is a desktop-app feature. The mobile app registers no value-drag gesture handlers and leaves Obsidian's native long-press menu unchanged.
-- Clicking a pill does not start drag. Mouse starts after movement threshold; touch and pen start after long press.
-- Native page scrolling remains available before the long-press threshold. Default touch movement and the matching native value menu are suppressed only after dragging begins.
+- Clicking a pill does not start drag. Desktop mouse starts after movement threshold; desktop touch and pen start after long press.
+- On mobile, long-press keeps Obsidian's native value menu and adds **Reorder** or **Reorder or move**. Selecting it visibly arms that pill; the next touch/pen movement on the same pill starts drag without another long press.
+- Mobile arming is one-shot and expires after 15 seconds. Tapping elsewhere, Escape, timeout, unload, or invalidated DOM cancels it. Only an armed press suppresses default touch movement and a duplicate native menu.
 - The preview retains source-pill dimensions and single-line ellipsis, then scales and clamps within its owner document's visual viewport with a visible margin.
 - The drop indicator clearly represents the insertion slot. Same-property no-op, invalid cross-property, and cross-file targets never write.
 - Finish, cancellation, conflict, pointer cancellation, Escape, blur, file change, and component removal clean previews, indicators, cursor classes, timers, and temporary listeners.
@@ -33,5 +33,5 @@ This document mirrors the authoritative current interaction and presentation con
 
 - Settings controls, tabs, and error states have accessible names and semantics.
 - Key suggestions support keyboard navigation while retaining native host selection behavior.
-- Desktop property-value reorder currently requires pointer input. Missing direct keyboard reorder and drag live-region feedback are published limitations, not claimed capabilities.
-- The Android emulator validates native property-value long press, property-name suggestions, rotation, narrow layout, and lifecycle. Physical-device haptics, pen differences, and vendor input stacks are outside current evidence.
+- Property-value reorder currently requires pointer input. Missing direct keyboard reorder and drag live-region feedback are published limitations, not claimed capabilities.
+- The Android release matrix covers native-menu preservation, the armed one-shot drag, property-name suggestions, rotation, narrow layout, and lifecycle. Physical-device haptics, pen differences, and vendor input stacks remain outside automated evidence.

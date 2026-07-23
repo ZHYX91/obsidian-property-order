@@ -10,6 +10,7 @@ export type DragInteractionState =
       phase: "pressing";
       pointerId: number;
       pointerType: SupportedPointerType;
+      startOnMove: boolean;
       startX: number;
       startY: number;
     }
@@ -24,6 +25,7 @@ export type DragInteractionEvent =
       button: number;
       clientX: number;
       clientY: number;
+      startOnMove?: boolean;
     }
   | { type: "move"; pointerId: number; clientX: number; clientY: number }
   | { type: "long-press"; pointerId: number }
@@ -62,13 +64,14 @@ export function transitionDragInteraction(
       phase: "pressing",
       pointerId: event.pointerId,
       pointerType: event.pointerType,
+      startOnMove: event.startOnMove ?? false,
       startX: event.clientX,
       startY: event.clientY,
     };
     return {
       state: nextState,
       actions:
-        event.pointerType === "mouse"
+        event.pointerType === "mouse" || nextState.startOnMove
           ? []
           : [{ type: "schedule-long-press", pointerId: event.pointerId }],
     };
@@ -88,7 +91,10 @@ export function transitionDragInteraction(
 
     const distance = Math.hypot(event.clientX - state.startX, event.clientY - state.startY);
 
-    if (state.pointerType === "mouse" && distance >= MOUSE_DRAG_START_THRESHOLD_PX) {
+    if (
+      (state.pointerType === "mouse" || state.startOnMove) &&
+      distance >= MOUSE_DRAG_START_THRESHOLD_PX
+    ) {
       return {
         state: { phase: "dragging", pointerId: state.pointerId },
         actions: [

@@ -5,6 +5,14 @@ import { Platform, type Plugin, type TFile } from "obsidian";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const noticeSpy = vi.hoisted(() => vi.fn());
+const menuHarness = vi.hoisted(() => ({
+  forEvent: vi.fn(),
+  items: [] as Array<{
+    click(): void;
+    icon: string | null;
+    title: string;
+  }>,
+}));
 
 vi.mock("obsidian", () => ({
   moment: { locale: () => "en" },
@@ -15,9 +23,49 @@ vi.mock("obsidian", () => ({
       noticeSpy(message);
     }
   },
+  Menu: class Menu {
+    static forEvent(event: MouseEvent) {
+      menuHarness.forEvent(event);
+      return {
+        addItem(
+          callback: (item: {
+            onClick(handler: () => void): unknown;
+            setIcon(icon: string): unknown;
+            setTitle(title: string): unknown;
+          }) => void,
+        ) {
+          const record = {
+            click: (() => undefined) as () => void,
+            icon: null as string | null,
+            title: "",
+          };
+          const item = {
+            onClick(handler: () => void) {
+              record.click = handler;
+              return item;
+            },
+            setIcon(icon: string) {
+              record.icon = icon;
+              return item;
+            },
+            setTitle(title: string) {
+              record.title = title;
+              return item;
+            },
+          };
+          callback(item);
+          menuHarness.items.push(record);
+          return this;
+        },
+      };
+    }
+  },
 }));
 
-import { PropertyValueOrderController } from "../../../src/features/value-order/value-drag-controller";
+import {
+  MOBILE_REORDER_ARM_TIMEOUT_MS,
+  PropertyValueOrderController,
+} from "../../../src/features/value-order/value-drag-controller";
 import { TOUCH_LONG_PRESS_MS } from "../../../src/core/interaction/pointer-drag";
 import { createDefaultSettings } from "../../../src/shared/settings";
 import type { PropertyOrderSettings } from "../../../src/shared/types";
@@ -195,6 +243,8 @@ describe("PropertyValueOrderController", () => {
   beforeEach(() => {
     document.body.replaceChildren();
     noticeSpy.mockReset();
+    menuHarness.forEvent.mockReset();
+    menuHarness.items.length = 0;
     Platform.isMobileApp = false;
   });
 
@@ -225,19 +275,141 @@ describe("PropertyValueOrderController", () => {
     });
   });
 
-  it("does not register property-value drag interactions in the mobile app", () => {
+  it("adds a reorder action to the native mobile value menu without suppressing it", () => {
     Platform.isMobileApp = true;
-    const addEventListener = vi.spyOn(document, "addEventListener");
+    const harness = createHarness();
+    const hostContextMenu = vi.fn();
+    document.addEventListener("contextmenu", hostContextMenu);
+    const contextMenu = new MouseEvent("contextmenu", {
+      bubbles: true,
+      cancelable: true,
+    });
+
+    expect(harness.pill.dispatchEvent(contextMenu)).toBe(true);
+    expect(contextMenu.defaultPrevented).toBe(false);
+    expect(hostContextMenu).toHaveBeenCalledTimes(1);
+    expect(menuHarness.forEvent).toHaveBeenCalledWith(contextMenu);
+    expect(menuHarness.items).toHaveLength(1);
+    expect(menuHarness.items[0]).toMatchObject({
+      icon: "move",
+      title: "Reorder",
+    });
+
+    document.removeEventListener("contextmenu", hostContextMenu);
+    harness.cleanup();
+  });
+
+  it("uses the cross-property label when mobile cross-property drag is enabled", () => {
+    Platform.isMobileApp = true;
+    const harness = createHarness();
+    harness.settings.enableCrossPropertyDrag = true;
+
+    harness.pill.dispatchEvent(
+      new MouseEvent("contextmenu", {
+        bubbles: true,
+        cancelable: true,
+      }),
+    );
+
+    expect(menuHarness.items[0]?.title).toBe("Reorder or move");
+    harness.cleanup();
+  });
+
+  it("starts mobile drag from the next movement after the native menu action", () => {
+    Platform.isMobileApp = true;
+    installRafHarness();
     const harness = createHarness();
 
-    expect(addEventListener).not.toHaveBeenCalledWith(
-      "pointerdown",
-      expect.any(Function),
-      true,
+    harness.pill.dispatchEvent(
+      new MouseEvent("contextmenu", {
+        bubbles: true,
+        cancelable: true,
+      }),
     );
+    menuHarness.items[0]?.click();
+
+    expect(harness.pill.classList.contains("property-order-mobile-reorder-armed")).toBe(true);
+    expect(document.body.classList.contains("property-order-mobile-reorder-active")).toBe(true);
+    expect(noticeSpy).toHaveBeenCalledWith(
+      "Property Order: drag the selected value now. Tap elsewhere or wait to cancel.",
+    );
+
     dispatchPointer(harness.pill, "pointerdown", 10, "touch");
+    dispatchPointer(document, "pointermove", 16, "touch");
+
+    expect(document.querySelector(".property-order-drag-preview")).not.toBeNull();
+    expect(harness.pill.classList.contains("property-order-mobile-reorder-armed")).toBe(false);
+    expect(document.body.classList.contains("property-order-mobile-reorder-active")).toBe(false);
+
+    dispatchPointer(document, "pointerup", 16, "touch");
+    harness.cleanup();
+  });
+
+  it("does not drag an unarmed mobile value", () => {
+    Platform.isMobileApp = true;
+    const harness = createHarness();
+
+    dispatchPointer(harness.pill, "pointerdown", 10, "touch");
+    dispatchPointer(document, "pointermove", 250, "touch");
+
     expect(document.querySelector(".property-order-drag-preview")).toBeNull();
 
+    harness.cleanup();
+  });
+
+  it("cancels mobile reorder mode on another tap, Escape, or timeout", () => {
+    Platform.isMobileApp = true;
+    vi.useFakeTimers();
+    const harness = createHarness();
+    const contextMenu = () => {
+      harness.pill.dispatchEvent(
+        new MouseEvent("contextmenu", {
+          bubbles: true,
+          cancelable: true,
+        }),
+      );
+      menuHarness.items.at(-1)?.click();
+    };
+
+    contextMenu();
+    dispatchPointer(document.body, "pointerdown", 10, "touch");
+    expect(harness.pill.classList.contains("property-order-mobile-reorder-armed")).toBe(false);
+
+    contextMenu();
+    document.dispatchEvent(new KeyboardEvent("keydown", { bubbles: true, key: "Escape" }));
+    expect(harness.pill.classList.contains("property-order-mobile-reorder-armed")).toBe(false);
+
+    contextMenu();
+    vi.advanceTimersByTime(MOBILE_REORDER_ARM_TIMEOUT_MS);
+    expect(harness.pill.classList.contains("property-order-mobile-reorder-armed")).toBe(false);
+    expect(document.body.classList.contains("property-order-mobile-reorder-active")).toBe(false);
+
+    harness.cleanup();
+  });
+
+  it("suppresses a second native menu only during the armed mobile gesture", () => {
+    Platform.isMobileApp = true;
+    const harness = createHarness();
+    harness.pill.dispatchEvent(
+      new MouseEvent("contextmenu", {
+        bubbles: true,
+        cancelable: true,
+      }),
+    );
+    menuHarness.items[0]?.click();
+    dispatchPointer(harness.pill, "pointerdown", 10, "touch");
+    const hostContextMenu = vi.fn();
+    document.addEventListener("contextmenu", hostContextMenu);
+    const secondMenu = new MouseEvent("contextmenu", {
+      bubbles: true,
+      cancelable: true,
+    });
+
+    expect(harness.pill.dispatchEvent(secondMenu)).toBe(false);
+    expect(secondMenu.defaultPrevented).toBe(true);
+    expect(hostContextMenu).not.toHaveBeenCalled();
+
+    document.removeEventListener("contextmenu", hostContextMenu);
     harness.cleanup();
   });
 

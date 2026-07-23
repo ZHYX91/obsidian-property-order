@@ -1,4 +1,4 @@
-import { Platform, Plugin } from "obsidian";
+import { Plugin } from "obsidian";
 
 import { KeySuggestionOrderController } from "../features/key-order/key-suggestion-controller";
 import { PropertyValueOrderController } from "../features/value-order/value-drag-controller";
@@ -202,7 +202,7 @@ export default class PropertyOrderPlugin extends Plugin {
     this.trackedDocuments.add(targetDocument);
     targetDocument.body.classList.toggle(
       VALUE_DRAG_ENABLED_CLASS,
-      !Platform.isMobileApp && this.propertyOrderSettings.enablePropertyValueDrag,
+      this.propertyOrderSettings.enablePropertyValueDrag,
     );
   }
 }

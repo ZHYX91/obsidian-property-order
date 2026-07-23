@@ -14,7 +14,7 @@ Configure native property-name suggestion ordering:
 
 ## Features
 
-- Drag to reorder values inside a top-level YAML list property on desktop.
+- Drag to reorder values inside a top-level YAML list property.
 - Optionally move values between supported properties in the same note.
 - Preserve the current list format by default, or write affected lists as bracket or bullet lists.
 - Pin, move to the bottom, or hide native property-name suggestions.
@@ -26,12 +26,12 @@ Configure native property-name suggestion ordering:
 
 1. Enable Property Order under **Settings → Community plugins**.
 2. Open a note with top-level YAML list properties in Obsidian Properties.
-3. Drag a value to reorder it, or enable cross-property drag in the plugin settings.
+3. On desktop, drag a value directly. On mobile, long-press a value, choose **Reorder** (or **Reorder or move**), then drag that value.
 4. Configure pinned, bottom, and hidden property-name rules as needed.
 
 ## Limitations
 
-- Value dragging is desktop-only. On mobile, Obsidian keeps its native long-press menu; property-name suggestion ordering remains available.
+- Mobile reorder is deliberately armed from Obsidian's native long-press menu, so Edit, Remove from list, and Copy remain available. The armed action applies to one value and expires automatically.
 - Only top-level YAML lists rendered as Obsidian property pills are supported.
 - Object lists, nested lists, multiline flow sequences, source-mode line dragging, and cross-file moves are not supported.
 - Converting bullet lists to bracket lists may discard item comments and blank lines that bracket syntax cannot represent.

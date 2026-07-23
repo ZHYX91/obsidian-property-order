@@ -1,6 +1,6 @@
 # Property Order Testing Strategy
 
-This document mirrors the authoritative current automated gates, real-host matrix, release contract, and evidence boundary for Property Order 0.1.1.
+This document mirrors the authoritative current automated gates, real-host matrix, release contract, and evidence boundary for Property Order 0.2.0.
 
 ## Automated gate
 
@@ -17,7 +17,7 @@ The lint gate uses current Obsidian API typings while `manifest.json` remains th
 Tests are organized under `tests/core/`, `tests/features/`, `tests/obsidian/`, `tests/shared/`, `tests/app/`, and `tests/scripts/`. Stable contracts cover:
 
 - flow/block/empty lists, BOM, LF/CRLF/CR, quoting, comments, blank lines, YAML core scalar types, and unsupported-structure fail closed;
-- desktop mouse/touch/pen state, mobile runtime disablement, drop geometry, no-op, cancellation, content conflict, pane/file identity, and stale-async rejection;
+- desktop mouse/touch/pen state, mobile native-menu extension and one-shot arming, drop geometry, no-op, cancellation, content conflict, pane/file identity, and stale-async rejection;
 - Properties and suggestion DOM adapters, visible ordering, all-hidden behavior, keyboard navigation, focus departure, and fail open;
 - settings migration, immediate application, persistence failure, Retry, tab semantics, and narrow-layout CSS;
 - release tags, three loose assets, the manual-install archive, and idempotent Release updates.
@@ -47,7 +47,8 @@ Desktop Obsidian verifies:
 
 The Android emulator verifies:
 
-- property-value gestures remain native, including the Edit, Remove from list, and Copy long-press menu, with no drag preview or writeback;
+- the native Edit, Remove from list, and Copy actions remain present alongside Reorder or Reorder or move;
+- selecting the added action arms only that pill, the next same-pill touch drag can reorder or move it, and outside tap, Escape, timeout, backgrounding, or plugin disable cancels cleanly;
 - touch suggestion selection, roughly 394px settings layout, rotation, and active-tab reveal;
 - background/foreground recovery, plugin disable/re-enable, and absence of crash or ANR.
 
@@ -55,11 +56,10 @@ The Android emulator verifies:
 
 - Automated gates cover pure rules, injectable failures, and release contracts.
 - The current desktop artifact was exercised in an isolated Windows 11 / Obsidian 1.12.7 Vault. Evidence includes block- and flow-style same-property writeback verified on disk, pinned/hidden/bottom suggestion ordering, keyboard selection and cancellation, and all three settings tabs.
-- The current mobile artifact was exercised in an independent Android 15 / API 35 emulator Vault. With the plugin enabled, startup completes without an eager whole-document suggestion scan; newly mounted suggestion menus are still observed and sorted, the narrow settings UI works in portrait and landscape, and the run produced no plugin error, crash, or ANR.
-- The final mobile artifact preserves Obsidian's native Edit, Copy, and Remove from list menu. A stationary long press and a long-press movement produced no plugin preview, indicator, drag cursor, or writeback; the fixture SHA-256 remained unchanged.
-- Mobile property-value drag is an explicit non-goal for 0.1.1 rather than an unverified release item.
+- The current mobile artifact was exercised in an independent Android 15 / API 35 emulator Vault. The production files matched the deployed files by SHA-256. Obsidian's Edit, Copy, and Remove from list actions remained present beside Reorder or move; a real single-pointer sequence completed same-property reorder and cross-property move with the expected YAML on disk. An outside tap cancelled the armed state without changing the fixture, and background/foreground recovery produced no plugin error, crash, or ANR.
+- Automated tests cover the 15-second timeout, Escape, unsupported menu fail-open, and cleanup paths that are not injected during routine host acceptance.
 - No physical Android evidence exists, so vendor input stacks, real haptics, physical pen, system font scaling, and large-Vault performance are not claimed.
-- Mobile property-value drag, keyboard property-value reorder, and screen-reader drag announcements are product non-goals, not 0.1.1 release debt.
+- Keyboard property-value reorder and screen-reader drag announcements are product non-goals, not 0.2.0 release debt.
 - CR-only byte preservation is automated; Obsidian 1.12.7 exposes no matching Properties UI, so a nonexistent host path is not required.
 
 ## CI and Release

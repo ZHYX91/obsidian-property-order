@@ -1,6 +1,6 @@
 # Property Order Product Requirements
 
-This document defines the current Property Order 0.1.1 product boundary. It mirrors the authoritative Chinese version.
+This document defines the current Property Order 0.2.0 product boundary. It mirrors the authoritative Chinese version.
 
 ## Product goal
 
@@ -15,7 +15,8 @@ The enhancement must remain local, reversible, and fail-safe. Unrecognized host 
 
 - Support top-level flow and block lists rendered by Obsidian Properties as pills.
 - Support same-property reorder and, when enabled, moves between supported properties in the same leaf and file.
-- Property-value drag runs only in the desktop app. Mouse starts after a movement threshold; touch and pen input available to the desktop app start after long press.
+- Desktop mouse drag starts after a movement threshold; touch and pen input available to the desktop app start after long press.
+- On mobile, a native value-menu action arms one pill for 15 seconds. The next touch or pen movement on that same pill starts drag after a small threshold, without another long press. Tapping elsewhere, Escape, timeout, unload, or invalidated DOM cancels the armed state.
 - Writeback modes are `preserve`, `flow`, and `block`. Preserve mode retains the current form and all retainable scalar spelling, comments, blank lines, and newlines; forced conversion normalizes only affected properties.
 - File, leaf, source/target content, or DOM identity changes cancel the transaction without writing another file or overwriting newer content.
 - Conflicts, invalid input, and unsupported structures produce a diagnostic and leave disk content unchanged.
@@ -40,7 +41,7 @@ The enhancement must remain local, reversible, and fail-safe. Unrecognized host 
 
 - No nested lists, object lists, multiline flow sequences, source-mode drag, or cross-file moves.
 - Forced block-to-flow conversion may discard item comments and blank lines that only block form can represent.
-- Property-value reorder is disabled in the mobile app so Obsidian's native Edit, Remove from list, and Copy long-press menu remains available. Property-key suggestion ordering remains supported on mobile.
-- Desktop property-value reorder supports pointer input only. Version 0.1.1 has no direct keyboard reorder command or screen-reader drag live region.
+- Mobile reorder extends Obsidian's native Edit, Remove from list, and Copy menu instead of replacing it. If the shared host menu is unavailable, the plugin adds nothing and leaves native behavior unchanged.
+- Property-value reorder supports pointer input only. Version 0.2.0 has no direct keyboard reorder command or screen-reader drag live region.
 - Key-suggestion enhancement depends on a recognizable public DOM shape; fail open is correct when host structure changes.
 - Only notes exposed by Obsidian as Properties are in scope; real-UI writeback is not promised for CR-only documents that the host does not expose.
