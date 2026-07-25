@@ -17,7 +17,7 @@ Property Order 只增强 Obsidian Properties 的两类顺序：
 - 支持同属性重排；启用跨属性拖拽后，支持同一 leaf、同一文件内受支持属性之间移动。
 - 桌面鼠标移动达到阈值后开始拖拽；桌面应用收到的 touch/pen 输入在长按后开始拖拽。
 - 移动端通过原生属性值菜单把一个 pill 置为 15 秒单次待拖动状态；下一次在同一 pill 上 touch/pen 移动达到较小阈值后直接开始拖拽，无需再次长按。点击其他位置、Escape、超时、插件卸载或 DOM 失效都会取消待拖动状态。
-- 写回格式为 `preserve`、`flow` 或 `block`。`preserve` 保持当前格式和可保留的标量表示、注释、空行与换行；强制转换只规范化受影响属性。
+- 写回格式为 `preserve`、`flow` 或 `block`。`preserve` 在纯写回中保持当前格式和可保留的标量表示、注释、空行与输入换行；强制转换只规范化受影响属性。真实写回仍使用 Obsidian editor transaction，因此宿主可能把已编辑的 CRLF/CR 笔记序列化为 LF。
 - 文件、leaf、源/目标内容或 DOM 身份在事务期间变化时取消，不得写入其他文件或覆盖较新内容。
 - 冲突、非法结构或不支持结构必须给出诊断并保持磁盘内容不变。
 
@@ -43,5 +43,6 @@ Property Order 只增强 Obsidian Properties 的两类顺序：
 - 强制把 block list 转成 flow list 时，允许丢弃只有 block 形式能表达的项目注释和空行。
 - 移动端在 Obsidian 原生“编辑 / 从列表中移除 / 复制”菜单中追加重排操作，不替换原生菜单；无法取得宿主共享菜单时不做修改并保留原生行为。
 - 属性值重排只支持指针输入；0.2.0 不提供键盘直接重排命令或屏幕阅读器拖拽 live-region 播报。
+- 插件不会只为恢复磁盘特定换行而在 Obsidian editor transaction 后追加一次不可撤销的 Vault 写入。
 - 属性键候选增强依赖可识别的公开 DOM 形态；宿主结构变化时以 fail open 为正确结果。
 - 插件只处理 Obsidian 实际暴露为 Properties 的笔记；宿主不呈现 Properties 的 CR-only 文档不承诺真实 UI 写回。

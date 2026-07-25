@@ -1,5 +1,8 @@
 blank_issues_enabled: false
 contact_links:
+  - name: Questions and general feedback
+    url: https://github.com/ZHYX91/obsidian-property-order/discussions
+    about: Ask questions and share your Property Order experience in English or Chinese.
   - name: Security policy
     url: https://github.com/ZHYX91/obsidian-property-order/security/policy
-    about: Do not disclose a vulnerability or private Vault data in a public issue.
+    about: Report vulnerabilities privately; do not disclose private Vault or YAML data in a public issue.

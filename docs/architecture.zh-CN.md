@@ -41,7 +41,7 @@
 - `rewrite.ts`：同属性排序、跨属性移动和目标格式选择。
 - `diagnostics.ts`、`types.ts`：可诊断结果与共享模型。
 
-写回只替换受影响的 source/target 属性片段，不对整个 YAML 文档 stringify。frontmatter 之外的正文和未受影响属性必须逐字保持；`preserve` 模式还应保留受影响列表可保留的引号、注释、空行、项目样式和原换行。
+纯写回只替换受影响的 source/target 属性片段，不对整个 YAML 文档 stringify。frontmatter 之外的正文和未受影响属性保持文本不变；`preserve` 模式还应保留受影响列表可保留的引号、注释、空行、项目样式和输入换行。真实拖拽通过 Obsidian editor 提交最小逻辑变更，以未保存正文和撤销历史为准。Obsidian 1.12.7 即使进行普通手动编辑，也会把已编辑的 CRLF/CR 笔记序列化为 LF；Property Order 不为对抗该宿主行为再追加第二次 Vault 写入。
 
 标量解析与 Obsidian 暴露的 YAML core schema 类型保持一致：null、boolean、number（包括 infinity/NaN）和 string 必须彼此区分。`preserve` 保留原 token 表示；强制 `flow` 或 `block` 时只规范化表示，不得把有类型的标量变成字符串，也不得让有歧义的字符串被 YAML 解析为其他类型。Metadata/writeback 冲突快照同时比较标量类型和规范值。
 
@@ -58,12 +58,12 @@
 
 `core/interaction/pointer-drag.ts` 是纯状态机。它把 mouse/touch/pen 的按下、移动、长按计时、释放和中断转换为 `start`、`cancel`、`finish` 等动作，不访问 DOM。`value-drag-controller.ts` 只编排动作和资源生命周期：
 
-1. 从发起 pill、Properties 容器和 pane 捕获 source 属性、source 索引与文件路径；同时从公开 Metadata Cache 同步捕获受支持的顶层列表值，避免晚返回的异步读取把外部编辑误认为拖拽起点。
+1. 从发起 pill、Properties 容器和 pane 捕获 source 属性、source 索引、文件路径以及该 leaf 的公开 `MarkdownView.editor`；同时从编辑器文本和公开 Metadata Cache 同步捕获冲突快照。
 2. 由 `drop-targeting.ts` 计算同一 pane 内的目标容器和插入槽；是否允许跨属性在每次事件时读取当前设置。
 3. 由 `drag-dom.ts` 管理预览、指示器、cursor class 和乐观 DOM；取消路径必须完全清理。
-4. 由 `writeback.ts` 在 `vault.process` 回调内读取最新内容，再验证拖拽开始时捕获的 source/target 值。只有身份和内容守卫都通过才调用纯 frontmatter 重写。
+4. 由 `writeback.ts` 重新读取同一个编辑器的最新文本，再验证拖拽开始时捕获的 source/target 值。只有 leaf、文件、编辑器身份和内容守卫都通过才调用纯 frontmatter 重写，并以一次最小范围 `editor.transaction()` 写回。
 
-拖拽开始前的异步读取只是补充冲突快照，不能替代激活时的同步 Metadata Cache 快照，也不能作为最终写入基底。活动 leaf/file 改变、source DOM 消失、`pointercancel`、Escape、window blur、noop drop 或内容冲突都必须安全取消，不得把旧状态写入当前文件或其他文件。
+编辑器是拖拽写回的唯一文本基底，因此尚未落盘的正文修改会被保留，一次成功拖拽也只形成一个 Obsidian 撤销步骤。无法取得支持事务的编辑器、活动 leaf/file/editor 改变、source DOM 消失、`pointercancel`、Escape、window blur、noop drop 或内容冲突都必须安全取消，不得回退到不可撤销的 Vault 直写。
 
 移动端的 `PropertyValueOrderController` 监听 Obsidian 原生属性值 `contextmenu`，通过公开的 `Menu.forEvent` 只追加一项操作，不抑制或替换宿主菜单。用户选择后，只把该 pill 置为 15 秒单次待拖动状态；下一次 touch/pen 按下走纯状态机的 `startOnMove` 路径，移动达到鼠标级阈值后开始拖拽，并只消费一次。点击其他位置、Escape、超时、插件卸载、DOM 失效和事务清理都会取消该状态。仅在已经待拖动的按压期间抑制第二次原生菜单和默认触摸移动。若无法取得共享菜单，辅助函数 fail open，不改变宿主行为。
 
@@ -85,7 +85,7 @@
 
 设置页与实际 Properties 候选菜单必须调用 `src/core/suggestions/property-names.ts` 的同一比较器。设置页的置顶、置底和隐藏列表复用一个具体的属性名称建议组件；该组件只负责过滤、排除已配置项和选择回调，不复制排序规则，也不扩展成与当前业务无关的通用框架。
 
-属性使用次数由设置页与候选控制器共享惰性缓存。Metadata Cache 的 `changed`、`deleted` 或 `resolved` 事件只使缓存失效；只有 usage 排序真正需要数据时才重新遍历 Markdown 文件缓存。
+属性使用次数由设置页与候选控制器共享惰性缓存。Metadata Cache 的 `changed`、`deleted` 或 `resolved` 事件只使缓存失效；若已有连接中的增强菜单，只定向刷新这些菜单，不扫描整个 document。没有菜单打开时不安排 animation frame，也不遍历 Vault；只有 usage 排序真正显示菜单或设置页请求属性名时才重新遍历 Markdown 文件缓存。
 
 设置页保留 General、Value drag、Key order 三个选项卡，并提供 `tablist`/`tab`/`tabpanel`、本地化标签栏名称、`aria-selected`、roving `tabindex`、左右方向键、Home/End 和重渲染后的焦点保持。选项卡在窄宽度下保持单行横向滚动，活动标签在初次布局和 viewport resize 后自动进入可视区，纵向溢出被隐藏；桌面精细指针下高度为 34px，粗指针下为 44px。宽度不超过 480px 时，属性规则文本框与已有属性输入框改为纵向占满控制区。
 
@@ -100,6 +100,7 @@ controller 不缓存会影响后续交互的旧设置：value drag 在下一次�
 - UX 契约：[`ux-spec.zh-CN.md`](ux-spec.zh-CN.md)。
 - 自动门禁、真实宿主矩阵与当前证据边界：[`testing-strategy.zh-CN.md`](testing-strategy.zh-CN.md)。
 - 发布前必须通过 `npm run check`；该命令依次执行 Obsidian 官方 ESLint 门禁、`npm run typecheck`、`npm test`、`npm run build` 和 `npm run check:release`。
-- CI 在 Node 20 上执行锁定安装与完整门禁，并上传 `dist/property-order/`。独立 Release workflow 只接受与 `manifest.json` 完全一致、无 `v` 前缀的 `x.y.z` 标签；门禁通过后发布官方安装所需的独立 `main.js`、`manifest.json`、`styles.css`，并额外发布 `property-order-<version>.zip`。压缩包只包含一个 `property-order/` 目录及其中的上述三个文件；同一标签重新运行时替换附件，不重复创建 Release。
+- 插件语言设为“自动”时，通过 `getLanguage()` 跟随 Obsidian 当前界面语言；用户显式选择的插件语言始终优先。Property Order 0.2.0 将最低支持版本提高到已完成真实宿主验收的 Obsidian 1.12.7，既有已发布版本的兼容映射保持不变。
+- 生产构建把 `main.js`、`manifest.json` 和 `styles.css` 直接生成到 `dist/` 顶层，使源码构建审查与本地发布检查使用同一套标准路径。CI 在 Node 20 上执行锁定安装与完整门禁，并上传这三个文件。独立 Release workflow 只接受与 `manifest.json` 完全一致、无 `v` 前缀的 `x.y.z` 标签；门禁通过后发布三个独立文件，并额外在临时目录组装 `property-order-<version>.zip`。压缩包只包含一个 `property-order/` 目录及其中的上述三个文件；四个最终附件都生成构建证明，同一标签重新运行时替换附件，不重复创建 Release。
 
 DOM 交互与视觉发布门禁必须取得测试策略规定的真实宿主证据；明确列入产品非目标的能力不作为未完成发布项。

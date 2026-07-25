@@ -17,8 +17,8 @@ The lint gate uses current Obsidian API typings while `manifest.json` remains th
 Tests are organized under `tests/core/`, `tests/features/`, `tests/obsidian/`, `tests/shared/`, `tests/app/`, and `tests/scripts/`. Stable contracts cover:
 
 - flow/block/empty lists, BOM, LF/CRLF/CR, quoting, comments, blank lines, YAML core scalar types, and unsupported-structure fail closed;
-- desktop mouse/touch/pen state, mobile native-menu extension and one-shot arming, drop geometry, no-op, cancellation, content conflict, pane/file identity, and stale-async rejection;
-- Properties and suggestion DOM adapters, visible ordering, all-hidden behavior, keyboard navigation, focus departure, and fail open;
+- desktop mouse/touch/pen state, mobile native-menu extension and one-shot arming, drop geometry, no-op, cancellation, content conflict, pane/file/editor identity, unsaved editor text, and one editor transaction;
+- Properties and suggestion DOM adapters, visible ordering, all-hidden behavior, keyboard navigation, focus departure, usage-cache invalidation without a Vault scan when no menu is open, and fail open;
 - settings migration, immediate application, persistence failure, Retry, tab semantics, and narrow-layout CSS;
 - release tags, three loose assets, the manual-install archive, and idempotent Release updates.
 
@@ -33,7 +33,7 @@ npm run acceptance:fixtures -- --vault <isolated-vault> --force
 npm run acceptance:conflict -- --vault <isolated-vault> --file <fixture> --delay-ms 55
 ```
 
-Scripts validate the Obsidian Vault, resolve real paths, and constrain writes. Each writeback scenario starts from known fixtures and verifies final YAML and newline bytes on disk.
+Scripts validate the Obsidian Vault, resolve real paths, and constrain writes. LF, CRLF, and CR fixtures verify the generator and pure rewrite contract byte-for-byte. Real-editor scenarios verify final YAML, preserved body text, and undo/redo on disk, while separately recording the host's newline serialization instead of attributing Obsidian's native CRLF/CR-to-LF save behavior to the plugin.
 
 ## Real-host release matrix
 
@@ -42,6 +42,7 @@ Desktop Obsidian verifies:
 - enable, disable, reload, and full restart;
 - same-property forward/backward/first/last/no-op and cross-property enabled/disabled behavior;
 - multiple leaves, cross-file refusal, real content conflict, and `preserve`/`flow`/`block` writeback;
+- one `Ctrl+Z` undo and one redo for each successful drag, without overwriting unsaved body edits;
 - pinned/hidden/bottom, name/usage, menu reuse, all-hidden, hover-to-keyboard, arrows/Home/End/PageUp/PageDown/Enter/Escape, and focus departure;
 - immediate settings, three-tab keyboard semantics, light/dark themes, and narrow layout.
 
@@ -56,15 +57,17 @@ The Android emulator verifies:
 
 - Automated gates cover pure rules, injectable failures, and release contracts.
 - The current desktop artifact was exercised in an isolated Windows 11 / Obsidian 1.12.7 Vault. Evidence includes block- and flow-style same-property writeback verified on disk, pinned/hidden/bottom suggestion ordering, keyboard selection and cancellation, and all three settings tabs.
+- A fresh CRLF fixture remained CRLF when merely opened, then became LF after either a Property Order editor transaction or an ordinary manual body edit. This is recorded as Obsidian editor serialization; the plugin preserves logical text and one-step undo rather than performing a non-undoable second Vault write.
 - The current mobile artifact was exercised in an independent Android 15 / API 35 emulator Vault. The production files matched the deployed files by SHA-256. Obsidian's Edit, Copy, and Remove from list actions remained present beside Reorder or move; a real single-pointer sequence completed same-property reorder and cross-property move with the expected YAML on disk. An outside tap cancelled the armed state without changing the fixture, and background/foreground recovery produced no plugin error, crash, or ANR.
 - Automated tests cover the 15-second timeout, Escape, unsupported menu fail-open, and cleanup paths that are not injected during routine host acceptance.
 - No physical Android evidence exists, so vendor input stacks, real haptics, physical pen, system font scaling, and large-Vault performance are not claimed.
 - Keyboard property-value reorder and screen-reader drag announcements are product non-goals, not 0.2.0 release debt.
+- The language contract proves that Auto uses Obsidian's configured interface language through the public `getLanguage()` API. Property Order 0.2.0 declares the real-host-tested Obsidian 1.12.7 baseline; earlier released versions retain their historical compatibility mappings.
 - CR-only byte preservation is automated; Obsidian 1.12.7 exposes no matching Properties UI, so a nonexistent host path is not required.
 
 ## CI and Release
 
-CI runs `npm ci` and `npm run check` on Node 20 and uploads `dist/property-order/`. The release workflow accepts only an exact `x.y.z` tag matching `manifest.json`, without a `v` prefix, reruns the complete gate, and publishes:
+CI runs `npm ci` and `npm run check` on Node 20 and uploads top-level `dist/main.js`, `dist/manifest.json`, and `dist/styles.css`. The release workflow accepts only an exact `x.y.z` tag matching `manifest.json`, without a `v` prefix, reruns the complete gate, and publishes:
 
 - `main.js`;
 - `manifest.json`;

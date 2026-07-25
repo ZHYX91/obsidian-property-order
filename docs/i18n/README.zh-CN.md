@@ -48,7 +48,9 @@ npm install
 npm run check
 ```
 
-架构与测试细节见[开发者文档](https://github.com/ZHYX91/obsidian-property-order/blob/main/docs/architecture.zh-CN.md)。问题与功能建议可提交到 [GitHub Issues](https://github.com/ZHYX91/obsidian-property-order/issues)。
+架构与测试细节见[开发者文档](https://github.com/ZHYX91/obsidian-property-order/blob/main/docs/architecture.zh-CN.md)。
+
+一般问题与使用反馈可在 [GitHub Discussions](https://github.com/ZHYX91/obsidian-property-order/discussions) 中交流；可复现缺陷和明确的功能建议请使用结构化的 [GitHub Issue 表单](https://github.com/ZHYX91/obsidian-property-order/issues/new/choose)；安全漏洞请按照仓库的[安全策略](https://github.com/ZHYX91/obsidian-property-order/security/policy)私密报告。公开发布前请移除 Vault 路径、笔记内容、YAML 属性值和凭据。
 
 ## English
 

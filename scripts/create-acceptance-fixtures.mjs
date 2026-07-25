@@ -36,7 +36,7 @@ function renderFixture(label, newline) {
     "",
     `# Property Order ${label}`,
     "",
-    "Drag values in Properties, then verify every newline byte is unchanged.",
+    "Drag values in Properties, then verify YAML, body text, undo, and the host's newline serialization.",
     "",
   ].join(newline);
 }

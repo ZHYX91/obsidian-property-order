@@ -17,7 +17,7 @@ The enhancement must remain local, reversible, and fail-safe. Unrecognized host 
 - Support same-property reorder and, when enabled, moves between supported properties in the same leaf and file.
 - Desktop mouse drag starts after a movement threshold; touch and pen input available to the desktop app start after long press.
 - On mobile, a native value-menu action arms one pill for 15 seconds. The next touch or pen movement on that same pill starts drag after a small threshold, without another long press. Tapping elsewhere, Escape, timeout, unload, or invalidated DOM cancels the armed state.
-- Writeback modes are `preserve`, `flow`, and `block`. Preserve mode retains the current form and all retainable scalar spelling, comments, blank lines, and newlines; forced conversion normalizes only affected properties.
+- Writeback modes are `preserve`, `flow`, and `block`. Preserve mode retains the current form and all retainable scalar spelling, comments, blank lines, and input newlines in the pure rewrite; forced conversion normalizes only affected properties. Runtime writeback remains an Obsidian editor transaction, so the host may serialize an edited CRLF/CR note as LF.
 - File, leaf, source/target content, or DOM identity changes cancel the transaction without writing another file or overwriting newer content.
 - Conflicts, invalid input, and unsupported structures produce a diagnostic and leave disk content unchanged.
 
@@ -43,5 +43,6 @@ The enhancement must remain local, reversible, and fail-safe. Unrecognized host 
 - Forced block-to-flow conversion may discard item comments and blank lines that only block form can represent.
 - Mobile reorder extends Obsidian's native Edit, Remove from list, and Copy menu instead of replacing it. If the shared host menu is unavailable, the plugin adds nothing and leaves native behavior unchanged.
 - Property-value reorder supports pointer input only. Version 0.2.0 has no direct keyboard reorder command or screen-reader drag live region.
+- The plugin does not perform a second non-undoable Vault write solely to restore a disk-specific newline convention after Obsidian saves an editor transaction.
 - Key-suggestion enhancement depends on a recognizable public DOM shape; fail open is correct when host structure changes.
 - Only notes exposed by Obsidian as Properties are in scope; real-UI writeback is not promised for CR-only documents that the host does not expose.
