@@ -15,7 +15,7 @@ async function createProject(): Promise<{
 }> {
   const projectRoot = await mkdtemp(path.join(tmpdir(), "property-order-assets-"));
   temporaryDirectories.push(projectRoot);
-  const destinationDirectory = path.join(projectRoot, "dist", "property-order");
+  const destinationDirectory = path.join(projectRoot, "dist");
   await mkdir(destinationDirectory, { recursive: true });
   await Promise.all([
     writeFile(path.join(projectRoot, "manifest.json"), "manifest-v1"),

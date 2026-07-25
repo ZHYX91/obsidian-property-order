@@ -14,7 +14,7 @@ const temporaryDirectories: string[] = [];
 async function createReleaseProject(): Promise<string> {
   const root = await mkdtemp(path.join(tmpdir(), "property-order-release-"));
   temporaryDirectories.push(root);
-  const releaseDir = path.join(root, "dist", "property-order");
+  const releaseDir = path.join(root, "dist");
   const manifest = {
     id: "property-order",
     version: "0.1.0",
@@ -51,13 +51,13 @@ describe("release checker", () => {
   it("rejects stale static assets and empty bundles", async () => {
     const staleStylesRoot = await createReleaseProject();
     await writeFile(
-      path.join(staleStylesRoot, "dist", "property-order", "styles.css"),
+      path.join(staleStylesRoot, "dist", "styles.css"),
       "stale\n",
     );
     await expect(checkRelease(staleStylesRoot)).rejects.toThrow(/styles\.css is stale/);
 
     const emptyBundleRoot = await createReleaseProject();
-    await writeFile(path.join(emptyBundleRoot, "dist", "property-order", "main.js"), "");
+    await writeFile(path.join(emptyBundleRoot, "dist", "main.js"), "");
     await expect(checkRelease(emptyBundleRoot)).rejects.toThrow(/non-empty file/);
   });
 
@@ -65,7 +65,7 @@ describe("release checker", () => {
     const root = await createReleaseProject();
     await writeFile(path.join(root, "styles.css"), Uint8Array.from([0xff]));
     await writeFile(
-      path.join(root, "dist", "property-order", "styles.css"),
+      path.join(root, "dist", "styles.css"),
       Uint8Array.from([0xfe]),
     );
 
@@ -75,7 +75,7 @@ describe("release checker", () => {
   it("rejects a bundled manifest that differs from the source", async () => {
     const root = await createReleaseProject();
     await writeFile(
-      path.join(root, "dist", "property-order", "manifest.json"),
+      path.join(root, "dist", "manifest.json"),
       JSON.stringify({ id: "other", version: "0.1.0", minAppVersion: "1.5.7" }),
     );
     await expect(checkRelease(root)).rejects.toThrow(/manifest\.json is stale/);

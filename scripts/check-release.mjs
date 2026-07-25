@@ -34,7 +34,7 @@ export async function checkRelease(projectRoot = process.cwd()) {
 
   assertPackageVersionContract(manifest, packageJson, versions);
 
-  const releaseDir = fromRoot("dist", "property-order");
+  const releaseDir = fromRoot("dist");
   const bundledMainPath = path.join(releaseDir, "main.js");
   const bundledManifestPath = path.join(releaseDir, "manifest.json");
   const bundledStylesPath = path.join(releaseDir, "styles.css");
@@ -62,15 +62,15 @@ export async function checkRelease(projectRoot = process.cwd()) {
     expectedBuild.outputFiles.length !== 1 ||
     !isDeepStrictEqual(bundledMain, Buffer.from(expectedBuild.outputFiles[0].contents))
   ) {
-    throw new Error("dist/property-order/main.js is stale; run npm run build");
+    throw new Error("dist/main.js is stale; run npm run build");
   }
 
   if (!isDeepStrictEqual(bundledManifest, manifest)) {
-    throw new Error("dist/property-order/manifest.json is stale; run npm run build");
+    throw new Error("dist/manifest.json is stale; run npm run build");
   }
 
   if (!isDeepStrictEqual(bundledStyles, sourceStyles)) {
-    throw new Error("dist/property-order/styles.css is stale; run npm run build");
+    throw new Error("dist/styles.css is stale; run npm run build");
   }
 
   return { id: manifest.id, version: manifest.version };

@@ -14,6 +14,6 @@ export function createEsbuildOptions({
     logLevel: "info",
     sourcemap: production ? false : "inline",
     treeShaking: true,
-    outfile: path.join(projectRoot, "dist", "property-order", "main.js"),
+    outfile: path.join(projectRoot, "dist", "main.js"),
   };
 }

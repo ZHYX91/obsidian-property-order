@@ -9,7 +9,7 @@ import { createStaticAssetSync } from "./scripts/static-asset-sync.mjs";
 
 const production = process.argv.includes("production");
 const projectRoot = process.cwd();
-const outputDir = path.join(projectRoot, "dist", "property-order");
+const outputDir = path.join(projectRoot, "dist");
 const staticAssets = ["manifest.json", "styles.css"];
 const staticAssetSync = createStaticAssetSync({
   assets: staticAssets,

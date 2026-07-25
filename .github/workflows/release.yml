@@ -43,12 +43,12 @@ jobs:
         shell: bash
         run: |
           archive_root="$RUNNER_TEMP/property-order"
-          archive_path="$GITHUB_WORKSPACE/dist/property-order/property-order-${GITHUB_REF_NAME}.zip"
+          archive_path="$GITHUB_WORKSPACE/dist/property-order-${GITHUB_REF_NAME}.zip"
           mkdir -p "$archive_root"
           cp \
-            dist/property-order/main.js \
-            dist/property-order/manifest.json \
-            dist/property-order/styles.css \
+            dist/main.js \
+            dist/manifest.json \
+            dist/styles.css \
             "$archive_root/"
           (
             cd "$RUNNER_TEMP"
@@ -66,8 +66,10 @@ jobs:
         uses: actions/attest@v4
         with:
           subject-path: |
-            dist/property-order/main.js
-            dist/property-order/styles.css
+            dist/main.js
+            dist/manifest.json
+            dist/styles.css
+            dist/property-order-${{ github.ref_name }}.zip
 
       - name: Publish GitHub release
         env:
@@ -75,10 +77,10 @@ jobs:
         shell: bash
         run: |
           assets=(
-            dist/property-order/main.js
-            dist/property-order/manifest.json
-            dist/property-order/styles.css
-            "dist/property-order/property-order-${GITHUB_REF_NAME}.zip"
+            dist/main.js
+            dist/manifest.json
+            dist/styles.css
+            "dist/property-order-${GITHUB_REF_NAME}.zip"
           )
           if gh release view "$GITHUB_REF_NAME" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
             gh release upload "$GITHUB_REF_NAME" "${assets[@]}" \

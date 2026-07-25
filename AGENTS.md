@@ -8,7 +8,7 @@ This repository is an Obsidian plugin written in TypeScript. The plugin entry po
 
 - `npm install`: install dependencies from `package-lock.json`.
 - `npm run dev`: run esbuild in development/watch mode for local plugin iteration.
-- `npm run build`: create the production bundle in `dist/property-order/`.
+- `npm run build`: create the production bundle in `dist/`.
 - `npm run typecheck`: run `tsc --noEmit` with strict TypeScript checks.
 - `npm test`: run the Vitest suite once.
 - `npm run check:release`: verify the release bundle contains required Obsidian plugin files.
