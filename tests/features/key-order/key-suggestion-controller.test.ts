@@ -621,6 +621,37 @@ describe("KeySuggestionOrderController", () => {
     cleanup();
   });
 
+  it("only invalidates usage when no suggestion menu is open", () => {
+    const settings = createDefaultSettings();
+    settings.keySuggestionSortMode = "usage";
+    const metadataHandlers = new Map<string, () => void>();
+    const getMarkdownFiles = vi.fn(() => [] as TFile[]);
+    const app = {
+      metadataCache: {
+        on: vi.fn((name: string, callback: () => void) => {
+          metadataHandlers.set(name, callback);
+          return {};
+        }),
+        getFileCache: vi.fn(),
+      },
+      vault: { getMarkdownFiles },
+    } as unknown as App;
+    const raf = installRafHarness();
+    const controller = createController(settings, app);
+    const cleanup = controller.initialize();
+
+    raf.flush();
+    expect(getMarkdownFiles).not.toHaveBeenCalled();
+
+    metadataHandlers.get("changed")?.();
+    metadataHandlers.get("deleted")?.();
+    metadataHandlers.get("resolved")?.();
+
+    expect(raf.pending()).toBe(0);
+    expect(getMarkdownFiles).not.toHaveBeenCalled();
+    cleanup();
+  });
+
   it("enhances existing and newly opened workspace windows and restores both", () => {
     const settings = createDefaultSettings();
     settings.pinnedPropertyKeys = ["tags"];

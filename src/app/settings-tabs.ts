@@ -136,11 +136,15 @@ function selectTab(
   onSelect: (tabId: SettingsTabId) => void,
 ): void {
   if (tabId === activeTab) {
-    buttonEl.focus();
+    focusSettingsTab(buttonEl);
     return;
   }
 
   onSelect(tabId);
+}
+
+export function focusSettingsTab(buttonEl: HTMLButtonElement): void {
+  buttonEl.focus({ preventScroll: true });
 }
 
 function getKeyboardTargetIndex(key: string, index: number, length: number): number | null {

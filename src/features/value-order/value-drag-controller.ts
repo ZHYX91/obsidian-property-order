@@ -1,4 +1,4 @@
-import { Notice, Platform, type Plugin, type TFile } from "obsidian";
+import { Notice, Platform, type Editor, type Plugin, type TFile } from "obsidian";
 
 import {
   createIdleDragInteractionState,
@@ -22,7 +22,6 @@ import {
 } from "../../obsidian/properties-dom";
 import { getCachedFrontmatterListProperties } from "../../obsidian/metadata";
 import {
-  resolveFileFromPaneContainer,
   resolvePaneFileContext,
 } from "../../obsidian/pane-context";
 import {
@@ -41,11 +40,12 @@ import { addMobileReorderMenuItem } from "./mobile-reorder-menu";
 
 interface DragState {
   document: Document;
+  editor: Editor;
+  expectedContent: string | null;
   file: TFile;
   generation: number;
   paneContainer: HTMLElement;
   context: PropertyPillContext;
-  expectedContentPromise: Promise<string | null>;
   expectedPropertyValues: ReadonlyMap<string, readonly FrontmatterScalar[]> | null;
   indicatorElement: HTMLElement;
   previewElement: HTMLElement;
@@ -60,7 +60,6 @@ const TOUCH_MOVE_LISTENER_OPTIONS: AddEventListenerOptions = {
 };
 
 export const MOBILE_REORDER_ARM_TIMEOUT_MS = 15_000;
-const MOBILE_REORDER_ACTIVE_CLASS = "property-order-mobile-reorder-active";
 const MOBILE_REORDER_ARMED_CLASS = "property-order-mobile-reorder-armed";
 
 export class PropertyValueOrderController {
@@ -389,7 +388,6 @@ export class PropertyValueOrderController {
     this.mobileArmedPill = pill;
     this.mobileArmWindow = targetWindow;
     pill.classList.add(MOBILE_REORDER_ARMED_CLASS);
-    pill.ownerDocument.body.classList.add(MOBILE_REORDER_ACTIVE_CLASS);
     this.mobileArmTimeoutId = targetWindow.setTimeout(() => {
       this.clearMobileArmState();
     }, MOBILE_REORDER_ARM_TIMEOUT_MS);
@@ -427,7 +425,6 @@ export class PropertyValueOrderController {
     this.clearMobileArmTimer();
     const armedPill = this.mobileArmedPill;
     armedPill?.classList.remove(MOBILE_REORDER_ARMED_CLASS);
-    armedPill?.ownerDocument.body.classList.remove(MOBILE_REORDER_ACTIVE_CLASS);
     this.mobileArmedPill = null;
   }
 
@@ -555,11 +552,12 @@ export class PropertyValueOrderController {
 
     this.dragState = {
       document: targetDocument,
+      editor: paneContext.editor,
+      expectedContent: this.readExpectedContent(paneContext.editor),
       file: paneContext.file,
       generation: this.lifecycleGeneration,
       paneContainer: paneContext.container,
       context,
-      expectedContentPromise: this.readExpectedContent(paneContext.file),
       expectedPropertyValues: getCachedFrontmatterListProperties(this.plugin.app, paneContext.file),
       indicatorElement,
       previewElement,
@@ -576,10 +574,12 @@ export class PropertyValueOrderController {
     return true;
   }
 
-  private readExpectedContent(file: TFile): Promise<string | null> {
-    return this.plugin.app.vault
-      .cachedRead(file)
-      .catch(() => null);
+  private readExpectedContent(editor: Editor): string | null {
+    try {
+      return editor.getValue();
+    } catch {
+      return null;
+    }
   }
 
   private scheduleDragUpdate(): void {
@@ -693,29 +693,17 @@ export class PropertyValueOrderController {
         return;
       }
 
-      const expectedContent = await dragState.expectedContentPromise;
-
-      if (!this.isDragStateActive(dragState)) {
-        return;
-      }
-
-      if (!this.isOriginalDocumentActive(dragState)) {
-        new Notice(this.t("notice.activeFileChanged"));
-        return;
-      }
-
       const writebackResult = await writePropertyValueDrop({
         canWrite: () =>
           this.isDragStateActive(dragState) && this.isOriginalDocumentActive(dragState),
-        expectedContent,
+        editor: dragState.editor,
+        expectedContent: dragState.expectedContent,
         expectedSourceValues:
           dragState.expectedPropertyValues?.get(dragState.context.propertyKey) ?? null,
         expectedTargetValues:
           target.mode === "move"
             ? dragState.expectedPropertyValues?.get(target.context.propertyKey) ?? null
             : null,
-        file: dragState.file,
-        plugin: this.plugin,
         sourceContext: dragState.context,
         target,
         writebackFormat: this.getSettings().listWritebackFormat,
@@ -756,8 +744,11 @@ export class PropertyValueOrderController {
   }
 
   private isOriginalDocumentActive(dragState: DragState): boolean {
-    const currentFile = resolveFileFromPaneContainer(this.plugin, dragState.paneContainer);
-    return isSameNoteDocument(dragState.file.path, currentFile?.path);
+    const currentPaneContext = resolvePaneFileContext(this.plugin, dragState.paneContainer);
+    return (
+      currentPaneContext?.editor === dragState.editor &&
+      isSameNoteDocument(dragState.file.path, currentPaneContext.file.path)
+    );
   }
 
   private isDragStateActive(dragState: DragState): boolean {

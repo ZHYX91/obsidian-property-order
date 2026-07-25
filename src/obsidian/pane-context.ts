@@ -1,4 +1,5 @@
 import {
+  type Editor,
   MarkdownView,
   type Plugin,
   type TFile,
@@ -8,6 +9,7 @@ import {
 
 export interface PaneFileContext {
   container: HTMLElement;
+  editor: Editor;
   file: TFile;
 }
 
@@ -26,9 +28,10 @@ export function resolvePaneFileContext(
     }
 
     const file = resolveFileFromView(leaf.view);
+    const editor = resolveEditorFromView(leaf.view);
 
-    if (file != null) {
-      result = { container: containingPane, file };
+    if (file != null && editor != null) {
+      result = { container: containingPane, editor, file };
     }
   });
 
@@ -75,4 +78,19 @@ function resolveFileFromView(view: View): TFile | null {
   }
 
   return (view as unknown as { file?: TFile | null }).file ?? null;
+}
+
+function resolveEditorFromView(view: View): Editor | null {
+  if (view instanceof MarkdownView) {
+    return view.editor;
+  }
+
+  const editor = (view as unknown as { editor?: Editor | null }).editor;
+
+  return editor != null &&
+    typeof editor.getValue === "function" &&
+    typeof editor.offsetToPos === "function" &&
+    typeof editor.transaction === "function"
+    ? editor
+    : null;
 }

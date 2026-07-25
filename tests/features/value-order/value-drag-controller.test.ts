@@ -1,7 +1,13 @@
 // @vitest-environment happy-dom
 
 import { Window as HappyDomWindow } from "happy-dom";
-import { Platform, type Plugin, type TFile } from "obsidian";
+import {
+  Platform,
+  type Editor,
+  type EditorTransaction,
+  type Plugin,
+  type TFile,
+} from "obsidian";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const noticeSpy = vi.hoisted(() => vi.fn());
@@ -15,6 +21,7 @@ const menuHarness = vi.hoisted(() => ({
 }));
 
 vi.mock("obsidian", () => ({
+  getLanguage: () => "en",
   moment: { locale: () => "en" },
   MarkdownView: class MarkdownView {},
   Platform: { isMobileApp: false },
@@ -74,8 +81,17 @@ interface ControllerHarness {
   cleanup(): void;
   container: HTMLElement;
   controller: PropertyValueOrderController;
+  editor: {
+    getContent(): string;
+    instance: Editor;
+    setContent(content: string): void;
+    transaction: ReturnType<typeof vi.fn>;
+  };
   file: TFile;
-  leaf: { containerEl: HTMLElement; view: { containerEl: HTMLElement; file: TFile } };
+  leaf: {
+    containerEl: HTMLElement;
+    view: { containerEl: HTMLElement; editor: Editor; file: TFile };
+  };
   closeWorkspaceWindow(targetWindow: Window): void;
   openWorkspaceWindow(targetWindow: Window): void;
   pill: HTMLElement;
@@ -127,6 +143,52 @@ function createRect(left: number, right: number): DOMRect {
   };
 }
 
+function createEditorHarness(initialContent: string): ControllerHarness["editor"] {
+  let content = initialContent;
+  const transaction = vi.fn((editorTransaction: EditorTransaction) => {
+    const change = editorTransaction.changes?.[0];
+
+    if (change == null) {
+      return;
+    }
+
+    const fromOffset = positionToOffset(content, change.from);
+    const toOffset = positionToOffset(content, change.to ?? change.from);
+    content = content.slice(0, fromOffset) + change.text + content.slice(toOffset);
+  });
+  const instance = {
+    getValue: () => content,
+    offsetToPos: (offset: number) => {
+      const lines = content.slice(0, offset).split("\n");
+      return { line: lines.length - 1, ch: lines.at(-1)?.length ?? 0 };
+    },
+    transaction,
+  } as unknown as Editor;
+
+  return {
+    getContent: () => content,
+    instance,
+    setContent: (nextContent) => {
+      content = nextContent;
+    },
+    transaction,
+  };
+}
+
+function positionToOffset(
+  content: string,
+  position: { ch: number; line: number },
+): number {
+  const lines = content.split("\n");
+  let offset = 0;
+
+  for (let line = 0; line < position.line; line += 1) {
+    offset += (lines[line]?.length ?? 0) + 1;
+  }
+
+  return offset + position.ch;
+}
+
 function createHarness(): ControllerHarness {
   const settings = createDefaultSettings();
   const file = { path: "Source.md" } as TFile;
@@ -154,21 +216,17 @@ function createHarness(): ControllerHarness {
   pane.appendChild(metadata);
   document.body.appendChild(pane);
 
+  const editor = createEditorHarness("---\nflow: [alpha, beta]\n---\n");
   const leaf = {
     containerEl: pane,
-    view: { containerEl: pane, file },
+    view: { containerEl: pane, editor: editor.instance, file },
   };
   let windowOpenCallback: ((_workspaceWindow: unknown, targetWindow: Window) => void) | null = null;
   let windowCloseCallback: ((_workspaceWindow: unknown, targetWindow: Window) => void) | null = null;
-  const process = vi.fn();
   const plugin = {
     app: {
       metadataCache: {
         getFileCache: () => ({ frontmatter: { flow: ["alpha", "beta"] } }),
-      },
-      vault: {
-        cachedRead: vi.fn().mockResolvedValue("---\nflow: [alpha, beta]\n---\n"),
-        process,
       },
       workspace: {
         getActiveFile: () => leaf.view.file,
@@ -204,6 +262,7 @@ function createHarness(): ControllerHarness {
     },
     container,
     controller,
+    editor,
     file,
     leaf,
     openWorkspaceWindow(targetWindow: Window) {
@@ -329,7 +388,6 @@ describe("PropertyValueOrderController", () => {
     menuHarness.items[0]?.click();
 
     expect(harness.pill.classList.contains("property-order-mobile-reorder-armed")).toBe(true);
-    expect(document.body.classList.contains("property-order-mobile-reorder-active")).toBe(true);
     expect(noticeSpy).toHaveBeenCalledWith(
       "Property Order: drag the selected value now. Tap elsewhere or wait to cancel.",
     );
@@ -339,7 +397,6 @@ describe("PropertyValueOrderController", () => {
 
     expect(document.querySelector(".property-order-drag-preview")).not.toBeNull();
     expect(harness.pill.classList.contains("property-order-mobile-reorder-armed")).toBe(false);
-    expect(document.body.classList.contains("property-order-mobile-reorder-active")).toBe(false);
 
     dispatchPointer(document, "pointerup", 16, "touch");
     harness.cleanup();
@@ -382,7 +439,6 @@ describe("PropertyValueOrderController", () => {
     contextMenu();
     vi.advanceTimersByTime(MOBILE_REORDER_ARM_TIMEOUT_MS);
     expect(harness.pill.classList.contains("property-order-mobile-reorder-armed")).toBe(false);
-    expect(document.body.classList.contains("property-order-mobile-reorder-active")).toBe(false);
 
     harness.cleanup();
   });
@@ -543,7 +599,7 @@ describe("PropertyValueOrderController", () => {
     dispatchPointer(document, "pointermove", 250);
     dispatchPointer(document, "pointerup", 250);
 
-    await vi.waitFor(() => expect(harness.plugin.app.vault.process).toHaveBeenCalledTimes(1));
+    await vi.waitFor(() => expect(harness.editor.transaction).toHaveBeenCalledTimes(1));
     harness.cleanup();
     openedWindow.close();
   });
@@ -560,7 +616,7 @@ describe("PropertyValueOrderController", () => {
 
     expect(document.querySelector(".property-order-drag-preview")).not.toBeNull();
     dispatchPointer(document, "pointerup", 250);
-    await vi.waitFor(() => expect(harness.plugin.app.vault.process).toHaveBeenCalledTimes(1));
+    await vi.waitFor(() => expect(harness.editor.transaction).toHaveBeenCalledTimes(1));
     harness.cleanup();
     openedWindow.close();
   });
@@ -577,7 +633,7 @@ describe("PropertyValueOrderController", () => {
     expect(document.querySelector(".property-order-drop-indicator")).toBeNull();
     expect(document.body.classList.contains("property-order-drag-cursor-active")).toBe(false);
     dispatchPointer(document, "pointerup", 250);
-    expect(harness.plugin.app.vault.process).not.toHaveBeenCalled();
+    expect(harness.editor.transaction).not.toHaveBeenCalled();
     harness.cleanup();
   });
 
@@ -596,7 +652,7 @@ describe("PropertyValueOrderController", () => {
     expect(document.body.classList.contains("property-order-drag-cursor-active")).toBe(false);
     expect(harness.pill.hasAttribute("draggable")).toBe(false);
     dispatchPointer(document, "pointerup", 250);
-    expect(harness.plugin.app.vault.process).not.toHaveBeenCalled();
+    expect(harness.editor.transaction).not.toHaveBeenCalled();
     harness.cleanup();
   });
 
@@ -612,37 +668,24 @@ describe("PropertyValueOrderController", () => {
     await Promise.resolve();
     await Promise.resolve();
 
-    expect(harness.plugin.app.vault.process).not.toHaveBeenCalled();
+    expect(harness.editor.transaction).not.toHaveBeenCalled();
     expect(noticeSpy).toHaveBeenCalledTimes(1);
     expect(document.querySelector(".property-order-drag-preview")).toBeNull();
     harness.cleanup();
   });
 
-  it("cancels a delayed vault transform when its pane changes", async () => {
+  it("does not write when the pane editor changes before drop", async () => {
     installRafHarness();
     const harness = createHarness();
-    const process = vi.mocked(harness.plugin.app.vault.process);
-    let currentContent = "---\nflow: [alpha, beta]\n---\n";
-    let runTransform!: () => void;
-    process.mockImplementation(
-      (_file, transform) =>
-        new Promise<string>((resolve) => {
-          runTransform = () => {
-            currentContent = transform(currentContent);
-            resolve(currentContent);
-          };
-        }),
-    );
 
     dispatchPointer(harness.pill, "pointerdown", 10);
     dispatchPointer(document, "pointermove", 250);
+    harness.leaf.view.editor = createEditorHarness(harness.editor.getContent()).instance;
     dispatchPointer(document, "pointerup", 250);
-    await vi.waitFor(() => expect(process).toHaveBeenCalledTimes(1));
-    harness.leaf.view.file = { path: "Other.md" } as TFile;
-    runTransform();
 
     await vi.waitFor(() => expect(noticeSpy).toHaveBeenCalledTimes(1));
-    expect(currentContent).toBe("---\nflow: [alpha, beta]\n---\n");
+    expect(harness.editor.transaction).not.toHaveBeenCalled();
+    expect(harness.editor.getContent()).toBe("---\nflow: [alpha, beta]\n---\n");
     harness.cleanup();
   });
 
@@ -654,7 +697,7 @@ describe("PropertyValueOrderController", () => {
     dispatchPointer(document, "pointermove", 250);
     dispatchPointer(document, "pointerup", 250);
 
-    await vi.waitFor(() => expect(harness.plugin.app.vault.process).toHaveBeenCalledTimes(1));
+    await vi.waitFor(() => expect(harness.editor.transaction).toHaveBeenCalledTimes(1));
     expect(document.querySelector(".property-order-drag-preview")).toBeNull();
     harness.cleanup();
   });
@@ -669,7 +712,7 @@ describe("PropertyValueOrderController", () => {
     dispatchPointer(document, "pointermove", 250);
     dispatchPointer(document, "pointerup", 10);
 
-    expect(harness.plugin.app.vault.process).not.toHaveBeenCalled();
+    expect(harness.editor.transaction).not.toHaveBeenCalled();
     expect(document.querySelector(".property-order-drag-preview")).toBeNull();
     harness.cleanup();
   });
@@ -685,80 +728,54 @@ describe("PropertyValueOrderController", () => {
     dispatchPointer(document, "pointermove", 250);
     dispatchPointer(document, "pointerup", 250);
 
-    expect(harness.plugin.app.vault.process).not.toHaveBeenCalled();
+    expect(harness.editor.transaction).not.toHaveBeenCalled();
     expect(document.querySelector(".property-order-drag-preview")).toBeNull();
     harness.cleanup();
   });
 
-  it("invalidates an in-flight finish when the controller is disposed", async () => {
+  it("does not write after the controller is disposed", async () => {
     installRafHarness();
     const harness = createHarness();
-    let resolveExpectedContent!: (content: string) => void;
-    vi.mocked(harness.plugin.app.vault.cachedRead).mockReturnValue(
-      new Promise<string>((resolve) => {
-        resolveExpectedContent = resolve;
-      }),
-    );
 
     dispatchPointer(harness.pill, "pointerdown", 10);
     dispatchPointer(document, "pointermove", 250);
-    dispatchPointer(document, "pointerup", 250);
     harness.cleanup();
-    resolveExpectedContent("---\nflow: [alpha, beta]\n---\n");
+    dispatchPointer(document, "pointerup", 250);
 
     await Promise.resolve();
-    await Promise.resolve();
-    expect(harness.plugin.app.vault.process).not.toHaveBeenCalled();
+    expect(harness.editor.transaction).not.toHaveBeenCalled();
     expect(document.querySelector(".property-order-drag-preview")).toBeNull();
   });
 
-  it("does not write when the source pill detaches while cached content is pending", async () => {
+  it("does not write when the source pill detaches before release", async () => {
     installRafHarness();
     const harness = createHarness();
-    let resolveExpectedContent!: (content: string) => void;
-    vi.mocked(harness.plugin.app.vault.cachedRead).mockReturnValue(
-      new Promise<string>((resolve) => {
-        resolveExpectedContent = resolve;
-      }),
-    );
 
     dispatchPointer(harness.pill, "pointerdown", 10);
     dispatchPointer(document, "pointermove", 250);
-    dispatchPointer(document, "pointerup", 250);
     harness.pill.remove();
-    resolveExpectedContent("---\nflow: [alpha, beta]\n---\n");
+    dispatchPointer(document, "pointerup", 250);
 
     await vi.waitFor(() => {
       expect(document.querySelector(".property-order-drag-preview")).toBeNull();
     });
-    expect(harness.plugin.app.vault.process).not.toHaveBeenCalled();
+    expect(harness.editor.transaction).not.toHaveBeenCalled();
     harness.cleanup();
   });
 
-  it("rejects a changed dragged value when the async read resolves to newer content", async () => {
+  it("rejects a dragged value changed in the editor before release", async () => {
     const raf = installRafHarness();
     const harness = createHarness();
-    let resolveExpectedContent!: (content: string) => void;
-    const expectedContentPromise = new Promise<string>((resolve) => {
-      resolveExpectedContent = resolve;
-    });
-    const cachedRead = vi.mocked(harness.plugin.app.vault.cachedRead);
-    const process = vi.mocked(harness.plugin.app.vault.process);
-    let currentContent = "---\nflow: [external-alpha, beta]\n---\n";
-    cachedRead.mockReturnValue(expectedContentPromise);
-    process.mockImplementation(async (_file, transform) => {
-      currentContent = transform(currentContent);
-      return currentContent;
-    });
 
     dispatchPointer(harness.pill, "pointerdown", 10);
     dispatchPointer(document, "pointermove", 250);
     raf.flush();
-    resolveExpectedContent(currentContent);
+    harness.editor.setContent("---\nflow: [external-alpha, beta]\n---\n");
     dispatchPointer(document, "pointerup", 250);
 
-    await vi.waitFor(() => expect(process).toHaveBeenCalledTimes(1));
-    expect(currentContent).toBe("---\nflow: [external-alpha, beta]\n---\n");
+    await vi.waitFor(() => expect(noticeSpy).toHaveBeenCalledTimes(1));
+    expect(harness.editor.transaction).not.toHaveBeenCalled();
+    expect(harness.editor.getContent()).toBe("---\nflow: [external-alpha, beta]\n---\n");
     expect(noticeSpy).toHaveBeenCalledWith(
       "Property Order: content changed while dragging. Try again.",
     );

@@ -4,6 +4,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import {
   createSettingsTabLayout,
+  focusSettingsTab,
   getSettingsTabScrollLeft,
   type SettingsTabDefinition,
   type SettingsTabId,
@@ -119,6 +120,15 @@ describe("createSettingsTabLayout", () => {
     expect(addEventListener).toHaveBeenCalledWith("resize", expect.any(Function));
     layout.cleanup();
     expect(removeEventListener).toHaveBeenCalledWith("resize", expect.any(Function));
+  });
+
+  it("focuses a tab without scrolling its surrounding settings panel", () => {
+    const button = document.createElement("button");
+    const focus = vi.spyOn(button, "focus");
+
+    focusSettingsTab(button);
+
+    expect(focus).toHaveBeenCalledWith({ preventScroll: true });
   });
 });
 

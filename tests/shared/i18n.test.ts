@@ -1,4 +1,4 @@
-import { moment } from "obsidian";
+import { getLanguage } from "obsidian";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import {
@@ -10,13 +10,11 @@ import {
 } from "../../src/shared/i18n";
 
 vi.mock("obsidian", () => ({
-  moment: {
-    locale: vi.fn(() => "en"),
-  },
+  getLanguage: vi.fn(() => "en"),
 }));
 
 beforeEach(() => {
-  vi.mocked(moment.locale).mockReturnValue("en");
+  vi.mocked(getLanguage).mockReturnValue("en");
 });
 
 describe("getResolvedLocaleCode", () => {
@@ -37,6 +35,12 @@ describe("getResolvedLocaleCode", () => {
   it("falls back to English for unsupported language codes", () => {
     expect(getResolvedLocaleCode("auto", "fr")).toBe("en");
   });
+
+  it("uses Obsidian's configured interface language in Auto", () => {
+    vi.mocked(getLanguage).mockReturnValue("zh-TW");
+
+    expect(getResolvedLocaleCode("auto")).toBe("zh-TW");
+  });
 });
 
 describe("translations", () => {
@@ -55,7 +59,7 @@ describe("translations", () => {
   });
 
   it("falls back through the resolved English locale for unsupported Obsidian languages", () => {
-    vi.mocked(moment.locale).mockReturnValue("fr");
+    vi.mocked(getLanguage).mockReturnValue("fr");
 
     expect(t("settings.general.heading")).toBe("General");
   });

@@ -1,4 +1,4 @@
-import type { Plugin, TFile } from "obsidian";
+import type { Editor, EditorChange } from "obsidian";
 
 import {
   diagnoseFrontmatterReorder,
@@ -20,11 +20,10 @@ export type ValueWritebackResult =
 
 interface ValueWritebackOptions {
   canWrite?: () => boolean;
+  editor: Editor;
   expectedContent: string | null;
   expectedSourceValues?: readonly FrontmatterScalar[] | null;
   expectedTargetValues?: readonly FrontmatterScalar[] | null;
-  file: TFile;
-  plugin: Plugin;
   sourceContext: PropertyPillContext;
   target: DropTarget;
   writebackFormat: ListWritebackFormat;
@@ -38,82 +37,110 @@ export async function writePropertyValueDrop(
   }
 
   const expectedContent = options.expectedContent;
-  let didWriteback = false;
-  let conflictDetected = false;
-  let diagnosticMessageKey: TranslationKey | null = null;
-
-  await options.plugin.app.vault.process(options.file, (currentContent) => {
-    if (options.canWrite?.() === false) {
-      return currentContent;
-    }
-
-    const hasSourceConflict =
-      hasPropertyValuesChanged(
-        expectedContent,
-        currentContent,
-        options.sourceContext.propertyKey,
-      ) ||
+  const currentContent = options.editor.getValue();
+  const hasSourceConflict =
+    hasPropertyValuesChanged(
+      expectedContent,
+      currentContent,
+      options.sourceContext.propertyKey,
+    ) ||
+    hasExpectedPropertyValuesChanged(
+      options.expectedSourceValues,
+      currentContent,
+      options.sourceContext.propertyKey,
+    );
+  const hasTargetConflict =
+    options.target.mode === "move" &&
+    (hasPropertyValuesChanged(
+      expectedContent,
+      currentContent,
+      options.target.context.propertyKey,
+    ) ||
       hasExpectedPropertyValuesChanged(
-        options.expectedSourceValues,
-        currentContent,
-        options.sourceContext.propertyKey,
-      );
-    const hasTargetConflict =
-      options.target.mode === "move" &&
-      (hasPropertyValuesChanged(
-        expectedContent,
+        options.expectedTargetValues,
         currentContent,
         options.target.context.propertyKey,
-      ) ||
-        hasExpectedPropertyValuesChanged(
-          options.expectedTargetValues,
-          currentContent,
-          options.target.context.propertyKey,
-        ));
+      ));
 
-    if (hasSourceConflict || hasTargetConflict) {
-      conflictDetected = true;
-      return currentContent;
-    }
-
-    const nextContent =
-      options.target.mode === "reorder"
-        ? reorderFrontmatterListProperty(currentContent, {
-            propertyKey: options.sourceContext.propertyKey,
-            sourceIndex: options.sourceContext.sourceIndex,
-            targetSlot: options.target.slot,
-            writebackFormat: options.writebackFormat,
-          })
-        : moveFrontmatterListPropertyValue(currentContent, {
-            sourcePropertyKey: options.sourceContext.propertyKey,
-            targetPropertyKey: options.target.context.propertyKey,
-            sourceIndex: options.sourceContext.sourceIndex,
-            targetSlot: options.target.slot,
-            writebackFormat: options.writebackFormat,
-          });
-
-    if (nextContent == null) {
-      diagnosticMessageKey = getWritebackFailureMessageKey(
-        currentContent,
-        options.sourceContext.propertyKey,
-        options.target,
-      );
-      return currentContent;
-    }
-
-    didWriteback ||= nextContent !== currentContent;
-    return nextContent;
-  });
-
-  if (conflictDetected) {
+  if (hasSourceConflict || hasTargetConflict || options.canWrite?.() === false) {
     return { status: "conflict" };
   }
 
-  if (!didWriteback && diagnosticMessageKey != null) {
-    return { status: "diagnostic", messageKey: diagnosticMessageKey };
+  const nextContent =
+    options.target.mode === "reorder"
+      ? reorderFrontmatterListProperty(currentContent, {
+          propertyKey: options.sourceContext.propertyKey,
+          sourceIndex: options.sourceContext.sourceIndex,
+          targetSlot: options.target.slot,
+          writebackFormat: options.writebackFormat,
+        })
+      : moveFrontmatterListPropertyValue(currentContent, {
+          sourcePropertyKey: options.sourceContext.propertyKey,
+          targetPropertyKey: options.target.context.propertyKey,
+          sourceIndex: options.sourceContext.sourceIndex,
+          targetSlot: options.target.slot,
+          writebackFormat: options.writebackFormat,
+        });
+
+  if (nextContent == null) {
+    const diagnosticMessageKey = getWritebackFailureMessageKey(
+      currentContent,
+      options.sourceContext.propertyKey,
+      options.target,
+    );
+
+    return diagnosticMessageKey == null
+      ? { status: "skipped" }
+      : { status: "diagnostic", messageKey: diagnosticMessageKey };
   }
 
-  return didWriteback ? { status: "written" } : { status: "skipped" };
+  if (nextContent === currentContent) {
+    return { status: "skipped" };
+  }
+
+  if (options.canWrite?.() === false || options.editor.getValue() !== currentContent) {
+    return { status: "conflict" };
+  }
+
+  options.editor.transaction(
+    { changes: [createMinimalEditorChange(options.editor, currentContent, nextContent)] },
+    "property-order-drag",
+  );
+  return { status: "written" };
+}
+
+function createMinimalEditorChange(
+  editor: Editor,
+  currentContent: string,
+  nextContent: string,
+): EditorChange {
+  let prefixLength = 0;
+  const maximumPrefixLength = Math.min(currentContent.length, nextContent.length);
+
+  while (
+    prefixLength < maximumPrefixLength &&
+    currentContent[prefixLength] === nextContent[prefixLength]
+  ) {
+    prefixLength += 1;
+  }
+
+  let currentSuffixStart = currentContent.length;
+  let nextSuffixStart = nextContent.length;
+
+  while (
+    currentSuffixStart > prefixLength &&
+    nextSuffixStart > prefixLength &&
+    currentContent[currentSuffixStart - 1] === nextContent[nextSuffixStart - 1]
+  ) {
+    currentSuffixStart -= 1;
+    nextSuffixStart -= 1;
+  }
+
+  return {
+    from: editor.offsetToPos(prefixLength),
+    to: editor.offsetToPos(currentSuffixStart),
+    text: nextContent.slice(prefixLength, nextSuffixStart),
+  };
 }
 
 function getDiagnosticMessageKey(

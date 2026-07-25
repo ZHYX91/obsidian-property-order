@@ -50,9 +50,9 @@ export class AbstractInputSuggest<T> {
 
 export class MarkdownView {}
 
-export const moment = {
-  locale: (): string => "en",
-};
+export function getLanguage(): string {
+  return "en";
+}
 
 export const Platform = {
   isIosApp: false,

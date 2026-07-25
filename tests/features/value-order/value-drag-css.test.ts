@@ -20,8 +20,9 @@ describe("property value drag CSS", () => {
     expect(styles).toMatch(
       /\.property-order-mobile-reorder-armed\s*\{[^}]*outline:[^}]*touch-action:\s*none\s*!important;/s,
     );
+    expect(styles).not.toContain("property-order-mobile-reorder-active");
     expect(styles).not.toMatch(
-      /body\.property-order-mobile-reorder-active \.metadata-property \.multi-select-pill\s*\{[^}]*touch-action:\s*none;/s,
+      /\.property-order-mobile-reorder-armed\s*\{[^}]*box-shadow:/s,
     );
   });
 

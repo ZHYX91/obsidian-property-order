@@ -1,4 +1,4 @@
-import { moment } from "obsidian";
+import { getLanguage } from "obsidian";
 
 import type { PluginLanguage } from "./types";
 
@@ -209,7 +209,7 @@ export const TRANSLATIONS = {
 
 export function getResolvedLocaleCode(
   language: PluginLanguage = "auto",
-  obsidianLanguage = getCurrentLanguage(),
+  obsidianLanguage = getLanguage(),
 ): ResolvedPluginLocale {
   if (language === "en" || language === "zh-CN" || language === "zh-TW") {
     return language;
@@ -241,10 +241,6 @@ function resolveLanguageCode(languageCode: string): ResolvedPluginLocale {
   }
 
   return "en";
-}
-
-function getCurrentLanguage(): string {
-  return moment.locale();
 }
 
 export function getTranslation(locale: ResolvedPluginLocale, key: TranslationKey): string {

@@ -267,8 +267,14 @@ export class KeySuggestionOrderController {
 
     invalidatePropertyKeyUsage(this.plugin.app);
 
-    if (this.getSettings().keySuggestionSortMode === "usage") {
-      this.refresh();
+    if (this.getSettings().keySuggestionSortMode !== "usage") {
+      return;
+    }
+
+    for (const container of this.originalSuggestions.keys()) {
+      if (container.isConnected) {
+        this.scheduleSuggestionEnhancement(container, true);
+      }
     }
   }
 

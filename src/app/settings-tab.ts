@@ -10,7 +10,11 @@ import { t, type TranslationKey } from "../shared/i18n";
 import { getCachedPropertyKeyUsage } from "../obsidian/metadata";
 import type { PropertyOrderSettings } from "../shared/types";
 import { PropertyNameSuggest } from "./property-name-suggest";
-import { createSettingsTabLayout, type SettingsTabId } from "./settings-tabs";
+import {
+  createSettingsTabLayout,
+  focusSettingsTab,
+  type SettingsTabId,
+} from "./settings-tabs";
 
 interface PropertyOrderSettingsHost extends Plugin {
   saveSettings(refreshKeySuggestions?: boolean): Promise<void>;
@@ -79,7 +83,7 @@ export class PropertyOrderSettingTab extends PluginSettingTab {
     }
 
     if (focusTab != null) {
-      activeTabEl.focus();
+      focusSettingsTab(activeTabEl);
     }
   }
 

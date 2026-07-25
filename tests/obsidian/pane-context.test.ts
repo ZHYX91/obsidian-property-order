@@ -1,6 +1,6 @@
 // @vitest-environment happy-dom
 
-import type { Plugin, TFile } from "obsidian";
+import type { Editor, Plugin, TFile } from "obsidian";
 import { describe, expect, it, vi } from "vitest";
 
 vi.mock("obsidian", () => ({
@@ -13,15 +13,21 @@ import {
 } from "../../src/obsidian/pane-context";
 
 function createPlugin(): {
+  editor: Editor;
   file: TFile;
   leafContainer: HTMLElement;
   plugin: Plugin;
 } {
   const file = { path: "Current.md" } as TFile;
+  const editor = {
+    getValue: () => "",
+    offsetToPos: () => ({ line: 0, ch: 0 }),
+    transaction: () => undefined,
+  } as unknown as Editor;
   const leafContainer = document.createElement("div");
   const leaf = {
     containerEl: leafContainer,
-    view: { containerEl: leafContainer, file },
+    view: { containerEl: leafContainer, editor, file },
   };
   const plugin = {
     app: {
@@ -32,17 +38,18 @@ function createPlugin(): {
     },
   } as unknown as Plugin;
 
-  return { file, leafContainer, plugin };
+  return { editor, file, leafContainer, plugin };
 }
 
 describe("pane context", () => {
   it("resolves an element contained by a known workspace leaf", () => {
-    const { file, leafContainer, plugin } = createPlugin();
+    const { editor, file, leafContainer, plugin } = createPlugin();
     const child = document.createElement("div");
     leafContainer.appendChild(child);
 
     expect(resolvePaneFileContext(plugin, child)).toEqual({
       container: leafContainer,
+      editor,
       file,
     });
     expect(resolveFileFromPaneContainer(plugin, leafContainer)).toBe(file);
@@ -59,15 +66,42 @@ describe("pane context", () => {
     expect(resolveFileFromPaneContainer(plugin, unmatchedPane)).toBeNull();
   });
 
+  it("fails closed when the containing file view has no editor transaction", () => {
+    const leafContainer = document.createElement("div");
+    const child = document.createElement("div");
+    leafContainer.appendChild(child);
+    const leaf = {
+      containerEl: leafContainer,
+      view: {
+        containerEl: leafContainer,
+        file: { path: "No-editor.md" } as TFile,
+      },
+    };
+    const plugin = {
+      app: {
+        workspace: {
+          iterateAllLeaves: (callback: (value: typeof leaf) => void) => callback(leaf),
+        },
+      },
+    } as unknown as Plugin;
+
+    expect(resolvePaneFileContext(plugin, child)).toBeNull();
+  });
+
   it("keeps a single-leaf content surface mapped without a recent-leaf fallback", () => {
     const file = { path: "Mobile.md" } as TFile;
+    const editor = {
+      getValue: () => "",
+      offsetToPos: () => ({ line: 0, ch: 0 }),
+      transaction: () => undefined,
+    } as unknown as Editor;
     const leafContainer = document.createElement("div");
     const contentContainer = document.createElement("div");
     const child = document.createElement("div");
     contentContainer.appendChild(child);
     const leaf = {
       containerEl: leafContainer,
-      view: { containerEl: leafContainer, contentEl: contentContainer, file },
+      view: { containerEl: leafContainer, contentEl: contentContainer, editor, file },
     };
     const plugin = {
       app: {
@@ -80,6 +114,7 @@ describe("pane context", () => {
 
     expect(resolvePaneFileContext(plugin, child)).toEqual({
       container: contentContainer,
+      editor,
       file,
     });
     expect(resolveFileFromPaneContainer(plugin, contentContainer)).toBe(file);
