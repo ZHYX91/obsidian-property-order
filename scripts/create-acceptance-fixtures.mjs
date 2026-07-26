@@ -30,7 +30,7 @@ function parseArguments(arguments_) {
 function renderFixture(label, newline) {
   return [
     "---",
-    `values: [alpha, 'beta value', \"gamma:value\"] # ${label} fixture`,
+    `values: [alpha, 'beta value', "gamma:value"] # ${label} fixture`,
     "other: unchanged",
     "---",
     "",
