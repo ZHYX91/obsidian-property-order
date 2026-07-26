@@ -1,10 +1,15 @@
+---
+source_language: zh-CN
+translation_status: source
+---
+
 # Property Order 架构
 
-本文是 Property Order 0.2.0 的权威架构说明。英文版用于同步阅读；实现、测试或英文文档与本文冲突时，以本文定义的边界和契约为准。
+本文是 Property Order 的权威现行架构说明。英文版用于同步阅读；实现、测试或英文文档与本文冲突时，以本文定义的边界和契约为准。
 
 ## 目标与非目标
 
-插件只增强 Obsidian Properties 的两类顺序：顶层 YAML 列表属性中的值顺序，以及原生属性键候选顺序。0.2.0 提供跨平台同属性拖拽、同笔记跨属性移动、三种 YAML 写回格式和原生键候选排序。
+插件只增强 Obsidian Properties 的两类顺序：顶层 YAML 列表属性中的值顺序，以及原生属性键候选顺序。它提供跨平台同属性拖拽、同笔记跨属性移动、三种 YAML 写回格式和原生键候选排序。
 
 不支持嵌套列表、对象列表、多行 flow sequence、源码模式拖拽或跨文件移动；这些结构必须 fail closed，不得修改笔记。模块化重构的目标是隔离解析、交互、DOM 和 Vault 边界，不是扩大产品范围或重写整个插件。
 
@@ -98,9 +103,9 @@ controller 不缓存会影响后续交互的旧设置：value drag 在下一次�
 - 自动回归覆盖：`tests/core/`、`tests/features/`、`tests/obsidian/`、`tests/shared/` 和 `tests/app/`。
 - 产品边界：[`product-requirements.zh-CN.md`](product-requirements.zh-CN.md)。
 - UX 契约：[`ux-spec.zh-CN.md`](ux-spec.zh-CN.md)。
-- 自动门禁、真实宿主矩阵与当前证据边界：[`testing-strategy.zh-CN.md`](testing-strategy.zh-CN.md)。
+- 自动门禁、真实宿主矩阵与验证边界：[`testing-strategy.zh-CN.md`](testing-strategy.zh-CN.md)。
 - 发布前必须通过 `npm run check`；该命令依次执行 Obsidian 官方 ESLint 门禁、`npm run typecheck`、`npm test`、`npm run build` 和 `npm run check:release`。
-- 插件语言设为“自动”时，通过 `getLanguage()` 跟随 Obsidian 当前界面语言；用户显式选择的插件语言始终优先。Property Order 0.2.0 将最低支持版本提高到已完成真实宿主验收的 Obsidian 1.12.7，既有已发布版本的兼容映射保持不变。
+- 插件语言设为“自动”时，通过 `getLanguage()` 跟随 Obsidian 当前界面语言；用户显式选择的插件语言始终优先。最低支持的 Obsidian 版本为 1.12.7，所有已发布版本的兼容关系继续以 `versions.json` 为准。
 - 生产构建把 `main.js`、`manifest.json` 和 `styles.css` 直接生成到 `dist/` 顶层，使源码构建审查与本地发布检查使用同一套标准路径。CI 在 Node 20 上执行锁定安装与完整门禁，并上传这三个文件。独立 Release workflow 只接受与 `manifest.json` 完全一致、无 `v` 前缀的 `x.y.z` 标签；门禁通过后发布三个独立文件，并额外在临时目录组装 `property-order-<version>.zip`。压缩包只包含一个 `property-order/` 目录及其中的上述三个文件；四个最终附件都生成构建证明，同一标签重新运行时替换附件，不重复创建 Release。
 
 DOM 交互与视觉发布门禁必须取得测试策略规定的真实宿主证据；明确列入产品非目标的能力不作为未完成发布项。

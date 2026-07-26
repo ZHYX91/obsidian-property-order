@@ -1,6 +1,11 @@
+---
+source_language: zh-CN
+translation_status: source
+---
+
 # Property Order UX 规范
 
-本文描述 Property Order 0.2.0 的当前交互与呈现契约。英文版用于同步阅读；若翻译冲突，以本文为准。
+本文描述 Property Order 的当前交互与呈现契约。英文版用于同步阅读；若翻译冲突，以本文为准。
 
 ## 属性值拖拽
 

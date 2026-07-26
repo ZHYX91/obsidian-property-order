@@ -1,6 +1,12 @@
+---
+source_language: zh-CN
+translation_of: ux-spec.zh-CN.md
+translation_status: synced
+---
+
 # Property Order UX Specification
 
-This document mirrors the authoritative current interaction and presentation contract for Property Order 0.2.0.
+This document mirrors the authoritative current interaction and presentation contract for Property Order.
 
 ## Property-value drag
 

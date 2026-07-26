@@ -1,6 +1,12 @@
+---
+source_language: zh-CN
+translation_of: testing-strategy.zh-CN.md
+translation_status: synced
+---
+
 # Property Order Testing Strategy
 
-This document mirrors the authoritative current automated gates, real-host matrix, release contract, and evidence boundary for Property Order 0.2.0.
+This document mirrors the authoritative current automated gates, real-host matrix, release contract, and verification boundary for Property Order.
 
 ## Automated gate
 
@@ -53,16 +59,16 @@ The Android emulator verifies:
 - touch suggestion selection, roughly 394px settings layout, rotation, and active-tab reveal;
 - background/foreground recovery, plugin disable/re-enable, and absence of crash or ANR.
 
-## Current evidence boundary
+## Verification boundary
 
 - Automated gates cover pure rules, injectable failures, and release contracts.
-- The current desktop artifact was exercised in an isolated Windows 11 / Obsidian 1.12.7 Vault. Evidence includes block- and flow-style same-property writeback verified on disk, pinned/hidden/bottom suggestion ordering, keyboard selection and cancellation, and all three settings tabs.
-- A fresh CRLF fixture remained CRLF when merely opened, then became LF after either a Property Order editor transaction or an ordinary manual body edit. This is recorded as Obsidian editor serialization; the plugin preserves logical text and one-step undo rather than performing a non-undoable second Vault write.
-- The current mobile artifact was exercised in an independent Android 15 / API 35 emulator Vault. The production files matched the deployed files by SHA-256. Obsidian's Edit, Copy, and Remove from list actions remained present beside Reorder or move; a real single-pointer sequence completed same-property reorder and cross-property move with the expected YAML on disk. An outside tap cancelled the armed state without changing the fixture, and background/foreground recovery produced no plugin error, crash, or ANR.
-- Automated tests cover the 15-second timeout, Escape, unsupported menu fail-open, and cleanup paths that are not injected during routine host acceptance.
-- No physical Android evidence exists, so vendor input stacks, real haptics, physical pen, system font scaling, and large-Vault performance are not claimed.
-- Keyboard property-value reorder and screen-reader drag announcements are product non-goals, not 0.2.0 release debt.
-- The language contract proves that Auto uses Obsidian's configured interface language through the public `getLanguage()` API. Property Order 0.2.0 declares the real-host-tested Obsidian 1.12.7 baseline; earlier released versions retain their historical compatibility mappings.
+- Desktop acceptance uses an isolated Windows 11 / Obsidian 1.12.7 Vault and covers block- and flow-style writeback on disk, pinned/hidden/bottom suggestion ordering, keyboard selection and cancellation, and all three settings tabs.
+- New CRLF fixtures must remain CRLF when merely opened. Both a Property Order editor transaction and an ordinary manual body edit may then serialize the note as LF under Obsidian 1.12.7; acceptance attributes that behavior to the host and verifies logical text plus one-step undo instead of adding a non-undoable second Vault write.
+- Android acceptance uses an independent Android 15 / API 35 emulator Vault, verifies deployed production files by SHA-256, preserves Obsidian's Edit, Copy, and Remove from list actions beside Reorder or move, exercises same-property reorder and cross-property move on disk, and verifies cancellation plus background/foreground recovery without plugin error, crash, or ANR.
+- Automated tests cover the 15-second timeout, Escape, unsupported-menu fail open, and cleanup paths that routine host acceptance does not inject.
+- Physical-device input stacks, haptics, pens, system font scaling, and large-Vault behavior require separate physical Android evidence before they may be claimed.
+- Keyboard property-value reorder and screen-reader drag announcements remain explicit product non-goals.
+- The language contract proves that Auto uses Obsidian's configured interface language through the public `getLanguage()` API. The minimum supported Obsidian version is 1.12.7, and `versions.json` remains the compatibility contract for published versions.
 - CR-only byte preservation is automated; Obsidian 1.12.7 exposes no matching Properties UI, so a nonexistent host path is not required.
 
 ## CI and Release
@@ -74,4 +80,4 @@ CI runs `npm ci` and `npm run check` on Node 20 and uploads top-level `dist/main
 - `styles.css`;
 - `property-order-<version>.zip`, containing only one `property-order/` directory with those files.
 
-Before the first version tag, the worktree is clean, the real-host matrix matches the current product scope, and CI is green. After publication, download all four assets and verify version, archive layout, and hashes.
+Before any version tag, the worktree is clean, the real-host matrix matches the current product scope, and CI is green. After publication, download all four assets and verify version, archive layout, and hashes.

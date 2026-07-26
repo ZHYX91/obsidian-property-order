@@ -12,8 +12,9 @@ This repository is an Obsidian plugin written in TypeScript. The plugin entry po
 - `npm run typecheck`: run `tsc --noEmit` with strict TypeScript checks.
 - `npm test`: run the Vitest suite once.
 - `npm run check:release`: verify the release bundle contains required Obsidian plugin files.
+- `npm run check`: run lint, strict type checking, the complete Vitest suite, the production build, and release-asset verification.
 
-Before handing off changes, run `npm run typecheck`, `npm test`, and `npm run build`. Run `npm run check:release` for release-facing work.
+Before handing off changes, run `npm run check`.
 
 ## Coding Style & Naming Conventions
 
@@ -21,7 +22,13 @@ Use TypeScript with ES modules and strict typing. Follow the existing style: two
 
 ## Testing Guidelines
 
-Tests use Vitest and are named `*.test.ts`. Add focused tests under `tests/` for core behavior and regression-prone parsing. Frontmatter changes should cover block lists, flow lists, empty lists, comments, quoting, newline preservation, and diagnostics. Suggestion ordering changes should cover pinning, bottom placement, hidden patterns, alphabetical sorting, usage sorting, and duplicate keys.
+Tests use Vitest and are named `*.test.ts`. Add focused tests under `tests/` for core behavior and regression-prone parsing. Frontmatter changes should cover block lists, flow lists, empty lists, comments, quoting, newline preservation, and diagnostics. Suggestion ordering changes should cover pinning, bottom placement, hidden patterns, mixed-language name sorting, usage sorting, and duplicate keys.
+
+## Documentation
+
+Simplified Chinese is the source language for stable product, architecture, UX, and testing documents. Keep each `.zh-CN.md` source paired with a structurally matching `.en.md` translation and update both in the same change. The root `README.md` is English; its Simplified Chinese counterpart lives at `docs/i18n/README.zh-CN.md`, and language links use absolute GitHub URLs so they work in the Obsidian plugin catalog.
+
+Documentation describes current behavior and current verification requirements. Remove superseded plans, progress records, dated evidence snapshots, version-transition narratives, and obsolete alternatives once their durable rules are incorporated. Active settings migrations and compatibility boundaries remain documented because they are current runtime behavior.
 
 ## Commit & Pull Request Guidelines
 

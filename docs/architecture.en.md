@@ -1,10 +1,16 @@
+---
+source_language: zh-CN
+translation_of: architecture.zh-CN.md
+translation_status: synced
+---
+
 # Property Order Architecture
 
-This document mirrors the authoritative Chinese architecture for Property Order 0.2.0. If the implementation, tests, or this translation conflict with `architecture.zh-CN.md`, the Chinese document defines the intended boundaries and contracts.
+This document mirrors the authoritative current Chinese architecture. If the implementation, tests, or this translation conflict with `architecture.zh-CN.md`, the Chinese document defines the intended boundaries and contracts.
 
 ## Goals and Non-goals
 
-The plugin enhances two kinds of order in Obsidian Properties: values in top-level YAML list properties and native property-key suggestions. Version 0.2.0 provides cross-platform same-property drag, same-note cross-property moves, three YAML writeback modes, and native key-suggestion ordering.
+The plugin enhances two kinds of order in Obsidian Properties: values in top-level YAML list properties and native property-key suggestions. It provides cross-platform same-property drag, same-note cross-property moves, three YAML writeback modes, and native key-suggestion ordering.
 
 Nested lists, object lists, multiline flow sequences, source-mode dragging, and cross-file moves remain out of scope and fail closed. The refactor isolates parsing, interaction, DOM, and Vault boundaries; it is not a product expansion or a ground-up rewrite.
 
@@ -98,9 +104,9 @@ Controllers do not retain stale settings that affect subsequent interactions: va
 - Automated regression coverage: `tests/core/`, `tests/features/`, `tests/obsidian/`, `tests/shared/`, and `tests/app/`.
 - Product boundary: [`product-requirements.en.md`](product-requirements.en.md).
 - UX contract: [`ux-spec.en.md`](ux-spec.en.md).
-- Automated gates, real-host matrix, and current evidence boundary: [`testing-strategy.en.md`](testing-strategy.en.md).
+- Automated gates, real-host matrix, and verification boundary: [`testing-strategy.en.md`](testing-strategy.en.md).
 - Before release, `npm run check` must pass; it runs the official Obsidian ESLint gate, `npm run typecheck`, `npm test`, `npm run build`, and `npm run check:release` in sequence.
-- Automatic plugin language follows Obsidian's configured interface language through `getLanguage()`; an explicit plugin language always takes precedence. Property Order 0.2.0 raises the minimum supported Obsidian version to the real-host-tested 1.12.7 baseline, while the compatibility mappings for previously released versions remain unchanged.
+- Automatic plugin language follows Obsidian's configured interface language through `getLanguage()`; an explicit plugin language always takes precedence. The minimum supported Obsidian version is 1.12.7, while `versions.json` remains the compatibility contract for every published version.
 - Production builds place `main.js`, `manifest.json`, and `styles.css` directly at the top level of `dist/`, so source-build review and the local release check use the same standard paths. CI performs a locked install and the complete gate on Node 20, then uploads those three files. A separate release workflow accepts only an exact `x.y.z` tag matching `manifest.json`, without a `v` prefix; after the gate passes, it publishes the three loose files and assembles `property-order-<version>.zip` in a temporary directory. The archive contains exactly those three files under one `property-order/` directory. All four final assets receive build provenance attestations, and re-running an existing tag replaces its assets instead of creating a duplicate Release.
 
 DOM-interaction and visual release gates require the real-host evidence defined by the testing strategy. Capabilities explicitly listed as product non-goals are not treated as unfinished release items.

@@ -1,6 +1,11 @@
+---
+source_language: zh-CN
+translation_status: source
+---
+
 # Property Order 测试策略
 
-本文定义 Property Order 0.2.0 的当前自动门禁、真实宿主矩阵、发布契约和证据边界。英文版用于同步阅读；若翻译冲突，以本文为准。
+本文定义 Property Order 的当前自动门禁、真实宿主矩阵、发布契约和验证边界。英文版用于同步阅读；若翻译冲突，以本文为准。
 
 ## 自动门禁
 
@@ -53,16 +58,16 @@ Android 模拟器必须验证：
 - 候选触摸选择、394px 级窄屏设置布局、横竖屏旋转和活动页签显露；
 - 前后台恢复、插件停用/重启用，以及无崩溃或 ANR。
 
-## 当前证据边界
+## 验证边界
 
 - 自动门禁覆盖所有纯规则、可注入故障和发布契约。
-- 当前桌面产物已在 Windows 11 / Obsidian 1.12.7 隔离 Vault 中实测：block 与 flow 同属性写回均从磁盘核验；候选 pinned/hidden/bottom 排序、键盘选择与取消、三个设置页签均已覆盖。
-- 全新 CRLF 夹具仅打开时仍保持 CRLF；执行 Property Order editor transaction 或普通正文手动编辑后都会转为 LF。该结果记录为 Obsidian editor 序列化边界；插件优先保持逻辑正文和单步撤销，不追加不可撤销的第二次 Vault 写入。
-- 当前移动产物已在 Android 15 / API 35 独立模拟器 Vault 中实测，production 文件与部署文件的 SHA-256 一致。Obsidian 原生“编辑 / 复制 / 从列表中移除”与“重排或移动”同时存在；真实单指针流程完成同属性重排和跨属性移动，磁盘 YAML 符合预期。点击其他位置会取消待拖动状态且夹具不变，前后台恢复后没有插件错误、崩溃或 ANR。
+- 桌面验收使用 Windows 11 / Obsidian 1.12.7 隔离 Vault，覆盖 block 与 flow 写回的磁盘结果、候选 pinned/hidden/bottom 排序、键盘选择与取消，以及三个设置页签。
+- 全新 CRLF 夹具仅打开时必须保持 CRLF；Property Order editor transaction 与普通正文手动编辑在 Obsidian 1.12.7 下都可能把笔记序列化为 LF。验收应把它归入宿主边界，并验证逻辑正文与单步撤销，而不是追加不可撤销的第二次 Vault 写入。
+- Android 验收使用 Android 15 / API 35 独立模拟器 Vault，以 SHA-256 核对部署的生产文件，确认原生“编辑 / 复制 / 从列表中移除”与“重排或移动”共存，验证同属性重排、跨属性移动的磁盘结果，以及取消和前后台恢复期间无插件错误、崩溃或 ANR。
 - 15 秒超时、Escape、宿主菜单不可用时 fail open 以及清理路径由自动测试覆盖，不在常规真实宿主验收中注入。
-- 尚无物理 Android 设备证据，因此不声称验证了厂商输入栈、真实触感、物理 pen、系统字体缩放或大 Vault 性能。
-- 键盘属性值重排与屏幕阅读器拖拽播报是产品非目标，不列为 0.2.0 发布欠项。
-- 语言契约必须证明“自动”通过公开的 `getLanguage()` API 读取 Obsidian 当前界面语言。Property Order 0.2.0 声明已完成真实宿主验收的 Obsidian 1.12.7 基线；更早已发布版本保留其历史兼容映射。
+- 厂商输入栈、真实触感、物理 pen、系统字体缩放和大 Vault 行为，必须取得物理 Android 证据后才能声称通过。
+- 键盘属性值重排与屏幕阅读器拖拽播报继续作为明确的产品非目标。
+- 语言契约必须证明“自动”通过公开的 `getLanguage()` API 读取 Obsidian 当前界面语言。最低支持的 Obsidian 版本为 1.12.7，已发布版本的兼容关系以 `versions.json` 为准。
 - CR-only 字节保持由自动测试固定；Obsidian 1.12.7 不暴露相应 Properties UI，因此不要求不存在的真实 UI 路径。
 
 ## CI 与 Release
@@ -74,4 +79,4 @@ CI 在 Node 20 上执行 `npm ci` 和 `npm run check`，并上传 `dist/` 顶层
 - `styles.css`；
 - `property-order-<version>.zip`，其中只含 `property-order/` 目录与上述三个文件。
 
-首次推送版本标签前必须确认本地工作区干净、真实宿主矩阵满足当前产品范围、CI 全绿。发布后下载四个附件并核对版本、ZIP 目录结构和文件哈希。
+推送任何版本标签前必须确认本地工作区干净、真实宿主矩阵满足当前产品范围、CI 全绿。发布后下载四个附件并核对版本、ZIP 目录结构和文件哈希。
