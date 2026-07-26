@@ -21,4 +21,3 @@ describe("parseDoubleQuotedScalar", () => {
     expect(parseDoubleQuotedScalar(raw)).toBe(expected);
   });
 });
-

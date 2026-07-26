@@ -51,4 +51,3 @@ describe("getFrontmatterListPropertyValues", () => {
     ).toBe(["---", "tags:", "  - other", "  -", "---"].join("\n"));
   });
 });
-

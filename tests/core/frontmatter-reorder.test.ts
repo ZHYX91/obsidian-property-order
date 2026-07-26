@@ -402,4 +402,3 @@ describe("reorderFrontmatterListProperty preserve mode", () => {
     ).toBe(expected);
   });
 });
-

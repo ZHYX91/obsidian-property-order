@@ -173,4 +173,3 @@ describe("reorderFrontmatterListProperty syntax boundaries", () => {
     expect(diagnoseFrontmatterReorder(input, "tags")).toBe("unsupported_property");
   });
 });
-

@@ -7,7 +7,7 @@
     "dev": "node esbuild.config.mjs",
     "build": "node esbuild.config.mjs production",
     "check": "npm run lint && npm run typecheck && npm test && npm run build && npm run check:release",
-    "lint": "eslint main.ts src tests scripts esbuild.config.mjs --max-warnings 0",
+    "lint": "eslint main.ts src tests scripts esbuild.config.mjs eslint.config.mjs vitest.config.mts --max-warnings 0",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "check:release": "node scripts/check-release.mjs",

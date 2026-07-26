@@ -39,4 +39,3 @@ describe("diagnoseFrontmatterReorder", () => {
     expect(diagnoseFrontmatterReorder(input, "alpha:beta")).toBe("ok");
   });
 });
-

@@ -304,7 +304,6 @@ describe("reorderFrontmatterListProperty normalized formats", () => {
     expect(getFrontmatterListPropertyValues(input, "item")).toEqual(["'", "safe"]);
   });
 
-
   it("rewrites a flow list as a block list when requested", () => {
     const input = ["---", 'item: [alpha, "two words", beta]', "---"].join("\n");
 
@@ -320,4 +319,3 @@ describe("reorderFrontmatterListProperty normalized formats", () => {
     );
   });
 });
-
