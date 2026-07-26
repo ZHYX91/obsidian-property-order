@@ -147,8 +147,8 @@ export function createPreviewElement(sourcePill: HTMLElement): HTMLElement {
   return previewElement;
 }
 
-export function createIndicatorElement(targetDocument: Document): HTMLElement {
-  const indicatorElement = targetDocument.createElement("div");
+export function createIndicatorElement(parentElement: HTMLElement): HTMLElement {
+  const indicatorElement = parentElement.createDiv();
   indicatorElement.className = "property-order-drop-indicator";
   indicatorElement.setAttribute("aria-hidden", "true");
   return indicatorElement;

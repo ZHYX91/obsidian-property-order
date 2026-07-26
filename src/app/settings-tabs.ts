@@ -26,8 +26,7 @@ export function createSettingsTabLayout(
   ariaLabel: string,
   onSelect: (tabId: SettingsTabId) => void,
 ): SettingsTabLayout {
-  const document = containerEl.ownerDocument;
-  const tabBarEl = document.createElement("div");
+  const tabBarEl = containerEl.createDiv();
   tabBarEl.className = "property-order-settings-tabs";
   tabBarEl.setAttribute("role", "tablist");
   tabBarEl.setAttribute("aria-label", ariaLabel);
@@ -39,7 +38,7 @@ export function createSettingsTabLayout(
     0,
   );
   const buttons = tabs.map((tab, index) => {
-    const buttonEl = document.createElement("button");
+    const buttonEl = tabBarEl.createEl("button");
     const isActive = index === activeIndex;
     buttonEl.className = isActive
       ? "property-order-settings-tab is-active"
@@ -64,18 +63,16 @@ export function createSettingsTabLayout(
       const targetButton = buttons[targetIndex];
       selectTab(targetTab.id, activeTab, targetButton, onSelect);
     });
-    tabBarEl.appendChild(buttonEl);
     return buttonEl;
   });
 
   const activeDefinition = tabs[activeIndex];
-  const panelEl = document.createElement("div");
+  const panelEl = containerEl.createDiv();
   panelEl.className = "property-order-settings-panel";
   panelEl.id = getPanelElementId(activeDefinition.id);
   panelEl.setAttribute("role", "tabpanel");
   panelEl.setAttribute("aria-labelledby", getTabElementId(activeDefinition.id));
   panelEl.tabIndex = 0;
-  containerEl.appendChild(panelEl);
 
   const activeTabEl = buttons[activeIndex];
   const targetWindow = containerEl.ownerDocument.defaultView;

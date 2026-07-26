@@ -4,9 +4,11 @@ import { Window as HappyDomWindow } from "happy-dom";
 import { afterEach, describe, expect, it } from "vitest";
 
 import {
+  createIndicatorElement,
   createPreviewElement,
   positionPreview,
 } from "../../../src/features/value-order/drag-dom";
+import { installObsidianDomFactories } from "../../setup/obsidian-dom";
 
 describe("drag preview geometry", () => {
   const openedWindows: HappyDomWindow[] = [];
@@ -94,8 +96,21 @@ describe("drag preview geometry", () => {
     expect(previewRect.bottom).toBeLessThanOrEqual(72.001);
   });
 
+  it("creates the drop indicator in the requested owner window", () => {
+    const targetWindow = createWindow(200, 100);
+
+    const indicator = createIndicatorElement(
+      targetWindow.document.body as unknown as HTMLElement,
+    );
+
+    expect(indicator.ownerDocument).toBe(targetWindow.document);
+    expect(indicator.className).toBe("property-order-drop-indicator");
+    expect(indicator.getAttribute("aria-hidden")).toBe("true");
+  });
+
   function createWindow(width: number, height: number): HappyDomWindow {
     const targetWindow = new HappyDomWindow({ height, width });
+    installObsidianDomFactories(targetWindow.document as unknown as Document);
     openedWindows.push(targetWindow);
     return targetWindow;
   }

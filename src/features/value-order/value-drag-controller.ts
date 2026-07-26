@@ -545,8 +545,8 @@ export class PropertyValueOrderController {
     this.restoreNativeDragState ??= suppressNativeDrag(context.pill);
     this.clearMobileArmState();
     const previewElement = createPreviewElement(context.pill);
-    const indicatorElement = createIndicatorElement(targetDocument);
-    targetDocument.body.append(previewElement, indicatorElement);
+    const indicatorElement = createIndicatorElement(targetDocument.body);
+    targetDocument.body.append(previewElement);
     context.pill.classList.add("property-order-dragging");
     setDocumentDragCursorActive(targetDocument, true);
 

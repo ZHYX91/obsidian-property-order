@@ -8,4 +8,7 @@ export default defineConfig({
       obsidian: fileURLToPath(new URL("./tests/mocks/obsidian.ts", import.meta.url)),
     },
   },
+  test: {
+    setupFiles: ["./tests/setup/obsidian-dom.ts"],
+  },
 });

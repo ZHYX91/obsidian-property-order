@@ -319,7 +319,7 @@ export class PropertyOrderSettingTab extends PluginSettingTab {
 
   private mountSaveStatus(parentEl: HTMLElement): void {
     this.saveStatusEl?.remove();
-    const statusEl = parentEl.ownerDocument.createElement("div");
+    const statusEl = parentEl.createDiv();
     statusEl.className = "property-order-settings-save-status";
     parentEl.prepend(statusEl);
     this.saveStatusEl = statusEl;
@@ -341,9 +341,9 @@ export class PropertyOrderSettingTab extends PluginSettingTab {
     }
 
     this.saveStatusEl.setAttribute("role", "alert");
-    const messageEl = this.saveStatusEl.ownerDocument.createElement("span");
+    const messageEl = this.saveStatusEl.createSpan();
     messageEl.textContent = this.t("settings.saveStatus.failed");
-    const retryButton = this.saveStatusEl.ownerDocument.createElement("button");
+    const retryButton = this.saveStatusEl.createEl("button");
     retryButton.type = "button";
     retryButton.textContent = this.t("settings.saveStatus.retry");
     retryButton.addEventListener("click", () => {
