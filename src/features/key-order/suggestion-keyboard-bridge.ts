@@ -2,6 +2,7 @@ import {
   getSuggestionItems,
   hasActivePropertyKeySuggestionContext,
 } from "../../obsidian/native-suggest-dom";
+import { isSuggestionElementVisible } from "./suggestion-visibility";
 
 const SELECTED_SUGGESTION_CLASS = "is-selected";
 
@@ -220,7 +221,7 @@ function requestNativeSelection(element: HTMLElement): boolean {
 }
 
 function activateSuggestion(element: HTMLElement): boolean {
-  if (!element.isConnected || element.hidden || element.getAttribute("aria-hidden") === "true") {
+  if (!element.isConnected || !isSuggestionElementVisible(element)) {
     return false;
   }
 
@@ -231,12 +232,7 @@ function activateSuggestion(element: HTMLElement): boolean {
 function getVisibleSuggestionElements(container: HTMLElement): HTMLElement[] {
   return getSuggestionItems(container)
     .map((item) => item.element)
-    .filter(
-      (element) =>
-        !element.hidden &&
-        element.getAttribute("aria-hidden") !== "true" &&
-        !element.classList.contains("property-order-suggestion-hidden"),
-    );
+    .filter(isSuggestionElementVisible);
 }
 
 function getSelectedSuggestionElement(container: HTMLElement): HTMLElement | null {

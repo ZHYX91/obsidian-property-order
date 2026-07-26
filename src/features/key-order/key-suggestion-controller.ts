@@ -19,8 +19,8 @@ import {
   registerSuggestionKeyboardBridge,
   synchronizeSuggestionSelection,
 } from "./suggestion-keyboard-bridge";
+import { PLUGIN_HIDDEN_SUGGESTION_CLASS } from "./suggestion-visibility";
 
-const PLUGIN_HIDDEN_CLASS = "property-order-suggestion-hidden";
 const OBSERVER_OPTIONS: MutationObserverInit = {
   attributeFilter: ["aria-hidden", "hidden"],
   attributes: true,
@@ -532,7 +532,7 @@ export class KeySuggestionOrderController {
 
       if (!visibleElementSet.has(item.element)) {
         item.element.hidden = true;
-        item.element.classList.add(PLUGIN_HIDDEN_CLASS);
+        item.element.classList.add(PLUGIN_HIDDEN_SUGGESTION_CLASS);
         item.element.setAttribute("aria-hidden", "true");
       }
     }
@@ -691,7 +691,7 @@ function matchesAppliedState(
       element === expected.element &&
       element.getAttribute("hidden") === expected.hiddenAttribute &&
       element.getAttribute("aria-hidden") === expected.ariaHiddenAttribute &&
-      element.classList.contains(PLUGIN_HIDDEN_CLASS) ===
+      element.classList.contains(PLUGIN_HIDDEN_SUGGESTION_CLASS) ===
         expected.hadPluginHiddenClass
     );
   });
@@ -798,7 +798,7 @@ function createElementSnapshot(element: HTMLElement): SuggestionElementSnapshot 
   return {
     ariaHiddenAttribute: element.getAttribute("aria-hidden"),
     element,
-    hadPluginHiddenClass: element.classList.contains(PLUGIN_HIDDEN_CLASS),
+    hadPluginHiddenClass: element.classList.contains(PLUGIN_HIDDEN_SUGGESTION_CLASS),
     hiddenAttribute: element.getAttribute("hidden"),
   };
 }
@@ -807,7 +807,7 @@ function restoreElementState(snapshot: SuggestionElementSnapshot): void {
   restoreAttribute(snapshot.element, "hidden", snapshot.hiddenAttribute);
   restoreAttribute(snapshot.element, "aria-hidden", snapshot.ariaHiddenAttribute);
   snapshot.element.classList.toggle(
-    PLUGIN_HIDDEN_CLASS,
+    PLUGIN_HIDDEN_SUGGESTION_CLASS,
     snapshot.hadPluginHiddenClass,
   );
 }
