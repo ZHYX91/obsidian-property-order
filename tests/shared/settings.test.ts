@@ -28,7 +28,7 @@ describe("normalizeSettings", () => {
       language: "auto",
       enablePropertyValueDrag: true,
       listWritebackFormat: "preserve",
-      enableCrossPropertyDrag: false,
+      enableCrossPropertyDrag: true,
       enableNativeKeySuggestionOrder: false,
       keySuggestionSortMode: "name",
       pinnedPropertyKeys: ["tags", "aliases"],
@@ -45,6 +45,20 @@ describe("normalizeSettings", () => {
     first.pinnedPropertyKeys.push("tags");
 
     expect(second.pinnedPropertyKeys).toEqual([]);
+  });
+
+  it("enables cross-property drag by default", () => {
+    expect(createDefaultSettings().enableCrossPropertyDrag).toBe(true);
+    expect(normalizeSettings({}).enableCrossPropertyDrag).toBe(true);
+  });
+
+  it("preserves an explicit cross-property drag opt-out", () => {
+    expect(
+      normalizeSettings({
+        enablePropertyValueDrag: true,
+        enableCrossPropertyDrag: false,
+      }).enableCrossPropertyDrag,
+    ).toBe(false);
   });
 
   it("migrates unversioned and legacy keys in schema order", () => {

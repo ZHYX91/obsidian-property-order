@@ -8,6 +8,8 @@ Move a value between compatible list properties on desktop:
 
 ![Move a value between properties](https://raw.githubusercontent.com/ZHYX91/obsidian-property-order/main/docs/assets/property-order-cross-property-drag.gif)
 
+Cross-property drag is enabled by default and can be disabled in the Value drag settings.
+
 Configure native property-name suggestion ordering:
 
 ![Property-name suggestion settings](https://raw.githubusercontent.com/ZHYX91/obsidian-property-order/main/docs/assets/property-order-settings.png)
@@ -15,7 +17,7 @@ Configure native property-name suggestion ordering:
 ## Features
 
 - Drag to reorder values inside a top-level YAML list property.
-- Optionally move values between supported properties in the same note.
+- Move values between supported properties in the same note, with an option to disable it.
 - Preserve the current list format by default, or write affected lists as bracket or bullet lists.
 - Pin, move to the bottom, or hide native property-name suggestions.
 - Sort suggestions by mixed-language name or property usage count.

@@ -12,7 +12,7 @@ export const DEFAULT_SETTINGS: PropertyOrderSettings = {
   language: "auto",
   enablePropertyValueDrag: true,
   listWritebackFormat: "preserve",
-  enableCrossPropertyDrag: false,
+  enableCrossPropertyDrag: true,
   enableNativeKeySuggestionOrder: true,
   keySuggestionSortMode: "name",
   pinnedPropertyKeys: [],
@@ -55,9 +55,10 @@ export function normalizeSettings(value: unknown): PropertyOrderSettings {
       ? migratedValue.listWritebackFormat
       : defaults.listWritebackFormat,
     enableCrossPropertyDrag:
-      enablePropertyValueDrag && typeof migratedValue.enableCrossPropertyDrag === "boolean"
+      enablePropertyValueDrag &&
+      (typeof migratedValue.enableCrossPropertyDrag === "boolean"
         ? migratedValue.enableCrossPropertyDrag
-        : defaults.enableCrossPropertyDrag,
+        : defaults.enableCrossPropertyDrag),
     enableNativeKeySuggestionOrder:
       typeof migratedValue.enableNativeKeySuggestionOrder === "boolean"
         ? migratedValue.enableNativeKeySuggestionOrder

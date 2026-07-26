@@ -334,7 +334,7 @@ describe("PropertyValueOrderController", () => {
     });
   });
 
-  it("adds a reorder action to the native mobile value menu without suppressing it", () => {
+  it("adds the default reorder-or-move action without suppressing the native mobile menu", () => {
     Platform.isMobileApp = true;
     const harness = createHarness();
     const hostContextMenu = vi.fn();
@@ -351,17 +351,17 @@ describe("PropertyValueOrderController", () => {
     expect(menuHarness.items).toHaveLength(1);
     expect(menuHarness.items[0]).toMatchObject({
       icon: "move",
-      title: "Reorder",
+      title: "Reorder or move",
     });
 
     document.removeEventListener("contextmenu", hostContextMenu);
     harness.cleanup();
   });
 
-  it("uses the cross-property label when mobile cross-property drag is enabled", () => {
+  it("uses the reorder-only label when mobile cross-property drag is disabled", () => {
     Platform.isMobileApp = true;
     const harness = createHarness();
-    harness.settings.enableCrossPropertyDrag = true;
+    harness.settings.enableCrossPropertyDrag = false;
 
     harness.pill.dispatchEvent(
       new MouseEvent("contextmenu", {
@@ -370,7 +370,7 @@ describe("PropertyValueOrderController", () => {
       }),
     );
 
-    expect(menuHarness.items[0]?.title).toBe("Reorder or move");
+    expect(menuHarness.items[0]?.title).toBe("Reorder");
     harness.cleanup();
   });
 

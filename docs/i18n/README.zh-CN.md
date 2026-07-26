@@ -8,6 +8,8 @@ Property Order 用于安全地重排 Obsidian Properties 中的列表值，并�
 
 ![在属性之间移动值](https://raw.githubusercontent.com/ZHYX91/obsidian-property-order/main/docs/assets/property-order-cross-property-drag.gif)
 
+跨属性拖拽默认开启，可在“值拖拽”设置中关闭。
+
 配置原生属性名称候选排序：
 
 ![属性名称候选设置](https://raw.githubusercontent.com/ZHYX91/obsidian-property-order/main/docs/assets/property-order-settings.png)
@@ -15,7 +17,7 @@ Property Order 用于安全地重排 Obsidian Properties 中的列表值，并�
 ## 功能特性
 
 - 重排顶层 YAML 列表属性中的值；
-- 可选在同一篇笔记的受支持属性之间移动值；
+- 在同一篇笔记的受支持属性之间移动值，并可在设置中关闭；
 - 默认保留当前列表格式，也可将受影响的列表写成中括号列表或无序列表；
 - 置顶、置底或隐藏原生属性名称候选；
 - 按混合语言名称或属性使用次数排序候选；

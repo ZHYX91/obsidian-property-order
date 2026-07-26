@@ -41,7 +41,7 @@ The enhancement must remain local, reversible, and fail-safe. Unrecognized host 
 - Settings use a versioned schema with sequential migration and normalization of invalid values.
 - General, Value drag, and Key order tabs retain immediate-application semantics.
 - Persistence failure keeps the in-memory state and presents a localized Notice, accessible unsaved status, and Retry action.
-- Cross-property drag is disabled by default; key-suggestion enhancement can be disabled independently and fully restores host state.
+- Cross-property drag is enabled by default and can be disabled independently; key-suggestion enhancement can also be disabled independently and fully restores host state.
 
 ## Explicit non-goals and limitations
 
