@@ -12,7 +12,7 @@ body:
     attributes:
       label: Versions
       description: Property Order, Obsidian, and operating-system versions
-      placeholder: Property Order 0.1.1; Obsidian 1.12.7; Windows 11
+      placeholder: Property Order x.y.z; Obsidian x.y.z; Windows 11
     validations:
       required: true
   - type: dropdown
