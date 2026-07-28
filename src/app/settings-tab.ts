@@ -93,12 +93,13 @@ export class PropertyOrderSettingTab extends PluginSettingTab {
     this.applyControlValue(key, value);
     await this.persistSettings(shouldRefreshKeySuggestions(key));
 
-    if (
-      key === "enableNativeKeySuggestionOrder" ||
-      key === "enablePropertyValueDrag" ||
-      key === "language"
-    ) {
+    if (key === "language") {
       updateDeclarativeSettingTab(this);
+    } else if (
+      key === "enableNativeKeySuggestionOrder" ||
+      key === "enablePropertyValueDrag"
+    ) {
+      refreshDeclarativeSettingTabState(this);
     }
   }
 
@@ -832,5 +833,12 @@ function updateDeclarativeSettingTab(settingTab: object): void {
   const update: unknown = Reflect.get(settingTab, "update");
   if (typeof update === "function") {
     Reflect.apply(update, settingTab, []);
+  }
+}
+
+function refreshDeclarativeSettingTabState(settingTab: object): void {
+  const refreshDomState: unknown = Reflect.get(settingTab, "refreshDomState");
+  if (typeof refreshDomState === "function") {
+    Reflect.apply(refreshDomState, settingTab, []);
   }
 }
