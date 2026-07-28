@@ -127,7 +127,7 @@ export function toBlockItemToken(
   };
 }
 
-function isSupportedBlockScalar(raw: string): boolean {
+export function isSupportedBlockScalar(raw: string): boolean {
   const trimmed = raw.trim();
 
   if (trimmed.length === 0) {

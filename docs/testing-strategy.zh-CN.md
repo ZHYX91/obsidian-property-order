@@ -21,7 +21,7 @@ Lint 使用当前 Obsidian API typings，兼容性仍以 `manifest.json` 为契�
 
 测试按职责分布在 `tests/core/`、`tests/features/`、`tests/obsidian/`、`tests/shared/`、`tests/app/` 和 `tests/scripts/`。固定契约覆盖：
 
-- flow/block/empty、BOM、LF/CRLF/CR、引号、注释、空行、YAML core scalar 类型和不支持结构 fail closed；
+- flow/block/empty、宿主列表类型下的 null/标量安全转换、BOM、LF/CRLF/CR、引号、注释、空行、YAML core scalar 类型和不支持结构 fail closed；
 - 桌面 mouse/touch/pen 状态机、移动端原生菜单扩展与单次待拖动状态、drop 几何、空列表与空标量区分、非列表拒绝目标、经过不提示、松手单次 Notice、noop、取消、内容冲突、pane/file/editor 身份、未保存编辑内容、单次 editor transaction、事务不生效及不手工修改宿主 pill DOM；
 - Properties 与候选 DOM adapter、可见候选排序、全部隐藏、键盘导航、焦点离开、无菜单时 usage 缓存失效不触发 Vault 扫描和 fail open；
 - settings 迁移、即时生效、保存失败、Retry、1.13 之前的页签语义、1.13 声明式页面与搜索、自定义控件存储和窄屏 CSS；
@@ -45,7 +45,7 @@ npm run acceptance:conflict -- --vault <isolated-vault> --file <fixture> --delay
 桌面 Obsidian 必须验证：
 
 - 插件启用、停用、重载和完整重启；
-- 同属性前移/后移/首位/末位/noop，以及跨属性开启和关闭；空列表 `[]` 接受移动，空标量属性拒绝移动；
+- 同属性前移/后移/首位/末位/noop，以及跨属性开启和关闭；宿主定义的列表目标在 YAML 为 `[]`、空值或受支持标量时都接受移动并正确格式化，宿主非列表目标拒绝移动；
 - 多 leaf、跨文件拒绝、真实内容冲突和 `preserve`/`flow`/`block` 写回；
 - 非列表目标在深浅主题下显示警示轮廓与 `not-allowed` 光标、不显示插入线，经过后离开无 Notice，在其上松手只提示一次且不写回；
 - 一次成功拖拽对应一次 `Ctrl+Z` 撤销和一次 redo，且未保存正文不会被覆盖；

@@ -22,7 +22,7 @@ The lint gate uses current Obsidian API typings while `manifest.json` remains th
 
 Tests are organized under `tests/core/`, `tests/features/`, `tests/obsidian/`, `tests/shared/`, `tests/app/`, and `tests/scripts/`. Stable contracts cover:
 
-- flow/block/empty lists, BOM, LF/CRLF/CR, quoting, comments, blank lines, YAML core scalar types, and unsupported-structure fail closed;
+- flow/block/empty lists, safe null/scalar coercion under a host list type, BOM, LF/CRLF/CR, quoting, comments, blank lines, YAML core scalar types, and unsupported-structure fail closed;
 - desktop mouse/touch/pen state, mobile native-menu extension and one-shot arming, drop geometry, empty-list versus empty-scalar classification, non-list rejection, no Notice while passing over, one Notice on release, no-op, cancellation, content conflict, pane/file/editor identity, unsaved editor text, one editor transaction, ineffective transactions, and no manual mutation of host pill DOM;
 - Properties and suggestion DOM adapters, visible ordering, all-hidden behavior, keyboard navigation, focus departure, usage-cache invalidation without a Vault scan when no menu is open, and fail open;
 - settings migration, immediate application, persistence failure, Retry, pre-1.13 tab semantics, 1.13 declarative pages/search, custom control storage, and narrow-layout CSS;
@@ -46,7 +46,7 @@ Scripts validate the Obsidian Vault, resolve real paths, and constrain writes. L
 Desktop Obsidian verifies:
 
 - enable, disable, reload, and full restart;
-- same-property forward/backward/first/last/no-op and cross-property enabled/disabled behavior; an empty list `[]` accepts a move while an empty scalar property rejects it;
+- same-property forward/backward/first/last/no-op and cross-property enabled/disabled behavior; a host-defined list target accepts and correctly formats `[]`, an empty value, or a supported scalar in YAML, while a host non-list target rejects the move;
 - multiple leaves, cross-file refusal, real content conflict, and `preserve`/`flow`/`block` writeback;
 - a non-list target shows a warning outline and `not-allowed` cursor without an insertion line in both themes, leaving it shows no Notice, and releasing on it shows exactly one Notice without writeback;
 - one `Ctrl+Z` undo and one redo for each successful drag, without overwriting unsaved body edits;

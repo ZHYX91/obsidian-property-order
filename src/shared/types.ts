@@ -24,6 +24,7 @@ export interface FrontmatterReorderOptions {
 }
 
 export interface FrontmatterMoveOptions {
+  coerceTargetScalarToList?: boolean;
   sourcePropertyKey: string;
   targetPropertyKey: string;
   sourceIndex: number;

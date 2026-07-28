@@ -373,6 +373,57 @@ describe("writePropertyValueDrop", () => {
     expect(fixture.getContent()).toBe(latestContent);
   });
 
+  it("coerces a scalar target selected through the host list editor", async () => {
+    const content = [
+      "---",
+      "source: [alpha, beta]",
+      "target: existing",
+      "---",
+    ].join("\n");
+    const fixture = createEditorWithCurrentContent(content);
+
+    const result = await writePropertyValueDrop({
+      editor: fixture.editor,
+      expectedContent: content,
+      sourceContext: createContext("source", 0),
+      target: createTarget("target", "move", 1),
+      writebackFormat: "preserve",
+    });
+
+    expect(result).toEqual({ status: "written" });
+    expect(fixture.getContent()).toBe(
+      ["---", "source: [beta]", "target: [existing, alpha]", "---"].join("\n"),
+    );
+  });
+
+  it("detects a scalar target change before coercing it into a list", async () => {
+    const expectedContent = [
+      "---",
+      "source: [alpha]",
+      "target: existing",
+      "---",
+    ].join("\n");
+    const latestContent = [
+      "---",
+      "source: [alpha]",
+      "target: externally changed",
+      "---",
+    ].join("\n");
+    const fixture = createEditorWithCurrentContent(latestContent);
+
+    const result = await writePropertyValueDrop({
+      editor: fixture.editor,
+      expectedContent,
+      sourceContext: createContext("source", 0),
+      target: createTarget("target", "move", 1),
+      writebackFormat: "preserve",
+    });
+
+    expect(result).toEqual({ status: "conflict" });
+    expect(fixture.getContent()).toBe(latestContent);
+    expect(fixture.transactions).toHaveLength(0);
+  });
+
   it("skips a same-property noop without changing content", async () => {
     const content = ["---", "tags: [alpha, beta]", "---"].join("\n");
     const fixture = createEditorWithCurrentContent(content);

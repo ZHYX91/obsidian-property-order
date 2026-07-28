@@ -315,6 +315,30 @@ function addEmptyListProperty(
   return { container, placeholder, property };
 }
 
+function addScalarBackedListProperty(
+  harness: ControllerHarness,
+  propertyKey: string,
+  value: string,
+  left = 320,
+  right = 600,
+): { container: HTMLElement; pill: HTMLElement; property: HTMLElement } {
+  const property = document.createElement("div");
+  property.className = "metadata-property";
+  property.dataset.propertyKey = propertyKey;
+  property.getBoundingClientRect = () => createRect(left, right);
+  const container = document.createElement("div");
+  container.className = "multi-select-container";
+  container.getBoundingClientRect = () => createRect(left, right);
+  const pill = document.createElement("div");
+  pill.className = "multi-select-pill";
+  pill.textContent = value;
+  pill.getBoundingClientRect = () => createRect(left + 10, left + 110);
+  container.appendChild(pill);
+  property.appendChild(container);
+  harness.container.closest(".metadata-container")?.appendChild(property);
+  return { container, pill, property };
+}
+
 function dispatchPointer(
   target: EventTarget,
   type: "pointerdown" | "pointermove" | "pointerup",
@@ -781,6 +805,28 @@ describe("PropertyValueOrderController", () => {
     expect(harness.container.contains(harness.pill)).toBe(true);
     expect(target.container.contains(harness.pill)).toBe(false);
     expect(target.placeholder.isConnected).toBe(true);
+    expect(noticeSpy).not.toHaveBeenCalled();
+    harness.cleanup();
+  });
+
+  it("coerces scalar storage when Obsidian renders the target as a list property", async () => {
+    const raf = installRafHarness();
+    const harness = createHarness();
+    harness.frontmatter.target = "existing";
+    harness.editor.setContent("---\nflow: [alpha, beta]\ntarget: existing\n---\n");
+    const target = addScalarBackedListProperty(harness, "target", "existing");
+
+    dispatchPointer(harness.pill, "pointerdown", 10);
+    dispatchPointer(document, "pointermove", 550);
+    raf.flush();
+    dispatchPointer(document, "pointerup", 550);
+
+    await vi.waitFor(() => expect(harness.editor.transaction).toHaveBeenCalledTimes(1));
+    expect(harness.editor.getContent()).toBe(
+      "---\nflow: [beta]\ntarget: [existing, alpha]\n---\n",
+    );
+    expect(target.container.contains(harness.pill)).toBe(false);
+    expect(target.container.contains(target.pill)).toBe(true);
     expect(noticeSpy).not.toHaveBeenCalled();
     harness.cleanup();
   });

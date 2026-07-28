@@ -356,6 +356,94 @@ describe("moveFrontmatterListPropertyValue", () => {
     expect(output).toBe(["---", "aliases: [alpha]", "related:", "  - beta", "---"].join("\n"));
   });
 
+  it("coerces a host-declared scalar target into a list while preserving its value first", () => {
+    const input = [
+      "---",
+      "aliases: [alpha, beta]",
+      "related: existing # keep",
+      "---",
+    ].join("\n");
+
+    const output = moveFrontmatterListPropertyValue(input, {
+      coerceTargetScalarToList: true,
+      sourcePropertyKey: "aliases",
+      targetPropertyKey: "related",
+      sourceIndex: 0,
+      targetSlot: 1,
+      writebackFormat: "preserve",
+    });
+
+    expect(output).toBe(
+      ["---", "aliases: [beta]", "related: [existing, alpha] # keep", "---"].join("\n"),
+    );
+  });
+
+  it("treats an explicit null scalar as an empty host-declared list", () => {
+    const input = ["---", "aliases: [alpha, beta]", "related: null", "---"].join("\n");
+
+    const output = moveFrontmatterListPropertyValue(input, {
+      coerceTargetScalarToList: true,
+      sourcePropertyKey: "aliases",
+      targetPropertyKey: "related",
+      sourceIndex: 0,
+      targetSlot: 0,
+      writebackFormat: "preserve",
+    });
+
+    expect(output).toBe(["---", "aliases: [beta]", "related: [alpha]", "---"].join("\n"));
+  });
+
+  it("quotes a scalar that is unsafe when converted into flow-list syntax", () => {
+    const input = ["---", "aliases: [alpha]", "related: Alpha, Beta", "---"].join("\n");
+
+    const output = moveFrontmatterListPropertyValue(input, {
+      coerceTargetScalarToList: true,
+      sourcePropertyKey: "aliases",
+      targetPropertyKey: "related",
+      sourceIndex: 0,
+      targetSlot: 1,
+      writebackFormat: "preserve",
+    });
+
+    expect(output).toBe(
+      ["---", "aliases: []", 'related: ["Alpha, Beta", alpha]', "---"].join("\n"),
+    );
+  });
+
+  it("does not coerce a scalar target without host list-type permission", () => {
+    const input = ["---", "aliases: [alpha]", "related: existing", "---"].join("\n");
+
+    expect(
+      moveFrontmatterListPropertyValue(input, {
+        sourcePropertyKey: "aliases",
+        targetPropertyKey: "related",
+        sourceIndex: 0,
+        targetSlot: 1,
+        writebackFormat: "preserve",
+      }),
+    ).toBeNull();
+  });
+
+  it("fails closed for an object target even with host list-type permission", () => {
+    const input = [
+      "---",
+      "aliases: [alpha]",
+      "related: {name: nested}",
+      "---",
+    ].join("\n");
+
+    expect(
+      moveFrontmatterListPropertyValue(input, {
+        coerceTargetScalarToList: true,
+        sourcePropertyKey: "aliases",
+        targetPropertyKey: "related",
+        sourceIndex: 0,
+        targetSlot: 1,
+        writebackFormat: "preserve",
+      }),
+    ).toBeNull();
+  });
+
   it("falls back to same-property reorder when source and target are equal", () => {
     const input = ["---", "aliases: [alpha, beta, gamma]", "---"].join("\n");
 

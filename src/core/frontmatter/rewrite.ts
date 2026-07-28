@@ -4,6 +4,7 @@ import type {
   ListWritebackFormat,
 } from "../../shared/types";
 import {
+  isSupportedBlockScalar,
   renderBlockProperty,
   parseBlockSequence,
   toBlockItemToken,
@@ -12,8 +13,19 @@ import {
 import { detectNewline, extractFrontmatterBounds, getLineOffsets, splitLines } from "./bounds";
 import { parseFlowSequence, renderFlowProperty, toFlowItemToken } from "./flow-list";
 import { parseTopLevelPropertyLine } from "./property-line";
-import { renderInlineComment, splitInlineComment } from "./scalar";
-import type { FrontmatterScalar, PropertyItem, PropertyMatch } from "./types";
+import {
+  parseScalar,
+  renderInlineComment,
+  serializeNormalizedScalar,
+  splitInlineComment,
+} from "./scalar";
+import type {
+  FlowPropertyMatch,
+  FrontmatterScalar,
+  ListItemToken,
+  PropertyItem,
+  PropertyMatch,
+} from "./types";
 
 export function reorderFrontmatterListProperty(
   content: string,
@@ -76,7 +88,11 @@ export function moveFrontmatterListPropertyValue(
   }
 
   const sourceProperty = findProperty(frontmatter.body, options.sourcePropertyKey);
-  const targetProperty = findProperty(frontmatter.body, options.targetPropertyKey);
+  const targetProperty =
+    findProperty(frontmatter.body, options.targetPropertyKey) ??
+    (options.coerceTargetScalarToList
+      ? findCoercibleScalarProperty(frontmatter.body, options.targetPropertyKey)
+      : null);
 
   if (
     sourceProperty == null ||
@@ -132,19 +148,85 @@ export function moveFrontmatterListPropertyValue(
 export function getFrontmatterListPropertyValues(
   content: string,
   propertyKey: string,
+  coerceScalarToList = false,
 ): string[] | null {
   const frontmatter = extractFrontmatterBounds(content);
-  const property = frontmatter == null ? null : findProperty(frontmatter.body, propertyKey);
+  const property =
+    frontmatter == null
+      ? null
+      : findProperty(frontmatter.body, propertyKey) ??
+        (coerceScalarToList
+          ? findCoercibleScalarProperty(frontmatter.body, propertyKey)
+          : null);
   return property == null ? null : property.items.map((item) => item.scalar.value);
 }
 
 export function getFrontmatterListPropertyScalars(
   content: string,
   propertyKey: string,
+  coerceScalarToList = false,
 ): FrontmatterScalar[] | null {
   const frontmatter = extractFrontmatterBounds(content);
-  const property = frontmatter == null ? null : findProperty(frontmatter.body, propertyKey);
+  const property =
+    frontmatter == null
+      ? null
+      : findProperty(frontmatter.body, propertyKey) ??
+        (coerceScalarToList
+          ? findCoercibleScalarProperty(frontmatter.body, propertyKey)
+          : null);
   return property == null ? null : property.items.map((item) => item.scalar);
+}
+
+function findCoercibleScalarProperty(
+  frontmatterBody: string,
+  propertyKey: string,
+): FlowPropertyMatch | null {
+  const newline = detectNewline(frontmatterBody);
+  const lines = splitLines(frontmatterBody, newline);
+  const lineOffsets = getLineOffsets(lines, newline);
+
+  for (let index = 0; index < lines.length; index += 1) {
+    const line = lines[index];
+    const propertyLine = parseTopLevelPropertyLine(line);
+
+    if (propertyLine == null || propertyLine.key !== propertyKey) {
+      continue;
+    }
+
+    const { rawValue, inlineComment } = splitInlineComment(propertyLine.restText.trim());
+    const rawScalar = rawValue.trim();
+
+    if (rawScalar.length === 0 || !isSupportedBlockScalar(rawScalar)) {
+      return null;
+    }
+
+    const scalar = parseScalar(rawScalar);
+    const items = scalar.kind === "null" ? [] : [toSafeFlowItem(rawScalar, scalar)];
+
+    return {
+      kind: "flow",
+      keyText: propertyLine.keyText,
+      start: lineOffsets[index],
+      end: lineOffsets[index] + line.length,
+      items,
+      inlineComment,
+    };
+  }
+
+  return null;
+}
+
+function toSafeFlowItem(rawScalar: string, scalar: FrontmatterScalar): ListItemToken {
+  const parsedItems = parseFlowSequence(`[${rawScalar}]`);
+  const parsedItem = parsedItems?.length === 1 ? parsedItems[0] : null;
+
+  return parsedItem != null && areScalarsEqual(parsedItem.scalar, scalar)
+    ? parsedItem
+    : { raw: serializeNormalizedScalar(scalar), scalar };
+}
+
+function areScalarsEqual(left: FrontmatterScalar, right: FrontmatterScalar): boolean {
+  return left.kind === right.kind && left.value === right.value;
 }
 
 export function findProperty(

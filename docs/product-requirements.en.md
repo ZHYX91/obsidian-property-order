@@ -21,11 +21,12 @@ The enhancement must remain local, reversible, and fail-safe. Unrecognized host 
 
 - Support top-level flow and block lists rendered by Obsidian Properties as pills.
 - Support same-property reorder and, when enabled, moves between supported properties in the same leaf and file.
+- When Obsidian renders the target with its multi-value list editor, the host property type is authoritative: an empty value, `[]`, or one supported YAML scalar can receive a moved value. A scalar is retained as a list item before insertion at the target slot. Objects, nested structures, and multiline values are never coerced.
 - Desktop mouse drag starts after a movement threshold; touch and pen input available to the desktop app start after long press.
 - On mobile, a native value-menu action arms one pill for 15 seconds. The next touch or pen movement on that same pill starts drag after a small threshold, without another long press. Tapping elsewhere, Escape, timeout, unload, or invalidated DOM cancels the armed state.
 - Writeback modes are `preserve`, `flow`, and `block`. Preserve mode retains the current form and all retainable scalar spelling, comments, blank lines, and input newlines in the pure rewrite; forced conversion normalizes only affected properties. Runtime writeback remains an Obsidian editor transaction, so the host may serialize an edited CRLF/CR note as LF.
 - File, leaf, source/target content, or DOM identity changes cancel the transaction without writing another file or overwriting newer content.
-- Dragging over a confirmed non-list property in the same pane shows a rejected target without an insertion indicator. A localized Notice appears only when released on that target, not while merely passing over it.
+- Dragging over a property in the same pane that Obsidian does not render as a multi-value list and that is confirmed as non-list shows a rejected target without an insertion indicator. A localized Notice appears only when released on that target, not while merely passing over it.
 - Conflicts, invalid input, and unsupported structures produce a diagnostic and leave disk content unchanged.
 
 ## Property-key suggestions

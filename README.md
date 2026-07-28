@@ -20,6 +20,7 @@ Configure native property-name suggestion ordering:
 
 - Drag to reorder values inside a top-level YAML list property.
 - Move values between supported properties in the same note, with an option to disable it.
+- Normalize an empty or scalar YAML value into a list when Obsidian defines the target as a list, preserving an existing scalar as a list item.
 - Preserve the current list format by default, or write affected lists as bracket or bullet lists.
 - Pin, move to the bottom, or hide native property-name suggestions.
 - Sort suggestions by mixed-language name or property usage count.

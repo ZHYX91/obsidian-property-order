@@ -56,6 +56,7 @@ export async function writePropertyValueDrop(
       expectedContent,
       currentContent,
       options.target.context.propertyKey,
+      true,
     ) ||
       hasExpectedPropertyValuesChanged(
         options.expectedTargetValues,
@@ -76,6 +77,7 @@ export async function writePropertyValueDrop(
           writebackFormat: options.writebackFormat,
         })
       : moveFrontmatterListPropertyValue(currentContent, {
+          coerceTargetScalarToList: true,
           sourcePropertyKey: options.sourceContext.propertyKey,
           targetPropertyKey: options.target.context.propertyKey,
           sourceIndex: options.sourceContext.sourceIndex,
@@ -177,14 +179,23 @@ function hasPropertyValuesChanged(
   expectedContent: string,
   currentContent: string,
   propertyKey: string,
+  coerceScalarToList = false,
 ): boolean {
-  const expectedValues = getFrontmatterListPropertyScalars(expectedContent, propertyKey);
+  const expectedValues = getFrontmatterListPropertyScalars(
+    expectedContent,
+    propertyKey,
+    coerceScalarToList,
+  );
 
   if (expectedValues == null) {
     return false;
   }
 
-  const currentValues = getFrontmatterListPropertyScalars(currentContent, propertyKey);
+  const currentValues = getFrontmatterListPropertyScalars(
+    currentContent,
+    propertyKey,
+    coerceScalarToList,
+  );
   return !arePropertyValuesEqual(expectedValues, currentValues);
 }
 
