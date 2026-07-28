@@ -66,6 +66,8 @@ const EN_TRANSLATIONS = {
   "notice.noFrontmatter": "Property Order: no frontmatter found in the current note.",
   "notice.propertyNotFound": "Property Order: property not found in frontmatter.",
   "notice.unsupportedProperty": "Property Order: unsupported property format.",
+  "notice.targetNotList":
+    "Property Order: can't move the value to “{property}”: the target is not a list property.",
   "notice.unsupportedContext":
     "Property Order: can't resolve this property pill. Try updating Obsidian or theme.",
   "notice.settingsSaveFailed": "Property Order: failed to save settings. Try again.",
@@ -137,6 +139,7 @@ export const TRANSLATIONS = {
     "notice.noFrontmatter": "Property Order：当前笔记未找到 frontmatter。",
     "notice.propertyNotFound": "Property Order：frontmatter 中未找到该属性。",
     "notice.unsupportedProperty": "Property Order：该属性格式暂不支持重排。",
+    "notice.targetNotList": "Property Order：无法将值移动到“{property}”：目标不是列表属性。",
     "notice.unsupportedContext": "Property Order：无法识别该属性值组件，建议更新 Obsidian 或主题。",
     "notice.settingsSaveFailed": "Property Order：设置保存失败，请重试。",
     "notice.mobileReorderArmed":
@@ -200,6 +203,7 @@ export const TRANSLATIONS = {
     "notice.noFrontmatter": "Property Order：目前筆記未找到 frontmatter。",
     "notice.propertyNotFound": "Property Order：frontmatter 中未找到該屬性。",
     "notice.unsupportedProperty": "Property Order：該屬性格式暫不支援重排。",
+    "notice.targetNotList": "Property Order：無法將值移動到「{property}」：目標不是清單屬性。",
     "notice.unsupportedContext": "Property Order：無法識別該屬性值元件，建議更新 Obsidian 或佈景主題。",
     "notice.settingsSaveFailed": "Property Order：設定儲存失敗，請重試。",
     "notice.mobileReorderArmed":

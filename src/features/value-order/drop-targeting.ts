@@ -1,10 +1,13 @@
 import {
   findPropertyContainerAtPoint,
+  findPropertyElementAtPoint,
   resolvePropertyContainerContext,
+  resolvePropertyElementContext,
   type PropertyContainerContext,
   type PropertyPillContext,
 } from "../../obsidian/properties-dom";
-import type { DropTarget } from "./types";
+import type { CachedFrontmatterPropertyKind } from "../../obsidian/metadata";
+import type { DropTarget, InvalidDropTarget } from "./types";
 
 export function resolveDropContextAtPoint(
   sourceContext: PropertyPillContext,
@@ -94,6 +97,49 @@ export function resolveDropTarget(
       : closestPill.index + 1;
 
   return buildDropTarget(targetContext, mode, slot, sourceIndex);
+}
+
+export function resolveInvalidDropTargetAtPoint(
+  sourceContext: PropertyPillContext,
+  clientX: number,
+  clientY: number,
+  enableCrossPropertyDrag: boolean,
+  paneContainer: HTMLElement | null,
+  propertyKinds: ReadonlyMap<string, CachedFrontmatterPropertyKind> | null,
+): InvalidDropTarget | null {
+  if (!enableCrossPropertyDrag || propertyKinds == null) {
+    return null;
+  }
+
+  const propertyElement = findPropertyElementAtPoint(
+    clientX,
+    clientY,
+    sourceContext.container.ownerDocument,
+  );
+
+  if (
+    propertyElement == null ||
+    propertyElement === sourceContext.propertyElement ||
+    !isSamePaneContainer(propertyElement, paneContainer)
+  ) {
+    return null;
+  }
+
+  const propertyContext = resolvePropertyElementContext(propertyElement);
+
+  if (
+    propertyContext == null ||
+    propertyKinds.get(propertyContext.propertyKey) !== "non-list"
+  ) {
+    return null;
+  }
+
+  return {
+    kind: "invalid",
+    propertyElement: propertyContext.propertyElement,
+    propertyKey: propertyContext.propertyKey,
+    reason: "non-list",
+  };
 }
 
 export function isSamePaneContainer(

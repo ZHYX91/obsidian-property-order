@@ -14,6 +14,7 @@ translation_status: source
 - 移动端待拖动状态只消费一次并在 15 秒后过期；点击其他位置、Escape、超时、插件卸载或 DOM 失效都会取消。只有待拖动按压才抑制默认触摸移动和重复原生菜单。
 - 预览保持源 pill 的渲染尺寸和单行省略，按所属 document 的 visual viewport 缩放与限制，四周保留可见边距。
 - drop indicator 必须清楚表达插入槽；同属性 noop、非法跨属性目标和跨文件目标不得写回。
+- 指针位于同一 pane 内明确的非列表属性上时，隐藏 drop indicator，以警示轮廓和 `not-allowed` 光标标记目标；仅在该目标上松手时显示一次“目标不是列表属性”Notice，经过后离开不提示。
 - 完成、取消、冲突、pointercancel、Escape、blur、文件切换或组件消失都清理预览、指示器、cursor class、计时器和临时 listener。
 - 内容冲突显示本地化提示并保留最新文件，不自动重试或覆盖。
 

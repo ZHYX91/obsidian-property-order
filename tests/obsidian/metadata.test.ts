@@ -3,6 +3,7 @@ import { describe, expect, it, vi } from "vitest";
 
 import {
   getCachedFrontmatterListProperties,
+  getCachedFrontmatterPropertyKinds,
   getCachedPropertyKeyUsage,
   getPropertyKeyUsage,
   invalidatePropertyKeyUsage,
@@ -155,5 +156,44 @@ describe("getCachedFrontmatterListProperties", () => {
     } as unknown as App;
 
     expect(getCachedFrontmatterListProperties(app, file)).toBeNull();
+  });
+});
+
+describe("getCachedFrontmatterPropertyKinds", () => {
+  it("distinguishes list properties from non-list properties", () => {
+    const file = { path: "note.md" } as TFile;
+    const app = {
+      metadataCache: {
+        getFileCache: vi.fn(() => ({
+          frontmatter: {
+            empty: null,
+            nested: [{ value: "unsupported" }],
+            position: { start: { line: 0 }, end: { line: 5 } },
+            scalar: "not-a-list",
+            values: ["alpha"],
+          },
+        })),
+      },
+    } as unknown as App;
+
+    expect(getCachedFrontmatterPropertyKinds(app, file)).toEqual(
+      new Map([
+        ["empty", "list"],
+        ["nested", "list"],
+        ["scalar", "non-list"],
+        ["values", "list"],
+      ]),
+    );
+  });
+
+  it("returns null when frontmatter metadata is unavailable", () => {
+    const file = { path: "note.md" } as TFile;
+    const app = {
+      metadataCache: {
+        getFileCache: vi.fn(() => null),
+      },
+    } as unknown as App;
+
+    expect(getCachedFrontmatterPropertyKinds(app, file)).toBeNull();
   });
 });

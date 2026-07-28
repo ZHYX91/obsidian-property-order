@@ -37,4 +37,13 @@ describe("property value drag CSS", () => {
       /\.property-order-drag-preview \.multi-select-pill-remove-button\s*\{[^}]*display:\s*none;/s,
     );
   });
+
+  it("shows a rejected property target with a no-drop cursor", () => {
+    expect(styles).toMatch(
+      /body\.property-order-drag-cursor-active\.property-order-drag-cursor-invalid[^}]*\{[^}]*cursor:\s*not-allowed\s*!important;/s,
+    );
+    expect(styles).toMatch(
+      /\.metadata-property\.property-order-invalid-drop-target\s*\{[^}]*outline:\s*2px solid var\(--text-error\);[^}]*background:/s,
+    );
+  });
 });

@@ -23,7 +23,7 @@ The lint gate uses current Obsidian API typings while `manifest.json` remains th
 Tests are organized under `tests/core/`, `tests/features/`, `tests/obsidian/`, `tests/shared/`, `tests/app/`, and `tests/scripts/`. Stable contracts cover:
 
 - flow/block/empty lists, BOM, LF/CRLF/CR, quoting, comments, blank lines, YAML core scalar types, and unsupported-structure fail closed;
-- desktop mouse/touch/pen state, mobile native-menu extension and one-shot arming, drop geometry, no-op, cancellation, content conflict, pane/file/editor identity, unsaved editor text, and one editor transaction;
+- desktop mouse/touch/pen state, mobile native-menu extension and one-shot arming, drop geometry, non-list rejection, no Notice while passing over, one Notice on release, no-op, cancellation, content conflict, pane/file/editor identity, unsaved editor text, and one editor transaction;
 - Properties and suggestion DOM adapters, visible ordering, all-hidden behavior, keyboard navigation, focus departure, usage-cache invalidation without a Vault scan when no menu is open, and fail open;
 - settings migration, immediate application, persistence failure, Retry, tab semantics, and narrow-layout CSS;
 - release tags, three loose assets, the manual-install archive, and idempotent Release updates.
@@ -48,6 +48,7 @@ Desktop Obsidian verifies:
 - enable, disable, reload, and full restart;
 - same-property forward/backward/first/last/no-op and cross-property enabled/disabled behavior;
 - multiple leaves, cross-file refusal, real content conflict, and `preserve`/`flow`/`block` writeback;
+- a non-list target shows a warning outline and `not-allowed` cursor without an insertion line in both themes, leaving it shows no Notice, and releasing on it shows exactly one Notice without writeback;
 - one `Ctrl+Z` undo and one redo for each successful drag, without overwriting unsaved body edits;
 - pinned/hidden/bottom, name/usage, menu reuse, all-hidden, hover-to-keyboard, arrows/Home/End/PageUp/PageDown/Enter/Escape, and focus departure;
 - immediate settings, three-tab keyboard semantics, light/dark themes, and narrow layout.
@@ -56,6 +57,7 @@ The Android emulator verifies:
 
 - the native Edit, Remove from list, and Copy actions remain present alongside Reorder or Reorder or move;
 - selecting the added action arms only that pill, the next same-pill touch drag can reorder or move it, and outside tap, Escape, timeout, backgrounding, or plugin disable cancels cleanly;
+- a non-list target shows rejection feedback, releasing on it shows one Notice without writeback, and leaving it clears all feedback;
 - touch suggestion selection, roughly 394px settings layout, rotation, and active-tab reveal;
 - background/foreground recovery, plugin disable/re-enable, and absence of crash or ANR.
 

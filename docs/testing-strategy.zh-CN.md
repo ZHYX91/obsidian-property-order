@@ -22,7 +22,7 @@ Lint 使用当前 Obsidian API typings，兼容性仍以 `manifest.json` 为契�
 测试按职责分布在 `tests/core/`、`tests/features/`、`tests/obsidian/`、`tests/shared/`、`tests/app/` 和 `tests/scripts/`。固定契约覆盖：
 
 - flow/block/empty、BOM、LF/CRLF/CR、引号、注释、空行、YAML core scalar 类型和不支持结构 fail closed；
-- 桌面 mouse/touch/pen 状态机、移动端原生菜单扩展与单次待拖动状态、drop 几何、noop、取消、内容冲突、pane/file/editor 身份、未保存编辑内容和单次 editor transaction；
+- 桌面 mouse/touch/pen 状态机、移动端原生菜单扩展与单次待拖动状态、drop 几何、非列表拒绝目标、经过不提示、松手单次 Notice、noop、取消、内容冲突、pane/file/editor 身份、未保存编辑内容和单次 editor transaction；
 - Properties 与候选 DOM adapter、可见候选排序、全部隐藏、键盘导航、焦点离开、无菜单时 usage 缓存失效不触发 Vault 扫描和 fail open；
 - settings 迁移、即时生效、保存失败、Retry、页签语义与窄屏 CSS；
 - release 标签、三个官方附件、手动安装 ZIP 和幂等 Release 更新。
@@ -47,6 +47,7 @@ npm run acceptance:conflict -- --vault <isolated-vault> --file <fixture> --delay
 - 插件启用、停用、重载和完整重启；
 - 同属性前移/后移/首位/末位/noop，以及跨属性开启和关闭；
 - 多 leaf、跨文件拒绝、真实内容冲突和 `preserve`/`flow`/`block` 写回；
+- 非列表目标在深浅主题下显示警示轮廓与 `not-allowed` 光标、不显示插入线，经过后离开无 Notice，在其上松手只提示一次且不写回；
 - 一次成功拖拽对应一次 `Ctrl+Z` 撤销和一次 redo，且未保存正文不会被覆盖；
 - 键候选 pinned/hidden/bottom、name/usage、菜单复用、全部隐藏、hover 后键盘、方向键/Home/End/PageUp/PageDown/Enter/Escape 与焦点离开；
 - 设置即时生效、三页签键盘语义、深浅主题和窄窗口布局。
@@ -55,6 +56,7 @@ Android 模拟器必须验证：
 
 - 原生“编辑 / 从列表中移除 / 复制”与新增的“重排”或“重排或移动”同时保留；
 - 选择新增操作后只把该 pill 置为待拖动状态，下一次同 pill 触摸拖拽可完成重排或移动；点击其他位置、Escape、超时、切后台或停用插件都会干净取消；
+- 拖到非列表目标显示拒绝态，在其上松手只提示一次且不写回，离开目标后提示和样式都不残留；
 - 候选触摸选择、394px 级窄屏设置布局、横竖屏旋转和活动页签显露；
 - 前后台恢复、插件停用/重启用，以及无崩溃或 ANR。
 

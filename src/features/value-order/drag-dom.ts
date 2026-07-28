@@ -3,7 +3,7 @@ import {
   isPropertyPillElement,
   type PropertyPillContext,
 } from "../../obsidian/properties-dom";
-import type { DropTarget } from "./types";
+import type { DropTarget, InvalidDropTarget } from "./types";
 
 const DRAG_PREVIEW_OFFSET_X = 16;
 const DRAG_PREVIEW_OFFSET_Y = 16;
@@ -48,6 +48,22 @@ export function suppressNativeDrag(pill: HTMLElement): () => void {
 
 export function setDocumentDragCursorActive(targetDocument: Document, active: boolean): void {
   targetDocument.body.classList.toggle("property-order-drag-cursor-active", active);
+}
+
+export function updateInvalidDropTarget(
+  targetDocument: Document,
+  previousTarget: InvalidDropTarget | null,
+  nextTarget: InvalidDropTarget | null,
+): void {
+  if (previousTarget?.propertyElement !== nextTarget?.propertyElement) {
+    previousTarget?.propertyElement.classList.remove("property-order-invalid-drop-target");
+    nextTarget?.propertyElement.classList.add("property-order-invalid-drop-target");
+  }
+
+  targetDocument.body.classList.toggle(
+    "property-order-drag-cursor-invalid",
+    nextTarget != null,
+  );
 }
 
 export function applyDomDrop(sourceContext: PropertyPillContext, target: DropTarget): void {

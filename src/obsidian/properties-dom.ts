@@ -14,6 +14,11 @@ export interface PropertyPillContext {
   sourceIndex: number;
 }
 
+export interface PropertyElementContext {
+  propertyElement: HTMLElement;
+  propertyKey: string;
+}
+
 const METADATA_CONTAINER_SELECTOR = ".metadata-container";
 const PROPERTY_CONTAINER_SELECTOR = ".multi-select-container";
 const PROPERTY_ELEMENT_SELECTOR = ".metadata-property";
@@ -82,6 +87,20 @@ export function resolvePropertyContainerContext(
   };
 }
 
+export function resolvePropertyElementContext(
+  propertyElement: HTMLElement,
+): PropertyElementContext | null {
+  if (
+    !propertyElement.matches(PROPERTY_ELEMENT_SELECTOR) ||
+    propertyElement.closest(METADATA_CONTAINER_SELECTOR) == null
+  ) {
+    return null;
+  }
+
+  const propertyKey = resolvePropertyKey(propertyElement);
+  return propertyKey == null ? null : { propertyElement, propertyKey };
+}
+
 export function getContainerPills(container: HTMLElement): HTMLElement[] {
   return Array.from(container.querySelectorAll<HTMLElement>(PROPERTY_PILL_SELECTOR)).filter(
     (pill) => pill.closest(PROPERTY_CONTAINER_SELECTOR) === container,
@@ -130,6 +149,28 @@ export function findPropertyContainerAtPoint(
   return (
     Array.from(candidates).find((container) =>
       isPointInsideRect(clientX, clientY, container.getBoundingClientRect()),
+    ) ?? null
+  );
+}
+
+export function findPropertyElementAtPoint(
+  clientX: number,
+  clientY: number,
+  targetDocument: Document,
+): HTMLElement | null {
+  const targetElement = targetDocument.elementFromPoint(clientX, clientY);
+  const directProperty = targetElement?.closest<HTMLElement>(PROPERTY_ELEMENT_SELECTOR);
+
+  if (directProperty?.closest(METADATA_CONTAINER_SELECTOR) != null) {
+    return directProperty;
+  }
+
+  const candidates = targetDocument.querySelectorAll<HTMLElement>(
+    `${METADATA_CONTAINER_SELECTOR} ${PROPERTY_ELEMENT_SELECTOR}`,
+  );
+  return (
+    Array.from(candidates).find((propertyElement) =>
+      isPointInsideRect(clientX, clientY, propertyElement.getBoundingClientRect()),
     ) ?? null
   );
 }

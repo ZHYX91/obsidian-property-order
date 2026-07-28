@@ -88,6 +88,7 @@ interface ControllerHarness {
     transaction: ReturnType<typeof vi.fn>;
   };
   file: TFile;
+  frontmatter: Record<string, unknown>;
   leaf: {
     containerEl: HTMLElement;
     view: { containerEl: HTMLElement; editor: Editor; file: TFile };
@@ -192,6 +193,7 @@ function positionToOffset(
 function createHarness(): ControllerHarness {
   const settings = createDefaultSettings();
   const file = { path: "Source.md" } as TFile;
+  const frontmatter: Record<string, unknown> = { flow: ["alpha", "beta"] };
   const pane = document.createElement("div");
   pane.className = "workspace-leaf";
   const metadata = document.createElement("div");
@@ -226,7 +228,7 @@ function createHarness(): ControllerHarness {
   const plugin = {
     app: {
       metadataCache: {
-        getFileCache: () => ({ frontmatter: { flow: ["alpha", "beta"] } }),
+        getFileCache: () => ({ frontmatter }),
       },
       workspace: {
         getActiveFile: () => leaf.view.file,
@@ -264,6 +266,7 @@ function createHarness(): ControllerHarness {
     controller,
     editor,
     file,
+    frontmatter,
     leaf,
     openWorkspaceWindow(targetWindow: Window) {
       windowOpenCallback?.({} as never, targetWindow);
@@ -272,6 +275,22 @@ function createHarness(): ControllerHarness {
     plugin,
     settings,
   };
+}
+
+function addScalarProperty(
+  harness: ControllerHarness,
+  propertyKey: string,
+  left = 320,
+  right = 600,
+): HTMLElement {
+  const property = document.createElement("div");
+  property.className = "metadata-property";
+  property.dataset.propertyKey = propertyKey;
+  property.getBoundingClientRect = () => createRect(left, right);
+  const input = document.createElement("input");
+  property.appendChild(input);
+  harness.container.closest(".metadata-container")?.appendChild(property);
+  return property;
 }
 
 function dispatchPointer(
@@ -699,6 +718,68 @@ describe("PropertyValueOrderController", () => {
 
     await vi.waitFor(() => expect(harness.editor.transaction).toHaveBeenCalledTimes(1));
     expect(document.querySelector(".property-order-drag-preview")).toBeNull();
+    harness.cleanup();
+  });
+
+  it("marks a non-list target and explains the rejected drop once", () => {
+    const raf = installRafHarness();
+    const harness = createHarness();
+    harness.frontmatter.status = "open";
+    const scalarProperty = addScalarProperty(harness, "status");
+
+    dispatchPointer(harness.pill, "pointerdown", 10);
+    dispatchPointer(document, "pointermove", 400);
+    raf.flush();
+
+    expect(scalarProperty.classList.contains("property-order-invalid-drop-target")).toBe(true);
+    expect(document.body.classList.contains("property-order-drag-cursor-invalid")).toBe(true);
+    expect(document.querySelector(".property-order-drop-indicator.is-visible")).toBeNull();
+    expect(noticeSpy).not.toHaveBeenCalled();
+
+    dispatchPointer(document, "pointerup", 400);
+
+    expect(noticeSpy).toHaveBeenCalledTimes(1);
+    expect(noticeSpy).toHaveBeenCalledWith(
+      "Property Order: can't move the value to “status”: the target is not a list property.",
+    );
+    expect(harness.editor.transaction).not.toHaveBeenCalled();
+    expect(scalarProperty.classList.contains("property-order-invalid-drop-target")).toBe(false);
+    expect(document.body.classList.contains("property-order-drag-cursor-invalid")).toBe(false);
+    harness.cleanup();
+  });
+
+  it("does not show a notice after leaving a non-list target before release", () => {
+    const raf = installRafHarness();
+    const harness = createHarness();
+    harness.frontmatter.status = "open";
+    const scalarProperty = addScalarProperty(harness, "status");
+
+    dispatchPointer(harness.pill, "pointerdown", 10);
+    dispatchPointer(document, "pointermove", 400);
+    raf.flush();
+    dispatchPointer(document, "pointermove", 10);
+    raf.flush();
+
+    expect(scalarProperty.classList.contains("property-order-invalid-drop-target")).toBe(false);
+    dispatchPointer(document, "pointerup", 10);
+    expect(noticeSpy).not.toHaveBeenCalled();
+    harness.cleanup();
+  });
+
+  it("does not treat a non-list property as a target when cross-property drag is disabled", () => {
+    const raf = installRafHarness();
+    const harness = createHarness();
+    harness.settings.enableCrossPropertyDrag = false;
+    harness.frontmatter.status = "open";
+    const scalarProperty = addScalarProperty(harness, "status");
+
+    dispatchPointer(harness.pill, "pointerdown", 10);
+    dispatchPointer(document, "pointermove", 400);
+    raf.flush();
+    dispatchPointer(document, "pointerup", 400);
+
+    expect(scalarProperty.classList.contains("property-order-invalid-drop-target")).toBe(false);
+    expect(noticeSpy).not.toHaveBeenCalled();
     harness.cleanup();
   });
 

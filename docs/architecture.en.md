@@ -65,8 +65,8 @@ Missing properties, unsupported values, index conflicts, and content conflicts r
 `core/interaction/pointer-drag.ts` is the pure state machine. It converts mouse/touch/pen press, movement, long-press timing, release, and interruption into actions such as `start`, `cancel`, and `finish`, without DOM access. `value-drag-controller.ts` only orchestrates actions and resource lifetimes:
 
 1. Capture the source property, source index, file path, and the leaf's public `MarkdownView.editor` from the initiating pill, Properties container, and pane. At the same time, synchronously capture conflict snapshots from editor text and the public Metadata Cache.
-2. Let `drop-targeting.ts` resolve a target container and insertion slot in the same pane; cross-property permission is read from current settings for each event.
-3. Let `drag-dom.ts` own the preview, indicator, cursor class, and optimistic DOM. Every cancellation path must fully clean them up.
+2. Let `drop-targeting.ts` resolve a target container and insertion slot in the same pane, and classify property rows confirmed as non-list by the Metadata Cache snapshot as rejected targets; cross-property permission is read from current settings for each event.
+3. Let `drag-dom.ts` own the preview, indicator, rejected target, cursor class, and optimistic DOM. Every cancellation path must fully clean them up. Passing over a rejected target emits no Notice; the controller reports it only on release.
 4. In `writeback.ts`, read the latest text from the same editor and validate the source/target values captured at drag start. Invoke the pure frontmatter rewrite only if leaf, file, editor identity, and content guards pass, then commit one minimal `editor.transaction()`.
 
 The editor is the only text base for drag writeback, so unsaved body edits are preserved and one successful drag creates one Obsidian undo step. A missing transaction-capable editor, active leaf/file/editor change, disappearing source DOM, `pointercancel`, Escape, window blur, no-op drop, or content conflict must cancel safely rather than fall back to a non-undoable Vault write.

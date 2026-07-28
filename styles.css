@@ -50,6 +50,18 @@ body.property-order-drag-cursor-active * {
   cursor: default !important;
 }
 
+body.property-order-drag-cursor-active.property-order-drag-cursor-invalid,
+body.property-order-drag-cursor-active.property-order-drag-cursor-invalid * {
+  cursor: not-allowed !important;
+}
+
+.metadata-property.property-order-invalid-drop-target {
+  border-radius: var(--radius-s);
+  outline: 2px solid var(--text-error);
+  outline-offset: -2px;
+  background: color-mix(in srgb, var(--background-modifier-error) 35%, transparent);
+}
+
 .property-order-cursor-refresh {
   cursor: auto !important;
 }

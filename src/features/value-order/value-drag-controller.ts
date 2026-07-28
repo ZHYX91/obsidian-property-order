@@ -20,7 +20,10 @@ import {
   resolvePropertyPillContext,
   type PropertyPillContext,
 } from "../../obsidian/properties-dom";
-import { getCachedFrontmatterListProperties } from "../../obsidian/metadata";
+import {
+  getCachedFrontmatterListProperties,
+  getCachedFrontmatterPropertyKinds,
+} from "../../obsidian/metadata";
 import {
   resolvePaneFileContext,
 } from "../../obsidian/pane-context";
@@ -32,9 +35,14 @@ import {
   setDocumentDragCursorActive,
   suppressNativeDrag,
   updateIndicator,
+  updateInvalidDropTarget,
 } from "./drag-dom";
-import { resolveDropContextAtPoint, resolveDropTarget } from "./drop-targeting";
-import type { DropTarget } from "./types";
+import {
+  resolveDropContextAtPoint,
+  resolveDropTarget,
+  resolveInvalidDropTargetAtPoint,
+} from "./drop-targeting";
+import type { DropTarget, InvalidDropTarget } from "./types";
 import { writePropertyValueDrop } from "./writeback";
 import { addMobileReorderMenuItem } from "./mobile-reorder-menu";
 
@@ -46,8 +54,10 @@ interface DragState {
   generation: number;
   paneContainer: HTMLElement;
   context: PropertyPillContext;
+  expectedPropertyKinds: ReturnType<typeof getCachedFrontmatterPropertyKinds>;
   expectedPropertyValues: ReadonlyMap<string, readonly FrontmatterScalar[]> | null;
   indicatorElement: HTMLElement;
+  invalidTarget: InvalidDropTarget | null;
   previewElement: HTMLElement;
   pointerId: number;
   pointerType: SupportedPointerType;
@@ -558,8 +568,10 @@ export class PropertyValueOrderController {
       generation: this.lifecycleGeneration,
       paneContainer: paneContext.container,
       context,
+      expectedPropertyKinds: getCachedFrontmatterPropertyKinds(this.plugin.app, paneContext.file),
       expectedPropertyValues: getCachedFrontmatterListProperties(this.plugin.app, paneContext.file),
       indicatorElement,
+      invalidTarget: null,
       previewElement,
       pointerId,
       pointerType: pressedPointerType,
@@ -664,7 +676,20 @@ export class PropertyValueOrderController {
             this.pendingDragX,
             this.pendingDragY,
           );
+    const invalidTarget =
+      target == null
+        ? resolveInvalidDropTargetAtPoint(
+            dragState.context,
+            this.pendingDragX,
+            this.pendingDragY,
+            this.getSettings().enableCrossPropertyDrag,
+            dragState.paneContainer,
+            dragState.expectedPropertyKinds,
+          )
+        : null;
+    updateInvalidDropTarget(dragState.document, dragState.invalidTarget, invalidTarget);
     dragState.target = target;
+    dragState.invalidTarget = invalidTarget;
     updateIndicator(dragState.indicatorElement, target);
   }
 
@@ -678,7 +703,27 @@ export class PropertyValueOrderController {
 
     const target = dragState.target;
 
-    if (target == null || target.kind === "noop") {
+    if (target == null) {
+      const invalidTarget = dragState.invalidTarget;
+
+      if (
+        invalidTarget?.reason === "non-list" &&
+        this.isDragStateActive(dragState) &&
+        this.isOriginalDocumentActive(dragState)
+      ) {
+        new Notice(
+          this.t("notice.targetNotList").replace(
+            "{property}",
+            () => invalidTarget.propertyKey,
+          ),
+        );
+      }
+
+      this.clearInteractionState();
+      return;
+    }
+
+    if (target.kind === "noop") {
       this.clearInteractionState();
       return;
     }
@@ -810,6 +855,11 @@ export class PropertyValueOrderController {
     const targetDocument = this.dragState?.document;
 
     if (this.dragState != null) {
+      updateInvalidDropTarget(
+        this.dragState.document,
+        this.dragState.invalidTarget,
+        null,
+      );
       this.dragState.context.pill.classList.remove("property-order-dragging");
       this.dragState.previewElement.remove();
       this.dragState.indicatorElement.remove();

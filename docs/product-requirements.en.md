@@ -25,6 +25,7 @@ The enhancement must remain local, reversible, and fail-safe. Unrecognized host 
 - On mobile, a native value-menu action arms one pill for 15 seconds. The next touch or pen movement on that same pill starts drag after a small threshold, without another long press. Tapping elsewhere, Escape, timeout, unload, or invalidated DOM cancels the armed state.
 - Writeback modes are `preserve`, `flow`, and `block`. Preserve mode retains the current form and all retainable scalar spelling, comments, blank lines, and input newlines in the pure rewrite; forced conversion normalizes only affected properties. Runtime writeback remains an Obsidian editor transaction, so the host may serialize an edited CRLF/CR note as LF.
 - File, leaf, source/target content, or DOM identity changes cancel the transaction without writing another file or overwriting newer content.
+- Dragging over a confirmed non-list property in the same pane shows a rejected target without an insertion indicator. A localized Notice appears only when released on that target, not while merely passing over it.
 - Conflicts, invalid input, and unsupported structures produce a diagnostic and leave disk content unchanged.
 
 ## Property-key suggestions

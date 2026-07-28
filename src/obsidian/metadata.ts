@@ -6,6 +6,8 @@ import type { PropertyKeyUsage } from "../shared/types";
 const FRONTMATTER_CACHE_METADATA_KEYS = new Set(["position"]);
 const propertyKeyUsageCache = new WeakMap<App, PropertyKeyUsage[]>();
 
+export type CachedFrontmatterPropertyKind = "list" | "non-list";
+
 export function getCachedFrontmatterListProperties(
   app: App,
   file: TFile,
@@ -28,6 +30,29 @@ export function getCachedFrontmatterListProperties(
     if (normalizedValues != null) {
       properties.set(key, normalizedValues);
     }
+  }
+
+  return properties;
+}
+
+export function getCachedFrontmatterPropertyKinds(
+  app: App,
+  file: TFile,
+): ReadonlyMap<string, CachedFrontmatterPropertyKind> | null {
+  const frontmatter = app.metadataCache.getFileCache(file)?.frontmatter;
+
+  if (frontmatter == null) {
+    return null;
+  }
+
+  const properties = new Map<string, CachedFrontmatterPropertyKind>();
+
+  for (const [key, value] of Object.entries(frontmatter)) {
+    if (FRONTMATTER_CACHE_METADATA_KEYS.has(key)) {
+      continue;
+    }
+
+    properties.set(key, value == null || Array.isArray(value) ? "list" : "non-list");
   }
 
   return properties;

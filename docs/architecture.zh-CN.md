@@ -64,8 +64,8 @@ translation_status: source
 `core/interaction/pointer-drag.ts` 是纯状态机。它把 mouse/touch/pen 的按下、移动、长按计时、释放和中断转换为 `start`、`cancel`、`finish` 等动作，不访问 DOM。`value-drag-controller.ts` 只编排动作和资源生命周期：
 
 1. 从发起 pill、Properties 容器和 pane 捕获 source 属性、source 索引、文件路径以及该 leaf 的公开 `MarkdownView.editor`；同时从编辑器文本和公开 Metadata Cache 同步捕获冲突快照。
-2. 由 `drop-targeting.ts` 计算同一 pane 内的目标容器和插入槽；是否允许跨属性在每次事件时读取当前设置。
-3. 由 `drag-dom.ts` 管理预览、指示器、cursor class 和乐观 DOM；取消路径必须完全清理。
+2. 由 `drop-targeting.ts` 计算同一 pane 内的目标容器和插入槽，并把 Metadata Cache 快照中明确为非列表的属性行分类为拒绝目标；是否允许跨属性在每次事件时读取当前设置。
+3. 由 `drag-dom.ts` 管理预览、指示器、拒绝目标、cursor class 和乐观 DOM；取消路径必须完全清理。经过拒绝目标不产生 Notice，只有在其上松手才由 controller 提示。
 4. 由 `writeback.ts` 重新读取同一个编辑器的最新文本，再验证拖拽开始时捕获的 source/target 值。只有 leaf、文件、编辑器身份和内容守卫都通过才调用纯 frontmatter 重写，并以一次最小范围 `editor.transaction()` 写回。
 
 编辑器是拖拽写回的唯一文本基底，因此尚未落盘的正文修改会被保留，一次成功拖拽也只形成一个 Obsidian 撤销步骤。无法取得支持事务的编辑器、活动 leaf/file/editor 改变、source DOM 消失、`pointercancel`、Escape、window blur、noop drop 或内容冲突都必须安全取消，不得回退到不可撤销的 Vault 直写。

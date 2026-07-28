@@ -4,9 +4,11 @@ import { describe, expect, it } from "vitest";
 
 import {
   findPropertyContainerAtPoint,
+  findPropertyElementAtPoint,
   isPropertyPillTarget,
   resolveDraggablePropertyPill,
   resolvePropertyContainerContext,
+  resolvePropertyElementContext,
 } from "../../src/obsidian/properties-dom";
 
 function createPill(insideMetadata: boolean): HTMLElement {
@@ -52,6 +54,28 @@ describe("Properties DOM", () => {
     } as unknown as Document;
 
     expect(findPropertyContainerAtPoint(10, 20, targetDocument)).toBeNull();
+  });
+
+  it("resolves a scalar property row at a point without requiring a list container", () => {
+    const metadata = document.createElement("div");
+    metadata.className = "metadata-container";
+    const property = document.createElement("div");
+    property.className = "metadata-property";
+    property.dataset.propertyKey = "status";
+    const valueInput = document.createElement("input");
+    property.appendChild(valueInput);
+    metadata.appendChild(property);
+    document.body.appendChild(metadata);
+    const targetDocument = {
+      elementFromPoint: () => valueInput,
+      querySelectorAll: () => [],
+    } as unknown as Document;
+
+    expect(findPropertyElementAtPoint(10, 20, targetDocument)).toBe(property);
+    expect(resolvePropertyElementContext(property)).toEqual({
+      propertyElement: property,
+      propertyKey: "status",
+    });
   });
 
   it("preserves the exact property key exposed by a native input", () => {

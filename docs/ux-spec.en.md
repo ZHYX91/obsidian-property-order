@@ -15,6 +15,7 @@ This document mirrors the authoritative current interaction and presentation con
 - Mobile arming is one-shot and expires after 15 seconds. Tapping elsewhere, Escape, timeout, unload, or invalidated DOM cancels it. Only an armed press suppresses default touch movement and a duplicate native menu.
 - The preview retains source-pill dimensions and single-line ellipsis, then scales and clamps within its owner document's visual viewport with a visible margin.
 - The drop indicator clearly represents the insertion slot. Same-property no-op, invalid cross-property, and cross-file targets never write.
+- While the pointer is over a confirmed non-list property in the same pane, the drop indicator stays hidden and the row uses a warning outline with a `not-allowed` cursor. Releasing there shows one localized “target is not a list property” Notice; passing over and leaving shows none.
 - Finish, cancellation, conflict, pointer cancellation, Escape, blur, file change, and component removal clean previews, indicators, cursor classes, timers, and temporary listeners.
 - Content conflicts show a localized message and retain the newest file without automatic overwrite or retry.
 

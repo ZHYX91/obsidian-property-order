@@ -6,3 +6,10 @@ export interface DropTarget {
   slot: number;
   kind: "drop" | "noop";
 }
+
+export interface InvalidDropTarget {
+  kind: "invalid";
+  propertyElement: HTMLElement;
+  propertyKey: string;
+  reason: "non-list";
+}

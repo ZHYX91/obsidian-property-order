@@ -1,7 +1,10 @@
+// @vitest-environment happy-dom
+
 import { describe, expect, it } from "vitest";
 
 import {
   resolveDropContextAtPoint,
+  resolveInvalidDropTargetAtPoint,
   resolveDropTarget,
   isSamePaneContainer,
 } from "../../../src/features/value-order/drop-targeting";
@@ -167,5 +170,88 @@ describe("resolveDropContextAtPoint", () => {
     expect(isSamePaneContainer(candidate, sourcePane)).toBe(true);
     expect(isSamePaneContainer(candidate, otherPane)).toBe(false);
     expect(isSamePaneContainer(candidate, null)).toBe(true);
+  });
+});
+
+describe("resolveInvalidDropTargetAtPoint", () => {
+  it("identifies a cached non-list property in the same pane", () => {
+    const source = createSourceContext();
+    const propertyElement = document.createElement("div");
+    propertyElement.className = "metadata-property";
+    propertyElement.dataset.propertyKey = "status";
+    const metadata = document.createElement("div");
+    metadata.className = "metadata-container";
+    metadata.appendChild(propertyElement);
+    const pane = document.createElement("div");
+    pane.appendChild(metadata);
+    document.body.appendChild(pane);
+    source.container = {
+      ...source.container,
+      ownerDocument: {
+        elementFromPoint: () => propertyElement,
+        querySelectorAll: () => [],
+      },
+    } as unknown as HTMLElement;
+
+    expect(
+      resolveInvalidDropTargetAtPoint(
+        source,
+        100,
+        100,
+        true,
+        pane,
+        new Map([
+          ["status", "non-list"],
+        ]),
+      ),
+    ).toEqual({
+      kind: "invalid",
+      propertyElement,
+      propertyKey: "status",
+      reason: "non-list",
+    });
+  });
+
+  it("does not mislabel list properties or disabled cross-property drag", () => {
+    const source = createSourceContext();
+    const propertyElement = document.createElement("div");
+    propertyElement.className = "metadata-property";
+    propertyElement.dataset.propertyKey = "related";
+    const metadata = document.createElement("div");
+    metadata.className = "metadata-container";
+    metadata.appendChild(propertyElement);
+    document.body.appendChild(metadata);
+    source.container = {
+      ...source.container,
+      ownerDocument: {
+        elementFromPoint: () => propertyElement,
+        querySelectorAll: () => [],
+      },
+    } as unknown as HTMLElement;
+
+    expect(
+      resolveInvalidDropTargetAtPoint(
+        source,
+        100,
+        100,
+        true,
+        null,
+        new Map([
+          ["related", "list"],
+        ]),
+      ),
+    ).toBeNull();
+    expect(
+      resolveInvalidDropTargetAtPoint(
+        source,
+        100,
+        100,
+        false,
+        null,
+        new Map([
+          ["related", "non-list"],
+        ]),
+      ),
+    ).toBeNull();
   });
 });
