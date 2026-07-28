@@ -6,7 +6,7 @@ Property Order 用于安全地重排 Obsidian Properties 中的列表值，并�
 
 ## 演示
 
-在桌面端的兼容列表属性之间移动值：
+在桌面端的受支持顶层 YAML 列表属性之间移动值：
 
 ![在属性之间移动值](https://raw.githubusercontent.com/ZHYX91/obsidian-property-order/main/docs/assets/property-order-cross-property-drag.gif)
 

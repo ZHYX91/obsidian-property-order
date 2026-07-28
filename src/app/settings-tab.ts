@@ -1,4 +1,12 @@
-import { Notice, Platform, Plugin, PluginSettingTab, Setting, type App } from "obsidian";
+import {
+  Notice,
+  Platform,
+  Plugin,
+  PluginSettingTab,
+  Setting,
+  type App,
+  type SettingDefinitionItem,
+} from "obsidian";
 
 import { getPropertyNameSuggestions } from "../core/suggestions/property-names";
 import {
@@ -21,19 +29,77 @@ interface PropertyOrderSettingsHost extends Plugin {
   propertyOrderSettings: PropertyOrderSettings;
 }
 
+type PropertyOrderControlKey =
+  | "enableCrossPropertyDrag"
+  | "enableNativeKeySuggestionOrder"
+  | "enablePropertyValueDrag"
+  | "keySuggestionSortMode"
+  | "language"
+  | "listWritebackFormat"
+  | "showDiagnostics";
+
+interface KeyListSettingLifecycle {
+  close(): void;
+  flush(): void;
+}
+
 export class PropertyOrderSettingTab extends PluginSettingTab {
   private activeTab: SettingsTabId = "general";
   private hasUnsavedSettings = false;
-  private readonly pendingKeyListSaveFlushes = new Set<() => void>();
+  private readonly keyListSettingLifecycles = new Set<KeyListSettingLifecycle>();
   private pendingUnsavedKeySuggestionRefresh = false;
   private readonly plugin: PropertyOrderSettingsHost;
-  private readonly propertyNameSuggests = new Set<PropertyNameSuggest>();
   private saveStatusEl: HTMLElement | null = null;
   private tabLayoutCleanup: (() => void) | null = null;
 
   constructor(app: App, plugin: PropertyOrderSettingsHost) {
     super(app, plugin);
     this.plugin = plugin;
+  }
+
+  override getSettingDefinitions(): SettingDefinitionItem[] {
+    return [
+      {
+        type: "page",
+        name: this.t("settings.tab.general"),
+        items: [this.createSaveStatusDefinition(), ...this.getGeneralSettingDefinitions()],
+      },
+      {
+        type: "page",
+        name: this.t("settings.tab.valueDrag"),
+        items: [this.createSaveStatusDefinition(), ...this.getValueDragSettingDefinitions()],
+      },
+      {
+        type: "page",
+        name: this.t("settings.tab.keyOrder"),
+        items: [this.createSaveStatusDefinition(), ...this.getKeyOrderSettingDefinitions()],
+      },
+    ];
+  }
+
+  override getControlValue(key: string): unknown {
+    if (!isPropertyOrderControlKey(key)) {
+      return undefined;
+    }
+
+    return this.plugin.propertyOrderSettings[key];
+  }
+
+  override async setControlValue(key: string, value: unknown): Promise<void> {
+    if (!isPropertyOrderControlKey(key)) {
+      throw new Error(`Unsupported Property Order setting control: ${key}`);
+    }
+
+    this.applyControlValue(key, value);
+    await this.persistSettings(shouldRefreshKeySuggestions(key));
+
+    if (
+      key === "enableNativeKeySuggestionOrder" ||
+      key === "enablePropertyValueDrag" ||
+      key === "language"
+    ) {
+      updateDeclarativeSettingTab(this);
+    }
   }
 
   override display(): void {
@@ -46,6 +112,196 @@ export class PropertyOrderSettingTab extends PluginSettingTab {
     this.flushPendingKeyListSaves();
     this.closePropertyNameSuggests();
     super.hide();
+  }
+
+  private getGeneralSettingDefinitions(): SettingDefinitionItem[] {
+    return [
+      {
+        name: this.t("settings.language.name"),
+        desc: this.t("settings.language.desc"),
+        control: {
+          type: "dropdown",
+          key: "language",
+          defaultValue: "auto",
+          options: {
+            auto: this.t("settings.language.auto"),
+            "zh-CN": this.t("settings.language.zhCn"),
+            "zh-TW": this.t("settings.language.zhTw"),
+            en: this.t("settings.language.en"),
+          },
+        },
+      },
+      {
+        name: this.t("settings.diagnostics.name"),
+        desc: this.t("settings.diagnostics.desc"),
+        control: {
+          type: "toggle",
+          key: "showDiagnostics",
+          defaultValue: false,
+        },
+      },
+    ];
+  }
+
+  private getValueDragSettingDefinitions(): SettingDefinitionItem[] {
+    return [
+      {
+        name: this.t("settings.valueDrag.mobileHint"),
+        searchable: false,
+        visible: Platform.isMobileApp,
+        render: (setting) => {
+          setting.setClass("property-order-settings-hint");
+        },
+      },
+      {
+        name: this.t("settings.valueDrag.enable.name"),
+        desc: this.t("settings.valueDrag.enable.desc"),
+        control: {
+          type: "toggle",
+          key: "enablePropertyValueDrag",
+          defaultValue: true,
+        },
+      },
+      {
+        name: this.t("settings.valueDrag.disabledHint"),
+        searchable: false,
+        visible: () => !this.plugin.propertyOrderSettings.enablePropertyValueDrag,
+        render: (setting) => {
+          setting.setClass("property-order-settings-hint");
+        },
+      },
+      {
+        name: this.t("settings.writebackFormat.name"),
+        desc: this.t("settings.writebackFormat.desc"),
+        control: {
+          type: "dropdown",
+          key: "listWritebackFormat",
+          defaultValue: "preserve",
+          options: {
+            preserve: this.t("settings.writebackFormat.preserve"),
+            flow: this.t("settings.writebackFormat.flow"),
+            block: this.t("settings.writebackFormat.block"),
+          },
+        },
+      },
+      {
+        name: this.t("settings.crossPropertyDrag.name"),
+        desc: this.t("settings.crossPropertyDrag.desc"),
+        control: {
+          type: "toggle",
+          key: "enableCrossPropertyDrag",
+          defaultValue: true,
+          disabled: () => !this.plugin.propertyOrderSettings.enablePropertyValueDrag,
+        },
+      },
+    ];
+  }
+
+  private getKeyOrderSettingDefinitions(): SettingDefinitionItem[] {
+    let availableNames: string[] | null = null;
+    const getAvailableNames = (): string[] => {
+      availableNames ??= getAvailablePropertyNames(this.app);
+      return availableNames;
+    };
+
+    return [
+      {
+        name: this.t("settings.keyOrder.enable.name"),
+        desc: this.t("settings.keyOrder.enable.desc"),
+        control: {
+          type: "toggle",
+          key: "enableNativeKeySuggestionOrder",
+          defaultValue: true,
+        },
+      },
+      {
+        name: this.t("settings.keyOrder.disabledHint"),
+        searchable: false,
+        visible: () => !this.plugin.propertyOrderSettings.enableNativeKeySuggestionOrder,
+        render: (setting) => {
+          setting.setClass("property-order-settings-hint");
+        },
+      },
+      {
+        name: this.t("settings.keyOrder.sortMode.name"),
+        desc: this.t("settings.keyOrder.sortMode.desc"),
+        control: {
+          type: "dropdown",
+          key: "keySuggestionSortMode",
+          defaultValue: "name",
+          options: {
+            name: this.t("settings.keyOrder.sortMode.nameOption"),
+            usage: this.t("settings.keyOrder.sortMode.usage"),
+          },
+        },
+      },
+      this.createKeyListDefinition(
+        "pinnedPropertyKeys",
+        this.t("settings.keyOrder.pinned.name"),
+        this.t("settings.keyOrder.pinned.desc"),
+        getAvailableNames,
+      ),
+      this.createKeyListDefinition(
+        "bottomPropertyKeys",
+        this.t("settings.keyOrder.bottom.name"),
+        this.t("settings.keyOrder.bottom.desc"),
+        getAvailableNames,
+      ),
+      this.createKeyListDefinition(
+        "hiddenPropertyKeyPatterns",
+        this.t("settings.keyOrder.hidden.name"),
+        this.t("settings.keyOrder.hidden.desc"),
+        getAvailableNames,
+      ),
+    ];
+  }
+
+  private createKeyListDefinition(
+    key: "bottomPropertyKeys" | "hiddenPropertyKeyPatterns" | "pinnedPropertyKeys",
+    name: string,
+    description: string,
+    getAvailableNames: () => string[],
+  ): SettingDefinitionItem {
+    return {
+      name,
+      desc: description,
+      render: (setting) => {
+        const lifecycle = configureKeyListSetting(
+          setting,
+          this.plugin.propertyOrderSettings[key],
+          async (values) => {
+            this.plugin.propertyOrderSettings[key] = values;
+            await this.persistSettings(true);
+          },
+          this.app,
+          getAvailableNames(),
+          this.t("settings.keyOrder.addExisting.placeholder"),
+        );
+        this.keyListSettingLifecycles.add(lifecycle);
+
+        return () => {
+          lifecycle.flush();
+          lifecycle.close();
+          this.keyListSettingLifecycles.delete(lifecycle);
+        };
+      },
+    };
+  }
+
+  private createSaveStatusDefinition(): SettingDefinitionItem {
+    return {
+      name: this.t("settings.saveStatus.failed"),
+      searchable: false,
+      render: (setting) => {
+        const statusEl = this.mountSaveStatus(setting.settingEl, true);
+
+        return () => {
+          if (this.saveStatusEl === statusEl) {
+            this.saveStatusEl = null;
+          }
+        };
+      },
+    };
   }
 
   private render(focusTab: SettingsTabId | null): void {
@@ -234,67 +490,118 @@ export class PropertyOrderSettingTab extends PluginSettingTab {
           });
       });
 
-    addKeyListSetting(
-      containerEl,
-      this.t("settings.keyOrder.pinned.name"),
-      this.t("settings.keyOrder.pinned.desc"),
-      this.plugin.propertyOrderSettings.pinnedPropertyKeys,
-      async (values) => {
-        this.plugin.propertyOrderSettings.pinnedPropertyKeys = values;
-        await this.persistSettings(true);
-      },
-      this.app,
-      availableNames,
-      this.t("settings.keyOrder.addExisting.placeholder"),
-      (suggest) => this.propertyNameSuggests.add(suggest),
-      (flush) => this.pendingKeyListSaveFlushes.add(flush),
+    this.trackKeyListSetting(
+      addKeyListSetting(
+        containerEl,
+        this.t("settings.keyOrder.pinned.name"),
+        this.t("settings.keyOrder.pinned.desc"),
+        this.plugin.propertyOrderSettings.pinnedPropertyKeys,
+        async (values) => {
+          this.plugin.propertyOrderSettings.pinnedPropertyKeys = values;
+          await this.persistSettings(true);
+        },
+        this.app,
+        availableNames,
+        this.t("settings.keyOrder.addExisting.placeholder"),
+      ),
     );
-    addKeyListSetting(
-      containerEl,
-      this.t("settings.keyOrder.bottom.name"),
-      this.t("settings.keyOrder.bottom.desc"),
-      this.plugin.propertyOrderSettings.bottomPropertyKeys,
-      async (values) => {
-        this.plugin.propertyOrderSettings.bottomPropertyKeys = values;
-        await this.persistSettings(true);
-      },
-      this.app,
-      availableNames,
-      this.t("settings.keyOrder.addExisting.placeholder"),
-      (suggest) => this.propertyNameSuggests.add(suggest),
-      (flush) => this.pendingKeyListSaveFlushes.add(flush),
+    this.trackKeyListSetting(
+      addKeyListSetting(
+        containerEl,
+        this.t("settings.keyOrder.bottom.name"),
+        this.t("settings.keyOrder.bottom.desc"),
+        this.plugin.propertyOrderSettings.bottomPropertyKeys,
+        async (values) => {
+          this.plugin.propertyOrderSettings.bottomPropertyKeys = values;
+          await this.persistSettings(true);
+        },
+        this.app,
+        availableNames,
+        this.t("settings.keyOrder.addExisting.placeholder"),
+      ),
     );
-    addKeyListSetting(
-      containerEl,
-      this.t("settings.keyOrder.hidden.name"),
-      this.t("settings.keyOrder.hidden.desc"),
-      this.plugin.propertyOrderSettings.hiddenPropertyKeyPatterns,
-      async (values) => {
-        this.plugin.propertyOrderSettings.hiddenPropertyKeyPatterns = values;
-        await this.persistSettings(true);
-      },
-      this.app,
-      availableNames,
-      this.t("settings.keyOrder.addExisting.placeholder"),
-      (suggest) => this.propertyNameSuggests.add(suggest),
-      (flush) => this.pendingKeyListSaveFlushes.add(flush),
+    this.trackKeyListSetting(
+      addKeyListSetting(
+        containerEl,
+        this.t("settings.keyOrder.hidden.name"),
+        this.t("settings.keyOrder.hidden.desc"),
+        this.plugin.propertyOrderSettings.hiddenPropertyKeyPatterns,
+        async (values) => {
+          this.plugin.propertyOrderSettings.hiddenPropertyKeyPatterns = values;
+          await this.persistSettings(true);
+        },
+        this.app,
+        availableNames,
+        this.t("settings.keyOrder.addExisting.placeholder"),
+      ),
     );
   }
 
   private closePropertyNameSuggests(): void {
-    for (const suggest of this.propertyNameSuggests) {
-      suggest.close();
+    for (const lifecycle of this.keyListSettingLifecycles) {
+      lifecycle.close();
     }
 
-    this.propertyNameSuggests.clear();
+    this.keyListSettingLifecycles.clear();
   }
 
   private flushPendingKeyListSaves(): void {
-    for (const flush of this.pendingKeyListSaveFlushes) {
-      flush();
+    for (const lifecycle of this.keyListSettingLifecycles) {
+      lifecycle.flush();
+    }
+  }
+
+  private trackKeyListSetting(lifecycle: KeyListSettingLifecycle): void {
+    this.keyListSettingLifecycles.add(lifecycle);
+  }
+
+  private applyControlValue(key: PropertyOrderControlKey, value: unknown): void {
+    if (key === "language") {
+      if (!isPluginLanguage(value)) {
+        throw new TypeError("Invalid Property Order language setting.");
+      }
+
+      this.plugin.propertyOrderSettings.language = value;
+      return;
     }
 
-    this.pendingKeyListSaveFlushes.clear();
+    if (key === "listWritebackFormat") {
+      if (!isListWritebackFormat(value)) {
+        throw new TypeError("Invalid Property Order writeback format setting.");
+      }
+
+      this.plugin.propertyOrderSettings.listWritebackFormat = value;
+      return;
+    }
+
+    if (key === "keySuggestionSortMode") {
+      if (!isKeySuggestionSortMode(value)) {
+        throw new TypeError("Invalid Property Order key suggestion sort setting.");
+      }
+
+      this.plugin.propertyOrderSettings.keySuggestionSortMode = value;
+      return;
+    }
+
+    if (typeof value !== "boolean") {
+      throw new TypeError(`Invalid boolean value for Property Order setting: ${key}`);
+    }
+
+    if (key === "enablePropertyValueDrag") {
+      this.plugin.propertyOrderSettings.enablePropertyValueDrag = value;
+      if (!value) {
+        this.plugin.propertyOrderSettings.enableCrossPropertyDrag = false;
+      }
+      return;
+    }
+
+    if (key === "enableCrossPropertyDrag") {
+      this.plugin.propertyOrderSettings.enableCrossPropertyDrag =
+        this.plugin.propertyOrderSettings.enablePropertyValueDrag && value;
+      return;
+    }
+
+    this.plugin.propertyOrderSettings[key] = value;
   }
 
   private async persistSettings(refreshKeySuggestions = false): Promise<boolean> {
@@ -317,13 +624,16 @@ export class PropertyOrderSettingTab extends PluginSettingTab {
     }
   }
 
-  private mountSaveStatus(parentEl: HTMLElement): void {
+  private mountSaveStatus(parentEl: HTMLElement, reuseParent = false): HTMLElement {
     this.saveStatusEl?.remove();
-    const statusEl = parentEl.createDiv();
-    statusEl.className = "property-order-settings-save-status";
-    parentEl.prepend(statusEl);
+    const statusEl = reuseParent ? parentEl : parentEl.createDiv();
+    statusEl.classList.add("property-order-settings-save-status");
+    if (!reuseParent) {
+      parentEl.prepend(statusEl);
+    }
     this.saveStatusEl = statusEl;
     this.updateSaveStatus();
+    return statusEl;
   }
 
   private updateSaveStatus(): void {
@@ -374,24 +684,38 @@ function addKeyListSetting(
   app: App,
   availableNames: string[],
   placeholder: string,
-  registerSuggest: (suggest: PropertyNameSuggest) => void,
-  registerPendingSaveFlush: (flush: () => void) => void,
-): void {
+): KeyListSettingLifecycle {
+  return configureKeyListSetting(
+    new Setting(containerEl).setName(name).setDesc(description),
+    values,
+    onChange,
+    app,
+    availableNames,
+    placeholder,
+  );
+}
+
+function configureKeyListSetting(
+  setting: Setting,
+  values: string[],
+  onChange: (values: string[]) => Promise<void>,
+  app: App,
+  availableNames: string[],
+  placeholder: string,
+): KeyListSettingLifecycle {
   let currentValues = [...values];
+  let propertyNameSuggest: PropertyNameSuggest | null = null;
   let textAreaEl: HTMLTextAreaElement | null = null;
 
   const getTargetWindow = (): Window =>
-    textAreaEl?.ownerDocument.defaultView ?? containerEl.ownerDocument.defaultView ?? window;
+    textAreaEl?.ownerDocument.defaultView ?? setting.settingEl.ownerDocument.defaultView ?? window;
   const pendingSave = createDebouncedCommit(() => {
     void onChange([...currentValues]).catch((error: unknown) => {
       console.error("Property Order: failed to save property name rules", error);
     });
   }, getTargetWindow);
-  registerPendingSaveFlush(() => pendingSave.flush());
 
-  new Setting(containerEl)
-    .setName(name)
-    .setDesc(description)
+  setting
     .setClass("property-order-key-list-setting")
     .addTextArea((textArea) => {
       textArea
@@ -411,7 +735,7 @@ function addKeyListSetting(
         .setValue("");
       text.inputEl.addClass("property-order-property-name-input");
 
-      const suggest = new PropertyNameSuggest(app, text.inputEl, {
+      propertyNameSuggest = new PropertyNameSuggest(app, text.inputEl, {
         availableNames,
         getExcludedNames: () => currentValues,
         onSelect: async (value) => {
@@ -425,9 +749,12 @@ function addKeyListSetting(
           await onChange(currentValues);
         },
       });
-
-      registerSuggest(suggest);
     });
+
+  return {
+    close: () => propertyNameSuggest?.close(),
+    flush: () => pendingSave.flush(),
+  };
 }
 
 interface DebouncedCommit {
@@ -483,4 +810,27 @@ function parseLines(value: string): string[] {
     .split(/\r?\n/)
     .map((line) => line.trim())
     .filter(Boolean);
+}
+
+function isPropertyOrderControlKey(key: string): key is PropertyOrderControlKey {
+  return (
+    key === "enableCrossPropertyDrag" ||
+    key === "enableNativeKeySuggestionOrder" ||
+    key === "enablePropertyValueDrag" ||
+    key === "keySuggestionSortMode" ||
+    key === "language" ||
+    key === "listWritebackFormat" ||
+    key === "showDiagnostics"
+  );
+}
+
+function shouldRefreshKeySuggestions(key: PropertyOrderControlKey): boolean {
+  return key === "enableNativeKeySuggestionOrder" || key === "keySuggestionSortMode";
+}
+
+function updateDeclarativeSettingTab(settingTab: object): void {
+  const update: unknown = Reflect.get(settingTab, "update");
+  if (typeof update === "function") {
+    Reflect.apply(update, settingTab, []);
+  }
 }

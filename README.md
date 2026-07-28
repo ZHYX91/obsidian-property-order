@@ -6,7 +6,7 @@ Property Order enhances Obsidian Properties with safe list-value reordering and 
 
 ## Demo
 
-Move a value between compatible list properties on desktop:
+Move a value between supported top-level YAML list properties on desktop:
 
 ![Move a value between properties](https://raw.githubusercontent.com/ZHYX91/obsidian-property-order/main/docs/assets/property-order-cross-property-drag.gif)
 

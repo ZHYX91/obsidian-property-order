@@ -92,7 +92,7 @@ translation_status: source
 
 属性使用次数由设置页与候选控制器共享惰性缓存。Metadata Cache 的 `changed`、`deleted` 或 `resolved` 事件只使缓存失效；若已有连接中的增强菜单，只定向刷新这些菜单，不扫描整个 document。没有菜单打开时不安排 animation frame，也不遍历 Vault；只有 usage 排序真正显示菜单或设置页请求属性名时才重新遍历 Markdown 文件缓存。
 
-设置页保留 General、Value drag、Key order 三个选项卡，并提供 `tablist`/`tab`/`tabpanel`、本地化标签栏名称、`aria-selected`、roving `tabindex`、左右方向键、Home/End 和重渲染后的焦点保持。选项卡在窄宽度下保持单行横向滚动，活动标签在初次布局和 viewport resize 后自动进入可视区，纵向溢出被隐藏；桌面精细指针下高度为 34px，粗指针下为 44px。宽度不超过 480px 时，属性规则文本框与已有属性输入框改为纵向占满控制区。
+Obsidian 1.12.x 保留自定义 General、Value drag、Key order 三个选项卡，并提供 `tablist`/`tab`/`tabpanel`、本地化标签栏名称、`aria-selected`、roving `tabindex`、左右方向键、Home/End 和重渲染后的焦点保持。选项卡在窄宽度下保持单行横向滚动，活动标签在初次布局和 viewport resize 后自动进入可视区，纵向溢出被隐藏；桌面精细指针下高度为 34px，粗指针下为 44px。Obsidian 1.13+ 改用三个原生声明式设置页面，使所有简单控件进入设置搜索；这些控件覆盖默认绑定并读写 `propertyOrderSettings`，三个属性规则编辑器则通过声明式 `render` 定义继续保留自定义 textarea、属性名称建议、防抖与清理语义。定义构造阶段不得遍历 Vault，已有属性名称只在规则编辑器实际渲染时惰性读取。宽度不超过 480px 时，两条路径中的属性规则文本框与已有属性输入框都改为纵向占满控制区。
 
 设置保存失败时，设置页保留当前内存快照，显示本地化 Notice 和带 `role="alert"` 的未保存状态，并提供重试按钮。重试必须保留失败批次是否需要刷新键候选的语义；成功后清除未保存状态。
 

@@ -18,14 +18,14 @@ Run `npm run check` before handoff. It performs, in order:
 4. the production bundle;
 5. reproducible bundle verification plus static-asset, manifest, and version-contract checks.
 
-The lint gate uses current Obsidian API typings while `manifest.json` remains the compatibility contract. Native DOM creation is retained only where the target `ownerDocument` is required for popout support. Declarative setting definitions remain disabled until the complete custom three-tab UI can be represented without changing behavior for the declared pre-1.13 minimum.
+The lint gate uses current Obsidian API typings while `manifest.json` remains the compatibility contract. Native DOM creation is retained only where the target `ownerDocument` is required for popout support. Settings use dual support: Obsidian 1.12.x keeps the imperative three-tab UI, while 1.13+ uses native declarative pages and search. Automated contracts require both definitions to cover the same persisted settings, preserve custom rule editors, and avoid Vault enumeration while the declarative search index is built.
 
 Tests are organized under `tests/core/`, `tests/features/`, `tests/obsidian/`, `tests/shared/`, `tests/app/`, and `tests/scripts/`. Stable contracts cover:
 
 - flow/block/empty lists, BOM, LF/CRLF/CR, quoting, comments, blank lines, YAML core scalar types, and unsupported-structure fail closed;
 - desktop mouse/touch/pen state, mobile native-menu extension and one-shot arming, drop geometry, non-list rejection, no Notice while passing over, one Notice on release, no-op, cancellation, content conflict, pane/file/editor identity, unsaved editor text, and one editor transaction;
 - Properties and suggestion DOM adapters, visible ordering, all-hidden behavior, keyboard navigation, focus departure, usage-cache invalidation without a Vault scan when no menu is open, and fail open;
-- settings migration, immediate application, persistence failure, Retry, tab semantics, and narrow-layout CSS;
+- settings migration, immediate application, persistence failure, Retry, pre-1.13 tab semantics, 1.13 declarative pages/search, custom control storage, and narrow-layout CSS;
 - release tags, three loose assets, the manual-install archive, and idempotent Release updates.
 
 Injectable failure paths rely primarily on automated evidence: rejected settings persistence, host-DOM mismatch, selection-sync failure, Escape/blur, component removal, external conflict, and asynchronous reordering. Real hosts verify actual Obsidian DOM, input, visuals, and disk results without duplicating failures that cannot be injected reliably.
@@ -64,7 +64,7 @@ The Android emulator verifies:
 ## Verification boundary
 
 - Automated gates cover pure rules, injectable failures, and release contracts.
-- Desktop acceptance uses an isolated Windows 11 / Obsidian 1.12.7 Vault and covers block- and flow-style writeback on disk, pinned/hidden/bottom suggestion ordering, keyboard selection and cancellation, and all three settings tabs.
+- Desktop acceptance uses an isolated Windows 11 / Obsidian 1.12.7 Vault and covers block- and flow-style writeback on disk, pinned/hidden/bottom suggestion ordering, keyboard selection and cancellation, and all three legacy settings tabs. Before publishing a dual-settings release, a separate isolated current Obsidian 1.13 Catalyst or Public environment must verify native page navigation, settings search, custom rule editors, conditional controls, language rerendering, persistence, and Retry.
 - New CRLF fixtures must remain CRLF when merely opened. Both a Property Order editor transaction and an ordinary manual body edit may then serialize the note as LF under Obsidian 1.12.7; acceptance attributes that behavior to the host and verifies logical text plus one-step undo instead of adding a non-undoable second Vault write.
 - Android acceptance uses an independent Android 15 / API 35 emulator Vault, verifies deployed production files by SHA-256, preserves Obsidian's Edit, Copy, and Remove from list actions beside Reorder or move, exercises same-property reorder and cross-property move on disk, and verifies cancellation plus background/foreground recovery without plugin error, crash, or ANR.
 - Automated tests cover the 15-second timeout, Escape, unsupported-menu fail open, and cleanup paths that routine host acceptance does not inject.

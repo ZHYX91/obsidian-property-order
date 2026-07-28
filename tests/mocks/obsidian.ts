@@ -33,7 +33,21 @@ export class PluginSettingTab {
 
   display(): void {}
 
+  getControlValue(_key: string): unknown {
+    return undefined;
+  }
+
+  getSettingDefinitions(): unknown[] {
+    return [];
+  }
+
   hide(): void {}
+
+  refreshDomState(): void {}
+
+  setControlValue(_key: string, _value: unknown): void {}
+
+  update(): void {}
 }
 
 export class Setting {

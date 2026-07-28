@@ -17,14 +17,14 @@ translation_status: source
 4. production bundle；
 5. bundle 可重现性以及静态资产、manifest 和版本契约审计。
 
-Lint 使用当前 Obsidian API typings，兼容性仍以 `manifest.json` 为契约。只有在多窗口支持需要目标 `ownerDocument` 时才保留原生 DOM 创建。声明式设置定义暂不启用，直到完整的自定义三页签 UI 能在不改变 1.13 之前最低兼容行为的前提下等价表达。
+Lint 使用当前 Obsidian API typings，兼容性仍以 `manifest.json` 为契约。只有在多窗口支持需要目标 `ownerDocument` 时才保留原生 DOM 创建。设置页采用双路径支持：Obsidian 1.12.x 保留 imperative 三页签 UI，1.13+ 使用原生声明式页面与搜索。自动契约必须证明两套定义覆盖同一组持久化设置、保留自定义规则编辑器，并且声明式搜索索引构建期间不遍历 Vault。
 
 测试按职责分布在 `tests/core/`、`tests/features/`、`tests/obsidian/`、`tests/shared/`、`tests/app/` 和 `tests/scripts/`。固定契约覆盖：
 
 - flow/block/empty、BOM、LF/CRLF/CR、引号、注释、空行、YAML core scalar 类型和不支持结构 fail closed；
 - 桌面 mouse/touch/pen 状态机、移动端原生菜单扩展与单次待拖动状态、drop 几何、非列表拒绝目标、经过不提示、松手单次 Notice、noop、取消、内容冲突、pane/file/editor 身份、未保存编辑内容和单次 editor transaction；
 - Properties 与候选 DOM adapter、可见候选排序、全部隐藏、键盘导航、焦点离开、无菜单时 usage 缓存失效不触发 Vault 扫描和 fail open；
-- settings 迁移、即时生效、保存失败、Retry、页签语义与窄屏 CSS；
+- settings 迁移、即时生效、保存失败、Retry、1.13 之前的页签语义、1.13 声明式页面与搜索、自定义控件存储和窄屏 CSS；
 - release 标签、三个官方附件、手动安装 ZIP 和幂等 Release 更新。
 
 可注入的故障路径以自动测试为主证据，包括：设置保存拒绝、宿主 DOM 不匹配、选择同步失败、Escape/blur、组件消失、外部内容冲突和异步乱序。真实宿主用于确认 Obsidian 实际 DOM、输入、视觉和磁盘结果，不重复伪造难以稳定注入的失败。
@@ -63,7 +63,7 @@ Android 模拟器必须验证：
 ## 验证边界
 
 - 自动门禁覆盖所有纯规则、可注入故障和发布契约。
-- 桌面验收使用 Windows 11 / Obsidian 1.12.7 隔离 Vault，覆盖 block 与 flow 写回的磁盘结果、候选 pinned/hidden/bottom 排序、键盘选择与取消，以及三个设置页签。
+- 桌面验收使用 Windows 11 / Obsidian 1.12.7 隔离 Vault，覆盖 block 与 flow 写回的磁盘结果、候选 pinned/hidden/bottom 排序、键盘选择与取消，以及三个旧版设置页签。发布双设置路径版本前，还必须在另一套隔离的当前 Obsidian 1.13 Catalyst 或 Public 环境验证原生页面导航、设置搜索、自定义规则编辑器、条件控件、语言重渲染、持久化和 Retry。
 - 全新 CRLF 夹具仅打开时必须保持 CRLF；Property Order editor transaction 与普通正文手动编辑在 Obsidian 1.12.7 下都可能把笔记序列化为 LF。验收应把它归入宿主边界，并验证逻辑正文与单步撤销，而不是追加不可撤销的第二次 Vault 写入。
 - Android 验收使用 Android 15 / API 35 独立模拟器 Vault，以 SHA-256 核对部署的生产文件，确认原生“编辑 / 复制 / 从列表中移除”与“重排或移动”共存，验证同属性重排、跨属性移动的磁盘结果，以及取消和前后台恢复期间无插件错误、崩溃或 ANR。
 - 15 秒超时、Escape、宿主菜单不可用时 fail open 以及清理路径由自动测试覆盖，不在常规真实宿主验收中注入。
