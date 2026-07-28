@@ -1,8 +1,3 @@
-import {
-  getContainerPills,
-  isPropertyPillElement,
-  type PropertyPillContext,
-} from "../../obsidian/properties-dom";
 import type { DropTarget, InvalidDropTarget } from "./types";
 
 const DRAG_PREVIEW_OFFSET_X = 16;
@@ -64,26 +59,6 @@ export function updateInvalidDropTarget(
     "property-order-drag-cursor-invalid",
     nextTarget != null,
   );
-}
-
-export function applyDomDrop(sourceContext: PropertyPillContext, target: DropTarget): void {
-  if (target.mode === "reorder") {
-    applyDomReorder(sourceContext, target.slot);
-    return;
-  }
-
-  if (
-    !sourceContext.pill.isConnected ||
-    !target.context.container.isConnected ||
-    sourceContext.pill.ownerDocument !== target.context.container.ownerDocument
-  ) {
-    return;
-  }
-
-  const currentTargetPills = getContainerPills(target.context.container);
-  const referenceNode =
-    currentTargetPills[target.slot] ?? getEndInsertionReference(target.context.container);
-  target.context.container.insertBefore(sourceContext.pill, referenceNode);
 }
 
 export function updateIndicator(indicatorElement: HTMLElement, target: DropTarget | null): void {
@@ -168,59 +143,6 @@ export function createIndicatorElement(parentElement: HTMLElement): HTMLElement 
   indicatorElement.className = "property-order-drop-indicator";
   indicatorElement.setAttribute("aria-hidden", "true");
   return indicatorElement;
-}
-
-function applyDomReorder(sourceContext: PropertyPillContext, targetSlot: number): void {
-  if (
-    !sourceContext.container.isConnected ||
-    !sourceContext.container.contains(sourceContext.pill)
-  ) {
-    return;
-  }
-
-  const currentPills = getContainerPills(sourceContext.container);
-  const sourcePill = sourceContext.pill;
-  const sourceIndex = currentPills.indexOf(sourcePill);
-
-  if (sourceIndex === -1 || currentPills.length <= 1) {
-    return;
-  }
-
-  const normalizedTargetSlot = Math.min(Math.max(targetSlot, 0), currentPills.length);
-  const insertionIndex =
-    normalizedTargetSlot > sourceIndex ? normalizedTargetSlot - 1 : normalizedTargetSlot;
-
-  if (insertionIndex === sourceIndex) {
-    return;
-  }
-
-  const pillsWithoutSource = currentPills.filter((pill) => pill !== sourcePill);
-  const referenceNode =
-    pillsWithoutSource[insertionIndex] ?? getEndInsertionReference(sourceContext.container);
-  sourceContext.container.insertBefore(sourcePill, referenceNode);
-}
-
-function getEndInsertionReference(container: HTMLElement): ChildNode | null {
-  const childNodes = Array.from(container.childNodes);
-  let lastPillIndex = -1;
-
-  for (let index = 0; index < childNodes.length; index += 1) {
-    const child = childNodes[index];
-
-    if (isElement(child) && isPropertyPillElement(child)) {
-      lastPillIndex = index;
-    }
-  }
-
-  for (let index = lastPillIndex + 1; index < childNodes.length; index += 1) {
-    const child = childNodes[index];
-
-    if (isElement(child) && !isPropertyPillElement(child)) {
-      return child;
-    }
-  }
-
-  return null;
 }
 
 function getEmptyContainerIndicatorFrame(rect: DOMRect): { height: number; left: number; top: number } {
@@ -401,8 +323,4 @@ function roundCssPixel(value: number): number {
 
 function isPositiveFinite(value: number): boolean {
   return Number.isFinite(value) && value > 0;
-}
-
-function isElement(node: Node): node is Element {
-  return typeof (node as Element).matches === "function";
 }

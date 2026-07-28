@@ -15,6 +15,7 @@ import type { DropTarget } from "./types";
 export type ValueWritebackResult =
   | { status: "conflict" }
   | { status: "diagnostic"; messageKey: TranslationKey }
+  | { status: "failed" }
   | { status: "skipped" }
   | { status: "written" };
 
@@ -106,7 +107,9 @@ export async function writePropertyValueDrop(
     { changes: [createMinimalEditorChange(options.editor, currentContent, nextContent)] },
     "property-order-drag",
   );
-  return { status: "written" };
+  return options.editor.getValue() === nextContent
+    ? { status: "written" }
+    : { status: "failed" };
 }
 
 function createMinimalEditorChange(

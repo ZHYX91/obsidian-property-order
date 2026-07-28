@@ -30,7 +30,7 @@ function createTarget(propertyKey: string, mode: "reorder" | "move", slot: numbe
   };
 }
 
-function createEditorWithCurrentContent(initialContent: string): {
+function createEditorWithCurrentContent(initialContent: string, applyTransaction = true): {
   editor: Editor;
   getContent(): string;
   transactions: Array<{ origin: string | undefined; transaction: EditorTransaction }>;
@@ -50,7 +50,7 @@ function createEditorWithCurrentContent(initialContent: string): {
       transactions.push({ origin, transaction });
       const change = transaction.changes?.[0];
 
-      if (change == null) {
+      if (change == null || !applyTransaction) {
         return;
       }
 
@@ -78,6 +78,23 @@ function positionToOffset(
 }
 
 describe("writePropertyValueDrop", () => {
+  it("reports failure when the host editor ignores the transaction", async () => {
+    const content = ["---", "tags: [alpha, beta]", "---"].join("\n");
+    const fixture = createEditorWithCurrentContent(content, false);
+
+    const result = await writePropertyValueDrop({
+      editor: fixture.editor,
+      expectedContent: content,
+      sourceContext: createContext("tags", 0),
+      target: createTarget("tags", "reorder", 2),
+      writebackFormat: "preserve",
+    });
+
+    expect(result).toEqual({ status: "failed" });
+    expect(fixture.transactions).toHaveLength(1);
+    expect(fixture.getContent()).toBe(content);
+  });
+
   it("fails safely when the drag-start content snapshot could not be read", async () => {
     const content = ["---", "tags: [alpha, beta]", "---"].join("\n");
     const fixture = createEditorWithCurrentContent(content);

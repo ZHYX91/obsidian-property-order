@@ -293,6 +293,28 @@ function addScalarProperty(
   return property;
 }
 
+function addEmptyListProperty(
+  harness: ControllerHarness,
+  propertyKey: string,
+  left = 320,
+  right = 600,
+): { container: HTMLElement; placeholder: HTMLElement; property: HTMLElement } {
+  const property = document.createElement("div");
+  property.className = "metadata-property";
+  property.dataset.propertyKey = propertyKey;
+  property.getBoundingClientRect = () => createRect(left, right);
+  const container = document.createElement("div");
+  container.className = "multi-select-container";
+  container.getBoundingClientRect = () => createRect(left, right);
+  const placeholder = document.createElement("div");
+  placeholder.className = "metadata-property-value-placeholder";
+  placeholder.textContent = "No value";
+  container.appendChild(placeholder);
+  property.appendChild(container);
+  harness.container.closest(".metadata-container")?.appendChild(property);
+  return { container, placeholder, property };
+}
+
 function dispatchPointer(
   target: EventTarget,
   type: "pointerdown" | "pointermove" | "pointerup",
@@ -721,6 +743,48 @@ describe("PropertyValueOrderController", () => {
     harness.cleanup();
   });
 
+  it("keeps the Properties DOM unchanged when the host ignores the transaction", async () => {
+    installRafHarness();
+    const harness = createHarness();
+    harness.editor.transaction.mockImplementation(() => undefined);
+    const originalPills = Array.from(harness.container.children);
+
+    dispatchPointer(harness.pill, "pointerdown", 10);
+    dispatchPointer(document, "pointermove", 250);
+    dispatchPointer(document, "pointerup", 250);
+
+    await vi.waitFor(() => expect(noticeSpy).toHaveBeenCalledTimes(1));
+    expect(noticeSpy).toHaveBeenCalledWith(
+      "Property Order: failed to reorder property values.",
+    );
+    expect(harness.editor.getContent()).toBe("---\nflow: [alpha, beta]\n---\n");
+    expect(Array.from(harness.container.children)).toEqual(originalPills);
+    harness.cleanup();
+  });
+
+  it("commits an empty-list move without manually mixing the pill with its placeholder", async () => {
+    const raf = installRafHarness();
+    const harness = createHarness();
+    harness.frontmatter.empty = [];
+    harness.editor.setContent("---\nflow: [alpha, beta]\nempty: []\n---\n");
+    const target = addEmptyListProperty(harness, "empty");
+
+    dispatchPointer(harness.pill, "pointerdown", 10);
+    dispatchPointer(document, "pointermove", 400);
+    raf.flush();
+    dispatchPointer(document, "pointerup", 400);
+
+    await vi.waitFor(() => expect(harness.editor.transaction).toHaveBeenCalledTimes(1));
+    expect(harness.editor.getContent()).toBe(
+      "---\nflow: [beta]\nempty: [alpha]\n---\n",
+    );
+    expect(harness.container.contains(harness.pill)).toBe(true);
+    expect(target.container.contains(harness.pill)).toBe(false);
+    expect(target.placeholder.isConnected).toBe(true);
+    expect(noticeSpy).not.toHaveBeenCalled();
+    harness.cleanup();
+  });
+
   it("marks a non-list target and explains the rejected drop once", () => {
     const raf = installRafHarness();
     const harness = createHarness();
@@ -745,6 +809,26 @@ describe("PropertyValueOrderController", () => {
     expect(harness.editor.transaction).not.toHaveBeenCalled();
     expect(scalarProperty.classList.contains("property-order-invalid-drop-target")).toBe(false);
     expect(document.body.classList.contains("property-order-drag-cursor-invalid")).toBe(false);
+    harness.cleanup();
+  });
+
+  it("treats a bare null property as a non-list rejection target", () => {
+    const raf = installRafHarness();
+    const harness = createHarness();
+    harness.frontmatter.empty = null;
+    const scalarProperty = addScalarProperty(harness, "empty");
+
+    dispatchPointer(harness.pill, "pointerdown", 10);
+    dispatchPointer(document, "pointermove", 400);
+    raf.flush();
+    dispatchPointer(document, "pointerup", 400);
+
+    expect(noticeSpy).toHaveBeenCalledTimes(1);
+    expect(noticeSpy).toHaveBeenCalledWith(
+      "Property Order: can't move the value to “empty”: the target is not a list property.",
+    );
+    expect(harness.editor.transaction).not.toHaveBeenCalled();
+    expect(scalarProperty.classList.contains("property-order-invalid-drop-target")).toBe(false);
     harness.cleanup();
   });
 

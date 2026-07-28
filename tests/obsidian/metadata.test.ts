@@ -89,7 +89,7 @@ describe("getPropertyKeyUsage", () => {
 });
 
 describe("getCachedFrontmatterListProperties", () => {
-  it("captures primitive list values and empty properties synchronously", () => {
+  it("captures primitive list values without treating a bare null scalar as a list", () => {
     const file = { path: "note.md" } as TFile;
     const app = {
       metadataCache: {
@@ -107,7 +107,6 @@ describe("getCachedFrontmatterListProperties", () => {
 
     expect(getCachedFrontmatterListProperties(app, file)).toEqual(
       new Map([
-        ["empty", []],
         [
           "values",
           [
@@ -178,7 +177,7 @@ describe("getCachedFrontmatterPropertyKinds", () => {
 
     expect(getCachedFrontmatterPropertyKinds(app, file)).toEqual(
       new Map([
-        ["empty", "list"],
+        ["empty", "non-list"],
         ["nested", "list"],
         ["scalar", "non-list"],
         ["values", "list"],

@@ -28,7 +28,6 @@ import {
   resolvePaneFileContext,
 } from "../../obsidian/pane-context";
 import {
-  applyDomDrop,
   createIndicatorElement,
   createPreviewElement,
   positionPreview,
@@ -773,8 +772,8 @@ export class PropertyValueOrderController {
         return;
       }
 
-      if (writebackResult.status === "written") {
-        applyDomDrop(dragState.context, target);
+      if (writebackResult.status === "failed") {
+        new Notice(this.t("notice.reorderFailed"));
       }
     } catch (error) {
       if (this.isDragStateActive(dragState)) {

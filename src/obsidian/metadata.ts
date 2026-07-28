@@ -52,7 +52,7 @@ export function getCachedFrontmatterPropertyKinds(
       continue;
     }
 
-    properties.set(key, value == null || Array.isArray(value) ? "list" : "non-list");
+    properties.set(key, Array.isArray(value) ? "list" : "non-list");
   }
 
   return properties;
@@ -97,10 +97,6 @@ export function invalidatePropertyKeyUsage(app: App): void {
 }
 
 function normalizeCachedListValues(value: unknown): FrontmatterScalar[] | null {
-  if (value == null) {
-    return [];
-  }
-
   if (!Array.isArray(value)) {
     return null;
   }

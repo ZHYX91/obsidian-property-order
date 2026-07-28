@@ -65,10 +65,10 @@ translation_status: source
 
 1. 从发起 pill、Properties 容器和 pane 捕获 source 属性、source 索引、文件路径以及该 leaf 的公开 `MarkdownView.editor`；同时从编辑器文本和公开 Metadata Cache 同步捕获冲突快照。
 2. 由 `drop-targeting.ts` 计算同一 pane 内的目标容器和插入槽，并把 Metadata Cache 快照中明确为非列表的属性行分类为拒绝目标；是否允许跨属性在每次事件时读取当前设置。
-3. 由 `drag-dom.ts` 管理预览、指示器、拒绝目标、cursor class 和乐观 DOM；取消路径必须完全清理。经过拒绝目标不产生 Notice，只有在其上松手才由 controller 提示。
-4. 由 `writeback.ts` 重新读取同一个编辑器的最新文本，再验证拖拽开始时捕获的 source/target 值。只有 leaf、文件、编辑器身份和内容守卫都通过才调用纯 frontmatter 重写，并以一次最小范围 `editor.transaction()` 写回。
+3. 由 `drag-dom.ts` 管理预览、指示器、拒绝目标和 cursor class，但不得移动、删除或复制宿主的属性 pill；取消路径必须完全清理。经过拒绝目标不产生 Notice，只有在其上松手才由 controller 提示。
+4. 由 `writeback.ts` 重新读取同一个编辑器的最新文本，再验证拖拽开始时捕获的 source/target 值。只有 leaf、文件、编辑器身份和内容守卫都通过才调用纯 frontmatter 重写，并以一次最小范围 `editor.transaction()` 写回；事务返回后还必须确认编辑器内容与预期结果完全一致，宿主忽略或拒绝事务时按写回失败处理。
 
-编辑器是拖拽写回的唯一文本基底，因此尚未落盘的正文修改会被保留，一次成功拖拽也只形成一个 Obsidian 撤销步骤。无法取得支持事务的编辑器、活动 leaf/file/editor 改变、source DOM 消失、`pointercancel`、Escape、window blur、noop drop 或内容冲突都必须安全取消，不得回退到不可撤销的 Vault 直写。
+编辑器是拖拽写回的唯一文本基底，因此尚未落盘的正文修改会被保留，一次成功拖拽也只形成一个 Obsidian 撤销步骤。Properties DOM 始终由 Obsidian 根据已确认的编辑器内容重渲染，插件不以手工搬动 pill 制造成功外观。无法取得支持事务的编辑器、事务未生效、活动 leaf/file/editor 改变、source DOM 消失、`pointercancel`、Escape、window blur、noop drop 或内容冲突都必须安全取消，不得回退到不可撤销的 Vault 直写。
 
 移动端的 `PropertyValueOrderController` 监听 Obsidian 原生属性值 `contextmenu`，通过公开的 `Menu.forEvent` 只追加一项操作，不抑制或替换宿主菜单。用户选择后，只把该 pill 置为 15 秒单次待拖动状态；下一次 touch/pen 按下走纯状态机的 `startOnMove` 路径，移动达到鼠标级阈值后开始拖拽，并只消费一次。点击其他位置、Escape、超时、插件卸载、DOM 失效和事务清理都会取消该状态。仅在已经待拖动的按压期间抑制第二次原生菜单和默认触摸移动。若无法取得共享菜单，辅助函数 fail open，不改变宿主行为。
 

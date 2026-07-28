@@ -1,7 +1,7 @@
 {
   "id": "property-order",
   "name": "Property Order",
-  "version": "0.3.0",
+  "version": "0.3.1",
   "minAppVersion": "1.12.7",
   "description": "Reorder property values and customize native property name suggestions.",
   "author": "ZhengYX",
