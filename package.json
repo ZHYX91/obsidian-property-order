@@ -6,10 +6,11 @@
   "scripts": {
     "dev": "node esbuild.config.mjs",
     "build": "node esbuild.config.mjs production",
-    "check": "npm run lint && npm run typecheck && npm test && npm run build && npm run check:release",
+    "check": "npm run lint && npm run check:readme-i18n && npm run typecheck && npm test && npm run build && npm run check:release",
     "lint": "eslint main.ts src tests scripts esbuild.config.mjs eslint.config.mjs vitest.config.mts --max-warnings 0",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
+    "check:readme-i18n": "node scripts/check-readme-i18n.mjs",
     "check:release": "node scripts/check-release.mjs",
     "acceptance:fixtures": "node scripts/create-acceptance-fixtures.mjs",
     "acceptance:conflict": "node scripts/inject-acceptance-conflict.mjs"

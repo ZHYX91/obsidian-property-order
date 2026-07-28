@@ -26,7 +26,7 @@ Tests use Vitest and are named `*.test.ts`. Add focused tests under `tests/` for
 
 ## Documentation
 
-Simplified Chinese is the source language for stable product, architecture, UX, and testing documents. Keep each `.zh-CN.md` source paired with a structurally matching `.en.md` translation and update both in the same change. The root `README.md` is English; its Simplified Chinese counterpart lives at `docs/i18n/README.zh-CN.md`, and language links use absolute GitHub URLs so they work in the Obsidian plugin catalog.
+Simplified Chinese is the source language for stable product, architecture, UX, and testing documents. Keep each `.zh-CN.md` source paired with a structurally matching `.en.md` translation and update both in the same change. The root `README.md` is English; translations use `docs/i18n/README.<locale>.md`. Every README variant starts with the canonical product title followed by the same native-language navigation order, using absolute GitHub `blob/main` links so navigation also works in the Obsidian plugin catalog.
 
 Documentation describes current behavior and current verification requirements. Remove superseded plans, progress records, dated evidence snapshots, version-transition narratives, and obsolete alternatives once their durable rules are incorporated. Active settings migrations and compatibility boundaries remain documented because they are current runtime behavior.
 

@@ -1,5 +1,7 @@
 # Property Order
 
+[English](https://github.com/ZHYX91/obsidian-property-order/blob/main/README.md) · [简体中文](https://github.com/ZHYX91/obsidian-property-order/blob/main/docs/i18n/README.zh-CN.md)
+
 Property Order 用于安全地重排 Obsidian Properties 中的列表值，并按规则调整原生属性名称候选。
 
 ## 演示
@@ -53,7 +55,3 @@ npm run check
 架构与测试细节见[开发者文档](https://github.com/ZHYX91/obsidian-property-order/blob/main/docs/architecture.zh-CN.md)。
 
 一般问题与使用反馈可在 [GitHub Discussions](https://github.com/ZHYX91/obsidian-property-order/discussions) 中交流；可复现缺陷和明确的功能建议请使用结构化的 [GitHub Issue 表单](https://github.com/ZHYX91/obsidian-property-order/issues/new/choose)；安全漏洞请按照仓库的[安全策略](https://github.com/ZHYX91/obsidian-property-order/security/policy)私密报告。公开发布前请移除 Vault 路径、笔记内容、YAML 属性值和凭据。
-
-## English
-
-See the [English README](https://github.com/ZHYX91/obsidian-property-order/blob/main/README.md).

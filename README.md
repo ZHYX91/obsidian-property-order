@@ -1,5 +1,7 @@
 # Property Order
 
+[English](https://github.com/ZHYX91/obsidian-property-order/blob/main/README.md) · [简体中文](https://github.com/ZHYX91/obsidian-property-order/blob/main/docs/i18n/README.zh-CN.md)
+
 Property Order enhances Obsidian Properties with safe list-value reordering and configurable native property-name suggestions.
 
 ## Demo
@@ -53,7 +55,3 @@ npm run check
 See the [developer documentation](https://github.com/ZHYX91/obsidian-property-order/blob/main/docs/architecture.en.md) for architecture and testing details.
 
 Questions and general feedback are welcome in [GitHub Discussions](https://github.com/ZHYX91/obsidian-property-order/discussions). Please use the structured [GitHub issue forms](https://github.com/ZHYX91/obsidian-property-order/issues/new/choose) for reproducible bugs and concrete feature requests. Report vulnerabilities privately through the repository's [security policy](https://github.com/ZHYX91/obsidian-property-order/security/policy). Remove private Vault paths, note content, YAML values, and credentials before posting publicly.
-
-## 中文
-
-查看[简体中文说明](https://github.com/ZHYX91/obsidian-property-order/blob/main/docs/i18n/README.zh-CN.md)。
