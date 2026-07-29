@@ -3,7 +3,7 @@ import type { PropertyContainerContext } from "../../obsidian/properties-dom";
 export interface DropTarget {
   context: PropertyContainerContext;
   mode: "reorder" | "move";
-  slot: number;
+  slot: number | "append";
   kind: "drop" | "noop";
 }
 
@@ -13,3 +13,10 @@ export interface InvalidDropTarget {
   propertyKey: string;
   reason: "non-list";
 }
+
+export type DropPointResolution =
+  | { context: PropertyContainerContext; kind: "supported-list" }
+  | { context: PropertyContainerContext; kind: "supported-list-mismatch" }
+  | InvalidDropTarget
+  | { kind: "unknown"; propertyElement: HTMLElement; propertyKey?: string }
+  | { kind: "none" };

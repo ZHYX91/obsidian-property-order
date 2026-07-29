@@ -3,12 +3,18 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  blurFocusedPropertyEditor,
   findPropertyContainerAtPoint,
   findPropertyElementAtPoint,
+  findPropertyListContextByKey,
+  getListTypeMismatchDisplayValue,
+  getNativePropertyTypeEvidence,
   isPropertyPillTarget,
   resolveDraggablePropertyPill,
+  resolveListTypeMismatchContext,
   resolvePropertyContainerContext,
   resolvePropertyElementContext,
+  resolvePropertyPillContext,
 } from "../../src/obsidian/properties-dom";
 
 function createPill(insideMetadata: boolean): HTMLElement {
@@ -78,6 +84,123 @@ describe("Properties DOM", () => {
     });
   });
 
+  it("recognizes the full-width native mismatch input as a threshold drag source", () => {
+    const metadata = document.createElement("div");
+    metadata.className = "metadata-container";
+    const property = document.createElement("div");
+    property.className = "metadata-property";
+    property.dataset.propertyKey = "related";
+    const icon = document.createElement("div");
+    icon.className = "metadata-property-icon";
+    icon.dataset.icon = "list";
+    const value = document.createElement("div");
+    value.className = "metadata-property-value";
+    const input = document.createElement("input");
+    input.className = "metadata-input-number";
+    input.value = "123";
+    const warning = document.createElement("div");
+    warning.className = "metadata-property-warning-icon";
+    value.append(input, warning);
+    property.append(icon, value);
+    metadata.appendChild(property);
+    document.body.appendChild(metadata);
+
+    expect(resolveListTypeMismatchContext(property)).toMatchObject({
+      container: value,
+      editorKind: "list-type-mismatch",
+      pills: [],
+      propertyKey: "related",
+    });
+    expect(resolveDraggablePropertyPill(input)).toBe(value);
+    expect(resolveDraggablePropertyPill(value)).toBe(value);
+    expect(resolvePropertyPillContext(value)).toMatchObject({
+      editorKind: "list-type-mismatch",
+      pill: value,
+      pills: [value],
+      sourceIndex: 0,
+    });
+    expect(resolveDraggablePropertyPill(warning)).toBeNull();
+    const mismatchContext = resolveListTypeMismatchContext(property);
+    expect(mismatchContext == null ? null : getListTypeMismatchDisplayValue(mismatchContext)).toBe(
+      "123",
+    );
+    expect(findPropertyListContextByKey(metadata, "related")).toMatchObject({
+      container: value,
+      editorKind: "list-type-mismatch",
+    });
+  });
+
+  it("reads a mixed list rendered as the native unknown-value item", () => {
+    const metadata = document.createElement("div");
+    metadata.className = "metadata-container";
+    const property = document.createElement("div");
+    property.className = "metadata-property";
+    property.dataset.propertyKey = "related";
+    const icon = document.createElement("div");
+    icon.className = "metadata-property-icon";
+    icon.dataset.icon = "list";
+    const value = document.createElement("div");
+    value.className = "metadata-property-value";
+    const unknownValue = document.createElement("span");
+    unknownValue.className = "metadata-property-value-item mod-unknown";
+    unknownValue.textContent = '[true, "gamma"]';
+    const warning = document.createElement("div");
+    warning.className = "metadata-property-warning-icon";
+    value.append(unknownValue, warning);
+    property.append(icon, value);
+    metadata.appendChild(property);
+    document.body.appendChild(metadata);
+
+    const mismatchContext = resolveListTypeMismatchContext(property);
+
+    expect(mismatchContext).not.toBeNull();
+    expect(
+      mismatchContext == null ? null : getListTypeMismatchDisplayValue(mismatchContext),
+    ).toBe('[true, "gamma"]');
+  });
+
+  it("does not infer a list type from a mismatch warning without the native list icon", () => {
+    const metadata = document.createElement("div");
+    metadata.className = "metadata-container";
+    const property = document.createElement("div");
+    property.className = "metadata-property";
+    property.dataset.propertyKey = "count";
+    const icon = document.createElement("div");
+    icon.className = "metadata-property-icon";
+    icon.dataset.icon = "binary";
+    const value = document.createElement("div");
+    value.className = "metadata-property-value";
+    const input = document.createElement("input");
+    const warning = document.createElement("div");
+    warning.className = "metadata-property-warning-icon";
+    value.append(input, warning);
+    property.append(icon, value);
+    metadata.appendChild(property);
+    document.body.appendChild(metadata);
+
+    expect(resolveListTypeMismatchContext(property)).toBeNull();
+    expect(resolveDraggablePropertyPill(input)).toBeNull();
+    expect(getNativePropertyTypeEvidence(property)).toBe("non-list");
+  });
+
+  it("distinguishes list, non-list, and missing native type evidence", () => {
+    const listProperty = document.createElement("div");
+    const listIcon = document.createElement("div");
+    listIcon.className = "metadata-property-icon";
+    listIcon.innerHTML = '<svg class="lucide-list"></svg>';
+    listProperty.appendChild(listIcon);
+
+    const textProperty = document.createElement("div");
+    const textIcon = document.createElement("div");
+    textIcon.className = "metadata-property-icon";
+    textIcon.dataset.icon = "text";
+    textProperty.appendChild(textIcon);
+
+    expect(getNativePropertyTypeEvidence(listProperty)).toBe("list");
+    expect(getNativePropertyTypeEvidence(textProperty)).toBe("non-list");
+    expect(getNativePropertyTypeEvidence(document.createElement("div"))).toBe("unknown");
+  });
+
   it("preserves the exact property key exposed by a native input", () => {
     const metadata = document.createElement("div");
     metadata.className = "metadata-container";
@@ -97,5 +220,17 @@ describe("Properties DOM", () => {
     expect(resolvePropertyContainerContext(container)?.propertyKey).toBe(
       " Project  Status ",
     );
+  });
+
+  it("releases native property focus when a drag starts", () => {
+    const property = document.createElement("div");
+    const input = document.createElement("input");
+    property.appendChild(input);
+    document.body.appendChild(property);
+    input.focus();
+
+    blurFocusedPropertyEditor(property);
+
+    expect(document.activeElement).not.toBe(input);
   });
 });

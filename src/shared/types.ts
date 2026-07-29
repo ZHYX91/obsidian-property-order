@@ -17,6 +17,7 @@ export interface PropertyOrderSettings {
 }
 
 export interface FrontmatterReorderOptions {
+  normalizeAsTextList?: boolean;
   propertyKey: string;
   sourceIndex: number;
   targetSlot: number;
@@ -24,7 +25,7 @@ export interface FrontmatterReorderOptions {
 }
 
 export interface FrontmatterMoveOptions {
-  coerceTargetScalarToList?: boolean;
+  normalizeAsTextList?: boolean;
   sourcePropertyKey: string;
   targetPropertyKey: string;
   sourceIndex: number;

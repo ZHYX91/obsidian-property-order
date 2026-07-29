@@ -46,4 +46,16 @@ describe("property value drag CSS", () => {
       /\.metadata-property\.property-order-invalid-drop-target\s*\{[^}]*outline:\s*2px solid var\(--text-error\);[^}]*background:/s,
     );
   });
+
+  it("adds a dedicated grip without covering a native list-type mismatch input", () => {
+    expect(styles).toMatch(
+      /body\.property-order-value-drag-enabled[\s\S]*?\.metadata-property:not\(:has\(\.multi-select-container\)\):has\([\s\S]*?\.metadata-property-icon[\s\S]*?\):has\(\.metadata-property-warning-icon\)[\s\S]*?\.metadata-property-value\s*\{[^}]*position:\s*relative;[^}]*padding-inline-end:\s*24px;/s,
+    );
+    expect(styles).toMatch(
+      /\.metadata-property-value::after\s*\{[^}]*inset-inline-end:\s*3px;[^}]*width:\s*18px;[^}]*content:\s*"⠿";[^}]*cursor:\s*grab;[^}]*touch-action:\s*none;/s,
+    );
+    expect(styles).not.toMatch(
+      /\.metadata-property-value(?:\s+input)?\s*\{[^}]*pointer-events:\s*none;/s,
+    );
+  });
 });

@@ -61,6 +61,14 @@ const EN_TRANSLATIONS = {
   "settings.saveStatus.failed": "Settings could not be saved. Changes are active only for this session.",
   "settings.saveStatus.retry": "Retry save",
   "notice.reorderFailed": "Property Order: failed to reorder property values.",
+  "notice.writebackDiverged":
+    "Property Order: the editor returned an unexpected result. Check the note in Source mode before continuing.",
+  "notice.persistenceFailed":
+    "Property Order: values changed in the editor, but saving could not be scheduled. Save the note manually before continuing.",
+  "notice.propertiesRefreshNeeded":
+    "Property Order: values were written, but Properties did not refresh. Reopen the note before dragging again.",
+  "notice.propertiesOutOfSync":
+    "Property Order: Properties is out of sync with the note. Reopen the note before dragging again.",
   "notice.contentChanged": "Property Order: content changed while dragging. Try again.",
   "notice.activeFileChanged": "Property Order: active file changed. Try again.",
   "notice.noFrontmatter": "Property Order: no frontmatter found in the current note.",
@@ -134,6 +142,14 @@ export const TRANSLATIONS = {
     "settings.saveStatus.failed": "设置未能保存，当前更改仅在本次会话中生效。",
     "settings.saveStatus.retry": "重试保存",
     "notice.reorderFailed": "Property Order：写回失败，未能重排属性值。",
+    "notice.writebackDiverged":
+      "Property Order：编辑器返回了非预期结果，请先在源码模式检查笔记再继续操作。",
+    "notice.persistenceFailed":
+      "Property Order：属性值已在编辑器中更新，但无法安排保存。继续操作前请手动保存笔记。",
+    "notice.propertiesRefreshNeeded":
+      "Property Order：值已写入，但属性面板未刷新；请重新打开笔记后再拖拽。",
+    "notice.propertiesOutOfSync":
+      "Property Order：属性面板与笔记内容不同步，请重新打开笔记后再拖拽。",
     "notice.contentChanged": "Property Order：拖拽期间内容发生变化，请重试。",
     "notice.activeFileChanged": "Property Order：当前笔记已切换，请重试。",
     "notice.noFrontmatter": "Property Order：当前笔记未找到 frontmatter。",
@@ -198,6 +214,14 @@ export const TRANSLATIONS = {
     "settings.saveStatus.failed": "設定未能儲存，目前變更僅在本次工作階段中生效。",
     "settings.saveStatus.retry": "重試儲存",
     "notice.reorderFailed": "Property Order：寫回失敗，未能重排屬性值。",
+    "notice.writebackDiverged":
+      "Property Order：編輯器傳回非預期結果，請先在原始碼模式檢查筆記再繼續操作。",
+    "notice.persistenceFailed":
+      "Property Order：屬性值已在編輯器中更新，但無法安排儲存。繼續操作前請手動儲存筆記。",
+    "notice.propertiesRefreshNeeded":
+      "Property Order：值已寫入，但屬性面板未重新整理；請重新開啟筆記後再拖曳。",
+    "notice.propertiesOutOfSync":
+      "Property Order：屬性面板與筆記內容不同步，請重新開啟筆記後再拖曳。",
     "notice.contentChanged": "Property Order：拖曳期間內容發生變化，請重試。",
     "notice.activeFileChanged": "Property Order：目前筆記已切換，請重試。",
     "notice.noFrontmatter": "Property Order：目前筆記未找到 frontmatter。",

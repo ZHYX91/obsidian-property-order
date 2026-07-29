@@ -1,4 +1,11 @@
-import { Notice, Platform, type Editor, type Plugin, type TFile } from "obsidian";
+import {
+  Notice,
+  Platform,
+  type Editor,
+  type MarkdownView,
+  type Plugin,
+  type TFile,
+} from "obsidian";
 
 import {
   createIdleDragInteractionState,
@@ -9,21 +16,29 @@ import {
   type DragInteractionState,
   type SupportedPointerType,
 } from "../../core/interaction/pointer-drag";
-import type { FrontmatterScalar } from "../../core/frontmatter";
+import {
+  getFrontmatterListPropertyScalars,
+  getFrontmatterTextListPropertyValues,
+  type FrontmatterScalar,
+} from "../../core/frontmatter";
 import { isSameNoteDocument } from "../../core/interaction/document-guard";
 import { t, type TranslationKey } from "../../shared/i18n";
 import type { PropertyOrderSettings } from "../../shared/types";
 import {
+  blurFocusedPropertyEditor,
+  findPropertyListContextByKey,
   getContainerPills,
+  getListTypeMismatchDisplayValue,
+  getPropertyPillDisplayValues,
   isPropertyPillTarget,
   resolveDraggablePropertyPill,
+  resolveListTypeMismatchContext,
+  resolvePropertyContainerContext,
   resolvePropertyPillContext,
+  type PropertyContainerContext,
   type PropertyPillContext,
 } from "../../obsidian/properties-dom";
-import {
-  getCachedFrontmatterListProperties,
-  getCachedFrontmatterPropertyKinds,
-} from "../../obsidian/metadata";
+import { getCachedFrontmatterStorageKinds } from "../../obsidian/metadata";
 import {
   resolvePaneFileContext,
 } from "../../obsidian/pane-context";
@@ -37,9 +52,8 @@ import {
   updateInvalidDropTarget,
 } from "./drag-dom";
 import {
-  resolveDropContextAtPoint,
+  resolveDropPoint,
   resolveDropTarget,
-  resolveInvalidDropTargetAtPoint,
 } from "./drop-targeting";
 import type { DropTarget, InvalidDropTarget } from "./types";
 import { writePropertyValueDrop } from "./writeback";
@@ -52,9 +66,9 @@ interface DragState {
   file: TFile;
   generation: number;
   paneContainer: HTMLElement;
+  paneView: MarkdownView;
   context: PropertyPillContext;
-  expectedPropertyKinds: ReturnType<typeof getCachedFrontmatterPropertyKinds>;
-  expectedPropertyValues: ReadonlyMap<string, readonly FrontmatterScalar[]> | null;
+  expectedStorageKinds: ReturnType<typeof getCachedFrontmatterStorageKinds>;
   indicatorElement: HTMLElement;
   invalidTarget: InvalidDropTarget | null;
   previewElement: HTMLElement;
@@ -542,6 +556,31 @@ export class PropertyValueOrderController {
       return false;
     }
 
+    const expectedContent = this.readExpectedContent(paneContext.editor);
+
+    if (
+      context.editorKind === "list-type-mismatch" &&
+      (expectedContent == null ||
+        getFrontmatterListPropertyScalars(
+          expectedContent,
+          context.propertyKey,
+          true,
+        )?.length !== 1)
+    ) {
+      this.maybeShowDiagnostic("notice.unsupportedProperty");
+      this.clearInteractionState();
+      return false;
+    }
+
+    if (
+      expectedContent == null ||
+      !this.isSourceContextAlignedWithContent(context, expectedContent)
+    ) {
+      new Notice(this.t("notice.propertiesOutOfSync"));
+      this.clearInteractionState();
+      return false;
+    }
+
     const targetDocument = context.pill.ownerDocument;
     const targetWindow = targetDocument.defaultView;
 
@@ -550,6 +589,8 @@ export class PropertyValueOrderController {
       this.clearInteractionState();
       return false;
     }
+
+    blurFocusedPropertyEditor(context.propertyElement);
 
     this.restoreNativeDragState ??= suppressNativeDrag(context.pill);
     this.clearMobileArmState();
@@ -562,13 +603,13 @@ export class PropertyValueOrderController {
     this.dragState = {
       document: targetDocument,
       editor: paneContext.editor,
-      expectedContent: this.readExpectedContent(paneContext.editor),
+      expectedContent,
       file: paneContext.file,
       generation: this.lifecycleGeneration,
       paneContainer: paneContext.container,
+      paneView: paneContext.view,
       context,
-      expectedPropertyKinds: getCachedFrontmatterPropertyKinds(this.plugin.app, paneContext.file),
-      expectedPropertyValues: getCachedFrontmatterListProperties(this.plugin.app, paneContext.file),
+      expectedStorageKinds: getCachedFrontmatterStorageKinds(this.plugin.app, paneContext.file),
       indicatorElement,
       invalidTarget: null,
       previewElement,
@@ -644,28 +685,35 @@ export class PropertyValueOrderController {
       return;
     }
 
-    const currentPills = getContainerPills(dragState.context.container);
+    const currentPills =
+      dragState.context.editorKind === "list-type-mismatch"
+        ? [sourcePill]
+        : getContainerPills(dragState.context.container);
 
-    if (currentPills.length === 0 || !currentPills.includes(sourcePill)) {
+    if (
+      currentPills.length !== dragState.context.pills.length ||
+      currentPills[dragState.context.sourceIndex] !== sourcePill ||
+      currentPills.some((pill, index) => pill !== dragState.context.pills[index])
+    ) {
       this.applyActions(this.transition({ type: "abort" }));
       return;
     }
 
-    dragState.context = {
-      ...dragState.context,
-      pills: currentPills,
-      sourceIndex: currentPills.indexOf(sourcePill),
-    };
-
     positionPreview(dragState.previewElement, this.pendingDragX, this.pendingDragY);
 
-    const targetContext = resolveDropContextAtPoint(
+    const dropPoint = resolveDropPoint(
       dragState.context,
       this.pendingDragX,
       this.pendingDragY,
       this.getSettings().enableCrossPropertyDrag,
       dragState.paneContainer,
+      dragState.expectedStorageKinds,
     );
+    const targetContext =
+      dropPoint.kind === "supported-list" ||
+      dropPoint.kind === "supported-list-mismatch"
+        ? dropPoint.context
+        : null;
     const target =
       targetContext == null
         ? null
@@ -675,17 +723,7 @@ export class PropertyValueOrderController {
             this.pendingDragX,
             this.pendingDragY,
           );
-    const invalidTarget =
-      target == null
-        ? resolveInvalidDropTargetAtPoint(
-            dragState.context,
-            this.pendingDragX,
-            this.pendingDragY,
-            this.getSettings().enableCrossPropertyDrag,
-            dragState.paneContainer,
-            dragState.expectedPropertyKinds,
-          )
-        : null;
+    const invalidTarget = target == null && dropPoint.kind === "invalid" ? dropPoint : null;
     updateInvalidDropTarget(dragState.document, dragState.invalidTarget, invalidTarget);
     dragState.target = target;
     dragState.invalidTarget = invalidTarget;
@@ -737,23 +775,31 @@ export class PropertyValueOrderController {
         return;
       }
 
+      const currentContent = dragState.editor.getValue();
+
+      if (
+        !this.isSourceContextAlignedWithContent(dragState.context, currentContent) ||
+        !this.isTargetContextAlignedWithContent(target.context, currentContent)
+      ) {
+        new Notice(this.t("notice.propertiesOutOfSync"));
+        return;
+      }
+
+      blurFocusedPropertyEditor(target.context.propertyElement);
+
       const writebackResult = await writePropertyValueDrop({
+        canFinalize: () => this.isOriginalDocumentActive(dragState),
         canWrite: () =>
-          this.isDragStateActive(dragState) && this.isOriginalDocumentActive(dragState),
+          this.isDropReadyForWrite(dragState, target),
         editor: dragState.editor,
         expectedContent: dragState.expectedContent,
-        expectedSourceValues:
-          dragState.expectedPropertyValues?.get(dragState.context.propertyKey) ?? null,
-        expectedTargetValues:
-          target.mode === "move"
-            ? dragState.expectedPropertyValues?.get(target.context.propertyKey) ?? null
-            : null,
         sourceContext: dragState.context,
         target,
+        view: dragState.paneView,
         writebackFormat: this.getSettings().listWritebackFormat,
       });
 
-      if (!this.isDragStateActive(dragState)) {
+      if (!this.isDragOperationOwned(dragState)) {
         return;
       }
 
@@ -767,6 +813,10 @@ export class PropertyValueOrderController {
         return;
       }
 
+      if (writebackResult.status === "aborted") {
+        return;
+      }
+
       if (writebackResult.status === "diagnostic") {
         this.maybeShowDiagnostic(writebackResult.messageKey);
         return;
@@ -774,9 +824,50 @@ export class PropertyValueOrderController {
 
       if (writebackResult.status === "failed") {
         new Notice(this.t("notice.reorderFailed"));
+        return;
+      }
+
+      if (writebackResult.status === "diverged") {
+        new Notice(this.t("notice.writebackDiverged"));
+        return;
+      }
+
+      if (writebackResult.status === "persistence-failed") {
+        new Notice(this.t("notice.persistenceFailed"));
+        return;
+      }
+
+      if (writebackResult.status === "written") {
+        if (dragState.editor.getValue() !== writebackResult.committedContent) {
+          new Notice(this.t("notice.writebackDiverged"));
+          return;
+        }
+        await this.waitForHostUiSettlement(dragState.document);
+
+        if (!this.isDragOperationOwned(dragState)) {
+          return;
+        }
+
+        if (dragState.editor.getValue() !== writebackResult.committedContent) {
+          new Notice(this.t("notice.writebackDiverged"));
+          return;
+        }
+
+        const propertiesAligned = writebackResult.changedPropertyKeys.every((propertyKey) => {
+          const context = findPropertyListContextByKey(dragState.paneContainer, propertyKey);
+          return context != null && this.isListContextAlignedWithContent(
+            context,
+            writebackResult.committedContent,
+            true,
+          );
+        });
+
+        if (!propertiesAligned) {
+          new Notice(this.t("notice.propertiesRefreshNeeded"));
+        }
       }
     } catch (error) {
-      if (this.isDragStateActive(dragState)) {
+      if (this.isDragOperationOwned(dragState)) {
         console.error("Property Order: failed to write frontmatter", error);
         new Notice(this.t("notice.reorderFailed"));
       }
@@ -790,23 +881,129 @@ export class PropertyValueOrderController {
   private isOriginalDocumentActive(dragState: DragState): boolean {
     const currentPaneContext = resolvePaneFileContext(this.plugin, dragState.paneContainer);
     return (
+      currentPaneContext?.view === dragState.paneView &&
       currentPaneContext?.editor === dragState.editor &&
       isSameNoteDocument(dragState.file.path, currentPaneContext.file.path)
     );
   }
 
-  private isDragStateActive(dragState: DragState): boolean {
+  private isSourceContextAlignedWithContent(
+    context: PropertyContainerContext,
+    content: string,
+  ): boolean {
+    return this.isListContextAlignedWithContent(context, content, false);
+  }
+
+  private isTargetContextAlignedWithContent(
+    context: PropertyContainerContext,
+    content: string,
+  ): boolean {
+    return this.isListContextAlignedWithContent(context, content, true);
+  }
+
+  private isListContextAlignedWithContent(
+    context: PropertyContainerContext,
+    content: string,
+    allowMultipleMismatchValues: boolean,
+  ): boolean {
+    if (context.editorKind === "list-type-mismatch") {
+      return isListTypeMismatchContextAlignedWithContent(
+        context,
+        content,
+        allowMultipleMismatchValues,
+      );
+    }
+
+    return this.isMultiSelectContextAlignedWithContent(context, content);
+  }
+
+  private isMultiSelectContextAlignedWithContent(
+    context: PropertyContainerContext,
+    content: string,
+  ): boolean {
+    if (context.editorKind !== "multi-select") {
+      return false;
+    }
+
+    const expectedValues = getFrontmatterTextListPropertyValues(content, context.propertyKey);
+    const visibleValues = getPropertyPillDisplayValues(context);
+
+    return areStringArraysEqual(expectedValues, visibleValues);
+  }
+
+  private isDropReadyForWrite(dragState: DragState, target: DropTarget): boolean {
+    if (
+      !this.isDragStateActive(dragState) ||
+      !this.isOriginalDocumentActive(dragState) ||
+      !this.isDropTargetActive(dragState, target)
+    ) {
+      return false;
+    }
+
+    const currentContent = this.readExpectedContent(dragState.editor);
+
+    return (
+      currentContent != null &&
+      this.isSourceContextAlignedWithContent(dragState.context, currentContent) &&
+      this.isTargetContextAlignedWithContent(target.context, currentContent)
+    );
+  }
+
+  private waitForHostUiSettlement(targetDocument: Document): Promise<void> {
+    const targetWindow = targetDocument.defaultView;
+
+    return targetWindow == null
+      ? Promise.resolve()
+      : new Promise((resolve) => targetWindow.setTimeout(resolve, 0));
+  }
+
+  private isDragOperationOwned(dragState: DragState): boolean {
     return (
       this.initialized &&
       this.lifecycleGeneration === dragState.generation &&
-      this.dragState === dragState &&
-      this.isDragSourceConnected(dragState)
+      this.dragState === dragState
+    );
+  }
+
+  private isDragStateActive(dragState: DragState): boolean {
+    return this.isDragOperationOwned(dragState) && this.isDragSourceConnected(dragState);
+  }
+
+  private isDropTargetActive(dragState: DragState, target: DropTarget): boolean {
+    const { container, propertyElement, propertyKey } = target.context;
+
+    if (
+      !container.isConnected ||
+      container.ownerDocument !== dragState.document ||
+      !propertyElement.isConnected ||
+      propertyElement.ownerDocument !== dragState.document ||
+      !propertyElement.contains(container) ||
+      !dragState.paneContainer.contains(propertyElement)
+    ) {
+      return false;
+    }
+
+    const currentContext =
+      target.context.editorKind === "list-type-mismatch"
+        ? resolveListTypeMismatchContext(propertyElement)
+        : resolvePropertyContainerContext(container);
+    return (
+      currentContext?.propertyKey === propertyKey &&
+      currentContext.container === container &&
+      currentContext.editorKind === target.context.editorKind &&
+      currentContext.pills.length === target.context.pills.length &&
+      currentContext.pills.every((pill, index) => pill === target.context.pills[index])
     );
   }
 
   private isDragSourceConnected(dragState: DragState): boolean {
     const { container, pill, propertyElement } = dragState.context;
     const { document: targetDocument, paneContainer } = dragState;
+
+    const currentContext =
+      dragState.context.editorKind === "list-type-mismatch"
+        ? resolveListTypeMismatchContext(propertyElement)
+        : resolvePropertyContainerContext(container);
 
     return (
       pill.isConnected &&
@@ -819,7 +1016,15 @@ export class PropertyValueOrderController {
       propertyElement.contains(container) &&
       paneContainer.isConnected &&
       paneContainer.ownerDocument === targetDocument &&
-      paneContainer.contains(propertyElement)
+      paneContainer.contains(propertyElement) &&
+      currentContext?.propertyKey === dragState.context.propertyKey &&
+      currentContext.container === container &&
+      currentContext.editorKind === dragState.context.editorKind &&
+      (dragState.context.editorKind === "list-type-mismatch" ||
+        (currentContext.pills.length === dragState.context.pills.length &&
+          currentContext.pills.every(
+            (currentPill, index) => currentPill === dragState.context.pills[index],
+          )))
     );
   }
 
@@ -930,4 +1135,88 @@ export class PropertyValueOrderController {
   private t(messageKey: TranslationKey): string {
     return t(messageKey, this.getSettings().language);
   }
+}
+
+function areStringArraysEqual(
+  left: readonly string[] | null,
+  right: readonly string[] | null,
+): boolean {
+  return (
+    left != null &&
+    right != null &&
+    left.length === right.length &&
+    left.every((value, index) => right[index] === value)
+  );
+}
+
+function isListTypeMismatchContextAlignedWithContent(
+  context: PropertyContainerContext,
+  content: string,
+  allowMultipleValues: boolean,
+): boolean {
+  const expectedTextValues = getFrontmatterTextListPropertyValues(
+    content,
+    context.propertyKey,
+  );
+  const expectedScalars = getFrontmatterListPropertyScalars(
+    content,
+    context.propertyKey,
+    true,
+  );
+  const displayedValue = getListTypeMismatchDisplayValue(context);
+
+  if (
+    expectedTextValues == null ||
+    expectedScalars == null ||
+    displayedValue == null ||
+    expectedTextValues.length !== expectedScalars.length
+  ) {
+    return false;
+  }
+
+  if (expectedTextValues.length === 0) {
+    return displayedValue === "" || displayedValue === "null" || displayedValue === "~";
+  }
+
+  if (expectedTextValues.length === 1) {
+    const expectedScalar = expectedScalars[0];
+    return (
+      expectedScalar != null &&
+      (displayedValue === expectedTextValues[0] || displayedValue === expectedScalar.value)
+    );
+  }
+
+  if (!allowMultipleValues) {
+    return false;
+  }
+
+  const displayedScalars = parseMismatchDisplayScalars(displayedValue);
+  return (
+    displayedScalars != null &&
+    displayedScalars.length === expectedScalars.length &&
+    expectedScalars.every((expectedScalar, index) => {
+      const displayedScalar = displayedScalars[index];
+
+      if (displayedScalar == null || displayedScalar.value !== expectedScalar.value) {
+        return false;
+      }
+
+      return (
+        displayedScalar.kind === expectedScalar.kind ||
+        (expectedScalar.kind !== "string" && displayedScalar.kind === "string")
+      );
+    })
+  );
+}
+
+function parseMismatchDisplayScalars(displayedValue: string): readonly FrontmatterScalar[] | null {
+  const trimmedValue = displayedValue.trim();
+  const flowValue =
+    trimmedValue.startsWith("[") && trimmedValue.endsWith("]")
+      ? trimmedValue
+      : `[${trimmedValue}]`;
+  return getFrontmatterListPropertyScalars(
+    `---\nproperty-order-value: ${flowValue}\n---\n`,
+    "property-order-value",
+  );
 }

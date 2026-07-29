@@ -1,52 +1,97 @@
 import {
   findPropertyContainerAtPoint,
   findPropertyElementAtPoint,
+  getNativePropertyTypeEvidence,
   resolvePropertyContainerContext,
+  resolvePropertyElementListContext,
   resolvePropertyElementContext,
   type PropertyContainerContext,
   type PropertyPillContext,
 } from "../../obsidian/properties-dom";
-import type { CachedFrontmatterPropertyKind } from "../../obsidian/metadata";
-import type { DropTarget, InvalidDropTarget } from "./types";
+import type { CachedFrontmatterStorageKind } from "../../obsidian/metadata";
+import type { DropPointResolution, DropTarget } from "./types";
 
-export function resolveDropContextAtPoint(
+export function resolveDropPoint(
   sourceContext: PropertyPillContext,
   clientX: number,
   clientY: number,
   enableCrossPropertyDrag: boolean,
   paneContainer: HTMLElement | null,
-): PropertyContainerContext | null {
+  storageKinds: ReadonlyMap<string, CachedFrontmatterStorageKind> | null,
+): DropPointResolution {
   const sourceContainerRect = sourceContext.container.getBoundingClientRect();
 
   if (isPointInsideRect(clientX, clientY, sourceContainerRect)) {
-    return sourceContext;
+    return toSupportedResolution(sourceContext);
   }
 
   if (!enableCrossPropertyDrag) {
-    return null;
+    return { kind: "none" };
   }
 
-  const container = findPropertyContainerAtPoint(
+  const targetDocument = sourceContext.container.ownerDocument;
+  const directContainer = findPropertyContainerAtPoint(clientX, clientY, targetDocument);
+  const directContext =
+    directContainer == null ? null : resolvePropertyContainerContext(directContainer);
+
+  if (
+    directContext != null &&
+    directContext.container !== sourceContext.container &&
+    isSamePaneContainer(directContext.propertyElement, paneContainer)
+  ) {
+    return toSupportedResolution(directContext);
+  }
+
+  const propertyElement = findPropertyElementAtPoint(
     clientX,
     clientY,
-    sourceContext.container.ownerDocument,
+    targetDocument,
   );
 
-  if (container == null || container === sourceContext.container) {
-    return null;
+  if (
+    propertyElement == null ||
+    propertyElement === sourceContext.propertyElement ||
+    !isSamePaneContainer(propertyElement, paneContainer)
+  ) {
+    return { kind: "none" };
   }
 
-  if (!isSamePaneContainer(container, paneContainer)) {
-    return null;
+  const targetContext = resolvePropertyElementListContext(propertyElement);
+
+  if (targetContext != null) {
+    return toSupportedResolution(targetContext);
   }
 
-  const targetContext = resolvePropertyContainerContext(container);
+  const propertyContext = resolvePropertyElementContext(propertyElement);
 
-  if (targetContext == null) {
-    return null;
+  const nativeTypeEvidence = getNativePropertyTypeEvidence(propertyElement);
+
+  if (nativeTypeEvidence === "list") {
+    return {
+      kind: "unknown",
+      propertyElement,
+      propertyKey: propertyContext?.propertyKey,
+    };
   }
 
-  return targetContext;
+  if (
+    propertyContext != null &&
+    nativeTypeEvidence === "non-list" &&
+    storageKinds?.get(propertyContext.propertyKey) === "scalar"
+  ) {
+    return {
+      kind: "invalid",
+      propertyElement: propertyContext.propertyElement,
+      propertyKey: propertyContext.propertyKey,
+      reason: "non-list",
+    };
+  }
+
+  return {
+    kind: "unknown",
+    propertyElement,
+    propertyKey: propertyContext?.propertyKey,
+  };
 }
 
 export function resolveDropTarget(
@@ -59,7 +104,8 @@ export function resolveDropTarget(
   const mode = targetContext.container === sourceContext.container ? "reorder" : "move";
 
   if (pillRects.length === 0) {
-    return mode === "move" ? buildDropTarget(targetContext, mode, 0, -1) : null;
+    const slot = targetContext.editorKind === "list-type-mismatch" ? "append" : 0;
+    return mode === "move" ? buildDropTarget(targetContext, mode, slot, -1) : null;
   }
 
   if (mode === "reorder" && sourceContext.pills.length <= 1) {
@@ -99,46 +145,13 @@ export function resolveDropTarget(
   return buildDropTarget(targetContext, mode, slot, sourceIndex);
 }
 
-export function resolveInvalidDropTargetAtPoint(
-  sourceContext: PropertyPillContext,
-  clientX: number,
-  clientY: number,
-  enableCrossPropertyDrag: boolean,
-  paneContainer: HTMLElement | null,
-  propertyKinds: ReadonlyMap<string, CachedFrontmatterPropertyKind> | null,
-): InvalidDropTarget | null {
-  if (!enableCrossPropertyDrag || propertyKinds == null) {
-    return null;
-  }
-
-  const propertyElement = findPropertyElementAtPoint(
-    clientX,
-    clientY,
-    sourceContext.container.ownerDocument,
-  );
-
-  if (
-    propertyElement == null ||
-    propertyElement === sourceContext.propertyElement ||
-    !isSamePaneContainer(propertyElement, paneContainer)
-  ) {
-    return null;
-  }
-
-  const propertyContext = resolvePropertyElementContext(propertyElement);
-
-  if (
-    propertyContext == null ||
-    propertyKinds.get(propertyContext.propertyKey) !== "non-list"
-  ) {
-    return null;
-  }
-
+function toSupportedResolution(context: PropertyContainerContext): DropPointResolution {
   return {
-    kind: "invalid",
-    propertyElement: propertyContext.propertyElement,
-    propertyKey: propertyContext.propertyKey,
-    reason: "non-list",
+    context,
+    kind:
+      context.editorKind === "list-type-mismatch"
+        ? "supported-list-mismatch"
+        : "supported-list",
   };
 }
 
@@ -156,7 +169,7 @@ export function isSamePaneContainer(
 function buildDropTarget(
   context: PropertyContainerContext,
   mode: "reorder" | "move",
-  slot: number,
+  slot: number | "append",
   sourceIndex: number,
 ): DropTarget {
   if (mode === "reorder" && (slot === sourceIndex || slot === sourceIndex + 1)) {

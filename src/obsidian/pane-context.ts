@@ -3,7 +3,6 @@ import {
   MarkdownView,
   type Plugin,
   type TFile,
-  type View,
   type WorkspaceLeaf,
 } from "obsidian";
 
@@ -11,6 +10,7 @@ export interface PaneFileContext {
   container: HTMLElement;
   editor: Editor;
   file: TFile;
+  view: MarkdownView;
 }
 
 export function resolvePaneFileContext(
@@ -20,19 +20,20 @@ export function resolvePaneFileContext(
   let result: PaneFileContext | null = null;
 
   plugin.app.workspace.iterateAllLeaves((leaf) => {
-    const containers = getPaneContainers(leaf);
+    const view = leaf.view instanceof MarkdownView ? leaf.view : null;
+
+    if (view == null || view.file == null || !isTransactionEditor(view.editor)) {
+      return;
+    }
+
+    const containers = getPaneContainers(leaf, view);
     const containingPane = containers.find((container) => container.contains(element));
 
     if (result != null || containingPane == null) {
       return;
     }
 
-    const file = resolveFileFromView(leaf.view);
-    const editor = resolveEditorFromView(leaf.view);
-
-    if (file != null && editor != null) {
-      result = { container: containingPane, editor, file };
-    }
+    result = { container: containingPane, editor: view.editor, file: view.file, view };
   });
 
   if (result != null) {
@@ -49,8 +50,14 @@ export function resolveFileFromPaneContainer(
   let result: TFile | null = null;
 
   plugin.app.workspace.iterateAllLeaves((leaf) => {
-    if (result == null && getPaneContainers(leaf).includes(paneContainer)) {
-      result = resolveFileFromView(leaf.view);
+    const view = leaf.view instanceof MarkdownView ? leaf.view : null;
+
+    if (
+      result == null &&
+      view?.file != null &&
+      getPaneContainers(leaf, view).includes(paneContainer)
+    ) {
+      result = view.file;
     }
   });
 
@@ -61,10 +68,9 @@ export function resolveFileFromPaneContainer(
   return null;
 }
 
-function getPaneContainers(leaf: WorkspaceLeaf): HTMLElement[] {
+function getPaneContainers(leaf: WorkspaceLeaf, view: MarkdownView): HTMLElement[] {
   const leafContainer = (leaf as unknown as { containerEl?: HTMLElement }).containerEl;
-  const contentContainer = (leaf.view as View & { contentEl?: HTMLElement }).contentEl;
-  const candidates = [leafContainer, leaf.view.containerEl, contentContainer];
+  const candidates = [leafContainer, view.containerEl, view.contentEl];
 
   return candidates.filter(
     (candidate, index): candidate is HTMLElement =>
@@ -72,25 +78,9 @@ function getPaneContainers(leaf: WorkspaceLeaf): HTMLElement[] {
   );
 }
 
-function resolveFileFromView(view: View): TFile | null {
-  if (view instanceof MarkdownView) {
-    return view.file;
-  }
-
-  return (view as unknown as { file?: TFile | null }).file ?? null;
-}
-
-function resolveEditorFromView(view: View): Editor | null {
-  if (view instanceof MarkdownView) {
-    return view.editor;
-  }
-
-  const editor = (view as unknown as { editor?: Editor | null }).editor;
-
+function isTransactionEditor(editor: Editor | null | undefined): editor is Editor {
   return editor != null &&
     typeof editor.getValue === "function" &&
     typeof editor.offsetToPos === "function" &&
-    typeof editor.transaction === "function"
-    ? editor
-    : null;
+    typeof editor.transaction === "function";
 }

@@ -2,8 +2,7 @@ import type { App, TFile } from "obsidian";
 import { describe, expect, it, vi } from "vitest";
 
 import {
-  getCachedFrontmatterListProperties,
-  getCachedFrontmatterPropertyKinds,
+  getCachedFrontmatterStorageKinds,
   getCachedPropertyKeyUsage,
   getPropertyKeyUsage,
   invalidatePropertyKeyUsage,
@@ -88,78 +87,8 @@ describe("getPropertyKeyUsage", () => {
   });
 });
 
-describe("getCachedFrontmatterListProperties", () => {
-  it("captures primitive list values without treating a bare null scalar as a list", () => {
-    const file = { path: "note.md" } as TFile;
-    const app = {
-      metadataCache: {
-        getFileCache: vi.fn(() => ({
-          frontmatter: {
-            empty: null,
-            nested: [{ value: "unsupported" }],
-            position: { start: { line: 0 }, end: { line: 5 } },
-            scalar: "not-a-list",
-            values: ["alpha", 2, true, null],
-          },
-        })),
-      },
-    } as unknown as App;
-
-    expect(getCachedFrontmatterListProperties(app, file)).toEqual(
-      new Map([
-        [
-          "values",
-          [
-            { kind: "string", value: "alpha" },
-            { kind: "number", value: "2" },
-            { kind: "boolean", value: "true" },
-            { kind: "null", value: "null" },
-          ],
-        ],
-      ]),
-    );
-  });
-
-  it("keeps scalar types distinct when their string values are identical", () => {
-    const file = { path: "note.md" } as TFile;
-    const app = {
-      metadataCache: {
-        getFileCache: vi.fn(() => ({
-          frontmatter: {
-            values: [true, "true", null, "null", 1, "1", Infinity, "Infinity", NaN, "NaN"],
-          },
-        })),
-      },
-    } as unknown as App;
-
-    expect(getCachedFrontmatterListProperties(app, file)?.get("values")).toEqual([
-      { kind: "boolean", value: "true" },
-      { kind: "string", value: "true" },
-      { kind: "null", value: "null" },
-      { kind: "string", value: "null" },
-      { kind: "number", value: "1" },
-      { kind: "string", value: "1" },
-      { kind: "number", value: "Infinity" },
-      { kind: "string", value: "Infinity" },
-      { kind: "number", value: "NaN" },
-      { kind: "string", value: "NaN" },
-    ]);
-  });
-
-  it("returns null when frontmatter metadata is unavailable", () => {
-    const file = { path: "note.md" } as TFile;
-    const app = {
-      metadataCache: {
-        getFileCache: vi.fn(() => null),
-      },
-    } as unknown as App;
-
-    expect(getCachedFrontmatterListProperties(app, file)).toBeNull();
-  });
-});
-
-describe("getCachedFrontmatterPropertyKinds", () => {
-  it("distinguishes list properties from non-list properties", () => {
+describe("getCachedFrontmatterStorageKinds", () => {
+  it("distinguishes array storage from scalar storage", () => {
     const file = { path: "note.md" } as TFile;
     const app = {
       metadataCache: {
@@ -175,12 +104,12 @@ describe("getCachedFrontmatterPropertyKinds", () => {
       },
     } as unknown as App;
 
-    expect(getCachedFrontmatterPropertyKinds(app, file)).toEqual(
+    expect(getCachedFrontmatterStorageKinds(app, file)).toEqual(
       new Map([
-        ["empty", "non-list"],
-        ["nested", "list"],
-        ["scalar", "non-list"],
-        ["values", "list"],
+        ["empty", "scalar"],
+        ["nested", "array"],
+        ["scalar", "scalar"],
+        ["values", "array"],
       ]),
     );
   });
@@ -193,6 +122,6 @@ describe("getCachedFrontmatterPropertyKinds", () => {
       },
     } as unknown as App;
 
-    expect(getCachedFrontmatterPropertyKinds(app, file)).toBeNull();
+    expect(getCachedFrontmatterStorageKinds(app, file)).toBeNull();
   });
 });

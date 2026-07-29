@@ -6,51 +6,27 @@ import {
   readFile,
   rename,
   rm,
-  stat,
   writeFile,
 } from "node:fs/promises";
 import path from "node:path";
 import { pathToFileURL } from "node:url";
 
-const FIXTURES = [
-  { label: "LF", newline: "\n" },
-  { label: "CRLF", newline: "\r\n" },
-  { label: "CR", newline: "\r" },
-];
+import {
+  ACCEPTANCE_FIXTURES,
+  REQUIRED_ACCEPTANCE_PROPERTY_TYPES,
+} from "./acceptance-fixture-spec.mjs";
+import { resolveIsolatedAcceptanceVaultPath } from "./acceptance-vault-safety.mjs";
+
+const TYPES_FILE_NAME = "types.json";
 
 function parseArguments(arguments_) {
   const vaultIndex = arguments_.indexOf("--vault");
   const vaultPath = vaultIndex >= 0 ? arguments_[vaultIndex + 1] : undefined;
   return {
     force: arguments_.includes("--force"),
+    initializeTypes: arguments_.includes("--initialize-types"),
     vaultPath,
   };
-}
-
-function renderFixture(label, newline) {
-  return [
-    "---",
-    `values: [alpha, 'beta value', "gamma:value"] # ${label} fixture`,
-    "other: unchanged",
-    "---",
-    "",
-    `# Property Order ${label}`,
-    "",
-    "Drag values in Properties, then verify YAML, body text, undo, and the host's newline serialization.",
-    "",
-  ].join(newline);
-}
-
-async function assertIsVault(vaultPath) {
-  try {
-    const obsidianStats = await stat(path.join(vaultPath, ".obsidian"));
-
-    if (!obsidianStats.isDirectory()) {
-      throw new Error("not a directory");
-    }
-  } catch {
-    throw new Error(`Not an Obsidian vault: ${vaultPath}`);
-  }
 }
 
 async function assertFixturesDoNotExist(filePaths) {
@@ -117,18 +93,93 @@ async function rollbackFixtureWrites(attemptedWrites) {
   return rollbackErrors;
 }
 
+async function inspectAcceptanceTypesFile(typesPath) {
+  let fileStats;
+
+  try {
+    fileStats = await lstat(typesPath);
+  } catch (error) {
+    if (error?.code === "ENOENT") {
+      return false;
+    }
+
+    throw error;
+  }
+
+  if (fileStats.isSymbolicLink() || !fileStats.isFile()) {
+    throw new Error(`Acceptance types file is not a regular file: ${typesPath}`);
+  }
+
+  let parsed;
+
+  try {
+    parsed = JSON.parse(await readFile(typesPath, "utf8"));
+  } catch (error) {
+    throw new Error(`Invalid Obsidian property types file: ${typesPath}`, { cause: error });
+  }
+
+  const types =
+    parsed != null && typeof parsed === "object" && !Array.isArray(parsed)
+      ? parsed.types
+      : null;
+
+  if (types == null || typeof types !== "object" || Array.isArray(types)) {
+    throw new Error(`Missing object field "types" in ${typesPath}`);
+  }
+
+  const conflicts = Object.entries(REQUIRED_ACCEPTANCE_PROPERTY_TYPES).flatMap(
+    ([propertyKey, requiredType]) =>
+      types[propertyKey] === requiredType
+        ? []
+        : [`${propertyKey}: expected ${requiredType}, found ${String(types[propertyKey])}`],
+  );
+
+  if (conflicts.length > 0) {
+    throw new Error(
+      `Acceptance property types are missing or incompatible in ${typesPath}: ${conflicts.join(
+        "; ",
+      )}`,
+    );
+  }
+
+  return true;
+}
+
+async function rollbackCreatedTypesFile(typesPath, createdStats) {
+  const currentStats = await lstat(typesPath);
+
+  if (
+    currentStats.isSymbolicLink() ||
+    !currentStats.isFile() ||
+    currentStats.dev !== createdStats.dev ||
+    currentStats.ino !== createdStats.ino
+  ) {
+    throw new Error(`Acceptance types file changed before rollback: ${typesPath}`);
+  }
+
+  await rm(typesPath, { force: true });
+}
+
 export async function createAcceptanceFixtures(
   vaultPath,
-  { force = false, install = installFixture } = {},
+  { force = false, initializeTypes = false, install = installFixture } = {},
 ) {
-  const absoluteVaultPath = path.resolve(vaultPath);
-  await assertIsVault(absoluteVaultPath);
+  const absoluteVaultPath = await resolveIsolatedAcceptanceVaultPath(vaultPath);
 
-  const fixturePaths = FIXTURES.map(({ label }) =>
-    path.join(absoluteVaultPath, `Property Order ${label}.md`),
+  const fixturePaths = ACCEPTANCE_FIXTURES.map(({ fileName }) =>
+    path.join(absoluteVaultPath, fileName),
   );
   if (!force) {
     await assertFixturesDoNotExist(fixturePaths);
+  }
+
+  const typesPath = path.join(absoluteVaultPath, ".obsidian", TYPES_FILE_NAME);
+  const typesFileExists = await inspectAcceptanceTypesFile(typesPath);
+
+  if (!typesFileExists && !initializeTypes) {
+    throw new Error(
+      `Missing acceptance property types file: ${typesPath}. Re-run with --initialize-types in a new isolated Vault.`,
+    );
   }
 
   const snapshots = force ? await snapshotExistingFixtures(fixturePaths) : new Map();
@@ -136,15 +187,16 @@ export async function createAcceptanceFixtures(
     path.join(absoluteVaultPath, ".property-order-acceptance-"),
   );
   const attemptedWrites = [];
+  let createdTypesStats = null;
 
   try {
     const stagedPaths = [];
     const rollbackPaths = [];
 
-    for (let index = 0; index < FIXTURES.length; index += 1) {
-      const { label, newline } = FIXTURES[index];
+    for (let index = 0; index < ACCEPTANCE_FIXTURES.length; index += 1) {
+      const fixture = ACCEPTANCE_FIXTURES[index];
       const stagedPath = path.join(stagingDirectory, `new-${index}.md`);
-      await writeFile(stagedPath, renderFixture(label, newline), "utf8");
+      await writeFile(stagedPath, fixture.content, "utf8");
       stagedPaths.push(stagedPath);
 
       const originalContent = snapshots.get(fixturePaths[index]);
@@ -155,6 +207,17 @@ export async function createAcceptanceFixtures(
         await writeFile(rollbackPath, originalContent);
         rollbackPaths.push(rollbackPath);
       }
+    }
+
+    if (!typesFileExists && initializeTypes) {
+      const stagedTypesPath = path.join(stagingDirectory, TYPES_FILE_NAME);
+      await writeFile(
+        stagedTypesPath,
+        `${JSON.stringify({ types: REQUIRED_ACCEPTANCE_PROPERTY_TYPES }, null, 2)}\n`,
+        "utf8",
+      );
+      await link(stagedTypesPath, typesPath);
+      createdTypesStats = await lstat(typesPath);
     }
 
     for (let index = 0; index < fixturePaths.length; index += 1) {
@@ -181,6 +244,14 @@ export async function createAcceptanceFixtures(
   } catch (error) {
     const rollbackErrors = await rollbackFixtureWrites(attemptedWrites);
 
+    if (createdTypesStats != null) {
+      try {
+        await rollbackCreatedTypesFile(typesPath, createdTypesStats);
+      } catch (rollbackError) {
+        rollbackErrors.push(rollbackError);
+      }
+    }
+
     if (rollbackErrors.length > 0) {
       throw new AggregateError(
         [error, ...rollbackErrors],
@@ -197,14 +268,14 @@ export async function createAcceptanceFixtures(
 }
 
 async function main() {
-  const { force, vaultPath } = parseArguments(process.argv.slice(2));
+  const { force, initializeTypes, vaultPath } = parseArguments(process.argv.slice(2));
   if (!vaultPath) {
     throw new Error(
-      "Usage: npm run acceptance:fixtures -- --vault <isolated-vault> [--force]",
+      "Usage: npm run acceptance:fixtures -- --vault <isolated-vault> [--force] [--initialize-types]",
     );
   }
 
-  const writtenFiles = await createAcceptanceFixtures(vaultPath, { force });
+  const writtenFiles = await createAcceptanceFixtures(vaultPath, { force, initializeTypes });
   console.log(`Created ${writtenFiles.length} acceptance fixtures:`);
   for (const filePath of writtenFiles) {
     console.log(filePath);

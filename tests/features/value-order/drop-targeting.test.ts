@@ -3,8 +3,7 @@
 import { describe, expect, it } from "vitest";
 
 import {
-  resolveDropContextAtPoint,
-  resolveInvalidDropTargetAtPoint,
+  resolveDropPoint,
   resolveDropTarget,
   isSamePaneContainer,
 } from "../../../src/features/value-order/drop-targeting";
@@ -39,6 +38,7 @@ function createSourceContext(): PropertyPillContext {
   ];
   return {
     container: elementWithRect(rect(0, 60)),
+    editorKind: "multi-select",
     pill: pills[1],
     pills,
     propertyElement: {} as HTMLElement,
@@ -67,6 +67,7 @@ describe("resolveDropTarget", () => {
     const source = createSourceContext();
     const target: PropertyContainerContext = {
       container: elementWithRect(rect(0, 60)),
+      editorKind: "multi-select",
       pills: [],
       propertyElement: {} as HTMLElement,
       propertyKey: "related",
@@ -79,6 +80,23 @@ describe("resolveDropTarget", () => {
     });
   });
 
+  it("represents an opaque mismatch target as an explicit append", () => {
+    const source = createSourceContext();
+    const target: PropertyContainerContext = {
+      container: elementWithRect(rect(0, 60)),
+      editorKind: "list-type-mismatch",
+      pills: [],
+      propertyElement: {} as HTMLElement,
+      propertyKey: "related",
+    };
+
+    expect(resolveDropTarget(source, target, 10, 10)).toMatchObject({
+      kind: "drop",
+      mode: "move",
+      slot: "append",
+    });
+  });
+
   it("uses the pointed visual row instead of the last pill's x boundary", () => {
     const pills = [
       elementWithRect(rect(0, 100, 0, 20)),
@@ -87,6 +105,7 @@ describe("resolveDropTarget", () => {
     ];
     const source: PropertyPillContext = {
       container: elementWithRect(rect(0, 240, 0, 50)),
+      editorKind: "multi-select",
       pill: pills[0],
       pills,
       propertyElement: {} as HTMLElement,
@@ -108,6 +127,7 @@ describe("resolveDropTarget", () => {
     ];
     const source: PropertyPillContext = {
       container: elementWithRect(rect(0, 240, 0, 50)),
+      editorKind: "multi-select",
       pill: pills[0],
       pills,
       propertyElement: {} as HTMLElement,
@@ -129,6 +149,7 @@ describe("resolveDropTarget", () => {
     ];
     const source: PropertyPillContext = {
       container: elementWithRect(rect(0, 140, 0, 80)),
+      editorKind: "multi-select",
       pill: pills[1],
       pills,
       propertyElement: {} as HTMLElement,
@@ -147,15 +168,18 @@ describe("resolveDropTarget", () => {
   });
 });
 
-describe("resolveDropContextAtPoint", () => {
+describe("resolveDropPoint", () => {
   it("does not inspect or accept another container while cross-property drag is disabled", () => {
     const source = createSourceContext();
-    expect(resolveDropContextAtPoint(source, 100, 100, false, null)).toBeNull();
+    expect(resolveDropPoint(source, 100, 100, false, null, null)).toEqual({ kind: "none" });
   });
 
   it("keeps same-property targeting available while cross-property drag is disabled", () => {
     const source = createSourceContext();
-    expect(resolveDropContextAtPoint(source, 10, 10, false, null)).toBe(source);
+    expect(resolveDropPoint(source, 10, 10, false, null, null)).toEqual({
+      context: source,
+      kind: "supported-list",
+    });
   });
 
   it("accepts cross-property containers only inside the source pane", () => {
@@ -173,12 +197,16 @@ describe("resolveDropContextAtPoint", () => {
   });
 });
 
-describe("resolveInvalidDropTargetAtPoint", () => {
-  it("identifies a cached non-list property in the same pane", () => {
+describe("resolveDropPoint classification", () => {
+  it("requires native non-list evidence corroborated by scalar storage", () => {
     const source = createSourceContext();
     const propertyElement = document.createElement("div");
     propertyElement.className = "metadata-property";
     propertyElement.dataset.propertyKey = "status";
+    const icon = document.createElement("div");
+    icon.className = "metadata-property-icon";
+    icon.dataset.icon = "text";
+    propertyElement.appendChild(icon);
     const metadata = document.createElement("div");
     metadata.className = "metadata-container";
     metadata.appendChild(propertyElement);
@@ -194,14 +222,14 @@ describe("resolveInvalidDropTargetAtPoint", () => {
     } as unknown as HTMLElement;
 
     expect(
-      resolveInvalidDropTargetAtPoint(
+      resolveDropPoint(
         source,
         100,
         100,
         true,
         pane,
         new Map([
-          ["status", "non-list"],
+          ["status", "scalar"],
         ]),
       ),
     ).toEqual({
@@ -210,6 +238,35 @@ describe("resolveInvalidDropTargetAtPoint", () => {
       propertyKey: "status",
       reason: "non-list",
     });
+  });
+
+  it("treats scalar storage without native type evidence as unknown", () => {
+    const source = createSourceContext();
+    const propertyElement = document.createElement("div");
+    propertyElement.className = "metadata-property";
+    propertyElement.dataset.propertyKey = "status";
+    const metadata = document.createElement("div");
+    metadata.className = "metadata-container";
+    metadata.appendChild(propertyElement);
+    document.body.appendChild(metadata);
+    source.container = {
+      ...source.container,
+      ownerDocument: {
+        elementFromPoint: () => propertyElement,
+        querySelectorAll: () => [],
+      },
+    } as unknown as HTMLElement;
+
+    expect(
+      resolveDropPoint(
+        source,
+        100,
+        100,
+        true,
+        null,
+        new Map([["status", "scalar"]]),
+      ),
+    ).toMatchObject({ kind: "unknown", propertyKey: "status" });
   });
 
   it("does not mislabel list properties or disabled cross-property drag", () => {
@@ -230,28 +287,65 @@ describe("resolveInvalidDropTargetAtPoint", () => {
     } as unknown as HTMLElement;
 
     expect(
-      resolveInvalidDropTargetAtPoint(
+      resolveDropPoint(
         source,
         100,
         100,
         true,
         null,
         new Map([
-          ["related", "list"],
+          ["related", "array"],
         ]),
       ),
-    ).toBeNull();
+    ).toMatchObject({ kind: "unknown", propertyKey: "related" });
     expect(
-      resolveInvalidDropTargetAtPoint(
+      resolveDropPoint(
         source,
         100,
         100,
         false,
         null,
         new Map([
-          ["related", "non-list"],
+          ["related", "scalar"],
         ]),
       ),
-    ).toBeNull();
+    ).toEqual({ kind: "none" });
+  });
+
+  it("does not call a list-typed row non-list when its editor DOM is unknown", () => {
+    const source = createSourceContext();
+    const propertyElement = document.createElement("div");
+    propertyElement.className = "metadata-property";
+    propertyElement.dataset.propertyKey = "related";
+    const icon = document.createElement("div");
+    icon.className = "metadata-property-icon";
+    icon.dataset.icon = "list";
+    propertyElement.appendChild(icon);
+    const metadata = document.createElement("div");
+    metadata.className = "metadata-container";
+    metadata.appendChild(propertyElement);
+    document.body.appendChild(metadata);
+    source.container = {
+      ...source.container,
+      ownerDocument: {
+        elementFromPoint: () => propertyElement,
+        querySelectorAll: () => [],
+      },
+    } as unknown as HTMLElement;
+
+    expect(
+      resolveDropPoint(
+        source,
+        100,
+        100,
+        true,
+        null,
+        new Map([["related", "scalar"]]),
+      ),
+    ).toMatchObject({
+      kind: "unknown",
+      propertyElement,
+      propertyKey: "related",
+    });
   });
 });

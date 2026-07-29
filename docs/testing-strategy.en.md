@@ -22,8 +22,8 @@ The lint gate uses current Obsidian API typings while `manifest.json` remains th
 
 Tests are organized under `tests/core/`, `tests/features/`, `tests/obsidian/`, `tests/shared/`, `tests/app/`, and `tests/scripts/`. Stable contracts cover:
 
-- flow/block/empty lists, safe null/scalar coercion under a host list type, BOM, LF/CRLF/CR, quoting, comments, blank lines, YAML core scalar types, and unsupported-structure fail closed;
-- desktop mouse/touch/pen state, mobile native-menu extension and one-shot arming, drop geometry, empty-list versus empty-scalar classification, non-list rejection, no Notice while passing over, one Notice on release, no-op, cancellation, content conflict, pane/file/editor identity, unsaved editor text, one editor transaction, ineffective transactions, and no manual mutation of host pill DOM;
+- flow/block/empty lists, scalar source/target and all-item normalization under a host text-list type, original number/boolean/null token text conversion, duplicate preservation, duplicate-key refusal, BOM, LF/CRLF/CR, quoting, comments, blank lines, and unsupported-structure fail closed;
+- desktop mouse/touch/pen state, mobile native-menu extension and one-shot arming, four-state drop resolution, empty-list versus empty-scalar classification, positively evidenced non-list rejection, no Notice while passing over, one Notice on release, no-op, cancellation, content conflict, pane/file/editor/DOM identity, unsaved editor text, one atomic editor transaction whose changes share original-text coordinates, exact `"set"` origin compatibility for 1.12.x, ignored/thrown/partial/diverged outcomes without automatic rollback, document-identity revalidation after the host turn and after `setViewData()`, persistence of exact commits even after blur cleans up drag UI, `requestSave()` only after exact verification, a distinct persistence-scheduling result and Notice, normal and mismatch-list UI reconciliation, and no native property setters, direct Vault write, or manual host-pill mutation;
 - Properties and suggestion DOM adapters, visible ordering, all-hidden behavior, keyboard navigation, focus departure, usage-cache invalidation without a Vault scan when no menu is open, and fail open;
 - settings migration, immediate application, persistence failure, Retry, pre-1.13 tab semantics, 1.13 declarative pages/search, custom control storage, and narrow-layout CSS;
 - release tags, three loose assets, the manual-install archive, and idempotent Release updates.
@@ -35,21 +35,22 @@ Injectable failure paths rely primarily on automated evidence: rejected settings
 Real acceptance uses only an isolated Vault. Fixture commands are:
 
 ```powershell
+npm run acceptance:fixtures -- --vault <isolated-vault> --initialize-types
 npm run acceptance:fixtures -- --vault <isolated-vault> --force
-npm run acceptance:conflict -- --vault <isolated-vault> --file <fixture> --delay-ms 55
+npm run acceptance:conflict -- --vault <isolated-vault> --file <fixture> --mode <source|target|unrelated|body> --expected-sha256 <sha256> --delay-ms 55
 ```
 
-Scripts validate the Obsidian Vault, resolve real paths, and constrain writes. LF, CRLF, and CR fixtures verify the generator and pure rewrite contract byte-for-byte. Real-editor scenarios verify final YAML, preserved body text, and undo/redo on disk, while separately recording the host's newline serialization instead of attributing Obsidian's native CRLF/CR-to-LF save behavior to the plugin.
+Scripts validate the Obsidian Vault, resolve real paths, reject links and non-regular targets, and constrain writes to the shared fixture specification. The six fixtures cover LF/CRLF/CR, ordinary and empty lists, confirmed non-lists, scalar and mixed type-mismatch rows, comments, quotes, duplicates, unrelated content, and all conflict modes. Type initialization is explicit and exclusive; an existing compatible `.obsidian/types.json` is byte-preserved, while missing, incompatible, invalid, linked, or non-regular declarations fail before note writes. Real-editor scenarios verify final YAML, preserved body text, one-step undo/redo, and deployed artifact plus fixture SHA-256 values, while separately recording the host's newline serialization.
 
 ## Real-host release matrix
 
 Desktop Obsidian verifies:
 
 - enable, disable, reload, and full restart;
-- same-property forward/backward/first/last/no-op and cross-property enabled/disabled behavior; a host-defined list target accepts and correctly formats `[]`, an empty value, or a supported scalar in YAML, while a host non-list target rejects the move;
+- same-property forward/backward/first/last/no-op and cross-property enabled/disabled behavior; a host-defined list stored as `[]`, an empty value, or a supported scalar participates in moves; the real type-mismatch DOM permits a sole scalar source and an aligned scalar or unambiguous mixed target while refusing stale, unreadable, ambiguous, or mixed source values; successful operations normalize affected items under `preserve`/`flow`/`block`, a no-op does not format, and a host non-list target rejects the move;
 - multiple leaves, cross-file refusal, real content conflict, and `preserve`/`flow`/`block` writeback;
 - a non-list target shows a warning outline and `not-allowed` cursor without an insertion line in both themes, leaving it shows no Notice, and releasing on it shows exactly one Notice without writeback;
-- one `Ctrl+Z` undo and one redo for each successful drag, without overwriting unsaved body edits;
+- one `Ctrl+Z` undo and one redo for every successful same-property or cross-property drag, restoring all affected properties together without overwriting unsaved body edits; wait at least three seconds after writeback before verifying disk YAML and SHA-256 so host-delayed persistence is not mistaken for failure;
 - pinned/hidden/bottom, name/usage, menu reuse, all-hidden, hover-to-keyboard, arrows/Home/End/PageUp/PageDown/Enter/Escape, and focus departure;
 - immediate settings, three-tab keyboard semantics, light/dark themes, and narrow layout.
 
@@ -64,7 +65,7 @@ The Android emulator verifies:
 ## Verification boundary
 
 - Automated gates cover pure rules, injectable failures, and release contracts.
-- Desktop acceptance uses an isolated Windows 11 / Obsidian 1.12.7 Vault and covers block- and flow-style writeback on disk, pinned/hidden/bottom suggestion ordering, keyboard selection and cancellation, and all three legacy settings tabs. Before publishing a dual-settings release, a separate isolated current Obsidian 1.13 Catalyst or Public environment must verify native page navigation, settings search, custom rule editors, conditional controls, language rerendering, persistence, and Retry.
+- Desktop acceptance uses isolated Windows 11 Vaults with Obsidian 1.12.7 and the current supported 1.13.x release. Both hosts must prove same- and cross-property one-step undo/redo, editor and visible-Properties agreement after one host turn, disk-YAML agreement after at least three seconds, scalar mismatch drag grip behavior, non-list rejection, and `preserve`/`flow`/`block` output. The 1.12.7 host also covers all three legacy settings tabs; the current 1.13.x host covers native page navigation, settings search, custom rule editors, conditional controls, language rerendering, persistence, and Retry.
 - New CRLF fixtures must remain CRLF when merely opened. Both a Property Order editor transaction and an ordinary manual body edit may then serialize the note as LF under Obsidian 1.12.7; acceptance attributes that behavior to the host and verifies logical text plus one-step undo instead of adding a non-undoable second Vault write.
 - Android acceptance uses an independent Android 15 / API 35 emulator Vault, verifies deployed production files by SHA-256, preserves Obsidian's Edit, Copy, and Remove from list actions beside Reorder or move, exercises same-property reorder and cross-property move on disk, and verifies cancellation plus background/foreground recovery without plugin error, crash, or ANR.
 - Automated tests cover the 15-second timeout, Escape, unsupported-menu fail open, and cleanup paths that routine host acceptance does not inject.

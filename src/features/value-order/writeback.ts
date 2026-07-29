@@ -1,32 +1,43 @@
-import type { Editor, EditorChange } from "obsidian";
+import type { Editor, MarkdownView } from "obsidian";
 
 import {
   diagnoseFrontmatterReorder,
   getFrontmatterListPropertyScalars,
-  moveFrontmatterListPropertyValue,
-  reorderFrontmatterListProperty,
+  planFrontmatterListPropertyMove,
+  planFrontmatterListPropertyReorder,
   type FrontmatterScalar,
 } from "../../core/frontmatter";
 import type { TranslationKey } from "../../shared/i18n";
 import type { ListWritebackFormat } from "../../shared/types";
+import { commitHiddenFrontmatterEditorTransaction } from "../../obsidian/editor-transaction";
 import type { PropertyPillContext } from "../../obsidian/properties-dom";
 import type { DropTarget } from "./types";
 
 export type ValueWritebackResult =
+  | { status: "aborted"; committedContent: string }
   | { status: "conflict" }
   | { status: "diagnostic"; messageKey: TranslationKey }
-  | { status: "failed" }
+  | {
+      status: "failed";
+      reason: "position-resolution-threw" | "transaction-ignored" | "transaction-threw";
+    }
+  | { status: "diverged"; actualContent: string }
+  | { status: "persistence-failed"; committedContent: string }
   | { status: "skipped" }
-  | { status: "written" };
+  | {
+      status: "written";
+      changedPropertyKeys: readonly string[];
+      committedContent: string;
+    };
 
 interface ValueWritebackOptions {
+  canFinalize?: () => boolean;
   canWrite?: () => boolean;
   editor: Editor;
   expectedContent: string | null;
-  expectedSourceValues?: readonly FrontmatterScalar[] | null;
-  expectedTargetValues?: readonly FrontmatterScalar[] | null;
   sourceContext: PropertyPillContext;
   target: DropTarget;
+  view: MarkdownView;
   writebackFormat: ListWritebackFormat;
 }
 
@@ -44,48 +55,49 @@ export async function writePropertyValueDrop(
       expectedContent,
       currentContent,
       options.sourceContext.propertyKey,
-    ) ||
-    hasExpectedPropertyValuesChanged(
-      options.expectedSourceValues,
-      currentContent,
-      options.sourceContext.propertyKey,
+      true,
     );
   const hasTargetConflict =
     options.target.mode === "move" &&
-    (hasPropertyValuesChanged(
+    hasPropertyValuesChanged(
       expectedContent,
       currentContent,
       options.target.context.propertyKey,
       true,
-    ) ||
-      hasExpectedPropertyValuesChanged(
-        options.expectedTargetValues,
-        currentContent,
-        options.target.context.propertyKey,
-      ));
+    );
 
   if (hasSourceConflict || hasTargetConflict || options.canWrite?.() === false) {
     return { status: "conflict" };
   }
 
-  const nextContent =
+  const targetSlot =
+    options.target.slot === "append"
+      ? (getFrontmatterListPropertyScalars(
+          currentContent,
+          options.target.context.propertyKey,
+          true,
+        )?.length ?? 0)
+      : options.target.slot;
+
+  const rewritePlan =
     options.target.mode === "reorder"
-      ? reorderFrontmatterListProperty(currentContent, {
+      ? planFrontmatterListPropertyReorder(currentContent, {
+          normalizeAsTextList: true,
           propertyKey: options.sourceContext.propertyKey,
           sourceIndex: options.sourceContext.sourceIndex,
-          targetSlot: options.target.slot,
+          targetSlot,
           writebackFormat: options.writebackFormat,
         })
-      : moveFrontmatterListPropertyValue(currentContent, {
-          coerceTargetScalarToList: true,
+      : planFrontmatterListPropertyMove(currentContent, {
+          normalizeAsTextList: true,
           sourcePropertyKey: options.sourceContext.propertyKey,
           targetPropertyKey: options.target.context.propertyKey,
           sourceIndex: options.sourceContext.sourceIndex,
-          targetSlot: options.target.slot,
+          targetSlot,
           writebackFormat: options.writebackFormat,
         });
 
-  if (nextContent == null) {
+  if (rewritePlan == null) {
     const diagnosticMessageKey = getWritebackFailureMessageKey(
       currentContent,
       options.sourceContext.propertyKey,
@@ -97,55 +109,77 @@ export async function writePropertyValueDrop(
       : { status: "diagnostic", messageKey: diagnosticMessageKey };
   }
 
+  const nextContent = rewritePlan.content;
+
   if (nextContent === currentContent) {
     return { status: "skipped" };
   }
+
+  const changedPropertyKeys =
+    options.target.mode === "reorder"
+      ? [options.sourceContext.propertyKey]
+      : [options.sourceContext.propertyKey, options.target.context.propertyKey];
 
   if (options.canWrite?.() === false || options.editor.getValue() !== currentContent) {
     return { status: "conflict" };
   }
 
-  options.editor.transaction(
-    { changes: [createMinimalEditorChange(options.editor, currentContent, nextContent)] },
-    "property-order-drag",
-  );
-  return options.editor.getValue() === nextContent
-    ? { status: "written" }
-    : { status: "failed" };
-}
+  let changes: Array<{
+    from: ReturnType<Editor["offsetToPos"]>;
+    text: string;
+    to: ReturnType<Editor["offsetToPos"]>;
+  }>;
 
-function createMinimalEditorChange(
-  editor: Editor,
-  currentContent: string,
-  nextContent: string,
-): EditorChange {
-  let prefixLength = 0;
-  const maximumPrefixLength = Math.min(currentContent.length, nextContent.length);
-
-  while (
-    prefixLength < maximumPrefixLength &&
-    currentContent[prefixLength] === nextContent[prefixLength]
-  ) {
-    prefixLength += 1;
+  try {
+    changes = rewritePlan.changes
+      .slice()
+      .sort((left, right) => left.fromOffset - right.fromOffset)
+      .map((change) => ({
+        from: options.editor.offsetToPos(change.fromOffset),
+        text: change.text,
+        to: options.editor.offsetToPos(change.toOffset),
+      }));
+  } catch (error) {
+    console.warn("Property Order: failed to resolve editor positions for value drag", error);
+    return { status: "failed", reason: "position-resolution-threw" };
   }
 
-  let currentSuffixStart = currentContent.length;
-  let nextSuffixStart = nextContent.length;
+  const commitResult = await commitHiddenFrontmatterEditorTransaction({
+    canFinalize: options.canFinalize,
+    changes,
+    editor: options.editor,
+    expectedContent: nextContent,
+    originalContent: currentContent,
+    view: options.view,
+  });
 
-  while (
-    currentSuffixStart > prefixLength &&
-    nextSuffixStart > prefixLength &&
-    currentContent[currentSuffixStart - 1] === nextContent[nextSuffixStart - 1]
-  ) {
-    currentSuffixStart -= 1;
-    nextSuffixStart -= 1;
+  if (commitResult.status === "committed") {
+    return {
+      status: "written",
+      changedPropertyKeys,
+      committedContent: nextContent,
+    };
   }
 
-  return {
-    from: editor.offsetToPos(prefixLength),
-    to: editor.offsetToPos(currentSuffixStart),
-    text: nextContent.slice(prefixLength, nextSuffixStart),
-  };
+  if (commitResult.status === "ignored") {
+    return {
+      status: "failed",
+      reason: commitResult.transactionThrew ? "transaction-threw" : "transaction-ignored",
+    };
+  }
+
+  if (commitResult.status === "aborted") {
+    return { status: "aborted", committedContent: commitResult.actualContent };
+  }
+
+  if (commitResult.status === "persistence-failed") {
+    return {
+      status: "persistence-failed",
+      committedContent: commitResult.actualContent,
+    };
+  }
+
+  return { status: "diverged", actualContent: commitResult.actualContent };
 }
 
 function getDiagnosticMessageKey(
@@ -196,19 +230,6 @@ function hasPropertyValuesChanged(
     propertyKey,
     coerceScalarToList,
   );
-  return !arePropertyValuesEqual(expectedValues, currentValues);
-}
-
-function hasExpectedPropertyValuesChanged(
-  expectedValues: readonly FrontmatterScalar[] | null | undefined,
-  currentContent: string,
-  propertyKey: string,
-): boolean {
-  if (expectedValues == null) {
-    return false;
-  }
-
-  const currentValues = getFrontmatterListPropertyScalars(currentContent, propertyKey);
   return !arePropertyValuesEqual(expectedValues, currentValues);
 }
 

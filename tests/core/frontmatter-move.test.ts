@@ -365,7 +365,7 @@ describe("moveFrontmatterListPropertyValue", () => {
     ].join("\n");
 
     const output = moveFrontmatterListPropertyValue(input, {
-      coerceTargetScalarToList: true,
+      normalizeAsTextList: true,
       sourcePropertyKey: "aliases",
       targetPropertyKey: "related",
       sourceIndex: 0,
@@ -382,7 +382,7 @@ describe("moveFrontmatterListPropertyValue", () => {
     const input = ["---", "aliases: [alpha, beta]", "related: null", "---"].join("\n");
 
     const output = moveFrontmatterListPropertyValue(input, {
-      coerceTargetScalarToList: true,
+      normalizeAsTextList: true,
       sourcePropertyKey: "aliases",
       targetPropertyKey: "related",
       sourceIndex: 0,
@@ -397,7 +397,7 @@ describe("moveFrontmatterListPropertyValue", () => {
     const input = ["---", "aliases: [alpha]", "related: Alpha, Beta", "---"].join("\n");
 
     const output = moveFrontmatterListPropertyValue(input, {
-      coerceTargetScalarToList: true,
+      normalizeAsTextList: true,
       sourcePropertyKey: "aliases",
       targetPropertyKey: "related",
       sourceIndex: 0,
@@ -434,7 +434,7 @@ describe("moveFrontmatterListPropertyValue", () => {
 
     expect(
       moveFrontmatterListPropertyValue(input, {
-        coerceTargetScalarToList: true,
+        normalizeAsTextList: true,
         sourcePropertyKey: "aliases",
         targetPropertyKey: "related",
         sourceIndex: 0,

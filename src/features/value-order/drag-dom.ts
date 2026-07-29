@@ -70,7 +70,8 @@ export function updateIndicator(indicatorElement: HTMLElement, target: DropTarge
   }
 
   const pillRects = target.context.pills.map((pill) => pill.getBoundingClientRect());
-  const slot = Math.min(Math.max(target.slot, 0), pillRects.length);
+  const requestedSlot = target.slot === "append" ? pillRects.length : target.slot;
+  const slot = Math.min(Math.max(requestedSlot, 0), pillRects.length);
   const frame =
     pillRects.length === 0
       ? getEmptyContainerIndicatorFrame(target.context.container.getBoundingClientRect())

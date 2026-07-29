@@ -28,7 +28,8 @@ translation_status: source
    - `properties-dom.ts`：Properties 容器、pill 和属性名识别。
    - `native-suggest-dom.ts`：原生属性键候选菜单识别。
    - `pane-context.ts`：workspace leaf 与文件解析。
-   - `metadata.ts`：通过公开的 Vault 文件枚举与 Metadata Cache 文件缓存，把 top-level frontmatter 转换为候选键/使用次数；设置页和候选控制器共享同一份可失效缓存。该模块也会在拖拽激活时同步捕获受支持的顶层列表值。
+   - `editor-transaction.ts`：公开 editor transaction 的宿主兼容、精确核对、Properties 公开重载和持久化边界。
+   - `metadata.ts`：通过公开的 Vault 文件枚举与 Metadata Cache 文件缓存，把 top-level frontmatter 转换为候选键/使用次数；设置页和候选控制器共享同一份可失效缓存。拖拽目标判定中，缓存存储形态只能佐证原生类型证据，不得单独定义属性类型。
 4. `src/app/`：插件生命周期、设置持久化和设置页；已有属性名称通过 Obsidian 公开的 `AbstractInputSuggest` 呈现和筛选。
 5. `src/shared/`：跨层设置 schema、共享类型和 i18n。
 
@@ -43,12 +44,13 @@ translation_status: source
 - `flow-list.ts`：中括号列表扫描和安全分隔。
 - `block-list.ts`：无序列表项目、注释、空行和项目样式识别。
 - `scalar.ts`：标量提取、安全引用和行尾注释分隔。
+- `text-list.ts`：把宿主文本列表中的非字符串 token 按原始写法转换成字符串，同时保留项目位置和可附着注释。
 - `rewrite.ts`：同属性排序、跨属性移动和目标格式选择。
 - `diagnostics.ts`、`types.ts`：可诊断结果与共享模型。
 
 纯写回只替换受影响的 source/target 属性片段，不对整个 YAML 文档 stringify。frontmatter 之外的正文和未受影响属性保持文本不变；`preserve` 模式还应保留受影响列表可保留的引号、注释、空行、项目样式和输入换行。真实拖拽通过 Obsidian editor 提交最小逻辑变更，以未保存正文和撤销历史为准。Obsidian 1.12.7 即使进行普通手动编辑，也会把已编辑的 CRLF/CR 笔记序列化为 LF；Property Order 不为对抗该宿主行为再追加第二次 Vault 写入。
 
-标量解析与 Obsidian 暴露的 YAML core schema 类型保持一致：null、boolean、number（包括 infinity/NaN）和 string 必须彼此区分。`preserve` 保留原 token 表示；强制 `flow` 或 `block` 时只规范化表示，不得把有类型的标量变成字符串，也不得让有歧义的字符串被 YAML 解析为其他类型。Metadata/writeback 冲突快照同时比较标量类型和规范值。
+标量解析与 Obsidian 暴露的 YAML core schema 类型保持一致：null、boolean、number（包括 infinity/NaN）和 string 必须彼此区分，Metadata/writeback 冲突快照同时比较标量类型和规范值。通用纯 YAML API 默认保留这些类型；真实拖拽已由 Obsidian 原生多值编辑器确认是文本列表，因此在成功操作中由 `text-list.ts` 把受影响属性的非字符串项目转换成字符串。转换使用原始 token：`0xFF` 变成 `"0xFF"` 而不是 `"255"`，空 block 项变成 `""`；已有字符串 token 在 `preserve` 下保持原写法。
 
 | 当前格式 | `preserve` | `flow` | `block` |
 | --- | --- | --- | --- |
@@ -56,6 +58,7 @@ translation_status: source
 | block | 保留 block、项目样式、注释和空行 | flow；允许丢弃仅 block 可表达的项目注释/空行 | block；安全规范化并保留可附着注释 |
 | empty flow | `[]` | `[]` | 空 block 头 |
 | empty block | 空 block 头 | `[]` | 空 block 头 |
+| scalar | 最小改动的单行 flow；显式 null 为空列表 | flow | block |
 
 属性缺失、不是受支持列表、索引冲突或内容冲突时返回诊断，不写入部分结果。单引号、双引号、带逗号或 `#` 的标量必须安全解析；属性头行尾注释在转换成 flow 时必须保留合法空白分隔。
 
@@ -63,12 +66,12 @@ translation_status: source
 
 `core/interaction/pointer-drag.ts` 是纯状态机。它把 mouse/touch/pen 的按下、移动、长按计时、释放和中断转换为 `start`、`cancel`、`finish` 等动作，不访问 DOM。`value-drag-controller.ts` 只编排动作和资源生命周期：
 
-1. 从发起 pill、Properties 容器和 pane 捕获 source 属性、source 索引、文件路径以及该 leaf 的公开 `MarkdownView.editor`；同时从编辑器文本和公开 Metadata Cache 同步捕获冲突快照。
-2. 由 `drop-targeting.ts` 计算同一 pane 内的目标容器和插入槽。Obsidian 原生多值容器表示宿主已把目标定义为列表，即使 Metadata Cache 中暂存为空值或标量也优先作为合法目标；没有多值容器且快照明确为非列表的属性行才分类为拒绝目标。是否允许跨属性在每次事件时读取当前设置。
+1. 从发起 pill、Properties 容器和 pane 捕获 source 属性、source 索引、精确 pill 节点、文件路径以及该 leaf 的公开 `MarkdownView.editor`。编辑器文本是唯一的内容与冲突基底；可见 pill 顺序必须与 YAML 一致，source 才可参与操作。
+2. 由 `drop-targeting.ts` 在同一 pane 内解析一个明确状态：受支持列表、受支持的类型不匹配列表、已确认非列表或未知。正常列表使用 Obsidian 原生多值容器；标量或混合值会被 1.12.7 渲染为单个类型不匹配字段，此时只在原生列表图标和警告同时存在时接受该属性，不读取私有 `types.json`。单标量字段可作为唯一 source 或 target；混合数组字段无法表达具体 source 索引，因此拒绝猜测，只有可读且无歧义的逗号分隔显示与当前 YAML 完全一致时才可作为 append target。只有原生非列表证据并由标量存储形态佐证时才显示非列表 Notice；未知属性行静默取消。
 3. 由 `drag-dom.ts` 管理预览、指示器、拒绝目标和 cursor class，但不得移动、删除或复制宿主的属性 pill；取消路径必须完全清理。经过拒绝目标不产生 Notice，只有在其上松手才由 controller 提示。
-4. 由 `writeback.ts` 重新读取同一个编辑器的最新文本，再验证拖拽开始时捕获的 source/target 值。只有 leaf、文件、编辑器身份和内容守卫都通过才调用纯 frontmatter 重写；列表类型目标中的受支持标量会安全转换成包含原值的列表，显式 null 视为空列表，对象和复杂结构仍 fail closed。最终以一次最小范围 `editor.transaction()` 写回；事务返回后还必须确认编辑器内容与预期结果完全一致，宿主忽略或拒绝事务时按写回失败处理。
+4. 在 pointer release 和原生输入失焦后，重新验证 leaf、文件、编辑器、属性键、editor kind、精确 source/target 节点、可见值与当前 YAML，再开始规划。同属性重排生成一个精确属性 change；跨属性移动生成两个互不重叠的精确属性 change。所有 change 都以同一份原始编辑器文本为坐标基底，并通过公开 `editor.transaction()` 原子提交一次。`editor-transaction.ts` 把精确 origin `"set"` 隔离为 Obsidian 1.12.x 隐藏 frontmatter 过滤器的兼容细节；功能层不得复制这个字符串或依赖私有 transaction API。等待一个宿主事件循环后，编辑器文本必须与完整规划结果逐字一致。文本不变是安全写入失败；出现第三种内容状态则报告 divergence，且不得自动追加回滚事务。显式 property-level null 视为空列表，对象、重复属性键和复杂结构仍 fail closed。
 
-编辑器是拖拽写回的唯一文本基底，因此尚未落盘的正文修改会被保留，一次成功拖拽也只形成一个 Obsidian 撤销步骤。Properties DOM 始终由 Obsidian 根据已确认的编辑器内容重渲染，插件不以手工搬动 pill 制造成功外观。无法取得支持事务的编辑器、事务未生效、活动 leaf/file/editor 改变、source DOM 消失、`pointercancel`、Escape、window blur、noop drop 或内容冲突都必须安全取消，不得回退到不可撤销的 Vault 直写。
+编辑器仍是内容与冲突判断的唯一基底，因此尚未落盘的正文修改会被保留；同属性或跨属性的一次成功拖拽都只形成一个撤销步骤。只有编辑器 buffer 精确匹配规划结果后，`editor-transaction.ts` 才可调用公开 `MarkdownView.setViewData(committedContent, false)`，以同一份已提交内容重建 Properties，确认该调用没有产生第二次文本变更，再调用公开 `MarkdownView.requestSave()` 安排持久化；在宿主事件循环后以及重建后都必须重新确认原 leaf、文件、view 和 editor 身份。提交前的 drag/DOM 所有权与提交后的文档身份必须分离：window blur 或插件卸载可以清理拖拽 UI，但不得阻止已经精确提交且仍属于原文档的内容安排保存。`requestSave()` 失败属于独立的持久化调度失败：编辑器内容仍视为已提交，并提示用户先手动保存，不得误报为内容 divergence。原生属性 setter、Vault 直写和手工移动 pill 都不是写回或恢复手段。随后 controller 还要根据已提交编辑器文本证明受影响的 Properties 行；正常多值编辑器与受支持的列表类型不匹配编辑器都可提供对账证据，UI 仍陈旧时必须显示明确的刷新或不同步 Notice，不能制造成功外观。写入不生效、活动 leaf/file/editor 改变、DOM 消失或被复用、`pointercancel`、Escape、window blur、noop drop 或内容冲突都必须安全取消。
 
 移动端的 `PropertyValueOrderController` 监听 Obsidian 原生属性值 `contextmenu`，通过公开的 `Menu.forEvent` 只追加一项操作，不抑制或替换宿主菜单。用户选择后，只把该 pill 置为 15 秒单次待拖动状态；下一次 touch/pen 按下走纯状态机的 `startOnMove` 路径，移动达到鼠标级阈值后开始拖拽，并只消费一次。点击其他位置、Escape、超时、插件卸载、DOM 失效和事务清理都会取消该状态。仅在已经待拖动的按压期间抑制第二次原生菜单和默认触摸移动。若无法取得共享菜单，辅助函数 fail open，不改变宿主行为。
 

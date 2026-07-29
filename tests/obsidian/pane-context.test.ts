@@ -1,6 +1,6 @@
 // @vitest-environment happy-dom
 
-import type { Editor, Plugin, TFile } from "obsidian";
+import { MarkdownView, type Editor, type Plugin, type TFile } from "obsidian";
 import { describe, expect, it, vi } from "vitest";
 
 vi.mock("obsidian", () => ({
@@ -17,6 +17,7 @@ function createPlugin(): {
   file: TFile;
   leafContainer: HTMLElement;
   plugin: Plugin;
+  view: MarkdownView;
 } {
   const file = { path: "Current.md" } as TFile;
   const editor = {
@@ -25,9 +26,10 @@ function createPlugin(): {
     transaction: () => undefined,
   } as unknown as Editor;
   const leafContainer = document.createElement("div");
+  const view = createMarkdownView(leafContainer, editor, file);
   const leaf = {
     containerEl: leafContainer,
-    view: { containerEl: leafContainer, editor, file },
+    view,
   };
   const plugin = {
     app: {
@@ -38,12 +40,26 @@ function createPlugin(): {
     },
   } as unknown as Plugin;
 
-  return { editor, file, leafContainer, plugin };
+  return { editor, file, leafContainer, plugin, view };
+}
+
+function createMarkdownView(
+  containerEl: HTMLElement,
+  editor: Editor | null,
+  file: TFile | null,
+  contentEl = containerEl,
+): MarkdownView {
+  return Object.assign(new MarkdownView({} as never), {
+    containerEl,
+    contentEl,
+    editor,
+    file,
+  }) as MarkdownView;
 }
 
 describe("pane context", () => {
   it("resolves an element contained by a known workspace leaf", () => {
-    const { editor, file, leafContainer, plugin } = createPlugin();
+    const { editor, file, leafContainer, plugin, view } = createPlugin();
     const child = document.createElement("div");
     leafContainer.appendChild(child);
 
@@ -51,6 +67,7 @@ describe("pane context", () => {
       container: leafContainer,
       editor,
       file,
+      view,
     });
     expect(resolveFileFromPaneContainer(plugin, leafContainer)).toBe(file);
   });
@@ -72,10 +89,11 @@ describe("pane context", () => {
     leafContainer.appendChild(child);
     const leaf = {
       containerEl: leafContainer,
-      view: {
-        containerEl: leafContainer,
-        file: { path: "No-editor.md" } as TFile,
-      },
+      view: createMarkdownView(
+        leafContainer,
+        null,
+        { path: "No-editor.md" } as TFile,
+      ),
     };
     const plugin = {
       app: {
@@ -101,7 +119,7 @@ describe("pane context", () => {
     contentContainer.appendChild(child);
     const leaf = {
       containerEl: leafContainer,
-      view: { containerEl: leafContainer, contentEl: contentContainer, editor, file },
+      view: createMarkdownView(leafContainer, editor, file, contentContainer),
     };
     const plugin = {
       app: {
@@ -116,6 +134,7 @@ describe("pane context", () => {
       container: contentContainer,
       editor,
       file,
+      view: leaf.view,
     });
     expect(resolveFileFromPaneContainer(plugin, contentContainer)).toBe(file);
   });

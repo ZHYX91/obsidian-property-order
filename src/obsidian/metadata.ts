@@ -1,58 +1,30 @@
 import type { App, TFile } from "obsidian";
 
-import type { FrontmatterScalar } from "../core/frontmatter";
 import type { PropertyKeyUsage } from "../shared/types";
 
 const FRONTMATTER_CACHE_METADATA_KEYS = new Set(["position"]);
 const propertyKeyUsageCache = new WeakMap<App, PropertyKeyUsage[]>();
 
-export type CachedFrontmatterPropertyKind = "list" | "non-list";
+export type CachedFrontmatterStorageKind = "array" | "scalar";
 
-export function getCachedFrontmatterListProperties(
+export function getCachedFrontmatterStorageKinds(
   app: App,
   file: TFile,
-): ReadonlyMap<string, readonly FrontmatterScalar[]> | null {
+): ReadonlyMap<string, CachedFrontmatterStorageKind> | null {
   const frontmatter = app.metadataCache.getFileCache(file)?.frontmatter;
 
   if (frontmatter == null) {
     return null;
   }
 
-  const properties = new Map<string, readonly FrontmatterScalar[]>();
+  const properties = new Map<string, CachedFrontmatterStorageKind>();
 
   for (const [key, value] of Object.entries(frontmatter)) {
     if (FRONTMATTER_CACHE_METADATA_KEYS.has(key)) {
       continue;
     }
 
-    const normalizedValues = normalizeCachedListValues(value);
-
-    if (normalizedValues != null) {
-      properties.set(key, normalizedValues);
-    }
-  }
-
-  return properties;
-}
-
-export function getCachedFrontmatterPropertyKinds(
-  app: App,
-  file: TFile,
-): ReadonlyMap<string, CachedFrontmatterPropertyKind> | null {
-  const frontmatter = app.metadataCache.getFileCache(file)?.frontmatter;
-
-  if (frontmatter == null) {
-    return null;
-  }
-
-  const properties = new Map<string, CachedFrontmatterPropertyKind>();
-
-  for (const [key, value] of Object.entries(frontmatter)) {
-    if (FRONTMATTER_CACHE_METADATA_KEYS.has(key)) {
-      continue;
-    }
-
-    properties.set(key, Array.isArray(value) ? "list" : "non-list");
+    properties.set(key, Array.isArray(value) ? "array" : "scalar");
   }
 
   return properties;
@@ -94,38 +66,4 @@ export function getCachedPropertyKeyUsage(app: App): PropertyKeyUsage[] {
 
 export function invalidatePropertyKeyUsage(app: App): void {
   propertyKeyUsageCache.delete(app);
-}
-
-function normalizeCachedListValues(value: unknown): FrontmatterScalar[] | null {
-  if (!Array.isArray(value)) {
-    return null;
-  }
-
-  const normalizedValues: FrontmatterScalar[] = [];
-
-  for (const item of value) {
-    if (item == null) {
-      normalizedValues.push({ kind: "null", value: "null" });
-      continue;
-    }
-
-    if (typeof item === "string") {
-      normalizedValues.push({ kind: "string", value: item });
-      continue;
-    }
-
-    if (typeof item === "number") {
-      normalizedValues.push({ kind: "number", value: String(item) });
-      continue;
-    }
-
-    if (typeof item === "boolean") {
-      normalizedValues.push({ kind: "boolean", value: String(item) });
-      continue;
-    }
-
-    return null;
-  }
-
-  return normalizedValues;
 }

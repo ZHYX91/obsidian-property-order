@@ -19,8 +19,10 @@ import {
   serializeNormalizedScalar,
   splitInlineComment,
 } from "./scalar";
+import { normalizeTextListItems } from "./text-list";
 import type {
   FlowPropertyMatch,
+  FrontmatterRewritePlan,
   FrontmatterScalar,
   ListItemToken,
   PropertyItem,
@@ -31,13 +33,24 @@ export function reorderFrontmatterListProperty(
   content: string,
   options: FrontmatterReorderOptions,
 ): string | null {
+  return planFrontmatterListPropertyReorder(content, options)?.content ?? null;
+}
+
+export function planFrontmatterListPropertyReorder(
+  content: string,
+  options: FrontmatterReorderOptions,
+): FrontmatterRewritePlan | null {
   const frontmatter = extractFrontmatterBounds(content);
 
   if (frontmatter == null) {
     return null;
   }
 
-  const property = findProperty(frontmatter.body, options.propertyKey);
+  const property =
+    findProperty(frontmatter.body, options.propertyKey) ??
+    (options.normalizeAsTextList
+      ? findCoercibleScalarProperty(frontmatter.body, options.propertyKey)
+      : null);
 
   if (property == null || property.items.length === 0) {
     return null;
@@ -52,10 +65,12 @@ export function reorderFrontmatterListProperty(
     normalizedTargetSlot > options.sourceIndex ? normalizedTargetSlot - 1 : normalizedTargetSlot;
 
   if (insertionIndex === options.sourceIndex) {
-    return content;
+    return { changes: [], content };
   }
 
-  const propertyItems: PropertyItem[] = property.items;
+  const propertyItems = options.normalizeAsTextList
+    ? normalizeTextListItems(property.items)
+    : property.items;
   const renderedProperty = renderProperty(
     property,
     moveItem(propertyItems, options.sourceIndex, normalizedTargetSlot),
@@ -65,15 +80,25 @@ export function reorderFrontmatterListProperty(
   const replacementStart = frontmatter.bodyStart + property.start;
   const replacementEnd = frontmatter.bodyStart + property.end;
 
-  return `${content.slice(0, replacementStart)}${renderedProperty}${content.slice(replacementEnd)}`;
+  return createRewritePlan(content, [
+    { fromOffset: replacementStart, text: renderedProperty, toOffset: replacementEnd },
+  ]);
 }
 
 export function moveFrontmatterListPropertyValue(
   content: string,
   options: FrontmatterMoveOptions,
 ): string | null {
+  return planFrontmatterListPropertyMove(content, options)?.content ?? null;
+}
+
+export function planFrontmatterListPropertyMove(
+  content: string,
+  options: FrontmatterMoveOptions,
+): FrontmatterRewritePlan | null {
   if (options.sourcePropertyKey === options.targetPropertyKey) {
-    return reorderFrontmatterListProperty(content, {
+    return planFrontmatterListPropertyReorder(content, {
+      normalizeAsTextList: options.normalizeAsTextList,
       propertyKey: options.sourcePropertyKey,
       sourceIndex: options.sourceIndex,
       targetSlot: options.targetSlot,
@@ -87,10 +112,14 @@ export function moveFrontmatterListPropertyValue(
     return null;
   }
 
-  const sourceProperty = findProperty(frontmatter.body, options.sourcePropertyKey);
+  const sourceProperty =
+    findProperty(frontmatter.body, options.sourcePropertyKey) ??
+    (options.normalizeAsTextList
+      ? findCoercibleScalarProperty(frontmatter.body, options.sourcePropertyKey)
+      : null);
   const targetProperty =
     findProperty(frontmatter.body, options.targetPropertyKey) ??
-    (options.coerceTargetScalarToList
+    (options.normalizeAsTextList
       ? findCoercibleScalarProperty(frontmatter.body, options.targetPropertyKey)
       : null);
 
@@ -124,8 +153,12 @@ export function moveFrontmatterListPropertyValue(
     }
   }
 
-  const sourcePropertyItems: PropertyItem[] = sourceProperty.items;
-  const targetPropertyItems: PropertyItem[] = targetProperty.items;
+  const sourcePropertyItems = options.normalizeAsTextList
+    ? normalizeTextListItems(sourceProperty.items)
+    : sourceProperty.items;
+  const targetPropertyItems = options.normalizeAsTextList
+    ? normalizeTextListItems(targetProperty.items)
+    : targetProperty.items;
   const movedItem = sourcePropertyItems[options.sourceIndex];
   const sourceItems = removeItem(sourcePropertyItems, options.sourceIndex);
   const sourceRendered =
@@ -139,7 +172,7 @@ export function moveFrontmatterListPropertyValue(
     options.writebackFormat,
   );
 
-  return replaceProperties(content, frontmatter.bodyStart, [
+  return createPropertyRewritePlan(content, frontmatter.bodyStart, [
     { property: sourceProperty, renderedProperty: sourceRendered },
     { property: targetProperty, renderedProperty: targetRendered },
   ]);
@@ -177,6 +210,22 @@ export function getFrontmatterListPropertyScalars(
   return property == null ? null : property.items.map((item) => item.scalar);
 }
 
+export function getFrontmatterTextListPropertyValues(
+  content: string,
+  propertyKey: string,
+): string[] | null {
+  const frontmatter = extractFrontmatterBounds(content);
+  const property =
+    frontmatter == null
+      ? null
+      : findProperty(frontmatter.body, propertyKey) ??
+        findCoercibleScalarProperty(frontmatter.body, propertyKey);
+
+  return property == null
+    ? null
+    : normalizeTextListItems(property.items).map((item) => item.scalar.value);
+}
+
 function findCoercibleScalarProperty(
   frontmatterBody: string,
   propertyKey: string,
@@ -184,6 +233,10 @@ function findCoercibleScalarProperty(
   const newline = detectNewline(frontmatterBody);
   const lines = splitLines(frontmatterBody, newline);
   const lineOffsets = getLineOffsets(lines, newline);
+
+  if (!hasExactlyOneTopLevelProperty(lines, propertyKey)) {
+    return null;
+  }
 
   for (let index = 0; index < lines.length; index += 1) {
     const line = lines[index];
@@ -236,6 +289,10 @@ export function findProperty(
   const newline = detectNewline(frontmatterBody);
   const lines = splitLines(frontmatterBody, newline);
   const lineOffsets = getLineOffsets(lines, newline);
+
+  if (!hasExactlyOneTopLevelProperty(lines, propertyKey)) {
+    return null;
+  }
 
   for (let index = 0; index < lines.length; index += 1) {
     const line = lines[index];
@@ -316,6 +373,24 @@ export function findProperty(
   return null;
 }
 
+function hasExactlyOneTopLevelProperty(lines: readonly string[], propertyKey: string): boolean {
+  let count = 0;
+
+  for (const line of lines) {
+    if (parseTopLevelPropertyLine(line)?.key !== propertyKey) {
+      continue;
+    }
+
+    count += 1;
+
+    if (count > 1) {
+      return false;
+    }
+  }
+
+  return count === 1;
+}
+
 function isBlockSequenceItem(line: string): boolean {
   return /^[ \t]*-(?:[ \t]|$)/.test(line);
 }
@@ -376,19 +451,53 @@ function renderEmptyProperty(
     : renderedProperty;
 }
 
-function replaceProperties(
+function createPropertyRewritePlan(
   content: string,
   bodyStart: number,
   replacements: Array<{ property: PropertyMatch; renderedProperty: string }>,
-): string {
-  return replacements
+): FrontmatterRewritePlan | null {
+  return createRewritePlan(
+    content,
+    replacements.map((replacement) => ({
+      fromOffset: bodyStart + replacement.property.start,
+      text: replacement.renderedProperty,
+      toOffset: bodyStart + replacement.property.end,
+    })),
+  );
+}
+
+function createRewritePlan(
+  content: string,
+  changes: FrontmatterRewritePlan["changes"],
+): FrontmatterRewritePlan | null {
+  const orderedChanges = changes.slice().sort((left, right) => left.fromOffset - right.fromOffset);
+
+  if (
+    orderedChanges.some(
+      (change, index) =>
+        !Number.isInteger(change.fromOffset) ||
+        !Number.isInteger(change.toOffset) ||
+        change.fromOffset < 0 ||
+        change.toOffset < change.fromOffset ||
+        change.toOffset > content.length ||
+        (index > 0 &&
+          (orderedChanges.at(index - 1)?.toOffset ?? Number.POSITIVE_INFINITY) >
+            change.fromOffset),
+    )
+  ) {
+    return null;
+  }
+
+  const nextContent = orderedChanges
     .slice()
-    .sort((left, right) => right.property.start - left.property.start)
-    .reduce((nextContent, replacement) => {
-      const start = bodyStart + replacement.property.start;
-      const end = bodyStart + replacement.property.end;
-      return `${nextContent.slice(0, start)}${replacement.renderedProperty}${nextContent.slice(end)}`;
-    }, content);
+    .reverse()
+    .reduce(
+      (result, change) =>
+        `${result.slice(0, change.fromOffset)}${change.text}${result.slice(change.toOffset)}`,
+      content,
+    );
+
+  return { changes: orderedChanges, content: nextContent };
 }
 
 function clamp(value: number, minValue: number, maxValue: number): number {

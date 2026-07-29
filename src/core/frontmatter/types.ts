@@ -5,6 +5,17 @@ export interface FrontmatterBounds {
   newline: string;
 }
 
+export interface FrontmatterTextChange {
+  fromOffset: number;
+  text: string;
+  toOffset: number;
+}
+
+export interface FrontmatterRewritePlan {
+  changes: FrontmatterTextChange[];
+  content: string;
+}
+
 export type FrontmatterScalarKind = "string" | "null" | "boolean" | "number";
 
 /** Parsed scalar identity; raw YAML spelling remains on the containing token. */

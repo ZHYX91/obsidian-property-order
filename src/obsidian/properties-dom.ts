@@ -1,16 +1,13 @@
 export interface PropertyContainerContext {
   container: HTMLElement;
+  editorKind: "list-type-mismatch" | "multi-select";
   pills: HTMLElement[];
   propertyElement: HTMLElement;
   propertyKey: string;
 }
 
-export interface PropertyPillContext {
-  container: HTMLElement;
+export interface PropertyPillContext extends PropertyContainerContext {
   pill: HTMLElement;
-  pills: HTMLElement[];
-  propertyElement: HTMLElement;
-  propertyKey: string;
   sourceIndex: number;
 }
 
@@ -19,11 +16,16 @@ export interface PropertyElementContext {
   propertyKey: string;
 }
 
+export type NativePropertyTypeEvidence = "list" | "non-list" | "unknown";
+
 const METADATA_CONTAINER_SELECTOR = ".metadata-container";
 const PROPERTY_CONTAINER_SELECTOR = ".multi-select-container";
 const PROPERTY_ELEMENT_SELECTOR = ".metadata-property";
+const PROPERTY_ICON_SELECTOR = ".metadata-property-icon";
 const PROPERTY_PILL_SELECTOR = ".multi-select-pill";
 const PROPERTY_PILL_INTERACTIVE_SELECTOR = "button, input, textarea";
+const PROPERTY_VALUE_SELECTOR = ".metadata-property-value";
+const PROPERTY_WARNING_SELECTOR = ".metadata-property-warning-icon";
 
 const PROPERTY_KEY_SELECTORS = [
   ".metadata-property-key input",
@@ -37,7 +39,20 @@ export function resolvePropertyPillContext(pill: HTMLElement): PropertyPillConte
   const container = pill.closest<HTMLElement>(PROPERTY_CONTAINER_SELECTOR);
 
   if (container == null) {
-    return null;
+    const propertyElement = pill.closest<HTMLElement>(PROPERTY_ELEMENT_SELECTOR);
+    const mismatchContext =
+      propertyElement == null ? null : resolveListTypeMismatchContext(propertyElement);
+
+    if (mismatchContext == null || mismatchContext.container !== pill) {
+      return null;
+    }
+
+    return {
+      ...mismatchContext,
+      pill,
+      pills: [pill],
+      sourceIndex: 0,
+    };
   }
 
   const containerContext = resolvePropertyContainerContext(container);
@@ -81,10 +96,45 @@ export function resolvePropertyContainerContext(
 
   return {
     container,
+    editorKind: "multi-select",
     pills,
     propertyElement,
     propertyKey,
   };
+}
+
+export function resolveListTypeMismatchContext(
+  propertyElement: HTMLElement,
+): PropertyContainerContext | null {
+  const propertyContext = resolvePropertyElementContext(propertyElement);
+  const valueElement = propertyElement.querySelector<HTMLElement>(PROPERTY_VALUE_SELECTOR);
+
+  if (
+    propertyContext == null ||
+    valueElement == null ||
+    valueElement.querySelector(PROPERTY_CONTAINER_SELECTOR) != null ||
+    propertyElement.querySelector(PROPERTY_WARNING_SELECTOR) == null ||
+    !hasNativeListTypeEvidence(propertyElement)
+  ) {
+    return null;
+  }
+
+  return {
+    container: valueElement,
+    editorKind: "list-type-mismatch",
+    pills: [],
+    propertyElement,
+    propertyKey: propertyContext.propertyKey,
+  };
+}
+
+export function resolvePropertyElementListContext(
+  propertyElement: HTMLElement,
+): PropertyContainerContext | null {
+  const container = propertyElement.querySelector<HTMLElement>(PROPERTY_CONTAINER_SELECTOR);
+  return container == null
+    ? resolveListTypeMismatchContext(propertyElement)
+    : resolvePropertyContainerContext(container);
 }
 
 export function resolvePropertyElementContext(
@@ -107,28 +157,99 @@ export function getContainerPills(container: HTMLElement): HTMLElement[] {
   );
 }
 
+export function getPropertyPillDisplayValues(
+  context: PropertyContainerContext,
+): readonly string[] | null {
+  if (context.editorKind !== "multi-select") {
+    return null;
+  }
+
+  return context.pills.map((pill) => (pill.textContent ?? "").trim());
+}
+
+export function getListTypeMismatchDisplayValue(
+  context: PropertyContainerContext,
+): string | null {
+  if (context.editorKind !== "list-type-mismatch") {
+    return null;
+  }
+
+  const input = context.container.querySelector<HTMLInputElement | HTMLTextAreaElement>(
+    "input, textarea",
+  );
+
+  if (input != null) {
+    if (input instanceof HTMLInputElement && input.type === "checkbox") {
+      return input.checked ? "true" : "false";
+    }
+
+    return input.value;
+  }
+
+  const editable = context.container.querySelector<HTMLElement>('[contenteditable="true"]');
+
+  if (editable != null) {
+    return (editable.textContent ?? "").trim();
+  }
+
+  const unknownValue = context.container.querySelector<HTMLElement>(
+    ".metadata-property-value-item.mod-unknown",
+  );
+  return unknownValue == null ? null : (unknownValue.textContent ?? "").trim();
+}
+
 export function resolveDraggablePropertyPill(target: EventTarget | null): HTMLElement | null {
   const targetElement = asElement(target);
 
-  if (
-    targetElement == null ||
-    targetElement.closest(PROPERTY_PILL_INTERACTIVE_SELECTOR) != null
-  ) {
+  if (targetElement == null) {
     return null;
   }
 
   const pill = targetElement.closest<HTMLElement>(PROPERTY_PILL_SELECTOR);
-  return pill?.closest(METADATA_CONTAINER_SELECTOR) == null ? null : pill;
+
+  if (
+    pill != null &&
+    pill.closest(METADATA_CONTAINER_SELECTOR) != null &&
+    targetElement.closest(PROPERTY_PILL_INTERACTIVE_SELECTOR) == null
+  ) {
+    return pill;
+  }
+
+  if (targetElement.closest(PROPERTY_WARNING_SELECTOR) != null) {
+    return null;
+  }
+
+  const propertyElement = targetElement.closest<HTMLElement>(PROPERTY_ELEMENT_SELECTOR);
+  const mismatchContext =
+    propertyElement == null ? null : resolveListTypeMismatchContext(propertyElement);
+
+  // A type-mismatch editor is normally one full-width native input, leaving no
+  // separate pill or blank drag handle. Pointerdown remains native; the feature
+  // only takes ownership after movement crosses the drag threshold, so clicks
+  // continue to edit the input while a deliberate drag can move its sole value.
+  return mismatchContext?.container.contains(targetElement) === true
+    ? mismatchContext.container
+    : null;
 }
 
 export function isPropertyPillTarget(target: EventTarget | null): boolean {
-  const targetElement = asElement(target);
-  const pill = targetElement?.closest<HTMLElement>(PROPERTY_PILL_SELECTOR);
-  return pill?.closest(METADATA_CONTAINER_SELECTOR) != null;
+  return resolveDraggablePropertyPill(target) != null;
 }
 
 export function isPropertyPillElement(element: Element): boolean {
   return element.matches(PROPERTY_PILL_SELECTOR);
+}
+
+export function blurFocusedPropertyEditor(propertyElement: HTMLElement): void {
+  const activeElement = propertyElement.ownerDocument.activeElement;
+
+  if (
+    activeElement != null &&
+    propertyElement.contains(activeElement) &&
+    typeof (activeElement as HTMLElement).blur === "function"
+  ) {
+    (activeElement as HTMLElement).blur();
+  }
 }
 
 export function findPropertyContainerAtPoint(
@@ -226,6 +347,60 @@ function normalizePropertyKey(
   }
 
   return preserveEdgeWhitespace ? candidate : candidate.trim();
+}
+
+export function hasNativeListTypeEvidence(propertyElement: HTMLElement): boolean {
+  return getNativePropertyTypeEvidence(propertyElement) === "list";
+}
+
+export function getNativePropertyTypeEvidence(
+  propertyElement: HTMLElement,
+): NativePropertyTypeEvidence {
+  const iconElement = propertyElement.querySelector<HTMLElement>(PROPERTY_ICON_SELECTOR);
+
+  if (iconElement == null) {
+    return "unknown";
+  }
+
+  const dataIcons = [
+    iconElement.dataset.icon,
+    iconElement.getAttribute("data-icon"),
+    ...Array.from(
+      iconElement.querySelectorAll<HTMLElement | SVGElement>("[data-icon]"),
+      (candidate) => candidate.getAttribute("data-icon"),
+    ),
+  ];
+
+  if (dataIcons.some((iconName) => iconName === "list")) {
+    return "list";
+  }
+
+  if (iconElement.querySelector("svg.lucide-list, .lucide-list") != null) {
+    return "list";
+  }
+
+  const hasNonListIcon =
+    dataIcons.some((iconName) => typeof iconName === "string" && iconName.length > 0) ||
+    iconElement.querySelector<SVGElement>(
+      'svg[class*="lucide-"]:not(.lucide-list)',
+    ) != null;
+  return hasNonListIcon ? "non-list" : "unknown";
+}
+
+export function findPropertyListContextByKey(
+  paneContainer: HTMLElement,
+  propertyKey: string,
+): PropertyContainerContext | null {
+  const matches = Array.from(
+    paneContainer.querySelectorAll<HTMLElement>(PROPERTY_ELEMENT_SELECTOR),
+  ).filter(
+    (propertyElement) => resolvePropertyElementContext(propertyElement)?.propertyKey === propertyKey,
+  );
+
+  const [match] = matches;
+  return matches.length === 1 && match != null
+    ? resolvePropertyElementListContext(match)
+    : null;
 }
 
 function isPointInsideRect(clientX: number, clientY: number, rect: DOMRect): boolean {

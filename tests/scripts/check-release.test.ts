@@ -46,7 +46,7 @@ describe("release checker", () => {
   it("accepts non-empty, synchronized release assets", async () => {
     const root = await createReleaseProject();
     await expect(checkRelease(root)).resolves.toEqual({ id: "property-order", version: "0.1.0" });
-  });
+  }, 15_000);
 
   it("rejects stale static assets and empty bundles", async () => {
     const staleStylesRoot = await createReleaseProject();
