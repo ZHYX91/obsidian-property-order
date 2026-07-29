@@ -28,6 +28,7 @@ export type ValueWritebackResult =
       status: "written";
       changedPropertyKeys: readonly string[];
       committedContent: string;
+      previousContent: string;
     };
 
 interface ValueWritebackOptions {
@@ -158,6 +159,7 @@ export async function writePropertyValueDrop(
       status: "written",
       changedPropertyKeys,
       committedContent: nextContent,
+      previousContent: currentContent,
     };
   }
 

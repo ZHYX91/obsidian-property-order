@@ -13,6 +13,7 @@ import {
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const noticeSpy = vi.hoisted(() => vi.fn());
+const noticeElements = vi.hoisted(() => [] as HTMLElement[]);
 const menuHarness = vi.hoisted(() => ({
   forEvent: vi.fn(),
   items: [] as Array<{
@@ -29,8 +30,28 @@ vi.mock("obsidian", () => ({
   Platform: { isMobileApp: false },
   parseYaml: vi.fn(),
   Notice: class Notice {
-    constructor(message: string) {
-      noticeSpy(message);
+    messageEl = document.createElement("div");
+
+    constructor(message: string | DocumentFragment) {
+      this.setMessage(message);
+      noticeSpy(this.messageEl.textContent ?? "");
+      noticeElements.push(this.messageEl);
+    }
+
+    setMessage(message: string | DocumentFragment) {
+      this.messageEl.replaceChildren();
+
+      if (typeof message === "string") {
+        this.messageEl.textContent = message;
+      } else {
+        this.messageEl.append(message);
+      }
+
+      return this;
+    }
+
+    hide() {
+      this.messageEl.remove();
     }
   },
   Menu: class Menu {
@@ -86,6 +107,8 @@ interface ControllerHarness {
   container: HTMLElement;
   controller: PropertyValueOrderController;
   editor: {
+    editorSurface: HTMLElement;
+    focus: ReturnType<typeof vi.fn>;
     getContent(): string;
     instance: Editor;
     setContent(content: string): void;
@@ -93,6 +116,7 @@ interface ControllerHarness {
   };
   file: TFile;
   frontmatter: Record<string, unknown>;
+  layoutChange(): void;
   leaf: {
     containerEl: HTMLElement;
     view: MarkdownView;
@@ -148,8 +172,17 @@ function createRect(left: number, right: number): DOMRect {
   };
 }
 
-function createEditorHarness(initialContent: string): ControllerHarness["editor"] {
+function createEditorHarness(
+  initialContent: string,
+  parentElement: HTMLElement = document.body,
+): ControllerHarness["editor"] {
   let content = initialContent;
+  const editorSurface = document.createElement("div");
+  editorSurface.className = "cm-content";
+  editorSurface.contentEditable = "true";
+  editorSurface.tabIndex = -1;
+  parentElement.appendChild(editorSurface);
+  const focus = vi.fn(() => editorSurface.focus());
   const transaction = vi.fn((editorTransaction: EditorTransaction) => {
     const changes = editorTransaction.changes;
 
@@ -172,7 +205,10 @@ function createEditorHarness(initialContent: string): ControllerHarness["editor"
       );
   });
   const instance = {
+    blur: () => editorSurface.blur(),
+    focus,
     getValue: () => content,
+    hasFocus: () => document.activeElement === editorSurface,
     offsetToPos: (offset: number) => {
       const lines = content.slice(0, offset).split("\n");
       return { line: lines.length - 1, ch: lines.at(-1)?.length ?? 0 };
@@ -181,6 +217,8 @@ function createEditorHarness(initialContent: string): ControllerHarness["editor"
   } as unknown as Editor;
 
   return {
+    editorSurface,
+    focus,
     getContent: () => content,
     instance,
     setContent: (nextContent) => {
@@ -277,7 +315,7 @@ function createHarness(): ControllerHarness {
   pane.appendChild(metadata);
   document.body.appendChild(pane);
 
-  const editor = createEditorHarness("---\nflow: [alpha, beta]\n---\n");
+  const editor = createEditorHarness("---\nflow: [alpha, beta]\n---\n", pane);
   const view = Object.assign(new MarkdownView({} as never), {
     containerEl: pane,
     contentEl: pane,
@@ -296,6 +334,7 @@ function createHarness(): ControllerHarness {
   };
   let windowOpenCallback: ((_workspaceWindow: unknown, targetWindow: Window) => void) | null = null;
   let windowCloseCallback: ((_workspaceWindow: unknown, targetWindow: Window) => void) | null = null;
+  let layoutChangeCallback: (() => void) | null = null;
   const plugin = {
     app: {
       metadataCache: {
@@ -309,12 +348,20 @@ function createHarness(): ControllerHarness {
         on: vi.fn(
           (
             name: string,
-            callback: (_workspaceWindow: unknown, targetWindow: Window) => void,
+            callback: (...args: unknown[]) => void,
           ) => {
             if (name === "window-open") {
-              windowOpenCallback = callback;
+              windowOpenCallback = callback as (
+                _workspaceWindow: unknown,
+                targetWindow: Window,
+              ) => void;
             } else if (name === "window-close") {
-              windowCloseCallback = callback;
+              windowCloseCallback = callback as (
+                _workspaceWindow: unknown,
+                targetWindow: Window,
+              ) => void;
+            } else if (name === "layout-change") {
+              layoutChangeCallback = callback;
             }
 
             return { type: name };
@@ -340,6 +387,9 @@ function createHarness(): ControllerHarness {
     editor,
     file,
     frontmatter,
+    layoutChange() {
+      layoutChangeCallback?.();
+    },
     leaf,
     openWorkspaceWindow(targetWindow: Window) {
       windowOpenCallback?.({} as never, targetWindow);
@@ -536,6 +586,7 @@ describe("PropertyValueOrderController", () => {
   beforeEach(() => {
     document.body.replaceChildren();
     noticeSpy.mockReset();
+    noticeElements.length = 0;
     vi.mocked(parseYaml).mockReset();
     menuHarness.forEvent.mockReset();
     menuHarness.items.length = 0;
@@ -1178,6 +1229,7 @@ describe("PropertyValueOrderController", () => {
     );
     expect(harness.editor.getContent()).toBe("---\nflow: [alpha, beta]\n---\n");
     expect(Array.from(harness.container.children)).toEqual(originalPills);
+    expect(harness.editor.focus).not.toHaveBeenCalled();
     harness.cleanup();
   });
 
@@ -1403,6 +1455,396 @@ describe("PropertyValueOrderController", () => {
     harness.cleanup();
   });
 
+  it("routes an immediate undo to the Markdown editor and permits another drag", async () => {
+    installRafHarness();
+    const harness = createHarness();
+    const originalContent = "---\nflow: [alpha, beta]\n---\n";
+    const committedContent = "---\nflow: [beta, alpha]\n---\n";
+    let redoWasRoutedToEditor = false;
+    let undoWasRoutedToEditor = false;
+    let scheduleImmediateUndo = true;
+    harness.editor.editorSurface.addEventListener("keydown", (event) => {
+      if (event.ctrlKey && event.key === "z") {
+        if (event.shiftKey) {
+          redoWasRoutedToEditor = document.activeElement === harness.editor.editorSurface;
+          harness.editor.setContent(committedContent);
+          rerenderHostListProperties(harness.leaf.containerEl, committedContent);
+          return;
+        }
+
+        undoWasRoutedToEditor = document.activeElement === harness.editor.editorSurface;
+        harness.editor.setContent(originalContent);
+        rerenderHostListProperties(harness.leaf.containerEl, originalContent);
+      }
+    });
+    harness.leaf.view.setViewData = vi.fn((nextContent: string) => {
+      harness.editor.setContent(nextContent);
+      rerenderHostListProperties(harness.leaf.containerEl, nextContent);
+
+      if (scheduleImmediateUndo) {
+        scheduleImmediateUndo = false;
+        window.setTimeout(() => {
+          harness.editor.editorSurface.dispatchEvent(
+            new KeyboardEvent("keydown", {
+              bubbles: true,
+              cancelable: true,
+              ctrlKey: true,
+              key: "z",
+            }),
+          );
+        }, 0);
+      }
+    });
+
+    dispatchPointer(harness.pill, "pointerdown", 10);
+    dispatchPointer(document, "pointermove", 250);
+    dispatchPointer(document, "pointerup", 250);
+
+    await waitForDragFinish();
+    expect(undoWasRoutedToEditor).toBe(true);
+    expect(harness.editor.getContent()).toBe(originalContent);
+    expect(
+      Array.from(
+        harness.leaf.containerEl.querySelectorAll<HTMLElement>(".multi-select-pill"),
+      ).map((pill) => pill.textContent),
+    ).toEqual(["alpha", "beta"]);
+    expect(noticeSpy).not.toHaveBeenCalled();
+
+    harness.editor.editorSurface.dispatchEvent(
+      new KeyboardEvent("keydown", {
+        bubbles: true,
+        cancelable: true,
+        ctrlKey: true,
+        key: "z",
+        shiftKey: true,
+      }),
+    );
+    expect(redoWasRoutedToEditor).toBe(true);
+    expect(harness.editor.getContent()).toBe(committedContent);
+    expect(
+      Array.from(
+        harness.leaf.containerEl.querySelectorAll<HTMLElement>(".multi-select-pill"),
+      ).map((pill) => pill.textContent),
+    ).toEqual(["beta", "alpha"]);
+
+    harness.editor.editorSurface.dispatchEvent(
+      new KeyboardEvent("keydown", {
+        bubbles: true,
+        cancelable: true,
+        ctrlKey: true,
+        key: "z",
+      }),
+    );
+    expect(harness.editor.getContent()).toBe(originalContent);
+    expect(
+      Array.from(
+        harness.leaf.containerEl.querySelectorAll<HTMLElement>(".multi-select-pill"),
+      ).map((pill) => pill.textContent),
+    ).toEqual(["alpha", "beta"]);
+
+    const nextSource = harness.leaf.containerEl.querySelector<HTMLElement>(
+      ".multi-select-pill",
+    );
+    expect(nextSource).not.toBeNull();
+    dispatchPointer(nextSource!, "pointerdown", 10);
+    dispatchPointer(document, "pointermove", 250);
+    dispatchPointer(document, "pointerup", 250);
+
+    await waitForDragFinish();
+    expect(harness.editor.getContent()).toBe("---\nflow: [beta, alpha]\n---\n");
+    expect(harness.editor.transaction).toHaveBeenCalledTimes(2);
+    expect(noticeSpy).not.toHaveBeenCalled();
+    harness.cleanup();
+  });
+
+  it("repairs host focus loss after Properties reconstruction", async () => {
+    installRafHarness();
+    const harness = createHarness();
+    const hostInput = document.createElement("div");
+    hostInput.className = "multi-select-input";
+    hostInput.contentEditable = "true";
+    hostInput.tabIndex = 0;
+    harness.container.closest(".metadata-property")?.appendChild(hostInput);
+    harness.leaf.view.setViewData = vi.fn((nextContent: string) => {
+      harness.editor.setContent(nextContent);
+      rerenderHostListProperties(harness.leaf.containerEl, nextContent);
+      window.setTimeout(() => hostInput.focus(), 0);
+    });
+
+    dispatchPointer(harness.pill, "pointerdown", 10);
+    dispatchPointer(document, "pointermove", 250);
+    dispatchPointer(document, "pointerup", 250);
+
+    await waitForDragFinish();
+    expect(harness.editor.focus).toHaveBeenCalledTimes(2);
+    expect(document.activeElement).toBe(harness.editor.editorSurface);
+    expect(noticeSpy).not.toHaveBeenCalled();
+    harness.cleanup();
+  });
+
+  it("replaces pre-drag focus when the drag itself is the latest user intent", async () => {
+    installRafHarness();
+    const harness = createHarness();
+    const previouslyFocusedInput = document.createElement("input");
+    document.body.appendChild(previouslyFocusedInput);
+    previouslyFocusedInput.focus();
+
+    dispatchPointer(harness.pill, "pointerdown", 10);
+    dispatchPointer(document, "pointermove", 250);
+    dispatchPointer(document, "pointerup", 250);
+
+    await waitForDragFinish();
+    expect(harness.editor.focus).toHaveBeenCalledOnce();
+    expect(document.activeElement).toBe(harness.editor.editorSurface);
+    expect(noticeSpy).not.toHaveBeenCalled();
+    harness.cleanup();
+  });
+
+  it("keeps an exact commit successful when editor focus restoration throws", async () => {
+    installRafHarness();
+    const harness = createHarness();
+    const warning = vi.spyOn(console, "warn").mockImplementation(() => undefined);
+    harness.editor.focus.mockImplementation(() => {
+      throw new Error("focus unavailable");
+    });
+
+    dispatchPointer(harness.pill, "pointerdown", 10);
+    dispatchPointer(document, "pointermove", 250);
+    dispatchPointer(document, "pointerup", 250);
+
+    await waitForDragFinish();
+    expect(harness.editor.getContent()).toBe("---\nflow: [beta, alpha]\n---\n");
+    expect(harness.editor.focus).toHaveBeenCalled();
+    expect(warning).toHaveBeenCalledWith(
+      "Property Order: failed to restore the Markdown editor focus",
+      expect.any(Error),
+    );
+    expect(noticeSpy).not.toHaveBeenCalled();
+    warning.mockRestore();
+    harness.cleanup();
+  });
+
+  it("does not reclaim focus after the user deliberately focuses another control", async () => {
+    installRafHarness();
+    const harness = createHarness();
+    const outsideInput = document.createElement("input");
+    document.body.appendChild(outsideInput);
+    harness.leaf.view.setViewData = vi.fn((nextContent: string) => {
+      harness.editor.setContent(nextContent);
+      rerenderHostListProperties(harness.leaf.containerEl, nextContent);
+      window.setTimeout(() => {
+        dispatchPointer(outsideInput, "pointerdown", 700);
+        outsideInput.focus();
+      }, 0);
+    });
+
+    dispatchPointer(harness.pill, "pointerdown", 10);
+    dispatchPointer(document, "pointermove", 250);
+    dispatchPointer(document, "pointerup", 250);
+
+    await waitForDragFinish();
+    expect(harness.editor.focus).toHaveBeenCalledTimes(1);
+    expect(document.activeElement).toBe(outsideInput);
+    expect(noticeSpy).not.toHaveBeenCalled();
+    harness.cleanup();
+  });
+
+  it("does not take focus when the user moves it before commit settlement", async () => {
+    installRafHarness();
+    const harness = createHarness();
+    const outsideInput = document.createElement("input");
+    document.body.appendChild(outsideInput);
+    const applyTransaction = harness.editor.transaction.getMockImplementation() as
+      | ((transaction: EditorTransaction) => void)
+      | undefined;
+    harness.editor.transaction.mockImplementation((transaction: EditorTransaction) => {
+      applyTransaction?.(transaction);
+      window.setTimeout(() => {
+        dispatchPointer(outsideInput, "pointerdown", 700);
+        outsideInput.focus();
+      }, 0);
+    });
+
+    dispatchPointer(harness.pill, "pointerdown", 10);
+    dispatchPointer(document, "pointermove", 250);
+    dispatchPointer(document, "pointerup", 250);
+
+    await waitForDragFinish();
+    expect(harness.editor.getContent()).toBe("---\nflow: [beta, alpha]\n---\n");
+    expect(harness.editor.focus).not.toHaveBeenCalled();
+    expect(document.activeElement).toBe(outsideInput);
+    expect(noticeSpy).not.toHaveBeenCalled();
+    harness.cleanup();
+  });
+
+  it("does not force editor focus for a same-slot no-op", async () => {
+    const raf = installRafHarness();
+    const harness = createHarness();
+    const outsideInput = document.createElement("input");
+    document.body.appendChild(outsideInput);
+    outsideInput.focus();
+
+    dispatchPointer(harness.pill, "pointerdown", 10);
+    dispatchPointer(document, "pointermove", 20);
+    raf.flush();
+    dispatchPointer(document, "pointerup", 20);
+
+    await waitForDragFinish();
+    expect(harness.editor.transaction).not.toHaveBeenCalled();
+    expect(harness.editor.focus).not.toHaveBeenCalled();
+    expect(document.activeElement).toBe(outsideInput);
+    harness.cleanup();
+  });
+
+  it("consumes the trailing native click after a completed drag", async () => {
+    installRafHarness();
+    const harness = createHarness();
+    const input = document.createElement("div");
+    input.className = "multi-select-input";
+    input.contentEditable = "true";
+    input.tabIndex = 0;
+    harness.container.appendChild(input);
+    const nativeClick = vi.fn(() => input.focus());
+    harness.container.addEventListener("click", nativeClick);
+
+    dispatchPointer(harness.pill, "pointerdown", 10);
+    dispatchPointer(document, "pointermove", 250);
+    dispatchPointer(document, "pointerup", 250);
+    const unrelatedClick = new MouseEvent("click", {
+      bubbles: true,
+      cancelable: true,
+      clientX: 10,
+      clientY: 20,
+    });
+    document.body.dispatchEvent(unrelatedClick);
+    const click = new MouseEvent("click", {
+      bubbles: true,
+      cancelable: true,
+      clientX: 250,
+      clientY: 20,
+    });
+    harness.pill.dispatchEvent(click);
+
+    expect(unrelatedClick.defaultPrevented).toBe(false);
+    expect(click.defaultPrevented).toBe(true);
+    expect(nativeClick).not.toHaveBeenCalled();
+    expect(document.activeElement).not.toBe(input);
+    await waitForDragFinish();
+    expect(harness.editor.getContent()).toBe("---\nflow: [beta, alpha]\n---\n");
+    expect(noticeSpy).not.toHaveBeenCalled();
+    harness.cleanup();
+  });
+
+  it("reconciles a stale native multiselect and permits a second same-property drag", async () => {
+    installRafHarness();
+    const harness = createHarness();
+    harness.leaf.view.setViewData = vi.fn((nextContent: string) => {
+      harness.editor.setContent(nextContent);
+    });
+    const metadataContainer = harness.leaf.containerEl.querySelector<HTMLElement>(
+      ".metadata-container",
+    );
+    const synchronize = vi.fn(() => {
+      window.setTimeout(() => {
+        rerenderHostListProperties(harness.leaf.containerEl, harness.editor.getContent());
+      }, 0);
+    });
+    Object.assign(harness.leaf.view, { getFile: () => harness.file });
+    Object.assign(harness.leaf.view, {
+      metadataEditor: {
+        containerEl: metadataContainer,
+        owner: harness.leaf.view,
+        synchronize,
+      },
+    });
+    vi.mocked(parseYaml).mockImplementation((body: string) =>
+      body.includes("[beta, alpha]")
+        ? { flow: ["beta", "alpha"] }
+        : { flow: ["alpha", "beta"] },
+    );
+
+    dispatchPointer(harness.pill, "pointerdown", 10);
+    dispatchPointer(document, "pointermove", 250);
+    dispatchPointer(document, "pointerup", 250);
+
+    await waitForDragFinish();
+    expect(harness.editor.getContent()).toBe("---\nflow: [beta, alpha]\n---\n");
+    expect(
+      Array.from(
+        harness.leaf.containerEl.querySelectorAll<HTMLElement>(".multi-select-pill"),
+      ).map((pill) => pill.textContent),
+    ).toEqual(["beta", "alpha"]);
+    expect(synchronize).toHaveBeenCalledTimes(1);
+
+    const nextSource = harness.leaf.containerEl.querySelector<HTMLElement>(
+      ".multi-select-pill",
+    );
+    expect(nextSource).not.toBeNull();
+    dispatchPointer(nextSource!, "pointerdown", 10);
+    dispatchPointer(document, "pointermove", 250);
+    dispatchPointer(document, "pointerup", 250);
+
+    await waitForDragFinish();
+    expect(harness.editor.getContent()).toBe("---\nflow: [alpha, beta]\n---\n");
+    expect(
+      Array.from(
+        harness.leaf.containerEl.querySelectorAll<HTMLElement>(".multi-select-pill"),
+      ).map((pill) => pill.textContent),
+    ).toEqual(["alpha", "beta"]);
+    expect(harness.editor.transaction).toHaveBeenCalledTimes(2);
+    expect(synchronize).toHaveBeenCalledTimes(2);
+    expect(noticeSpy).not.toHaveBeenCalled();
+    harness.cleanup();
+  });
+
+  it("rejects a planned-looking Properties UI when the editor diverges during refresh", async () => {
+    installRafHarness();
+    const harness = createHarness();
+    const committedContent = "---\nflow: [beta, alpha]\n---\n";
+    harness.leaf.view.setViewData = vi.fn((nextContent: string) => {
+      harness.editor.setContent(nextContent);
+    });
+    const metadataContainer = harness.leaf.containerEl.querySelector<HTMLElement>(
+      ".metadata-container",
+    );
+    const synchronize = vi.fn(() => {
+      window.setTimeout(() => {
+        rerenderHostListProperties(harness.leaf.containerEl, committedContent);
+        harness.editor.setContent("---\nflow: [external]\n---\n");
+      }, 0);
+    });
+    Object.assign(harness.leaf.view, {
+      getFile: () => harness.file,
+      metadataEditor: {
+        containerEl: metadataContainer,
+        owner: harness.leaf.view,
+        synchronize,
+      },
+    });
+    vi.mocked(parseYaml).mockReturnValue({ flow: ["beta", "alpha"] });
+
+    dispatchPointer(harness.pill, "pointerdown", 10);
+    dispatchPointer(document, "pointermove", 250);
+    dispatchPointer(document, "pointerup", 250);
+
+    await waitForDragFinish();
+    expect(harness.editor.getContent()).toBe("---\nflow: [external]\n---\n");
+    expect(
+      Array.from(
+        harness.leaf.containerEl.querySelectorAll<HTMLElement>(".multi-select-pill"),
+      ).map((pill) => pill.textContent),
+    ).toEqual(["beta", "alpha"]);
+    expect(noticeSpy).toHaveBeenCalledWith(
+      "Property Order: the editor returned an unexpected result. Check the note in Source mode before continuing.",
+    );
+    expect(noticeSpy).not.toHaveBeenCalledWith(
+      "Property Order: values were written, but Properties did not refresh.",
+    );
+    expect(harness.editor.transaction).toHaveBeenCalledTimes(1);
+    expect(harness.leaf.view.requestSave).toHaveBeenCalledTimes(1);
+    harness.cleanup();
+  });
+
   it("reports when committed content cannot be reflected in the Properties UI", async () => {
     installRafHarness();
     const harness = createHarness();
@@ -1412,15 +1854,284 @@ describe("PropertyValueOrderController", () => {
     dispatchPointer(document, "pointermove", 250);
     dispatchPointer(document, "pointerup", 250);
 
-    await vi.waitFor(() => expect(noticeSpy).toHaveBeenCalledTimes(1));
+    await waitForDragFinish();
     expect(noticeSpy).toHaveBeenCalledWith(
-      "Property Order: values were written, but Properties did not refresh. Reopen the note before dragging again.",
+      "Property Order: values were written, but Properties did not refresh.",
     );
+    const noticeElement = noticeElements.at(-1);
+    const refreshButton = noticeElement?.querySelector<HTMLButtonElement>(
+      ".property-order-notice-action",
+    );
+    expect(refreshButton?.textContent).toBe("Refresh Properties");
     expect(harness.editor.getContent()).toBe("---\nflow: [beta, alpha]\n---\n");
     expect(harness.leaf.view.setViewData).toHaveBeenCalledWith(
       "---\nflow: [beta, alpha]\n---\n",
       false,
     );
+    expect(harness.leaf.view.requestSave).toHaveBeenCalledTimes(1);
+
+    refreshButton?.click();
+    await vi.waitFor(() =>
+      expect(noticeElement?.textContent).toBe(
+        "Property Order: Properties still could not refresh. Reopen the note before dragging again.",
+      ),
+    );
+    expect(harness.leaf.view.setViewData).toHaveBeenCalledTimes(2);
+    refreshButton?.click();
+    await new Promise<void>((resolve) => window.setTimeout(resolve, 0));
+    expect(harness.leaf.view.setViewData).toHaveBeenCalledTimes(2);
+    expect(harness.editor.transaction).toHaveBeenCalledTimes(1);
+    expect(harness.leaf.view.requestSave).toHaveBeenCalledTimes(1);
+    harness.cleanup();
+  });
+
+  it("refreshes the current redo state from a recovery created after immediate undo", async () => {
+    installRafHarness();
+    const harness = createHarness();
+    const originalContent = "---\nflow: [alpha, beta]\n---\n";
+    const committedContent = "---\nflow: [beta, alpha]\n---\n";
+    let reloadCount = 0;
+    harness.leaf.view.setViewData = vi.fn((nextContent: string) => {
+      reloadCount += 1;
+
+      if (reloadCount === 1) {
+        harness.container.replaceChildren();
+        window.setTimeout(() => harness.editor.setContent(originalContent), 0);
+        return;
+      }
+
+      harness.editor.setContent(nextContent);
+      rerenderHostListProperties(harness.leaf.containerEl, nextContent);
+    });
+
+    dispatchPointer(harness.pill, "pointerdown", 10);
+    dispatchPointer(document, "pointermove", 250);
+    dispatchPointer(document, "pointerup", 250);
+
+    await waitForDragFinish();
+    expect(harness.editor.getContent()).toBe(originalContent);
+    expect(noticeSpy).toHaveBeenCalledWith(
+      "Property Order: values were written, but Properties did not refresh.",
+    );
+    const noticeElement = noticeElements.at(-1);
+    const refreshButton = noticeElement?.querySelector<HTMLButtonElement>(
+      ".property-order-notice-action",
+    );
+    expect(refreshButton).not.toBeNull();
+
+    harness.editor.setContent(committedContent);
+    refreshButton?.click();
+
+    await vi.waitFor(() =>
+      expect(noticeSpy).toHaveBeenLastCalledWith("Property Order: Properties refreshed."),
+    );
+    expect(harness.editor.getContent()).toBe(committedContent);
+    expect(
+      Array.from(
+        harness.leaf.containerEl.querySelectorAll<HTMLElement>(".multi-select-pill"),
+      ).map((pill) => pill.textContent),
+    ).toEqual(["beta", "alpha"]);
+    expect(harness.leaf.view.setViewData).toHaveBeenCalledTimes(2);
+    expect(harness.editor.transaction).toHaveBeenCalledTimes(1);
+    expect(harness.leaf.view.requestSave).toHaveBeenCalledTimes(1);
+    expect(noticeSpy).not.toHaveBeenCalledWith(
+      "Property Order: the editor returned an unexpected result. Check the note in Source mode before continuing.",
+    );
+    harness.cleanup();
+  });
+
+  it("keeps Properties refresh actions independent across panes", async () => {
+    const harness = createHarness();
+    const secondPane = document.createElement("div");
+    secondPane.className = "workspace-leaf";
+    document.body.appendChild(secondPane);
+    const showRecovery = (
+      harness.controller as unknown as {
+        showPropertiesRefreshRecovery(context: {
+          committedContent: string;
+          document: Document;
+          editor: Editor;
+          file: TFile;
+          generation: number;
+          paneContainer: HTMLElement;
+          previousContent: string;
+          propertyKeys: readonly string[];
+          view: MarkdownView;
+        }): void;
+      }
+    ).showPropertiesRefreshRecovery.bind(harness.controller);
+    const context = {
+      committedContent: harness.editor.getContent(),
+      document,
+      editor: harness.editor.instance,
+      file: harness.file,
+      generation: 1,
+      previousContent: harness.editor.getContent(),
+      propertyKeys: ["flow"],
+      view: harness.leaf.view,
+    };
+
+    showRecovery({ ...context, paneContainer: harness.leaf.containerEl });
+    const firstNotice = noticeElements.at(-1);
+    const firstButton = firstNotice?.querySelector<HTMLButtonElement>(
+      ".property-order-notice-action",
+    );
+    showRecovery({ ...context, paneContainer: secondPane });
+    const secondNotice = noticeElements.at(-1);
+    const secondButton = secondNotice?.querySelector<HTMLButtonElement>(
+      ".property-order-notice-action",
+    );
+
+    firstButton?.click();
+    await vi.waitFor(() =>
+      expect(noticeSpy).toHaveBeenCalledWith("Property Order: Properties refreshed."),
+    );
+    expect(secondNotice?.textContent).toContain(
+      "Property Order: values were written, but Properties did not refresh.",
+    );
+    expect(secondButton?.disabled).toBe(false);
+    harness.cleanup();
+  });
+
+  it("prunes only recovery actions whose pane disconnected on layout change", async () => {
+    const harness = createHarness();
+    const disconnectedPane = document.createElement("div");
+    disconnectedPane.className = "workspace-leaf";
+    document.body.appendChild(disconnectedPane);
+    const showRecovery = (
+      harness.controller as unknown as {
+        showPropertiesRefreshRecovery(context: {
+          committedContent: string;
+          document: Document;
+          editor: Editor;
+          file: TFile;
+          generation: number;
+          paneContainer: HTMLElement;
+          previousContent: string;
+          propertyKeys: readonly string[];
+          view: MarkdownView;
+        }): void;
+      }
+    ).showPropertiesRefreshRecovery.bind(harness.controller);
+    const context = {
+      committedContent: harness.editor.getContent(),
+      document,
+      editor: harness.editor.instance,
+      file: harness.file,
+      generation: 1,
+      previousContent: harness.editor.getContent(),
+      propertyKeys: ["flow"],
+      view: harness.leaf.view,
+    };
+
+    showRecovery({ ...context, paneContainer: harness.leaf.containerEl });
+    const connectedButton = noticeElements
+      .at(-1)
+      ?.querySelector<HTMLButtonElement>(".property-order-notice-action");
+    showRecovery({ ...context, paneContainer: disconnectedPane });
+    const disconnectedButton = noticeElements
+      .at(-1)
+      ?.querySelector<HTMLButtonElement>(".property-order-notice-action");
+
+    disconnectedPane.remove();
+    harness.layoutChange();
+    disconnectedButton?.click();
+    await new Promise<void>((resolve) => window.setTimeout(resolve, 0));
+    expect(harness.leaf.view.setViewData).not.toHaveBeenCalled();
+
+    connectedButton?.click();
+    await vi.waitFor(() =>
+      expect(noticeSpy).toHaveBeenCalledWith("Property Order: Properties refreshed."),
+    );
+    harness.cleanup();
+  });
+
+  it("invalidates the Properties refresh action when the controller unloads", async () => {
+    installRafHarness();
+    const harness = createHarness();
+    harness.leaf.view.setViewData = vi.fn();
+
+    dispatchPointer(harness.pill, "pointerdown", 10);
+    dispatchPointer(document, "pointermove", 250);
+    dispatchPointer(document, "pointerup", 250);
+
+    await waitForDragFinish();
+    const refreshButton = noticeElements
+      .at(-1)
+      ?.querySelector<HTMLButtonElement>(".property-order-notice-action");
+    expect(refreshButton).not.toBeNull();
+    expect(harness.leaf.view.setViewData).toHaveBeenCalledTimes(1);
+
+    harness.cleanup();
+    refreshButton?.click();
+    await new Promise<void>((resolve) => window.setTimeout(resolve, 0));
+    expect(harness.leaf.view.setViewData).toHaveBeenCalledTimes(1);
+  });
+
+  it("refuses a Properties refresh action after editor content changes", async () => {
+    installRafHarness();
+    const harness = createHarness();
+    harness.leaf.view.setViewData = vi.fn();
+
+    dispatchPointer(harness.pill, "pointerdown", 10);
+    dispatchPointer(document, "pointermove", 250);
+    dispatchPointer(document, "pointerup", 250);
+
+    await waitForDragFinish();
+    const noticeElement = noticeElements.at(-1);
+    const refreshButton = noticeElement?.querySelector<HTMLButtonElement>(
+      ".property-order-notice-action",
+    );
+    harness.editor.setContent("---\nflow: [external]\n---\n");
+    refreshButton?.click();
+
+    await vi.waitFor(() =>
+      expect(noticeElement?.textContent).toBe(
+        "Property Order: the editor returned an unexpected result. Check the note in Source mode before continuing.",
+      ),
+    );
+    expect(harness.leaf.view.setViewData).toHaveBeenCalledTimes(1);
+    expect(harness.editor.transaction).toHaveBeenCalledTimes(1);
+    expect(harness.leaf.view.requestSave).toHaveBeenCalledTimes(1);
+    harness.cleanup();
+  });
+
+  it("lets the user retry a stale Properties refresh without another write", async () => {
+    installRafHarness();
+    const harness = createHarness();
+    let reloadCount = 0;
+    harness.leaf.view.setViewData = vi.fn((nextContent: string) => {
+      harness.editor.setContent(nextContent);
+      reloadCount += 1;
+
+      if (reloadCount === 2) {
+        rerenderHostListProperties(harness.leaf.containerEl, nextContent);
+      }
+    });
+
+    dispatchPointer(harness.pill, "pointerdown", 10);
+    dispatchPointer(document, "pointermove", 250);
+    dispatchPointer(document, "pointerup", 250);
+
+    await waitForDragFinish();
+    const refreshButton = noticeElements
+      .at(-1)
+      ?.querySelector<HTMLButtonElement>(".property-order-notice-action");
+    expect(refreshButton).not.toBeNull();
+    refreshButton?.click();
+
+    await vi.waitFor(() =>
+      expect(noticeSpy).toHaveBeenLastCalledWith(
+        "Property Order: Properties refreshed.",
+      ),
+    );
+    expect(
+      Array.from(
+        harness.leaf.containerEl.querySelectorAll<HTMLElement>(".multi-select-pill"),
+      ).map((pill) => pill.textContent),
+    ).toEqual(["beta", "alpha"]);
+    expect(harness.leaf.view.setViewData).toHaveBeenCalledTimes(2);
+    expect(harness.editor.transaction).toHaveBeenCalledTimes(1);
     expect(harness.leaf.view.requestSave).toHaveBeenCalledTimes(1);
     harness.cleanup();
   });
@@ -1465,6 +2176,8 @@ describe("PropertyValueOrderController", () => {
       "---\nflow: [beta, alpha]\n---\n",
       false,
     );
+    expect(harness.editor.focus).toHaveBeenCalledOnce();
+    expect(document.activeElement).toBe(harness.editor.editorSurface);
     expect(warning).toHaveBeenCalledOnce();
     warning.mockRestore();
     harness.cleanup();

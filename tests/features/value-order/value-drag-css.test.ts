@@ -47,15 +47,31 @@ describe("property value drag CSS", () => {
     );
   });
 
-  it("adds a dedicated grip without covering a native list-type mismatch input", () => {
+  it("keeps mismatch input layout native while giving fine pointers drag cursor feedback", () => {
     expect(styles).toMatch(
-      /body\.property-order-value-drag-enabled[\s\S]*?\.metadata-property:not\(:has\(\.multi-select-container\)\):has\([\s\S]*?\.metadata-property-icon[\s\S]*?\):has\(\.metadata-property-warning-icon\)[\s\S]*?\.metadata-property-value\s*\{[^}]*position:\s*relative;[^}]*padding-inline-end:\s*24px;/s,
+      /@media \(hover:\s*hover\) and \(pointer:\s*fine\)\s*\{[\s\S]*?body\.property-order-value-drag-enabled[\s\S]*?\.metadata-property:not\(:has\(\.multi-select-container\)\):has\([\s\S]*?\.metadata-property-icon[\s\S]*?\):has\(\.metadata-property-warning-icon\)[\s\S]*?\.metadata-property-value:not\(:focus-within\)[\s\S]*?\{[^}]*cursor:\s*grab;/s,
     );
     expect(styles).toMatch(
-      /\.metadata-property-value::after\s*\{[^}]*inset-inline-end:\s*3px;[^}]*width:\s*18px;[^}]*content:\s*"⠿";[^}]*cursor:\s*grab;[^}]*touch-action:\s*none;/s,
+      /@media \(hover:\s*hover\) and \(pointer:\s*fine\)\s*\{[\s\S]*?\.metadata-property-value:not\(:focus-within\):active[\s\S]*?\{[^}]*cursor:\s*grabbing;/s,
+    );
+    expect(styles).toMatch(
+      /@media \(hover:\s*hover\) and \(pointer:\s*fine\)\s*\{[\s\S]*?\.metadata-property-warning-icon[\s\S]*?\{[^}]*cursor:\s*auto;/s,
+    );
+    expect(styles).not.toContain('content: "⠿"');
+    expect(styles).not.toMatch(
+      /\.metadata-property-value(?:\s*|::after\s*)\{[^}]*padding-inline-end:/s,
     );
     expect(styles).not.toMatch(
       /\.metadata-property-value(?:\s+input)?\s*\{[^}]*pointer-events:\s*none;/s,
+    );
+    expect(styles).not.toMatch(
+      /@media \([^)]*(?:hover:\s*none|pointer:\s*coarse)[^)]*\)[\s\S]*?\.metadata-property-warning-icon[\s\S]*?cursor:\s*(?:grab|grabbing)/s,
+    );
+  });
+
+  it("separates the Properties refresh action from its Notice text", () => {
+    expect(styles).toMatch(
+      /\.property-order-notice-action\s*\{[^}]*margin-inline-start:\s*8px;/s,
     );
   });
 });

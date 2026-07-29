@@ -461,6 +461,7 @@ describe("writePropertyValueDrop", () => {
       status: "written",
       changedPropertyKeys: ["source", "target"],
       committedContent: expectedContent,
+      previousContent: content,
     });
     expect(fixture.getContent()).toBe(expectedContent);
     expect(fixture.transactions).toHaveLength(1);
@@ -533,6 +534,7 @@ describe("writePropertyValueDrop", () => {
         status: "written",
         changedPropertyKeys: ["source", "target"],
         committedContent: expectedContent,
+        previousContent: content,
       });
       expect(fixture.getContent()).toBe(expectedContent);
       expect(fixture.transactions).toHaveLength(1);
@@ -751,6 +753,7 @@ describe("writePropertyValueDrop", () => {
       status: "written",
       changedPropertyKeys: ["source", "target"],
       committedContent: expectedContent,
+      previousContent: content,
     });
     expect(fixture.getContent()).toBe(expectedContent);
     expect(fixture.transactions).toHaveLength(1);

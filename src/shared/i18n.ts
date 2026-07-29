@@ -66,7 +66,11 @@ const EN_TRANSLATIONS = {
   "notice.persistenceFailed":
     "Property Order: values changed in the editor, but saving could not be scheduled. Save the note manually before continuing.",
   "notice.propertiesRefreshNeeded":
-    "Property Order: values were written, but Properties did not refresh. Reopen the note before dragging again.",
+    "Property Order: values were written, but Properties did not refresh.",
+  "notice.propertiesRefreshAction": "Refresh Properties",
+  "notice.propertiesRefreshSucceeded": "Property Order: Properties refreshed.",
+  "notice.propertiesRefreshFailed":
+    "Property Order: Properties still could not refresh. Reopen the note before dragging again.",
   "notice.propertiesOutOfSync":
     "Property Order: Properties is out of sync with the note. Reopen the note before dragging again.",
   "notice.contentChanged": "Property Order: content changed while dragging. Try again.",
@@ -147,7 +151,11 @@ export const TRANSLATIONS = {
     "notice.persistenceFailed":
       "Property Order：属性值已在编辑器中更新，但无法安排保存。继续操作前请手动保存笔记。",
     "notice.propertiesRefreshNeeded":
-      "Property Order：值已写入，但属性面板未刷新；请重新打开笔记后再拖拽。",
+      "Property Order：值已写入，但属性面板尚未刷新。",
+    "notice.propertiesRefreshAction": "刷新属性面板",
+    "notice.propertiesRefreshSucceeded": "Property Order：属性面板已刷新。",
+    "notice.propertiesRefreshFailed":
+      "Property Order：仍无法刷新属性面板，请重新打开笔记后再拖拽。",
     "notice.propertiesOutOfSync":
       "Property Order：属性面板与笔记内容不同步，请重新打开笔记后再拖拽。",
     "notice.contentChanged": "Property Order：拖拽期间内容发生变化，请重试。",
@@ -219,7 +227,11 @@ export const TRANSLATIONS = {
     "notice.persistenceFailed":
       "Property Order：屬性值已在編輯器中更新，但無法安排儲存。繼續操作前請手動儲存筆記。",
     "notice.propertiesRefreshNeeded":
-      "Property Order：值已寫入，但屬性面板未重新整理；請重新開啟筆記後再拖曳。",
+      "Property Order：值已寫入，但屬性面板尚未重新整理。",
+    "notice.propertiesRefreshAction": "重新整理屬性面板",
+    "notice.propertiesRefreshSucceeded": "Property Order：屬性面板已重新整理。",
+    "notice.propertiesRefreshFailed":
+      "Property Order：仍無法重新整理屬性面板，請重新開啟筆記後再拖曳。",
     "notice.propertiesOutOfSync":
       "Property Order：屬性面板與筆記內容不同步，請重新開啟筆記後再拖曳。",
     "notice.contentChanged": "Property Order：拖曳期間內容發生變化，請重試。",

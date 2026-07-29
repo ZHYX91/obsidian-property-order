@@ -40,6 +40,7 @@ import {
   type PropertyPillContext,
 } from "../../obsidian/properties-dom";
 import { getCachedFrontmatterStorageKinds } from "../../obsidian/metadata";
+import { reconcileMetadataEditorProperties } from "../../obsidian/metadata-editor-refresh";
 import {
   resolvePaneFileContext,
 } from "../../obsidian/pane-context";
@@ -57,7 +58,10 @@ import {
   resolveDropTarget,
 } from "./drop-targeting";
 import type { DropTarget, InvalidDropTarget } from "./types";
-import { writePropertyValueDrop } from "./writeback";
+import {
+  writePropertyValueDrop,
+  type ValueWritebackResult,
+} from "./writeback";
 import { addMobileReorderMenuItem } from "./mobile-reorder-menu";
 
 interface DragState {
@@ -65,6 +69,8 @@ interface DragState {
   editor: Editor;
   expectedContent: string | null;
   file: TFile;
+  focusOwnerAtStart: Element | null;
+  focusIntentGeneration: number;
   generation: number;
   paneContainer: HTMLElement;
   paneView: MarkdownView;
@@ -77,6 +83,38 @@ interface DragState {
   pointerType: SupportedPointerType;
   target: DropTarget | null;
 }
+
+interface PropertiesRefreshRecoveryContext {
+  committedContent: string;
+  document: Document;
+  editor: Editor;
+  file: TFile;
+  generation: number;
+  paneContainer: HTMLElement;
+  previousContent: string;
+  propertyKeys: readonly string[];
+  view: MarkdownView;
+}
+
+interface PropertiesRefreshNoticeState {
+  document: Document;
+  notice: Notice;
+  releaseButton: () => void;
+}
+
+interface TrailingClickSuppression {
+  clientX: number;
+  clientY: number;
+  document: Document;
+  timeoutId: number;
+  window: Window;
+}
+
+type PropertiesRefreshRetryResult = "diverged" | "failed" | "refreshed" | "stale";
+type PropertiesRefreshContextState =
+  | { content: string; status: "current" }
+  | { status: "diverged" | "stale" };
+type WrittenValueWritebackResult = Extract<ValueWritebackResult, { status: "written" }>;
 
 const TOUCH_MOVE_LISTENER_OPTIONS: AddEventListenerOptions = {
   capture: true,
@@ -97,6 +135,7 @@ export class PropertyValueOrderController {
   private touchLongPressTimeoutId: number | null = null;
   private touchLongPressWindow: Window | null = null;
   private touchMoveDocument: Document | null = null;
+  private trailingClickSuppression: TrailingClickSuppression | null = null;
   private mobileArmedPill: HTMLElement | null = null;
   private mobileArmTimeoutId: number | null = null;
   private mobileArmWindow: Window | null = null;
@@ -106,6 +145,11 @@ export class PropertyValueOrderController {
   private lastDiagnosticAt = 0;
   private initialized = false;
   private lifecycleGeneration = 0;
+  private userFocusIntentGeneration = 0;
+  private readonly propertiesRefreshNotices = new Map<
+    HTMLElement,
+    PropertiesRefreshNoticeState
+  >();
   private readonly registeredDocumentCleanups = new Map<Document, () => void>();
   private readonly registeredEventCleanups: Array<() => void> = [];
   private readonly plugin: Plugin;
@@ -146,6 +190,12 @@ export class PropertyValueOrderController {
       this.registerControllerEvent(windowCloseRef, () => {
         this.plugin.app.workspace.offref(windowCloseRef);
       });
+      const layoutChangeRef = this.plugin.app.workspace.on("layout-change", () => {
+        this.pruneDisconnectedPropertiesRefreshNotices();
+      });
+      this.registerControllerEvent(layoutChangeRef, () => {
+        this.plugin.app.workspace.offref(layoutChangeRef);
+      });
     } catch (error) {
       this.dispose();
       throw error;
@@ -175,6 +225,13 @@ export class PropertyValueOrderController {
       this.clearInteractionState();
     } catch (error) {
       console.error("Property Order: failed to clear a drag interaction", error);
+    }
+
+    try {
+      this.clearTrailingClickSuppression();
+      this.clearAllPropertiesRefreshNotices();
+    } catch (error) {
+      console.error("Property Order: failed to clear post-drag recovery state", error);
     } finally {
       const documentCleanups = Array.from(
         this.registeredDocumentCleanups.values(),
@@ -209,6 +266,7 @@ export class PropertyValueOrderController {
     const targetWindow = targetDocument.defaultView;
 
     const handleWindowBlur = (): void => {
+      this.userFocusIntentGeneration += 1;
       this.clearInteractionForDocument(targetDocument);
     };
 
@@ -255,6 +313,7 @@ export class PropertyValueOrderController {
       registerDocumentEvent("pointermove", this.handlePointerMove);
       registerDocumentEvent("pointerup", this.handlePointerUpEvent);
       registerDocumentEvent("pointercancel", this.handlePointerCancel);
+      registerDocumentEvent("click", this.handleTrailingClick);
       registerDocumentEvent("contextmenu", this.handleContextMenu);
       registerDocumentEvent("dragstart", this.handleNativeDragStart);
       registerDocumentEvent("drop", this.handleNativeDrop);
@@ -273,6 +332,7 @@ export class PropertyValueOrderController {
   private unregisterDocumentEvents(targetDocument: Document): void {
     try {
       this.clearInteractionForDocument(targetDocument);
+      this.clearPropertiesRefreshNoticesForDocument(targetDocument);
     } finally {
       this.registeredDocumentCleanups.get(targetDocument)?.();
     }
@@ -288,9 +348,15 @@ export class PropertyValueOrderController {
     if (interactionDocument === targetDocument) {
       this.clearInteractionState();
     }
+
+    if (this.trailingClickSuppression?.document === targetDocument) {
+      this.clearTrailingClickSuppression();
+    }
   }
 
   private readonly handlePointerDown = (event: PointerEvent): void => {
+    this.userFocusIntentGeneration += 1;
+
     if (!this.initialized || !this.getSettings().enablePropertyValueDrag) {
       this.clearMobileArmState();
       return;
@@ -400,6 +466,16 @@ export class PropertyValueOrderController {
 
     if (actions.some((action) => action.type === "finish-drag")) {
       event.preventDefault();
+      const targetDocument = event.currentTarget as Document | null;
+
+      if (targetDocument != null) {
+        this.armTrailingClickSuppression(
+          targetDocument,
+          event.clientX,
+          event.clientY,
+        );
+      }
+
       this.clearTouchMoveCapture();
       await this.finishDrag(event.pointerId);
     }
@@ -409,6 +485,23 @@ export class PropertyValueOrderController {
 
   private readonly handlePointerCancel = (event: PointerEvent): void => {
     this.applyActions(this.transition({ type: "cancel", pointerId: event.pointerId }));
+  };
+
+  private readonly handleTrailingClick = (event: MouseEvent): void => {
+    const suppression = this.trailingClickSuppression;
+
+    if (
+      suppression == null ||
+      event.currentTarget !== suppression.document ||
+      Math.abs(event.clientX - suppression.clientX) > 4 ||
+      Math.abs(event.clientY - suppression.clientY) > 4
+    ) {
+      return;
+    }
+
+    this.clearTrailingClickSuppression();
+    event.preventDefault();
+    event.stopPropagation();
   };
 
   private readonly handleTouchMove = (event: TouchEvent): void => {
@@ -569,6 +662,44 @@ export class PropertyValueOrderController {
     }
   }
 
+  private armTrailingClickSuppression(
+    targetDocument: Document,
+    clientX: number,
+    clientY: number,
+  ): void {
+    this.clearTrailingClickSuppression();
+    const targetWindow = targetDocument.defaultView;
+
+    if (targetWindow == null) {
+      return;
+    }
+
+    const suppression: TrailingClickSuppression = {
+      clientX,
+      clientY,
+      document: targetDocument,
+      timeoutId: 0,
+      window: targetWindow,
+    };
+    suppression.timeoutId = targetWindow.setTimeout(() => {
+      if (this.trailingClickSuppression === suppression) {
+        this.trailingClickSuppression = null;
+      }
+    }, 0);
+    this.trailingClickSuppression = suppression;
+  }
+
+  private clearTrailingClickSuppression(): void {
+    const suppression = this.trailingClickSuppression;
+    this.trailingClickSuppression = null;
+
+    if (suppression != null) {
+      this.runInteractionCleanup(() =>
+        suppression.window.clearTimeout(suppression.timeoutId),
+      );
+    }
+  }
+
   private readonly handleNativeDragStart = (event: DragEvent): void => {
     if (!this.initialized || !this.getSettings().enablePropertyValueDrag) {
       return;
@@ -591,6 +722,10 @@ export class PropertyValueOrderController {
   };
 
   private readonly handleKeyDown = (event: KeyboardEvent): void => {
+    if (event.key === "Tab" || event.key === "F6") {
+      this.userFocusIntentGeneration += 1;
+    }
+
     if (event.key !== "Escape") {
       return;
     }
@@ -689,6 +824,7 @@ export class PropertyValueOrderController {
       return false;
     }
 
+    const focusOwnerAtStart = targetDocument.activeElement;
     blurFocusedPropertyEditor(context.propertyElement);
 
     this.restoreNativeDragState ??= suppressNativeDrag(context.pill);
@@ -704,6 +840,8 @@ export class PropertyValueOrderController {
       editor: paneContext.editor,
       expectedContent,
       file: paneContext.file,
+      focusOwnerAtStart,
+      focusIntentGeneration: this.userFocusIntentGeneration,
       generation: this.lifecycleGeneration,
       paneContainer: paneContext.container,
       paneView: paneContext.view,
@@ -884,7 +1022,12 @@ export class PropertyValueOrderController {
         return;
       }
 
-      blurFocusedPropertyEditor(target.context.propertyElement);
+      for (const propertyElement of new Set([
+        dragState.context.propertyElement,
+        target.context.propertyElement,
+      ])) {
+        blurFocusedPropertyEditor(propertyElement);
+      }
 
       const writebackResult = await writePropertyValueDrop({
         canFinalize: () => this.isOriginalDocumentActive(dragState),
@@ -932,38 +1075,13 @@ export class PropertyValueOrderController {
       }
 
       if (writebackResult.status === "persistence-failed") {
+        this.focusEditorAfterCommittedDrag(dragState, target);
         new Notice(this.t("notice.persistenceFailed"));
         return;
       }
 
       if (writebackResult.status === "written") {
-        if (dragState.editor.getValue() !== writebackResult.committedContent) {
-          new Notice(this.t("notice.writebackDiverged"));
-          return;
-        }
-        await this.waitForHostUiSettlement(dragState.document);
-
-        if (!this.isDragOperationOwned(dragState)) {
-          return;
-        }
-
-        if (dragState.editor.getValue() !== writebackResult.committedContent) {
-          new Notice(this.t("notice.writebackDiverged"));
-          return;
-        }
-
-        const propertiesAligned = writebackResult.changedPropertyKeys.every((propertyKey) => {
-          const context = findPropertyListContextByKey(dragState.paneContainer, propertyKey);
-          return context != null && this.isListContextAlignedWithContent(
-            context,
-            writebackResult.committedContent,
-            true,
-          );
-        });
-
-        if (!propertiesAligned) {
-          new Notice(this.t("notice.propertiesRefreshNeeded"));
-        }
+        await this.finalizeWrittenDrag(dragState, target, writebackResult);
       }
     } catch (error) {
       if (this.isDragOperationOwned(dragState)) {
@@ -975,6 +1093,198 @@ export class PropertyValueOrderController {
         this.clearInteractionState();
       }
     }
+  }
+
+  private async finalizeWrittenDrag(
+    dragState: DragState,
+    target: DropTarget,
+    writebackResult: WrittenValueWritebackResult,
+  ): Promise<void> {
+    this.focusEditorAfterCommittedDrag(dragState, target);
+
+    for (let attempt = 0; attempt < 4; attempt += 1) {
+      await this.waitForHostUiSettlement(dragState.document);
+
+      if (!this.isDragOperationOwned(dragState)) {
+        return;
+      }
+
+      if (!this.isOriginalDocumentActive(dragState)) {
+        new Notice(this.t("notice.activeFileChanged"));
+        return;
+      }
+
+      const currentContent = dragState.editor.getValue();
+      const expectedContent = this.resolvePostCommitContent(
+        currentContent,
+        writebackResult,
+      );
+
+      if (expectedContent == null) {
+        new Notice(this.t("notice.writebackDiverged"));
+        return;
+      }
+
+      let propertiesAligned = this.arePropertiesAlignedWithContent(
+        dragState.paneContainer,
+        writebackResult.changedPropertyKeys,
+        expectedContent,
+      );
+
+      if (!propertiesAligned) {
+        reconcileMetadataEditorProperties({
+          canRefresh: () =>
+            this.isDragOperationOwned(dragState) &&
+            this.isOriginalDocumentActive(dragState),
+          document: dragState.document,
+          editor: dragState.editor,
+          expectedContent,
+          file: dragState.file,
+          isAligned: () =>
+            this.arePropertiesAlignedWithContent(
+              dragState.paneContainer,
+              writebackResult.changedPropertyKeys,
+              expectedContent,
+            ),
+          paneContainer: dragState.paneContainer,
+          propertyKeys: writebackResult.changedPropertyKeys,
+          view: dragState.paneView,
+        });
+        await this.waitForHostUiSettlement(dragState.document);
+
+        if (!this.isDragOperationOwned(dragState)) {
+          return;
+        }
+
+        if (!this.isOriginalDocumentActive(dragState)) {
+          new Notice(this.t("notice.activeFileChanged"));
+          return;
+        }
+
+        const settledContent = dragState.editor.getValue();
+        const settledExpectedContent = this.resolvePostCommitContent(
+          settledContent,
+          writebackResult,
+        );
+
+        if (settledExpectedContent == null) {
+          new Notice(this.t("notice.writebackDiverged"));
+          return;
+        }
+
+        if (settledExpectedContent !== expectedContent) {
+          continue;
+        }
+
+        propertiesAligned = this.arePropertiesAlignedWithContent(
+          dragState.paneContainer,
+          writebackResult.changedPropertyKeys,
+          expectedContent,
+        );
+      }
+
+      if (!propertiesAligned) {
+        this.showPropertiesRefreshRecovery({
+          committedContent: writebackResult.committedContent,
+          document: dragState.document,
+          editor: dragState.editor,
+          file: dragState.file,
+          generation: dragState.generation,
+          paneContainer: dragState.paneContainer,
+          previousContent: writebackResult.previousContent,
+          propertyKeys: writebackResult.changedPropertyKeys,
+          view: dragState.paneView,
+        });
+      } else {
+        this.clearPropertiesRefreshNotice(dragState.paneContainer);
+      }
+
+      this.focusEditorAfterCommittedDrag(dragState, target);
+      return;
+    }
+
+    // Repeated exact undo/redo changes are valid editor history, not a third-party
+    // divergence. Leave the current buffer untouched and only repair focus when
+    // the user has not deliberately moved it elsewhere.
+    this.focusEditorAfterCommittedDrag(dragState, target);
+  }
+
+  private resolvePostCommitContent(
+    currentContent: string,
+    writebackResult: WrittenValueWritebackResult,
+  ): string | null {
+    if (currentContent === writebackResult.committedContent) {
+      return writebackResult.committedContent;
+    }
+
+    return currentContent === writebackResult.previousContent
+      ? writebackResult.previousContent
+      : null;
+  }
+
+  private focusEditorAfterCommittedDrag(dragState: DragState, target: DropTarget): void {
+    if (
+      !this.isDragOperationOwned(dragState) ||
+      !this.isOriginalDocumentActive(dragState) ||
+      this.userFocusIntentGeneration !== dragState.focusIntentGeneration
+    ) {
+      return;
+    }
+
+    try {
+      if (dragState.editor.hasFocus()) {
+        return;
+      }
+    } catch (error) {
+      console.warn("Property Order: failed to inspect the Markdown editor focus", error);
+    }
+
+    if (!this.canRepairPostDragFocus(dragState, target)) {
+      return;
+    }
+
+    try {
+      dragState.editor.focus();
+    } catch (error) {
+      console.warn("Property Order: failed to restore the Markdown editor focus", error);
+    }
+  }
+
+  private canRepairPostDragFocus(dragState: DragState, target: DropTarget): boolean {
+    const activeElement = dragState.document.activeElement;
+
+    if (
+      activeElement == null ||
+      activeElement === dragState.document.body ||
+      activeElement === dragState.document.documentElement ||
+      activeElement === dragState.focusOwnerAtStart ||
+      !activeElement.isConnected
+    ) {
+      return true;
+    }
+
+    const affectedPropertyElements = new Set<HTMLElement>([
+      dragState.context.propertyElement,
+      target.context.propertyElement,
+    ]);
+
+    for (const propertyKey of new Set([
+      dragState.context.propertyKey,
+      target.context.propertyKey,
+    ])) {
+      const propertyElement = findPropertyListContextByKey(
+        dragState.paneContainer,
+        propertyKey,
+      )?.propertyElement;
+
+      if (propertyElement != null) {
+        affectedPropertyElements.add(propertyElement);
+      }
+    }
+
+    return Array.from(affectedPropertyElements).some((propertyElement) =>
+      propertyElement.contains(activeElement),
+    );
   }
 
   private isOriginalDocumentActive(dragState: DragState): boolean {
@@ -1030,6 +1340,20 @@ export class PropertyValueOrderController {
     return areStringArraysEqual(expectedValues, visibleValues);
   }
 
+  private arePropertiesAlignedWithContent(
+    paneContainer: HTMLElement,
+    propertyKeys: readonly string[],
+    content: string,
+  ): boolean {
+    return propertyKeys.every((propertyKey) => {
+      const context = findPropertyListContextByKey(paneContainer, propertyKey);
+      return (
+        context != null &&
+        this.isListContextAlignedWithContent(context, content, true)
+      );
+    });
+  }
+
   private isDropReadyForWrite(dragState: DragState, target: DropTarget): boolean {
     if (
       !this.isDragStateActive(dragState) ||
@@ -1054,6 +1378,250 @@ export class PropertyValueOrderController {
     return targetWindow == null
       ? Promise.resolve()
       : new Promise((resolve) => targetWindow.setTimeout(resolve, 0));
+  }
+
+  private showPropertiesRefreshRecovery(context: PropertiesRefreshRecoveryContext): void {
+    this.clearPropertiesRefreshNotice(context.paneContainer);
+    const notice = new Notice(this.t("notice.propertiesRefreshNeeded"), 0);
+    const button = notice.messageEl.createEl("button", {
+      cls: ["mod-cta", "property-order-notice-action"],
+      text: this.t("notice.propertiesRefreshAction"),
+    });
+    button.type = "button";
+
+    const handleClick = (): void => {
+      button.disabled = true;
+      void this.retryPropertiesRefresh(context)
+        .then((result) => {
+          if (
+            this.propertiesRefreshNotices.get(context.paneContainer)?.notice !== notice
+          ) {
+            return;
+          }
+
+          if (result === "refreshed") {
+            this.clearPropertiesRefreshNotice(context.paneContainer);
+            new Notice(this.t("notice.propertiesRefreshSucceeded"));
+            return;
+          }
+
+          const messageKey =
+            result === "diverged"
+              ? "notice.writebackDiverged"
+              : result === "stale"
+                ? "notice.activeFileChanged"
+                : "notice.propertiesRefreshFailed";
+          this.releasePropertiesRefreshButton(context.paneContainer, notice);
+          notice.setMessage(this.t(messageKey));
+        })
+        .catch((error: unknown) => {
+          console.error("Property Order: failed to retry the Properties refresh", error);
+
+          if (
+            this.propertiesRefreshNotices.get(context.paneContainer)?.notice === notice
+          ) {
+            this.releasePropertiesRefreshButton(context.paneContainer, notice);
+            notice.setMessage(this.t("notice.propertiesRefreshFailed"));
+          }
+        });
+    };
+
+    button.addEventListener("click", handleClick, { once: true });
+    this.propertiesRefreshNotices.set(context.paneContainer, {
+      document: context.document,
+      notice,
+      releaseButton: () => button.removeEventListener("click", handleClick),
+    });
+  }
+
+  private async retryPropertiesRefresh(
+    context: PropertiesRefreshRecoveryContext,
+  ): Promise<PropertiesRefreshRetryResult> {
+    for (let attempt = 0; attempt < 4; attempt += 1) {
+      const initialState = this.getPropertiesRefreshContextState(context);
+
+      if (initialState.status !== "current") {
+        return initialState.status;
+      }
+
+      const expectedContent = initialState.content;
+
+      if (
+        this.arePropertiesAlignedWithContent(
+          context.paneContainer,
+          context.propertyKeys,
+          expectedContent,
+        )
+      ) {
+        return "refreshed";
+      }
+
+      for (const propertyKey of context.propertyKeys) {
+        const propertyElement = findPropertyListContextByKey(
+          context.paneContainer,
+          propertyKey,
+        )?.propertyElement;
+
+        if (propertyElement != null) {
+          blurFocusedPropertyEditor(propertyElement);
+        }
+      }
+
+      const beforePublicRefresh = this.getPropertiesRefreshContextState(context);
+
+      if (beforePublicRefresh.status !== "current") {
+        return beforePublicRefresh.status;
+      }
+      if (beforePublicRefresh.content !== expectedContent) {
+        continue;
+      }
+
+      try {
+        context.view.setViewData(expectedContent, false);
+      } catch (error) {
+        console.warn("Property Order: failed to retry the public Properties refresh", error);
+      }
+
+      await this.waitForHostUiSettlement(context.document);
+      const afterPublicRefresh = this.getPropertiesRefreshContextState(context);
+
+      if (afterPublicRefresh.status !== "current") {
+        return afterPublicRefresh.status;
+      }
+      if (afterPublicRefresh.content !== expectedContent) {
+        continue;
+      }
+
+      if (
+        this.arePropertiesAlignedWithContent(
+          context.paneContainer,
+          context.propertyKeys,
+          expectedContent,
+        )
+      ) {
+        return "refreshed";
+      }
+
+      reconcileMetadataEditorProperties({
+        canRefresh: () => {
+          const state = this.getPropertiesRefreshContextState(context);
+          return state.status === "current" && state.content === expectedContent;
+        },
+        document: context.document,
+        editor: context.editor,
+        expectedContent,
+        file: context.file,
+        isAligned: () =>
+          this.arePropertiesAlignedWithContent(
+            context.paneContainer,
+            context.propertyKeys,
+            expectedContent,
+          ),
+        paneContainer: context.paneContainer,
+        propertyKeys: context.propertyKeys,
+        view: context.view,
+      });
+
+      await this.waitForHostUiSettlement(context.document);
+      const afterPrivateRefresh = this.getPropertiesRefreshContextState(context);
+
+      if (afterPrivateRefresh.status !== "current") {
+        return afterPrivateRefresh.status;
+      }
+      if (afterPrivateRefresh.content !== expectedContent) {
+        continue;
+      }
+
+      return this.arePropertiesAlignedWithContent(
+        context.paneContainer,
+        context.propertyKeys,
+        expectedContent,
+      )
+        ? "refreshed"
+        : "failed";
+    }
+
+    return "failed";
+  }
+
+  private getPropertiesRefreshContextState(
+    context: PropertiesRefreshRecoveryContext,
+  ): PropertiesRefreshContextState {
+    if (
+      !this.initialized ||
+      this.lifecycleGeneration !== context.generation ||
+      !context.paneContainer.isConnected ||
+      context.paneContainer.ownerDocument !== context.document ||
+      context.view.containerEl.ownerDocument !== context.document
+    ) {
+      return { status: "stale" };
+    }
+
+    const paneContext = resolvePaneFileContext(this.plugin, context.paneContainer);
+
+    if (
+      paneContext?.view !== context.view ||
+      paneContext.editor !== context.editor ||
+      !isSameNoteDocument(context.file.path, paneContext.file.path)
+    ) {
+      return { status: "stale" };
+    }
+
+    const currentContent = context.editor.getValue();
+
+    if (currentContent === context.committedContent) {
+      return { content: context.committedContent, status: "current" };
+    }
+    if (currentContent === context.previousContent) {
+      return { content: context.previousContent, status: "current" };
+    }
+
+    return { status: "diverged" };
+  }
+
+  private releasePropertiesRefreshButton(
+    paneContainer: HTMLElement,
+    notice: Notice,
+  ): void {
+    const state = this.propertiesRefreshNotices.get(paneContainer);
+
+    if (state?.notice === notice) {
+      state.releaseButton();
+    }
+  }
+
+  private clearPropertiesRefreshNotice(paneContainer: HTMLElement): void {
+    const state = this.propertiesRefreshNotices.get(paneContainer);
+    this.propertiesRefreshNotices.delete(paneContainer);
+
+    if (state == null) {
+      return;
+    }
+
+    this.runInteractionCleanup(state.releaseButton);
+    this.runInteractionCleanup(() => state.notice.hide());
+  }
+
+  private clearPropertiesRefreshNoticesForDocument(targetDocument: Document): void {
+    for (const [paneContainer, state] of this.propertiesRefreshNotices) {
+      if (state.document === targetDocument) {
+        this.clearPropertiesRefreshNotice(paneContainer);
+      }
+    }
+  }
+
+  private pruneDisconnectedPropertiesRefreshNotices(): void {
+    for (const paneContainer of Array.from(this.propertiesRefreshNotices.keys())) {
+      if (!paneContainer.isConnected) {
+        this.clearPropertiesRefreshNotice(paneContainer);
+      }
+    }
+  }
+
+  private clearAllPropertiesRefreshNotices(): void {
+    for (const paneContainer of Array.from(this.propertiesRefreshNotices.keys())) {
+      this.clearPropertiesRefreshNotice(paneContainer);
+    }
   }
 
   private isDragOperationOwned(dragState: DragState): boolean {
