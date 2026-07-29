@@ -30,10 +30,11 @@ This document mirrors the authoritative current interaction and presentation con
 
 ## Settings UI
 
-- General, Value drag, and Key order use `tablist`, `tab`, `tabpanel`, `aria-selected`, and roving `tabindex`.
-- Left/Right and Home/End switch tabs. Rerender, rotation, and viewport resize keep the active tab visible with sensible focus.
-- Tab height is 34px for fine pointers and 44px for coarse pointers. Narrow layouts keep one horizontally scrollable row without vertical clipping.
-- At widths up to 480px, rule textareas and existing-property inputs stack and fill the card.
+- General, Value drag, and Key order remain the same three logical settings groups across host versions. Control values, conditional visibility, immediate application, persistence failure, and Retry semantics do not vary by renderer.
+- Obsidian 1.12.x uses the custom three-tab UI with `tablist`, `tab`, `tabpanel`, `aria-selected`, and roving `tabindex`. Left/Right and Home/End switch tabs; rerender, rotation, and viewport resize keep the active tab visible with sensible focus.
+- On 1.12.x, tab height is 34px for fine pointers and 44px for coarse pointers. Narrow layouts keep one horizontally scrollable row without vertical clipping.
+- Obsidian 1.13+ uses three native declarative settings pages and native search. Custom property-rule editors retain suggestion, persistence, and cleanup lifecycles.
+- At widths up to 480px, both render paths stack rule textareas and existing-property inputs to fill their card or control area.
 - Persistence failure presents a Notice and `role="alert"` unsaved state. Successful Retry clears the state and performs any required suggestion refresh.
 
 ## Accessibility and accepted boundary

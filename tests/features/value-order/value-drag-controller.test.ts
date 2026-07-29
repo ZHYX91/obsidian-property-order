@@ -305,6 +305,7 @@ function createHarness(): ControllerHarness {
         getActiveFile: () => leaf.view.file,
         getMostRecentLeaf: () => leaf,
         iterateAllLeaves: (callback: (value: typeof leaf) => void) => callback(leaf),
+        offref: vi.fn(),
         on: vi.fn(
           (
             name: string,
@@ -544,6 +545,184 @@ describe("PropertyValueOrderController", () => {
   afterEach(() => {
     vi.useRealTimers();
     vi.restoreAllMocks();
+  });
+
+  it("rolls back listeners when a document attachment fails partway through", () => {
+    const originalAddEventListener = document.addEventListener;
+    const addEventListener = vi
+      .spyOn(document, "addEventListener")
+      .mockImplementation(function (
+        this: Document,
+        type: string,
+        listener: EventListenerOrEventListenerObject,
+        options?: boolean | AddEventListenerOptions,
+      ): void {
+        if (type === "pointermove") {
+          throw new Error("listener rejected");
+        }
+
+        originalAddEventListener.call(this, type, listener, options);
+      } as typeof document.addEventListener);
+    const removeEventListener = vi.spyOn(document, "removeEventListener");
+    const plugin = {
+      app: {
+        workspace: {
+          iterateAllLeaves: vi.fn(),
+          offref: vi.fn(),
+          on: vi.fn(() => ({})),
+        },
+      },
+      registerEvent: vi.fn(),
+    } as unknown as Plugin;
+    const controller = new PropertyValueOrderController(
+      plugin,
+      () => createDefaultSettings(),
+    );
+
+    expect(() => controller.initialize()).toThrow("listener rejected");
+    expect(addEventListener).toHaveBeenCalledWith(
+      "pointerdown",
+      expect.any(Function),
+      true,
+    );
+    expect(removeEventListener).toHaveBeenCalledWith(
+      "pointerdown",
+      expect.any(Function),
+      true,
+    );
+    expect(
+      (
+        controller as unknown as {
+          registeredDocumentCleanups: Map<Document, () => void>;
+        }
+      ).registeredDocumentCleanups.size,
+    ).toBe(0);
+    expect(() => {
+      controller.dispose();
+      controller.dispose();
+    }).not.toThrow();
+  });
+
+  it("releases registered host events immediately when initialization later fails", () => {
+    const firstRef = { type: "window-open" };
+    const secondRef = { type: "window-close" };
+    const offref = vi.fn();
+    const registerEvent = vi
+      .fn()
+      .mockImplementationOnce(() => undefined)
+      .mockImplementationOnce(() => {
+        throw new Error("plugin registration failed");
+      });
+    const plugin = {
+      app: {
+        workspace: {
+          iterateAllLeaves: vi.fn(),
+          offref,
+          on: vi.fn().mockReturnValueOnce(firstRef).mockReturnValueOnce(secondRef),
+        },
+      },
+      registerEvent,
+    } as unknown as Plugin;
+    const controller = new PropertyValueOrderController(
+      plugin,
+      () => createDefaultSettings(),
+    );
+
+    expect(() => controller.initialize()).toThrow("plugin registration failed");
+    expect(offref).toHaveBeenNthCalledWith(1, secondRef);
+    expect(offref).toHaveBeenNthCalledWith(2, firstRef);
+    expect(() => controller.dispose()).not.toThrow();
+  });
+
+  it("releases document owners even when interaction cleanup itself throws", () => {
+    const removeEventListener = vi.spyOn(document, "removeEventListener");
+    const harness = createHarness();
+    const cleanupError = vi.spyOn(console, "error").mockImplementation(() => undefined);
+    (
+      harness.controller as unknown as {
+        clearInteractionState: () => void;
+      }
+    ).clearInteractionState = () => {
+      throw new Error("interaction cleanup failed");
+    };
+
+    expect(() => harness.cleanup()).not.toThrow();
+    expect(removeEventListener).toHaveBeenCalledWith(
+      "pointerdown",
+      expect.any(Function),
+      true,
+    );
+    expect(cleanupError).toHaveBeenCalledWith(
+      "Property Order: failed to clear a drag interaction",
+      expect.objectContaining({ message: "interaction cleanup failed" }),
+    );
+  });
+
+  it("releases a closing window owner even when its interaction cleanup throws", () => {
+    const harness = createHarness();
+    const openedWindow = new HappyDomWindow();
+    const removeEventListener = vi.spyOn(openedWindow.document, "removeEventListener");
+    harness.openWorkspaceWindow(openedWindow as unknown as Window);
+    (
+      harness.controller as unknown as {
+        clearInteractionForDocument: () => void;
+      }
+    ).clearInteractionForDocument = () => {
+      throw new Error("window interaction cleanup failed");
+    };
+
+    expect(() => harness.closeWorkspaceWindow(openedWindow as unknown as Window)).toThrow(
+      "window interaction cleanup failed",
+    );
+    expect(removeEventListener).toHaveBeenCalledWith(
+      "pointerdown",
+      expect.any(Function),
+      true,
+    );
+    harness.cleanup();
+  });
+
+  it("continues interaction cleanup after one DOM resource fails", () => {
+    const harness = createHarness();
+    const preview = document.createElement("div");
+    const indicator = document.createElement("div");
+    const removeIndicator = vi.spyOn(indicator, "remove");
+    vi.spyOn(preview, "remove").mockImplementation(() => {
+      throw new Error("preview removal failed");
+    });
+    const interactionError = vi.spyOn(console, "error").mockImplementation(() => undefined);
+    (
+      harness.controller as unknown as {
+        clearInteractionState: () => void;
+        dragState: {
+          context: { pill: HTMLElement };
+          document: Document;
+          indicatorElement: HTMLElement;
+          invalidTarget: null;
+          previewElement: HTMLElement;
+        } | null;
+      }
+    ).dragState = {
+      context: { pill: harness.pill },
+      document,
+      indicatorElement: indicator,
+      invalidTarget: null,
+      previewElement: preview,
+    };
+
+    expect(() =>
+      (
+        harness.controller as unknown as {
+          clearInteractionState: () => void;
+        }
+      ).clearInteractionState(),
+    ).not.toThrow();
+    expect(removeIndicator).toHaveBeenCalledOnce();
+    expect(interactionError).toHaveBeenCalledWith(
+      "Property Order: failed to release a drag interaction resource",
+      expect.objectContaining({ message: "preview removal failed" }),
+    );
+    harness.cleanup();
   });
 
   it("captures touchmove non-passively only for a touch interaction", () => {
@@ -1221,6 +1400,28 @@ describe("PropertyValueOrderController", () => {
       false,
     );
     expect(noticeSpy).not.toHaveBeenCalled();
+    harness.cleanup();
+  });
+
+  it("reports when committed content cannot be reflected in the Properties UI", async () => {
+    installRafHarness();
+    const harness = createHarness();
+    harness.leaf.view.setViewData = vi.fn();
+
+    dispatchPointer(harness.pill, "pointerdown", 10);
+    dispatchPointer(document, "pointermove", 250);
+    dispatchPointer(document, "pointerup", 250);
+
+    await vi.waitFor(() => expect(noticeSpy).toHaveBeenCalledTimes(1));
+    expect(noticeSpy).toHaveBeenCalledWith(
+      "Property Order: values were written, but Properties did not refresh. Reopen the note before dragging again.",
+    );
+    expect(harness.editor.getContent()).toBe("---\nflow: [beta, alpha]\n---\n");
+    expect(harness.leaf.view.setViewData).toHaveBeenCalledWith(
+      "---\nflow: [beta, alpha]\n---\n",
+      false,
+    );
+    expect(harness.leaf.view.requestSave).toHaveBeenCalledTimes(1);
     harness.cleanup();
   });
 

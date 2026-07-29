@@ -16,6 +16,8 @@ Configure native property-name suggestion ordering:
 
 ![Property-name suggestion settings](https://raw.githubusercontent.com/ZHYX91/obsidian-property-order/main/docs/assets/property-order-settings.png)
 
+The screenshot shows the custom tabbed settings UI used by Obsidian 1.12.x. Obsidian 1.13+ presents the same General, Value drag, and Key order groups as native declarative settings pages with search.
+
 ## Features
 
 - Drag to reorder values inside a top-level YAML list property.
@@ -37,7 +39,7 @@ Configure native property-name suggestion ordering:
 ## Limitations
 
 - Mobile reorder is deliberately armed from Obsidian's native long-press menu, so Edit, Remove from list, and Copy remain available. The armed action applies to one value and expires automatically.
-- Only top-level YAML lists rendered as Obsidian property pills are supported.
+- Only top-level YAML properties that Obsidian identifies as text lists are supported. Normal lists use native pills; guarded empty or scalar mismatch rows may be sources or targets, while an aligned, unambiguous mixed mismatch row may only receive an appended value.
 - Object lists, nested lists, multiline flow sequences, source-mode line dragging, and cross-file moves are not supported.
 - Converting bullet lists to bracket lists may discard item comments and blank lines that bracket syntax cannot represent.
 - Direct keyboard value reordering and screen-reader drag announcements are not currently provided.

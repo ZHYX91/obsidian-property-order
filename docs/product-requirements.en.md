@@ -41,7 +41,7 @@ The enhancement must remain local, reversible, and fail-safe. Unrecognized host 
 ## Settings
 
 - Settings use a versioned schema with sequential migration and normalization of invalid values.
-- General, Value drag, and Key order tabs retain immediate-application semantics.
+- General, Value drag, and Key order remain three logical groups with immediate-application semantics: Obsidian 1.12.x uses custom tabs, while 1.13+ uses native declarative pages and settings search.
 - Persistence failure keeps the in-memory state and presents a localized Notice, accessible unsaved status, and Retry action.
 - Cross-property drag is enabled by default and can be disabled independently; key-suggestion enhancement can also be disabled independently and fully restores host state.
 

@@ -9,6 +9,12 @@ export default defineConfig({
     },
   },
   test: {
+    coverage: {
+      exclude: ["src/**/*.d.ts"],
+      include: ["main.ts", "src/**/*.ts"],
+      provider: "v8",
+      reporter: ["text", "html", "json-summary"],
+    },
     setupFiles: ["./tests/setup/obsidian-dom.ts"],
   },
 });

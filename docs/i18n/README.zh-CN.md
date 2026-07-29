@@ -16,6 +16,8 @@ Property Order 用于安全地重排 Obsidian Properties 中的列表值，并�
 
 ![属性名称候选设置](https://raw.githubusercontent.com/ZHYX91/obsidian-property-order/main/docs/assets/property-order-settings.png)
 
+截图展示的是 Obsidian 1.12.x 使用的自定义页签设置界面；Obsidian 1.13+ 会把同一组“常规、值拖拽、属性键顺序”设置显示为支持搜索的原生声明式页面。
+
 ## 功能特性
 
 - 重排顶层 YAML 列表属性中的值；
@@ -37,7 +39,7 @@ Property Order 用于安全地重排 Obsidian Properties 中的列表值，并�
 ## 限制
 
 - 移动端从 Obsidian 原生长按菜单选择“重排”或“重排或移动”后，再拖动同一个值；“编辑 / 从列表中移除 / 复制”仍保留，单次待拖动状态会自动过期；
-- 只支持由 Obsidian Properties 渲染为属性 pill 的顶层 YAML 列表；
+- 只支持被 Obsidian 识别为文本列表的顶层 YAML 属性；普通列表使用原生 pill，受守卫的空值或标量不匹配行可作为 source/target，能与当前 YAML 无歧义对齐的混合不匹配行只能接收 append；
 - 不支持对象列表、嵌套列表、多行 flow sequence、源码模式行拖拽或跨文件移动；
 - 将无序列表转换为中括号列表时，可能丢失中括号语法无法表达的项目注释和空行；
 - 当前不提供键盘直接重排属性值或屏幕阅读器拖拽播报。

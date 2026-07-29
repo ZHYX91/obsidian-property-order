@@ -307,6 +307,43 @@ function resolvePropertyKey(propertyElement: HTMLElement): string | null {
     propertyElement.getAttribute("data-property-key"),
     propertyElement.dataset.propertyKey,
   ];
+  const hostIdentity = attributeCandidates
+    .map((candidate) => normalizePropertyKey(candidate, true))
+    .find((candidate) => candidate != null);
+
+  for (const selector of [
+    ".metadata-property-key input",
+    ".metadata-property-key textarea",
+  ]) {
+    const element = propertyElement.querySelector<HTMLInputElement | HTMLTextAreaElement>(
+      selector,
+    );
+
+    // A focused key editor can contain an uncommitted rename that does not yet
+    // identify the YAML property rendered by this row. Fail closed until the
+    // host commits/blurs it instead of targeting the wrong key.
+    if (element != null && element.ownerDocument.activeElement === element) {
+      return null;
+    }
+
+    const normalizedCandidate = normalizePropertyKey(element?.value, true);
+
+    if (normalizedCandidate != null) {
+      // Obsidian preserves the authored key spelling in the native editor but
+      // exposes a normalized/lowercase identity on the row. When both exist,
+      // they must identify the same committed property; otherwise the DOM is
+      // stale or mid-rerender and targeting must fail closed.
+      if (
+        hostIdentity != null &&
+        normalizeHostPropertyKeyIdentity(normalizedCandidate) !==
+          normalizeHostPropertyKeyIdentity(hostIdentity)
+      ) {
+        return null;
+      }
+
+      return normalizedCandidate;
+    }
+  }
 
   for (const candidate of attributeCandidates) {
     const normalizedCandidate = normalizePropertyKey(candidate, true);
@@ -321,13 +358,11 @@ function resolvePropertyKey(propertyElement: HTMLElement): string | null {
       selector,
     );
 
-    if (element == null) {
+    if (element == null || element.matches("input, textarea")) {
       continue;
     }
 
-    const isValueElement = "value" in element && typeof element.value === "string";
-    const valueCandidate = isValueElement ? element.value : element.textContent;
-    const normalizedCandidate = normalizePropertyKey(valueCandidate, isValueElement);
+    const normalizedCandidate = normalizePropertyKey(element.textContent);
 
     if (normalizedCandidate != null) {
       return normalizedCandidate;
@@ -336,6 +371,10 @@ function resolvePropertyKey(propertyElement: HTMLElement): string | null {
 
   const fallbackLabel = propertyElement.getAttribute("aria-label");
   return normalizePropertyKey(fallbackLabel);
+}
+
+function normalizeHostPropertyKeyIdentity(propertyKey: string): string {
+  return propertyKey.trim().toLowerCase();
 }
 
 function normalizePropertyKey(

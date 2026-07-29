@@ -206,6 +206,7 @@ describe("Properties DOM", () => {
     metadata.className = "metadata-container";
     const property = document.createElement("div");
     property.className = "metadata-property";
+    property.dataset.propertyKey = "project  status";
     const keyEditor = document.createElement("div");
     keyEditor.className = "metadata-property-key";
     const keyInput = document.createElement("input");
@@ -220,6 +221,82 @@ describe("Properties DOM", () => {
     expect(resolvePropertyContainerContext(container)?.propertyKey).toBe(
       " Project  Status ",
     );
+  });
+
+  it("prefers the mixed-case native key over Obsidian's lowercased data attribute", () => {
+    const metadata = document.createElement("div");
+    metadata.className = "metadata-container";
+    const property = document.createElement("div");
+    property.className = "metadata-property";
+    property.dataset.propertyKey = "projectstatus";
+    const keyEditor = document.createElement("div");
+    keyEditor.className = "metadata-property-key";
+    const keyInput = document.createElement("input");
+    keyInput.value = "ProjectStatus";
+    const container = document.createElement("div");
+    container.className = "multi-select-container";
+    keyEditor.appendChild(keyInput);
+    property.append(keyEditor, container);
+    metadata.appendChild(property);
+    document.body.appendChild(metadata);
+
+    expect(resolvePropertyContainerContext(container)?.propertyKey).toBe("ProjectStatus");
+  });
+
+  it("fails closed when the native key and host row identity disagree", () => {
+    const metadata = document.createElement("div");
+    metadata.className = "metadata-container";
+    const property = document.createElement("div");
+    property.className = "metadata-property";
+    property.dataset.propertyKey = "status";
+    const keyEditor = document.createElement("div");
+    keyEditor.className = "metadata-property-key";
+    const keyInput = document.createElement("input");
+    keyInput.value = "ProjectStatus";
+    const container = document.createElement("div");
+    container.className = "multi-select-container";
+    keyEditor.appendChild(keyInput);
+    property.append(keyEditor, container);
+    metadata.appendChild(property);
+    document.body.appendChild(metadata);
+
+    expect(resolvePropertyContainerContext(container)).toBeNull();
+  });
+
+  it("fails closed while the native property key editor contains an uncommitted value", () => {
+    const metadata = document.createElement("div");
+    metadata.className = "metadata-container";
+    const property = document.createElement("div");
+    property.className = "metadata-property";
+    property.dataset.propertyKey = "projectstatus";
+    const keyEditor = document.createElement("div");
+    keyEditor.className = "metadata-property-key";
+    const keyInput = document.createElement("input");
+    keyInput.value = "RenamingNow";
+    const container = document.createElement("div");
+    container.className = "multi-select-container";
+    keyEditor.appendChild(keyInput);
+    property.append(keyEditor, container);
+    metadata.appendChild(property);
+    document.body.appendChild(metadata);
+    keyInput.focus();
+
+    expect(resolvePropertyContainerContext(container)).toBeNull();
+  });
+
+  it("falls back to the lowercased host data attribute without a native key editor", () => {
+    const metadata = document.createElement("div");
+    metadata.className = "metadata-container";
+    const property = document.createElement("div");
+    property.className = "metadata-property";
+    property.dataset.propertyKey = "projectstatus";
+    const container = document.createElement("div");
+    container.className = "multi-select-container";
+    property.appendChild(container);
+    metadata.appendChild(property);
+    document.body.appendChild(metadata);
+
+    expect(resolvePropertyContainerContext(container)?.propertyKey).toBe("projectstatus");
   });
 
   it("releases native property focus when a drag starts", () => {

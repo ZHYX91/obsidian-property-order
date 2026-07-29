@@ -1,12 +1,15 @@
 // @vitest-environment happy-dom
 
-import { Platform } from "obsidian";
+import { Notice, Platform } from "obsidian";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import PropertyOrderPlugin, {
   VALUE_DRAG_ENABLED_CLASS,
 } from "../../src/app/plugin";
+import { KeySuggestionOrderController } from "../../src/features/key-order/key-suggestion-controller";
 import { createDefaultSettings } from "../../src/shared/settings";
+
+const MockNotice = Notice as typeof Notice & { messages: string[] };
 
 function createPlugin(storedSettings: unknown): {
   plugin: PropertyOrderPlugin;
@@ -16,6 +19,10 @@ function createPlugin(storedSettings: unknown): {
   (plugin as unknown as { app: unknown }).app = {
     workspace: {
       iterateAllLeaves: vi.fn(),
+      offref: vi.fn(),
+      on: vi.fn(() => ({})),
+    },
+    metadataCache: {
       on: vi.fn(() => ({})),
     },
   };
@@ -26,6 +33,7 @@ function createPlugin(storedSettings: unknown): {
 
 beforeEach(() => {
   document.body.className = "";
+  MockNotice.messages.length = 0;
   Platform.isMobileApp = false;
 });
 
@@ -46,9 +54,147 @@ describe("PropertyOrderPlugin settings persistence", () => {
     expect(plugin.onload()).toBeUndefined();
     plugin.onunload();
     resolveLoad(createDefaultSettings());
-    await vi.waitFor(() => expect(document.body.className).toBe(""));
+    await new Promise((resolve) => window.setTimeout(resolve, 0));
 
     expect(workspaceOn).not.toHaveBeenCalled();
+    expect(document.body.className).toBe("");
+    expect(
+      (plugin as unknown as { trackedDocuments: Set<Document> }).trackedDocuments.size,
+    ).toBe(0);
+  });
+
+  it("continues initialization when migrated settings cannot be persisted", async () => {
+    const { plugin, saveData } = createPlugin({ schemaVersion: 0 });
+    const error = vi.spyOn(console, "error").mockImplementation(() => undefined);
+    saveData
+      .mockRejectedValueOnce(new Error("disk unavailable"))
+      .mockResolvedValueOnce(undefined);
+    const workspaceOn = (
+      plugin.app.workspace as unknown as { on: ReturnType<typeof vi.fn> }
+    ).on;
+
+    plugin.onload();
+
+    await vi.waitFor(() => expect(workspaceOn).toHaveBeenCalled());
+    expect(plugin.hasPendingSettingsSave()).toBe(true);
+    expect(MockNotice.messages).toEqual([
+      "Property Order: failed to save settings. Try again.",
+    ]);
+
+    await expect(plugin.saveSettings()).resolves.toBeUndefined();
+    expect(plugin.hasPendingSettingsSave()).toBe(false);
+    expect(saveData).toHaveBeenCalledTimes(2);
+    error.mockRestore();
+    plugin.onunload();
+  });
+
+  it("does not resume initialization after unloading during migration persistence", async () => {
+    const { plugin, saveData } = createPlugin({ schemaVersion: 0 });
+    let resolveSave!: () => void;
+    saveData.mockImplementationOnce(
+      () =>
+        new Promise<void>((resolve) => {
+          resolveSave = resolve;
+        }),
+    );
+    const workspaceOn = (
+      plugin.app.workspace as unknown as { on: ReturnType<typeof vi.fn> }
+    ).on;
+
+    plugin.onload();
+    await vi.waitFor(() => expect(saveData).toHaveBeenCalledTimes(1));
+    expect(document.body.classList.contains(VALUE_DRAG_ENABLED_CLASS)).toBe(true);
+
+    plugin.onunload();
+    resolveSave();
+    await new Promise((resolve) => window.setTimeout(resolve, 0));
+
+    expect(workspaceOn).not.toHaveBeenCalled();
+    expect(document.body.classList.contains(VALUE_DRAG_ENABLED_CLASS)).toBe(false);
+    expect(plugin.hasPendingSettingsSave()).toBe(false);
+    expect(MockNotice.messages).toEqual([]);
+    expect(
+      (plugin as unknown as { trackedDocuments: Set<Document> }).trackedDocuments.size,
+    ).toBe(0);
+  });
+
+  it("releases cleanup callbacks in reverse order and isolates failures", () => {
+    const { plugin } = createPlugin(createDefaultSettings());
+    const error = vi.spyOn(console, "error").mockImplementation(() => undefined);
+    const order: string[] = [];
+    document.body.classList.add(VALUE_DRAG_ENABLED_CLASS);
+    const internals = plugin as unknown as {
+      cleanupCallbacks: Array<() => void>;
+      trackedDocuments: Set<Document>;
+    };
+    internals.trackedDocuments.add(document);
+    internals.cleanupCallbacks.push(
+      () => order.push("first"),
+      () => {
+        order.push("second");
+        throw new Error("cleanup failed");
+      },
+      () => order.push("third"),
+    );
+
+    plugin.onunload();
+
+    expect(order).toEqual(["third", "second", "first"]);
+    expect(error).toHaveBeenCalledOnce();
+    expect(document.body.classList.contains(VALUE_DRAG_ENABLED_CLASS)).toBe(false);
+    expect(internals.trackedDocuments.size).toBe(0);
+    error.mockRestore();
+  });
+
+  it("rolls back document owners when a later controller fails to initialize", async () => {
+    const { plugin } = createPlugin(createDefaultSettings());
+    const addSettingTab = vi.spyOn(plugin, "addSettingTab");
+    const addEventListener = vi.spyOn(document, "addEventListener");
+    const removeEventListener = vi.spyOn(document, "removeEventListener");
+    const initializeKeySuggestions = vi
+      .spyOn(KeySuggestionOrderController.prototype, "initialize")
+      .mockImplementation(() => {
+        throw new Error("suggestion initialization failed");
+      });
+    const error = vi.spyOn(console, "error").mockImplementation(() => undefined);
+
+    plugin.onload();
+
+    await vi.waitFor(() =>
+      expect(error).toHaveBeenCalledWith(
+        "Property Order: failed to initialize",
+        expect.objectContaining({ message: "suggestion initialization failed" }),
+      ),
+    );
+    expect(
+      addEventListener.mock.calls.filter(([type]) => type === "pointerdown"),
+    ).toHaveLength(1);
+    expect(
+      removeEventListener.mock.calls.filter(([type]) => type === "pointerdown"),
+    ).toHaveLength(1);
+    expect(addSettingTab).not.toHaveBeenCalled();
+    expect(document.body.classList.contains(VALUE_DRAG_ENABLED_CLASS)).toBe(false);
+    expect(
+      (plugin as unknown as { cleanupCallbacks: Array<() => void> }).cleanupCallbacks,
+    ).toEqual([]);
+
+    initializeKeySuggestions.mockRestore();
+    addEventListener.mockRestore();
+    removeEventListener.mockRestore();
+    error.mockRestore();
+  });
+
+  it("does not restore drag classes when a stale save is requested after unload", async () => {
+    const { plugin } = createPlugin(createDefaultSettings());
+    await plugin.loadSettings();
+    plugin.onunload();
+
+    await plugin.saveSettings();
+
+    expect(document.body.classList.contains(VALUE_DRAG_ENABLED_CLASS)).toBe(false);
+    expect(
+      (plugin as unknown as { trackedDocuments: Set<Document> }).trackedDocuments.size,
+    ).toBe(0);
   });
 
   it("does not downgrade future settings and preserves unknown fields on explicit save", async () => {

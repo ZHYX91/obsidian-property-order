@@ -29,10 +29,11 @@ translation_status: source
 
 ## 设置页
 
-- General、Value drag、Key order 使用 `tablist`、`tab`、`tabpanel`、`aria-selected` 和 roving `tabindex`。
-- Left/Right、Home/End 切换页签；重渲染、旋转和 viewport resize 后，活动页签保持可见并保留合理焦点。
-- 精细指针页签高度为 34px，粗指针为 44px；窄宽度下标签栏单行横向滚动，不产生纵向裁切。
-- 宽度不超过 480px 时，规则文本框和“添加已有属性”输入纵向占满卡片。
+- General、Value drag、Key order 是跨宿主版本保持一致的三个逻辑设置组；控件值、条件显隐、即时生效、保存失败和重试语义不得因渲染路径而变化。
+- Obsidian 1.12.x 使用自定义三页签界面，并提供 `tablist`、`tab`、`tabpanel`、`aria-selected` 和 roving `tabindex`；Left/Right、Home/End 切换页签，重渲染、旋转和 viewport resize 后活动页签保持可见并保留合理焦点。
+- 1.12.x 的精细指针页签高度为 34px，粗指针为 44px；窄宽度下标签栏单行横向滚动，不产生纵向裁切。
+- Obsidian 1.13+ 使用三个原生声明式设置页面与原生搜索；自定义属性规则编辑器仍保留建议、保存和 cleanup 生命周期。
+- 两条渲染路径在宽度不超过 480px 时，都让规则文本框和“添加已有属性”输入纵向占满卡片或控件区。
 - 保存失败显示 Notice 和 `role="alert"` 未保存状态；Retry 成功后清除提示并执行所需候选刷新。
 
 ## 可访问性与已接受边界

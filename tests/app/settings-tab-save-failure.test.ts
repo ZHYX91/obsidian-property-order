@@ -7,6 +7,7 @@ import { PropertyOrderSettingTab } from "../../src/app/settings-tab";
 import { createDefaultSettings } from "../../src/shared/settings";
 
 interface TestableSettingTab {
+  mountSaveStatus(parentEl: HTMLElement): HTMLElement;
   persistSettings(refreshKeySuggestions?: boolean): Promise<boolean>;
 }
 
@@ -24,6 +25,7 @@ describe("PropertyOrderSettingTab save failures", () => {
       .mockResolvedValueOnce();
     vi.spyOn(console, "error").mockImplementation(() => undefined);
     const plugin = {
+      hasPendingSettingsSave: vi.fn(() => false),
       propertyOrderSettings: createDefaultSettings(),
       saveSettings,
     };
@@ -48,5 +50,27 @@ describe("PropertyOrderSettingTab save failures", () => {
     await vi.waitFor(() => expect(statusEl?.hidden).toBe(true));
     expect(saveSettings).toHaveBeenNthCalledWith(1, true);
     expect(saveSettings).toHaveBeenNthCalledWith(2, true);
+  });
+
+  it("shows the retry state when startup migration persistence is pending", () => {
+    const plugin = {
+      hasPendingSettingsSave: vi.fn(() => true),
+      propertyOrderSettings: createDefaultSettings(),
+      saveSettings: vi.fn(() => Promise.resolve()),
+    };
+    const settingTab = new PropertyOrderSettingTab(
+      {} as never,
+      plugin as never,
+    ) as unknown as TestableSettingTab & { containerEl: HTMLElement };
+
+    settingTab.mountSaveStatus(settingTab.containerEl);
+
+    const statusEl = settingTab.containerEl.querySelector<HTMLElement>(
+      ".property-order-settings-save-status",
+    );
+    expect(plugin.hasPendingSettingsSave).toHaveBeenCalled();
+    expect(statusEl?.hidden).toBe(false);
+    expect(statusEl?.getAttribute("role")).toBe("alert");
+    expect(statusEl?.querySelector("button")?.textContent).toBe("Retry save");
   });
 });

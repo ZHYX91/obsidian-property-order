@@ -79,6 +79,8 @@ translation_status: source
 
 浮动预览锁定 source pill 的实际渲染宽高，并以单行省略方式显示；定位使用预览自身 document 的 visual viewport，缺失时回退到该 window 的 layout viewport。过大的预览会缩小，每次移动都限制在 viewport 边距内，因此窄桌面窗口和次级窗口不会把预览挤成屏外竖条。
 
+两个多窗口 controller 都以 document 为资源所有者；插件必须在 controller 首次初始化前把幂等 disposer 登记到运行时回滚栈，controller 也必须在首次挂载 observer 或事件 listener 前登记对应 document owner。初始化中途失败、窗口关闭或插件卸载时，资源按逆序释放，单项 cleanup 异常不得阻断其余 document 的恢复。
+
 ## 属性键候选的 fail-open 契约
 
 所有 Obsidian Properties/候选菜单选择器集中在 `src/obsidian/`。候选排序开启时，`key-suggestion-controller.ts` 通过每个 document 的 MutationObserver 收集变化，并在一个 animation frame 内合并增强。桌面端初始化时扫描当前 document，以兼容插件启用前已经打开的菜单；Android 启动期不执行整页首扫，只观察之后实际挂载的候选菜单，避免在 WebView 增量装载工作区时占用主线程。功能关闭时 observer 会断开；重新开启时先观察再显式扫描当前 document。只有 adapter 同时确认 Properties 上下文、支持的菜单容器以及候选项共同父节点时，controller 才能排序。
@@ -107,8 +109,8 @@ controller 不缓存会影响后续交互的旧设置：value drag 在下一次�
 - 产品边界：[`product-requirements.zh-CN.md`](product-requirements.zh-CN.md)。
 - UX 契约：[`ux-spec.zh-CN.md`](ux-spec.zh-CN.md)。
 - 自动门禁、真实宿主矩阵与验证边界：[`testing-strategy.zh-CN.md`](testing-strategy.zh-CN.md)。
-- 发布前必须通过 `npm run check`；该命令依次执行 Obsidian 官方 ESLint 门禁、`npm run typecheck`、`npm test`、`npm run build` 和 `npm run check:release`。
+- 发布前必须通过 `npm run check`；该命令依次执行 Obsidian 官方 ESLint、README 与稳定双语文档门禁、`npm run typecheck`、`npm test`、`npm run build` 和 `npm run check:release`。
 - 插件语言设为“自动”时，通过 `getLanguage()` 跟随 Obsidian 当前界面语言；用户显式选择的插件语言始终优先。最低支持的 Obsidian 版本为 1.12.7，所有已发布版本的兼容关系继续以 `versions.json` 为准。
-- 生产构建把 `main.js`、`manifest.json` 和 `styles.css` 直接生成到 `dist/` 顶层，使源码构建审查与本地发布检查使用同一套标准路径。CI 在 Node 20 上执行锁定安装与完整门禁，并上传这三个文件。独立 Release workflow 只接受与 `manifest.json` 完全一致、无 `v` 前缀的 `x.y.z` 标签；门禁通过后发布三个独立文件，并额外在临时目录组装 `property-order-<version>.zip`。压缩包只包含一个 `property-order/` 目录及其中的上述三个文件；四个最终附件都生成构建证明，同一标签重新运行时替换附件，不重复创建 Release。
+- 生产构建把 `main.js`、`manifest.json` 和 `styles.css` 直接生成到 `dist/` 顶层，使源码构建审查与本地发布检查使用同一套标准路径。CI 在 Node 20 上执行锁定安装与完整门禁，并上传这三个文件。独立 Release workflow 只接受与 `manifest.json` 完全一致、无 `v` 前缀的 `x.y.z` 标签；门禁通过后发布三个独立文件，并通过固定条目顺序、时间、权限和 metadata 的确定性归档器组装 `property-order-<version>.zip`。压缩包只包含一个 `property-order/` 目录及其中的上述三个文件；四个最终附件都生成构建证明。仓库必须另行启用匹配发布版本标签的 active tag ruleset，禁止更新和删除，并且发布 actor 不得具有旁路权；workflow 不修改、也不尝试从任意继承条件中推断该外部规则。查询 Release 前以及草稿创建、发布边界两侧，workflow 都把远端轻量或 annotated 标签解析到 commit，并要求它仍与 push 事件的 `GITHUB_SHA` 一致，任何缺失、歧义或移动都 fail closed。workflow 还使用独立的 Administration 只读令牌确认仓库级 Release immutability 已启用，且绝不修改该设置；只有 REST 明确返回 `404` 才表示同标签 Release 不存在，其他查询失败一律阻断。已有同标签 Release 必须已经报告 `immutable: true`，远端资产名集合也必须无重复且精确等于三个独立文件与当前版本 ZIP；四个附件哈希全部一致才视为 no-op。旧的可变 Release、附件缺失、不同、重复或多出任一附件都要求提升版本。新 Release 必须先以草稿状态附齐四个附件，只发布一次，并在发布后确认 `immutable: true`。
 
 DOM 交互与视觉发布门禁必须取得测试策略规定的真实宿主证据；明确列入产品非目标的能力不作为未完成发布项。

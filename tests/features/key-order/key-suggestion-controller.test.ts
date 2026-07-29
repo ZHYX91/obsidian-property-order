@@ -47,11 +47,13 @@ function createController(
   const completeApp = {
     ...app,
     metadataCache: {
+      offref: vi.fn(),
       on: vi.fn(() => ({})),
       ...app.metadataCache,
     },
     workspace: {
       iterateAllLeaves: vi.fn(),
+      offref: vi.fn(),
       on: vi.fn(() => ({})),
       ...app.workspace,
     },
@@ -191,6 +193,107 @@ describe("KeySuggestionOrderController", () => {
     vi.restoreAllMocks();
   });
 
+  it("rolls back the document owner when observation setup fails", () => {
+    const settings = createDefaultSettings();
+    const removeEventListener = vi.spyOn(window, "removeEventListener");
+    vi.spyOn(window.MutationObserver.prototype, "observe").mockImplementation(() => {
+      throw new Error("observer rejected");
+    });
+    const controller = createController(settings);
+
+    expect(() => controller.initialize()).toThrow("observer rejected");
+    expect(removeEventListener).toHaveBeenCalledWith(
+      "keydown",
+      expect.any(Function),
+      true,
+    );
+    expect(
+      (
+        controller as unknown as {
+          documentStates: Map<Document, unknown>;
+        }
+      ).documentStates.size,
+    ).toBe(0);
+    expect(() => {
+      controller.dispose();
+      controller.dispose();
+    }).not.toThrow();
+  });
+
+  it("releases host events from the controller while retaining plugin fallback registration", () => {
+    const settings = createDefaultSettings();
+    const workspaceRefs = [{ type: "window-open" }, { type: "window-close" }];
+    const metadataRefs = [
+      { type: "changed" },
+      { type: "deleted" },
+      { type: "resolved" },
+    ];
+    const workspaceOffref = vi.fn();
+    const metadataOffref = vi.fn();
+    const registerEvent = vi.fn();
+    const plugin = {
+      app: {
+        metadataCache: {
+          offref: metadataOffref,
+          on: vi
+            .fn()
+            .mockReturnValueOnce(metadataRefs[0])
+            .mockReturnValueOnce(metadataRefs[1])
+            .mockReturnValueOnce(metadataRefs[2]),
+        },
+        workspace: {
+          iterateAllLeaves: vi.fn(),
+          offref: workspaceOffref,
+          on: vi
+            .fn()
+            .mockReturnValueOnce(workspaceRefs[0])
+            .mockReturnValueOnce(workspaceRefs[1]),
+        },
+      },
+      registerEvent,
+    } as unknown as Plugin;
+    const controller = new KeySuggestionOrderController(plugin, () => settings);
+
+    controller.initialize();
+    controller.dispose();
+
+    expect(registerEvent).toHaveBeenCalledTimes(5);
+    expect(metadataOffref).toHaveBeenNthCalledWith(1, metadataRefs[2]);
+    expect(metadataOffref).toHaveBeenNthCalledWith(2, metadataRefs[1]);
+    expect(metadataOffref).toHaveBeenNthCalledWith(3, metadataRefs[0]);
+    expect(workspaceOffref).toHaveBeenNthCalledWith(1, workspaceRefs[1]);
+    expect(workspaceOffref).toHaveBeenNthCalledWith(2, workspaceRefs[0]);
+  });
+
+  it("immediately releases registered host events when initialization fails", () => {
+    const settings = createDefaultSettings();
+    const firstRef = { type: "window-open" };
+    const secondRef = { type: "window-close" };
+    const offref = vi.fn();
+    const plugin = {
+      app: {
+        metadataCache: { offref: vi.fn(), on: vi.fn(() => ({})) },
+        workspace: {
+          iterateAllLeaves: vi.fn(),
+          offref,
+          on: vi.fn().mockReturnValueOnce(firstRef).mockReturnValueOnce(secondRef),
+        },
+      },
+      registerEvent: vi
+        .fn()
+        .mockImplementationOnce(() => undefined)
+        .mockImplementationOnce(() => {
+          throw new Error("plugin registration failed");
+        }),
+    } as unknown as Plugin;
+    const controller = new KeySuggestionOrderController(plugin, () => settings);
+
+    expect(() => controller.initialize()).toThrow("plugin registration failed");
+    expect(offref).toHaveBeenNthCalledWith(1, secondRef);
+    expect(offref).toHaveBeenNthCalledWith(2, firstRef);
+    expect(() => controller.dispose()).not.toThrow();
+  });
+
   it("avoids an eager whole-document scan during mobile startup", async () => {
     Platform.isMobileApp = true;
     const settings = createDefaultSettings();
@@ -328,6 +431,7 @@ describe("KeySuggestionOrderController", () => {
     expect(allKeys(menu)).toEqual(["zeta", "TQ_internal", "tags", "alpha", "tags"]);
     expect(menu.querySelectorAll("[hidden]")).toHaveLength(0);
     expect(menu.dataset.propertyOrderEnhanced).toBeUndefined();
+    expect(menu.querySelector<HTMLElement>(".is-selected")?.textContent).toBe("zeta");
     cleanup();
   });
 
@@ -566,7 +670,7 @@ describe("KeySuggestionOrderController", () => {
     expect(allKeys(menu)).toEqual(["beta", "omega", "alpha"]);
   });
 
-  it("caches usage until metadata invalidation and coalesces each refresh", async () => {
+  it("caches usage and trailing-debounces metadata refresh storms", async () => {
     const settings = createDefaultSettings();
     settings.keySuggestionSortMode = "usage";
     const files = [{ path: "one.md" }, { path: "two.md" }] as TFile[];
@@ -611,14 +715,33 @@ describe("KeySuggestionOrderController", () => {
     expect(getMarkdownFiles).toHaveBeenCalledTimes(1);
 
     favorAlpha = true;
-    metadataHandlers.get("changed")?.();
-    metadataHandlers.get("resolved")?.();
-    expect(raf.pending()).toBe(1);
-    raf.flush();
-    expect(getMarkdownFiles).toHaveBeenCalledTimes(2);
-    expect(allKeys(firstMenu)).toEqual(["alpha", "beta"]);
-    expect(allKeys(secondMenu)).toEqual(["alpha", "beta"]);
-    cleanup();
+    vi.useFakeTimers();
+
+    try {
+      metadataHandlers.get("changed")?.();
+      metadataHandlers.get("resolved")?.();
+      expect(raf.pending()).toBe(0);
+      await vi.advanceTimersByTimeAsync(149);
+      expect(raf.pending()).toBe(0);
+
+      metadataHandlers.get("deleted")?.();
+      await vi.advanceTimersByTimeAsync(149);
+      expect(raf.pending()).toBe(0);
+      await vi.advanceTimersByTimeAsync(1);
+      expect(raf.pending()).toBe(1);
+      raf.flush();
+      expect(getMarkdownFiles).toHaveBeenCalledTimes(2);
+      expect(allKeys(firstMenu)).toEqual(["alpha", "beta"]);
+      expect(allKeys(secondMenu)).toEqual(["alpha", "beta"]);
+
+      metadataHandlers.get("changed")?.();
+      cleanup();
+      await vi.advanceTimersByTimeAsync(150);
+      expect(raf.pending()).toBe(0);
+      expect(getMarkdownFiles).toHaveBeenCalledTimes(2);
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it("only invalidates usage when no suggestion menu is open", () => {
@@ -705,11 +828,17 @@ describe("KeySuggestionOrderController", () => {
     openedRaf.flush();
     expect(allKeys(openedMenu)).toEqual(["tags", "alpha", "beta"]);
 
+    const cleanupError = vi.spyOn(console, "error").mockImplementation(() => undefined);
+    vi.spyOn(initialWindow, "removeEventListener").mockImplementationOnce(() => {
+      throw new Error("listener cleanup failed");
+    });
     windowHandlers.get("window-close")?.(null, initialWindow as unknown as Window);
     expect(allKeys(initialMenu)).toEqual(["beta", "tags", "alpha"]);
+    expect(cleanupError).toHaveBeenCalledOnce();
 
     cleanup();
     expect(allKeys(openedMenu)).toEqual(["beta", "tags", "alpha"]);
+    cleanupError.mockRestore();
     initialWindow.close();
     openedWindow.close();
   });
@@ -978,6 +1107,7 @@ describe("KeySuggestionOrderController", () => {
     expect(menu.dataset.propertyOrderEnhanced).toBe("true");
     expect(menu.querySelector<HTMLElement>(".is-selected")?.textContent).toBe("alpha");
     cleanup();
+    expect(menu.querySelector<HTMLElement>(".is-selected")?.textContent).toBe("beta");
   });
 
   it("leaves a property-value suggestion menu unchanged", () => {

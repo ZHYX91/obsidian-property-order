@@ -12,10 +12,11 @@ translation_status: source
 交付前运行 `npm run check`，顺序执行：
 
 1. 对插件入口与源码执行 Obsidian 官方 `eslint-plugin-obsidianmd` 推荐规则集及已记录的兼容性例外，并对测试、Node 脚本和工具配置执行适合各自环境的静态规则；所有已启用 warning 均阻断；
-2. TypeScript 严格类型检查；
-3. 当前完整 Vitest suite；
-4. production bundle；
-5. bundle 可重现性以及静态资产、manifest 和版本契约审计。
+2. README 导航与全部稳定中英文文档的 frontmatter、标题层级、关键 token、表格形状和相对链接契约；
+3. TypeScript 严格类型检查；
+4. 当前完整 Vitest suite；
+5. production bundle；
+6. bundle 可重现性以及静态资产、manifest 和版本契约审计。
 
 Lint 使用当前 Obsidian API typings，兼容性仍以 `manifest.json` 为契约。只有在多窗口支持需要目标 `ownerDocument` 时才保留原生 DOM 创建。设置页采用双路径支持：Obsidian 1.12.x 保留 imperative 三页签 UI，1.13+ 使用原生声明式页面与搜索。自动契约必须证明两套定义覆盖同一组持久化设置、保留自定义规则编辑器，并且声明式搜索索引构建期间不遍历 Vault。
 
@@ -26,6 +27,8 @@ Lint 使用当前 Obsidian API typings，兼容性仍以 `manifest.json` 为契�
 - Properties 与候选 DOM adapter、可见候选排序、全部隐藏、键盘导航、焦点离开、无菜单时 usage 缓存失效不触发 Vault 扫描和 fail open；
 - settings 迁移、即时生效、保存失败、Retry、1.13 之前的页签语义、1.13 声明式页面与搜索、自定义控件存储和窄屏 CSS；
 - release 标签、三个官方附件、手动安装 ZIP 和幂等 Release 更新。
+
+`npm run test:coverage` 是独立的诊断命令，使用 V8 coverage 并显式包含 `main.ts` 与 `src/**/*.ts`，使没有被任何测试导入的运行时代码仍以 0% 出现在源清单中。当前不以仓促设置的全局百分比阈值阻断 `npm run check`；覆盖率报告用于发现遗漏文件和指导针对性测试，不能替代真实宿主证据。
 
 可注入的故障路径以自动测试为主证据，包括：设置保存拒绝、宿主 DOM 不匹配、选择同步失败、Escape/blur、组件消失、外部内容冲突和异步乱序。真实宿主用于确认 Obsidian 实际 DOM、输入、视觉和磁盘结果，不重复伪造难以稳定注入的失败。
 
@@ -39,7 +42,7 @@ npm run acceptance:fixtures -- --vault <isolated-vault> --force
 npm run acceptance:conflict -- --vault <isolated-vault> --file <fixture> --mode <source|target|unrelated|body> --expected-sha256 <sha256> --delay-ms 55
 ```
 
-脚本必须验证目标是 Obsidian Vault、解析真实路径、拒绝链接与非普通文件，并把写入限制在共享夹具定义中。六份夹具覆盖 LF/CRLF/CR、普通与空列表、已确认非列表、标量和混合类型不匹配行、注释、引号、重复值、无关内容及所有冲突模式。类型初始化必须显式且独占；已有兼容 `.obsidian/types.json` 保持字节不变，缺键、类型冲突、JSON 损坏、链接或非普通文件都必须在写入笔记前失败。真实 editor 场景从磁盘核对最终 YAML、正文保持、单步撤销/重做，以及部署产物和夹具 SHA-256，并单独记录宿主的换行序列化。
+脚本必须验证目标位于允许的临时验收根目录，并具有由初始化流程生成的专用 marker、run ID 与夹具哈希清单；普通或生产 Vault 即使包含 `.obsidian` 也必须拒绝。夹具重置与冲突注入先暂存唯一锁文件，再以 exclusive hard-link 取得 canonical per-Vault 锁，并让它覆盖完整的 marker＋夹具事务；已有锁或旧锁一律 fail closed，必须人工核查后移除。canonical 锁、marker、新建的 `types.json` 和夹具都不得在独立核对后直接删除或覆盖：必须先把当前路径移入同卷私有目录，复核 held 文件的身份与 SHA-256，再用 exclusive hard-link 安装或恢复；夹具回滚也先隔离当前目标再 exclusive 恢复。因此在受守卫的替换或清理边界到达的 pathname writer，只能留在 canonical 目标或错误中报告的保留路径。成功路径清理 staging 时必须再次逐个核对 held inode、禁止递归删除，并保留与报告通过已打开句柄改写的旧夹具；该保证无法阻止非协作进程在最后一次核对之后继续通过旧句柄写入。无法证明回滚或清理安全时，全部唯一备份必须留在 Vault，错误信息必须列出精确路径；marker 已核对提交后的 cleanup 失败只报告保留路径，不得把提交反向解释成未完成。fixtures 与 conflict CLI 都必须在访问 Vault 前拒绝未知、重复或缺值 flag；冲突延迟还只接受 `0` 至 `0x7fffffff` 的 safe integer。六份夹具覆盖 LF/CRLF/CR、普通与空列表、已确认非列表、标量和混合类型不匹配行、注释、引号、重复值、无关内容及所有冲突模式。类型初始化必须显式且独占；已有兼容 `.obsidian/types.json` 保持字节不变，缺键、类型冲突、JSON 损坏、链接或非普通文件都必须在写入笔记前失败。真实 editor 场景从磁盘核对最终 YAML、正文保持、单步撤销/重做，以及部署产物和夹具 SHA-256，并单独记录宿主的换行序列化。
 
 ## 真实宿主发布矩阵
 
@@ -64,6 +67,7 @@ Android 模拟器必须验证：
 ## 验证边界
 
 - 自动门禁覆盖所有纯规则、可注入故障和发布契约。
+- 每个候选构建的验收记录必须分层列出：提交与版本身份、三个部署产物及安装 ZIP 的 SHA-256、自动门禁结果、逐宿主/设备的真实验收证据，以及仍未取得的视觉、输入或平台证据。任何一层都不得由另一层推断，Release 说明也不得把未取得的真实宿主或物理设备证据写成已完成。
 - 桌面验收使用 Windows 11 下相互隔离的 Obsidian 1.12.7 与当前受支持 1.13.x Vault。两种宿主都必须证明同属性和跨属性单步撤销/重做、等待一个宿主事件循环后 editor 与可见 Properties 一致、再等待至少 3 秒后磁盘 YAML 一致、标量不匹配拖拽把手、非列表拒绝及 `preserve`/`flow`/`block` 输出；1.12.7 还覆盖三个旧版设置页签，当前 1.13.x 覆盖原生页面导航、设置搜索、自定义规则编辑器、条件控件、语言重渲染、持久化和 Retry。
 - 全新 CRLF 夹具仅打开时必须保持 CRLF；Property Order editor transaction 与普通正文手动编辑在 Obsidian 1.12.7 下都可能把笔记序列化为 LF。验收应把它归入宿主边界，并验证逻辑正文与单步撤销，而不是追加不可撤销的第二次 Vault 写入。
 - Android 验收使用 Android 15 / API 35 独立模拟器 Vault，以 SHA-256 核对部署的生产文件，确认原生“编辑 / 复制 / 从列表中移除”与“重排或移动”共存，验证同属性重排、跨属性移动的磁盘结果，以及取消和前后台恢复期间无插件错误、崩溃或 ANR。
@@ -82,4 +86,4 @@ CI 在 Node 20 上执行 `npm ci` 和 `npm run check`，并上传 `dist/` 顶层
 - `styles.css`；
 - `property-order-<version>.zip`，其中只含 `property-order/` 目录与上述三个文件。
 
-推送任何版本标签前必须确认本地工作区干净、真实宿主矩阵满足当前产品范围、CI 全绿。发布后下载四个附件并核对版本、ZIP 目录结构和文件哈希。
+安装 ZIP 必须固定条目顺序、时间、权限和无关 metadata，使相同输入得到相同字节。仓库必须预先启用匹配发布版本标签的 active tag ruleset，同时限制 update 与 delete，且 release actor 不得具有 bypass；这是阻断“核对与发布之间”竞态的外部发布前提，workflow 不修改该规则。workflow 在查询 Release 前、创建草稿前、发布草稿前和发布后分别解析远端轻量或 annotated 标签的 commit，并要求它与 push 事件的 `GITHUB_SHA` 一致；标签缺失、歧义、移动或无法解析都必须 fail closed。workflow 还使用仅具有仓库 Administration 只读权限的 `RELEASE_IMMUTABILITY_TOKEN` 确认仓库级 immutable Releases 已启用，但不得修改该设置。精确标签 REST 查询只把 HTTP `404` 视为不存在；鉴权、传输、限流、服务器或响应解析失败都必须 fail closed。若同标签 Release 已存在，它必须报告 `immutable: true`；远端附件名称必须无重复并精确等于三个独立文件与当前版本 ZIP，随后四项逐一哈希完全相同才 no-op。旧的可变 Release 或任一附件缺失、不同、重复、多出都必须要求提升版本。缺失的 Release 先以草稿状态附齐全部附件；发布草稿前必须查询并下载远端四项，复核名称唯一、集合精确且 SHA-256 与候选构建一致；发布为 immutable 后必须再次完成同一远端核对，任何差异都以明确的供应链错误失败，不得只凭客户端上传参数或服务器 immutable 标记推断附件正确。推送任何版本标签前必须确认本地工作区干净、版本标签规则已生效、真实宿主矩阵满足当前产品范围、CI 全绿。发布后下载四个附件并核对标签 commit、版本、ZIP 目录结构和文件哈希。

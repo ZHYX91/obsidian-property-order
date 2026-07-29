@@ -1,7 +1,8 @@
-import { Plugin } from "obsidian";
+import { Notice, Plugin } from "obsidian";
 
 import { KeySuggestionOrderController } from "../features/key-order/key-suggestion-controller";
 import { PropertyValueOrderController } from "../features/value-order/value-drag-controller";
+import { t } from "../shared/i18n";
 import {
   createDefaultSettings,
   hasFutureSettingsSchema,
@@ -21,7 +22,9 @@ interface SettingsSaveWaiter {
 export default class PropertyOrderPlugin extends Plugin {
   private cleanupCallbacks: Array<() => void> = [];
   private keySuggestionOrderController: KeySuggestionOrderController | null = null;
+  private lifecycleEpoch = 0;
   private pendingKeySuggestionRefresh = false;
+  private pendingSettingsSave = false;
   private readonly pendingSettingsSaveWaiters: SettingsSaveWaiter[] = [];
   private settingsSaveRequested = false;
   private settingsSaveTask: Promise<void> | null = null;
@@ -33,30 +36,35 @@ export default class PropertyOrderPlugin extends Plugin {
 
   override onload(): void {
     this.unloaded = false;
-    void this.initialize().catch((error: unknown) => {
-      console.error("Property Order: failed to initialize", error);
+    const lifecycleEpoch = ++this.lifecycleEpoch;
+    void this.initialize(lifecycleEpoch).catch((error: unknown) => {
+      if (this.isLifecycleCurrent(lifecycleEpoch)) {
+        console.error("Property Order: failed to initialize", error);
+      }
     });
   }
 
   override onunload(): void {
     this.unloaded = true;
-    for (const cleanup of this.cleanupCallbacks.splice(0)) {
-      cleanup();
-    }
+    this.lifecycleEpoch += 1;
+    this.releaseCleanupCallbacks(0);
 
-    for (const trackedDocument of this.trackedDocuments) {
-      trackedDocument.body.classList.remove(VALUE_DRAG_ENABLED_CLASS);
-    }
-
-    this.trackedDocuments.clear();
+    this.clearTrackedDocumentState();
     this.keySuggestionOrderController = null;
   }
 
-  async loadSettings(): Promise<void> {
+  async loadSettings(expectedLifecycleEpoch?: number): Promise<boolean> {
     const storedSettings: unknown = await this.loadData();
+
+    if (!this.isLifecycleCurrent(expectedLifecycleEpoch)) {
+      return false;
+    }
+
+    const normalizedSettings = normalizeSettings(storedSettings);
     this.storedSettings = storedSettings;
-    this.propertyOrderSettings = normalizeSettings(storedSettings);
+    this.propertyOrderSettings = normalizedSettings;
     this.persistedSettingsBaseline = normalizeSettings(storedSettings);
+    this.pendingSettingsSave = false;
     this.syncValueDragState();
 
     if (
@@ -67,39 +75,96 @@ export default class PropertyOrderPlugin extends Plugin {
         this.propertyOrderSettings,
         storedSettings,
       );
-      await this.saveData(settingsForStorage);
+
+      try {
+        await this.saveData(settingsForStorage);
+      } catch (error) {
+        if (!this.isLifecycleCurrent(expectedLifecycleEpoch)) {
+          return false;
+        }
+
+        this.pendingSettingsSave = true;
+        console.error("Property Order: failed to save migrated settings", error);
+        new Notice(t("notice.settingsSaveFailed", this.propertyOrderSettings.language));
+        return true;
+      }
+
+      if (!this.isLifecycleCurrent(expectedLifecycleEpoch)) {
+        return false;
+      }
+
       this.storedSettings = settingsForStorage;
       this.persistedSettingsBaseline = normalizeSettings(settingsForStorage);
     }
+
+    return true;
   }
 
-  private async initialize(): Promise<void> {
-    await this.loadSettings();
+  hasPendingSettingsSave(): boolean {
+    return this.pendingSettingsSave;
+  }
 
-    if (this.unloaded) {
+  private async initialize(lifecycleEpoch: number): Promise<void> {
+    const settingsLoaded = await this.loadSettings(lifecycleEpoch);
+
+    if (!settingsLoaded || !this.isLifecycleCurrent(lifecycleEpoch)) {
       return;
     }
 
-    this.registerEvent(
-      this.app.workspace.on("window-open", (_workspaceWindow, targetWindow) => {
-        this.applyValueDragState(targetWindow.document);
-      }),
-    );
-    this.registerEvent(
-      this.app.workspace.on("window-close", (_workspaceWindow, targetWindow) => {
-        targetWindow.document.body.classList.remove(VALUE_DRAG_ENABLED_CLASS);
-        this.trackedDocuments.delete(targetWindow.document);
-      }),
-    );
-    this.addSettingTab(new PropertyOrderSettingTab(this.app, this));
-    this.registerController(
-      new PropertyValueOrderController(this, () => this.propertyOrderSettings).initialize(),
-    );
-    this.keySuggestionOrderController = new KeySuggestionOrderController(
-      this,
-      () => this.propertyOrderSettings,
-    );
-    this.registerController(this.keySuggestionOrderController.initialize());
+    const cleanupCheckpoint = this.cleanupCallbacks.length;
+
+    try {
+      const windowOpenRef = this.app.workspace.on(
+        "window-open",
+        (_workspaceWindow, targetWindow) => {
+          this.applyValueDragState(targetWindow.document);
+        },
+      );
+      this.registerEvent(windowOpenRef);
+      this.registerController(() => this.app.workspace.offref(windowOpenRef));
+
+      const windowCloseRef = this.app.workspace.on(
+        "window-close",
+        (_workspaceWindow, targetWindow) => {
+          try {
+            targetWindow.document.body.classList.remove(VALUE_DRAG_ENABLED_CLASS);
+          } catch (error) {
+            console.error("Property Order: failed to clean a closed window drag state", error);
+          } finally {
+            this.trackedDocuments.delete(targetWindow.document);
+          }
+        },
+      );
+      this.registerEvent(windowCloseRef);
+      this.registerController(() => this.app.workspace.offref(windowCloseRef));
+
+      const valueOrderController = new PropertyValueOrderController(
+        this,
+        () => this.propertyOrderSettings,
+      );
+      this.registerController(valueOrderController.dispose);
+      valueOrderController.initialize();
+
+      this.keySuggestionOrderController = new KeySuggestionOrderController(
+        this,
+        () => this.propertyOrderSettings,
+      );
+      this.registerController(this.keySuggestionOrderController.dispose);
+      this.keySuggestionOrderController.initialize();
+
+      if (!this.isLifecycleCurrent(lifecycleEpoch)) {
+        this.releaseCleanupCallbacks(cleanupCheckpoint);
+        this.keySuggestionOrderController = null;
+        return;
+      }
+
+      this.addSettingTab(new PropertyOrderSettingTab(this.app, this));
+    } catch (error) {
+      this.releaseCleanupCallbacks(cleanupCheckpoint);
+      this.keySuggestionOrderController = null;
+      this.clearTrackedDocumentState();
+      throw error;
+    }
   }
 
   /**
@@ -143,6 +208,34 @@ export default class PropertyOrderPlugin extends Plugin {
     this.cleanupCallbacks.push(cleanup);
   }
 
+  private releaseCleanupCallbacks(startIndex: number): void {
+    const cleanupCount = this.cleanupCallbacks.length - startIndex;
+
+    if (cleanupCount <= 0) {
+      return;
+    }
+
+    for (const cleanup of this.cleanupCallbacks.splice(startIndex, cleanupCount).reverse()) {
+      try {
+        cleanup();
+      } catch (error) {
+        console.error("Property Order: failed to release a plugin resource", error);
+      }
+    }
+  }
+
+  private clearTrackedDocumentState(): void {
+    for (const trackedDocument of this.trackedDocuments) {
+      try {
+        trackedDocument.body.classList.remove(VALUE_DRAG_ENABLED_CLASS);
+      } catch (error) {
+        console.error("Property Order: failed to clean a document drag state", error);
+      }
+    }
+
+    this.trackedDocuments.clear();
+  }
+
   private async flushSettingsSaves(): Promise<void> {
     while (this.settingsSaveRequested) {
       this.settingsSaveRequested = false;
@@ -160,6 +253,7 @@ export default class PropertyOrderPlugin extends Plugin {
         await this.saveData(settingsForStorage);
         this.storedSettings = settingsForStorage;
         this.persistedSettingsBaseline = settingsSnapshot;
+        this.pendingSettingsSave = false;
 
         if (shouldRefreshKeySuggestions) {
           this.refreshKeySuggestionsSafely();
@@ -169,6 +263,8 @@ export default class PropertyOrderPlugin extends Plugin {
           waiter.resolve();
         }
       } catch (error) {
+        this.pendingSettingsSave = true;
+
         if (shouldRefreshKeySuggestions) {
           this.refreshKeySuggestionsSafely();
         }
@@ -188,7 +284,17 @@ export default class PropertyOrderPlugin extends Plugin {
     }
   }
 
+  private isLifecycleCurrent(expectedLifecycleEpoch?: number): boolean {
+    return expectedLifecycleEpoch == null || (
+      !this.unloaded && this.lifecycleEpoch === expectedLifecycleEpoch
+    );
+  }
+
   private syncValueDragState(): void {
+    if (this.unloaded) {
+      return;
+    }
+
     if (typeof document !== "undefined") {
       this.applyValueDragState(document);
     }
@@ -199,6 +305,12 @@ export default class PropertyOrderPlugin extends Plugin {
   }
 
   private applyValueDragState(targetDocument: Document): void {
+    if (this.unloaded) {
+      targetDocument.body.classList.remove(VALUE_DRAG_ENABLED_CLASS);
+      this.trackedDocuments.delete(targetDocument);
+      return;
+    }
+
     this.trackedDocuments.add(targetDocument);
     targetDocument.body.classList.toggle(
       VALUE_DRAG_ENABLED_CLASS,

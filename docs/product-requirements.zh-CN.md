@@ -40,7 +40,7 @@ Property Order 只增强 Obsidian Properties 的两类顺序：
 ## 设置
 
 - 设置使用版本化 schema；未知或非法值归一化，旧版本逐步迁移。
-- General、Value drag、Key order 三个页签保留即时生效语义。
+- General、Value drag、Key order 保持三个逻辑设置组与即时生效语义：Obsidian 1.12.x 使用自定义三页签，1.13+ 使用原生声明式页面与设置搜索。
 - 设置保存失败时保留内存状态，显示本地化 Notice、可访问的未保存提示和重试入口。
 - 跨属性拖拽默认开启并可独立关闭；属性键候选增强也可独立关闭并完整恢复宿主状态。
 

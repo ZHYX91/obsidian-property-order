@@ -166,6 +166,49 @@ describe("PropertyOrderSettingTab declarative definitions", () => {
     vi.runAllTimers();
     expect(saveSettings).toHaveBeenCalledTimes(1);
   });
+
+  it("continues declarative cleanup after a rule-editor flush failure", () => {
+    const settingTab = createSettingTab({ getMarkdownFiles: vi.fn(() => []) });
+    const pages = getPages(settingTab.getSettingDefinitions());
+    const pinnedDefinition = getRenderDefinition(
+      pages[2]?.items ?? [],
+      "Pinned property names",
+    );
+    const cleanup = pinnedDefinition.render(createSettingHarness().setting, {} as never);
+    const trackedLifecycles = (
+      settingTab as unknown as {
+        keyListSettingCleanups: Map<
+          { close(): void; flush(): void },
+          () => void
+        >;
+      }
+    ).keyListSettingCleanups;
+    const lifecycle = Array.from(trackedLifecycles.keys())[0];
+
+    if (lifecycle == null) {
+      throw new Error("Expected a tracked key-list lifecycle.");
+    }
+
+    const flushError = new Error("flush failed");
+    const flush = vi.fn(() => {
+      throw flushError;
+    });
+    const close = vi.fn();
+    lifecycle.flush = flush;
+    lifecycle.close = close;
+    const consoleError = vi.spyOn(console, "error").mockImplementation(() => undefined);
+
+    cleanup?.();
+    cleanup?.();
+
+    expect(flush).toHaveBeenCalledTimes(1);
+    expect(close).toHaveBeenCalledTimes(1);
+    expect(trackedLifecycles.size).toBe(0);
+    expect(consoleError).toHaveBeenCalledWith(
+      "Property Order: failed to clean up settings resource",
+      flushError,
+    );
+  });
 });
 
 interface SettingHarness {
@@ -269,6 +312,7 @@ function createSettingTab(options: {
     },
   };
   const plugin = {
+    hasPendingSettingsSave: vi.fn(() => false),
     propertyOrderSettings: options.settings ?? createDefaultSettings(),
     saveSettings: options.saveSettings ?? vi.fn(() => Promise.resolve()),
   };

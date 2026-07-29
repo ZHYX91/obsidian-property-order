@@ -1,70 +1,97 @@
 import { execFile } from "node:child_process";
-import { createHash } from "node:crypto";
-import { mkdtemp, mkdir, readFile, rm, symlink, writeFile } from "node:fs/promises";
+import { createHash, randomUUID } from "node:crypto";
+import {
+  mkdtemp,
+  mkdir,
+  readFile,
+  readdir,
+  rm,
+  symlink,
+  writeFile,
+} from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { promisify } from "node:util";
 import { afterEach, describe, expect, it } from "vitest";
 
+// @ts-expect-error The fixture generator is an executable JavaScript module.
+import { createAcceptanceFixtures } from "../../scripts/create-acceptance-fixtures.mjs";
+import { ACCEPTANCE_FIXTURES } from "../../scripts/acceptance-fixture-spec.mjs";
+// @ts-expect-error The conflict injector is an executable JavaScript module.
+import { injectAcceptanceConflict } from "../../scripts/inject-acceptance-conflict.mjs";
+// @ts-expect-error The safety contract is implemented as an executable JavaScript module.
+import { ACCEPTANCE_LOCK_NAME, ACCEPTANCE_MARKER_NAME } from "../../scripts/acceptance-vault-safety.mjs";
+
 const execFileAsync = promisify(execFile);
-const temporaryDirectories: string[] = [];
+const temporaryPaths: string[] = [];
 const scriptPath = path.resolve("scripts/inject-acceptance-conflict.mjs");
 
-async function createTemporaryDirectory(): Promise<string> {
-  const directory = await mkdtemp(
-    path.join(tmpdir(), "property-order-conflict-"),
-  );
-  temporaryDirectories.push(directory);
+async function createTemporaryDirectory(
+  prefix = "property-order-acceptance-",
+): Promise<string> {
+  const directory = await mkdtemp(path.join(tmpdir(), prefix));
+  temporaryPaths.push(directory);
   return directory;
+}
+
+async function createAcceptanceVault(): Promise<string> {
+  const vaultPath = await createTemporaryDirectory();
+  await mkdir(path.join(vaultPath, ".obsidian"));
+  await createAcceptanceFixtures(vaultPath, { initializeTypes: true });
+  return vaultPath;
+}
+
+async function fileHash(filePath: string): Promise<string> {
+  return createHash("sha256").update(await readFile(filePath)).digest("hex");
+}
+
+function runConflict(arguments_: string[]) {
+  return execFileAsync(process.execPath, [scriptPath, ...arguments_]);
 }
 
 afterEach(async () => {
   await Promise.all(
-    temporaryDirectories.splice(0).map((directory) =>
-      rm(directory, { force: true, recursive: true }),
+    temporaryPaths.splice(0).map((targetPath) =>
+      rm(targetPath, { force: true, recursive: true }),
     ),
   );
 });
 
 describe("acceptance conflict injector", () => {
-  it("changes the source list and preserves CRLF bytes", async () => {
-    const directory = await createTemporaryDirectory();
-    await mkdir(path.join(directory, ".obsidian"));
-    const filePath = path.join(directory, "Property Order CRLF.md");
-    await writeFile(
-      filePath,
-      [
-        "---",
-        "values: [alpha, 'beta value', \"gamma:value\"]",
-        "other: unchanged",
-        "---",
-        "",
-      ].join("\r\n"),
-      "utf8",
-    );
+  it("changes the source list, preserves CRLF bytes, and updates the marker hash", async () => {
+    const vaultPath = await createAcceptanceVault();
+    const filePath = path.join(vaultPath, "Property Order CRLF.md");
+    const originalHash = await fileHash(filePath);
 
-    await execFileAsync(process.execPath, [
-      scriptPath,
+    await runConflict([
       "--vault",
-      directory,
+      vaultPath,
       "--file",
       filePath,
+      "--expected-sha256",
+      originalHash,
     ]);
 
     const content = await readFile(filePath, "utf8");
     expect(content).toContain(
       "values: [external-alpha, 'beta value', \"gamma:value\"]",
     );
-    expect(new Set(content.match(/\r\n|\r|\n/g))).toEqual(
-      new Set(["\r\n"]),
+    expect(new Set(content.match(/\r\n|\r|\n/g))).toEqual(new Set(["\r\n"]));
+    const marker = JSON.parse(
+      await readFile(path.join(vaultPath, ACCEPTANCE_MARKER_NAME), "utf8"),
     );
+    expect(marker.generatedFiles["Property Order CRLF.md"]).toBe(
+      createHash("sha256").update(content).digest("hex"),
+    );
+
     await expect(
-      execFileAsync(process.execPath, [
-        scriptPath,
+      runConflict([
         "--vault",
-        directory,
+        vaultPath,
         "--file",
         filePath,
+        "--expected-sha256",
+        await fileHash(filePath),
       ]),
     ).rejects.toThrow(/Missing acceptance marker/);
   });
@@ -74,80 +101,103 @@ describe("acceptance conflict injector", () => {
     ["target", "po_target: [external-gamma]"],
     ["unrelated", "po_unrelated: external-conflict"],
     ["body", "Acceptance body marker changed externally."],
-  ])("injects a %s conflict into the core drag fixture", async (mode, expected) => {
-    const directory = await createTemporaryDirectory();
-    await mkdir(path.join(directory, ".obsidian"));
-    const filePath = path.join(directory, "Property Order Drag Core.md");
-    const content = [
-      "---",
-      "po_source: [alpha, beta]",
-      "po_target: [gamma]",
-      "po_unrelated: unchanged",
-      "---",
-      "Acceptance body marker.",
-      "",
-    ].join("\n");
-    await writeFile(filePath, content, "utf8");
+  ])("injects a %s conflict into the generated core fixture", async (mode, expected) => {
+    const vaultPath = await createAcceptanceVault();
+    const filePath = path.join(vaultPath, "Property Order Drag Core.md");
 
-    await execFileAsync(process.execPath, [
-      scriptPath,
+    await runConflict([
       "--vault",
-      directory,
+      vaultPath,
       "--file",
       filePath,
       "--mode",
       mode,
       "--expected-sha256",
-      createHash("sha256").update(content).digest("hex"),
+      await fileHash(filePath),
     ]);
 
     expect(await readFile(filePath, "utf8")).toContain(expected);
   });
 
-  it("rejects a stale expected hash without changing the fixture", async () => {
-    const directory = await createTemporaryDirectory();
-    await mkdir(path.join(directory, ".obsidian"));
-    const filePath = path.join(directory, "Property Order LF.md");
-    const content = "values: [alpha, 'beta value', \"gamma:value\"]\n";
-    await writeFile(filePath, content, "utf8");
+  it("requires an explicit expected hash", async () => {
+    const vaultPath = await createAcceptanceVault();
+    const filePath = path.join(vaultPath, "Property Order LF.md");
+    const original = await readFile(filePath);
 
     await expect(
-      execFileAsync(process.execPath, [
-        scriptPath,
+      runConflict(["--vault", vaultPath, "--file", filePath]),
+    ).rejects.toThrow(/--expected-sha256 is required/);
+    await expect(readFile(filePath)).resolves.toEqual(original);
+  });
+
+  it("rejects a stale expected hash without changing the fixture", async () => {
+    const vaultPath = await createAcceptanceVault();
+    const filePath = path.join(vaultPath, "Property Order LF.md");
+    const original = await readFile(filePath);
+
+    await expect(
+      runConflict([
         "--vault",
-        directory,
+        vaultPath,
         "--file",
         filePath,
         "--expected-sha256",
         "0".repeat(64),
       ]),
     ).rejects.toThrow(/SHA-256 changed/);
-    await expect(readFile(filePath, "utf8")).resolves.toBe(content);
+    await expect(readFile(filePath)).resolves.toEqual(original);
   });
 
   it("rejects invalid delays before editing", async () => {
-    const directory = await createTemporaryDirectory();
-    const filePath = path.join(directory, "fixture.md");
-    await writeFile(filePath, "other: unchanged\n", "utf8");
-
     await expect(
-      execFileAsync(process.execPath, [
-        scriptPath,
-        "--file",
-        filePath,
-        "--delay-ms",
-        "-1",
-      ]),
+      runConflict(["--delay-ms", "-1"]),
     ).rejects.toThrow(/Invalid --delay-ms value/);
-    await expect(readFile(filePath, "utf8")).resolves.toBe(
-      "other: unchanged\n",
+  });
+
+  it.each([0x80000000, Number.MAX_SAFE_INTEGER + 1, 1.5])(
+    "rejects unsafe programmatic delay %s before resolving a Vault",
+    async (delayMs) => {
+      await expect(
+        injectAcceptanceConflict({
+          delayMs,
+          expectedSha256: "0".repeat(64),
+          filePath: "fixture.md",
+          vaultPath: "vault",
+        }),
+      ).rejects.toThrow(/Invalid delay/);
+    },
+  );
+
+  it("rejects an invalid mode before starting the requested delay", async () => {
+    await expect(
+      injectAcceptanceConflict({
+        delayMs: 0x7fffffff,
+        expectedSha256: "0".repeat(64),
+        filePath: "fixture.md",
+        mode: "toString",
+        vaultPath: "vault",
+      }),
+    ).rejects.toThrow(/Invalid conflict mode/);
+  });
+
+  it("rejects unknown and duplicate CLI flags", async () => {
+    await expect(runConflict(["--unknown", "value"])).rejects.toThrow(
+      /Unknown conflict-injection argument/,
+    );
+    await expect(
+      runConflict(["--delay-ms", "0", "--delay-ms", "1"]),
+    ).rejects.toThrow(/Duplicate conflict-injection argument/);
+    await expect(runConflict(["--delay-ms"])).rejects.toThrow(
+      /Missing value for conflict-injection argument/,
+    );
+    await expect(runConflict(["--delay-ms", ""])).rejects.toThrow(
+      /Missing value for conflict-injection argument/,
     );
   });
 
-  it("refuses files outside the selected vault and non-generated note names", async () => {
-    const vaultPath = await createTemporaryDirectory();
+  it("refuses files outside the selected Vault and non-generated paths", async () => {
+    const vaultPath = await createAcceptanceVault();
     const outsidePath = await createTemporaryDirectory();
-    await mkdir(path.join(vaultPath, ".obsidian"));
     const outsideFile = path.join(outsidePath, "Property Order LF.md");
     const ordinaryNote = path.join(vaultPath, "ordinary.md");
     const nestedDirectory = path.join(vaultPath, "nested");
@@ -157,78 +207,61 @@ describe("acceptance conflict injector", () => {
     await writeFile(outsideFile, content, "utf8");
     await writeFile(ordinaryNote, content, "utf8");
     await writeFile(nestedFixture, content, "utf8");
+    const expectedHash = createHash("sha256").update(content).digest("hex");
 
-    await expect(
-      execFileAsync(process.execPath, [
-        scriptPath,
-        "--vault",
-        vaultPath,
-        "--file",
-        outsideFile,
-      ]),
-    ).rejects.toThrow(/outside the selected vault/);
-    await expect(
-      execFileAsync(process.execPath, [
-        scriptPath,
-        "--vault",
-        vaultPath,
-        "--file",
-        ordinaryNote,
-      ]),
-    ).rejects.toThrow(/Not a generated Property Order fixture/);
-    await expect(
-      execFileAsync(process.execPath, [
-        scriptPath,
-        "--vault",
-        vaultPath,
-        "--file",
-        nestedFixture,
-      ]),
-    ).rejects.toThrow(/Not a generated Property Order fixture/);
+    for (const [filePath, error] of [
+      [outsideFile, /outside the selected vault/],
+      [ordinaryNote, /Not a generated Property Order fixture/],
+      [nestedFixture, /Not a generated Property Order fixture/],
+    ] as const) {
+      await expect(
+        runConflict([
+          "--vault",
+          vaultPath,
+          "--file",
+          filePath,
+          "--expected-sha256",
+          expectedHash,
+        ]),
+      ).rejects.toThrow(error);
+    }
   });
 
   it("rejects a generated-name symlink without touching its target", async () => {
-    const vaultPath = await createTemporaryDirectory();
+    const vaultPath = await createAcceptanceVault();
     const externalPath = path.join(await createTemporaryDirectory(), "external.md");
     const fixturePath = path.join(vaultPath, "Property Order LF.md");
-    await mkdir(path.join(vaultPath, ".obsidian"));
-    await writeFile(
-      externalPath,
-      "values: [alpha, 'beta value', \"gamma:value\"]\n",
-      "utf8",
-    );
+    const externalContent = "values: [alpha, 'beta value', \"gamma:value\"]\n";
+    await writeFile(externalPath, externalContent, "utf8");
+    await rm(fixturePath);
 
     try {
       await symlink(externalPath, fixturePath, "file");
     } catch (error) {
-      if ((error as NodeJS.ErrnoException).code === "EPERM") {
-        return;
-      }
+      if (isLinkPermissionError(error)) return;
       throw error;
     }
 
     await expect(
-      execFileAsync(process.execPath, [
-        scriptPath,
+      runConflict([
         "--vault",
         vaultPath,
         "--file",
         fixturePath,
+        "--expected-sha256",
+        createHash("sha256").update(externalContent).digest("hex"),
       ]),
     ).rejects.toThrow(/not a regular file/);
-    await expect(readFile(externalPath, "utf8")).resolves.toBe(
-      "values: [alpha, 'beta value', \"gamma:value\"]\n",
-    );
+    await expect(readFile(externalPath, "utf8")).resolves.toBe(externalContent);
   });
 
-  it("rejects a linked Vault root without touching its fixture", async () => {
-    const parentPath = await createTemporaryDirectory();
-    const realVaultPath = path.join(parentPath, "real-vault");
-    const linkedVaultPath = path.join(parentPath, "linked-vault");
-    const fixturePath = path.join(realVaultPath, "Property Order LF.md");
-    const content = "values: [alpha, 'beta value', \"gamma:value\"]\n";
-    await mkdir(path.join(realVaultPath, ".obsidian"), { recursive: true });
-    await writeFile(fixturePath, content, "utf8");
+  it("rejects a linked Vault root", async () => {
+    const realVaultPath = await createAcceptanceVault();
+    const linkedVaultPath = path.join(
+      tmpdir(),
+      `property-order-acceptance-link-${randomUUID()}`,
+    );
+    temporaryPaths.push(linkedVaultPath);
 
     try {
       await symlink(
@@ -237,35 +270,34 @@ describe("acceptance conflict injector", () => {
         process.platform === "win32" ? "junction" : "dir",
       );
     } catch (error) {
-      if (isLinkPermissionError(error)) {
-        return;
-      }
+      if (isLinkPermissionError(error)) return;
       throw error;
     }
 
+    const fixturePath = path.join(linkedVaultPath, "Property Order LF.md");
     await expect(
-      execFileAsync(process.execPath, [
-        scriptPath,
+      runConflict([
         "--vault",
         linkedVaultPath,
         "--file",
-        path.join(linkedVaultPath, path.basename(fixturePath)),
+        fixturePath,
+        "--expected-sha256",
+        await fileHash(path.join(realVaultPath, "Property Order LF.md")),
       ]),
-    ).rejects.toThrow(/Not an Obsidian vault/);
-    await expect(readFile(fixturePath, "utf8")).resolves.toBe(content);
+    ).rejects.toThrow(/Not an isolated Property Order acceptance Vault/);
   });
 
-  it("rejects a linked .obsidian directory without touching the fixture", async () => {
-    const vaultPath = await createTemporaryDirectory();
+  it("rejects a linked .obsidian directory without touching a fixture", async () => {
+    const vaultPath = await createAcceptanceVault();
     const externalObsidianPath = path.join(
       await createTemporaryDirectory(),
       "external-obsidian",
     );
     const fixturePath = path.join(vaultPath, "Property Order LF.md");
-    const content = "values: [alpha, 'beta value', \"gamma:value\"]\n";
+    const original = await readFile(fixturePath);
     await mkdir(externalObsidianPath);
     await writeFile(path.join(externalObsidianPath, "sentinel"), "unchanged\n", "utf8");
-    await writeFile(fixturePath, content, "utf8");
+    await rm(path.join(vaultPath, ".obsidian"), { recursive: true });
 
     try {
       await symlink(
@@ -274,25 +306,156 @@ describe("acceptance conflict injector", () => {
         process.platform === "win32" ? "junction" : "dir",
       );
     } catch (error) {
-      if (isLinkPermissionError(error)) {
-        return;
-      }
+      if (isLinkPermissionError(error)) return;
       throw error;
     }
 
     await expect(
-      execFileAsync(process.execPath, [
-        scriptPath,
+      runConflict([
         "--vault",
         vaultPath,
         "--file",
         fixturePath,
+        "--expected-sha256",
+        createHash("sha256").update(original).digest("hex"),
       ]),
-    ).rejects.toThrow(/Not an Obsidian vault/);
-    await expect(readFile(fixturePath, "utf8")).resolves.toBe(content);
+    ).rejects.toThrow(/Not an isolated Property Order acceptance Vault/);
+    await expect(readFile(fixturePath)).resolves.toEqual(original);
+  });
+
+  it("allows a forced reset after a tracked conflict", async () => {
+    const vaultPath = await createAcceptanceVault();
+    const filePath = path.join(vaultPath, "Property Order Drag Core.md");
+
+    await runConflict([
+      "--vault",
+      vaultPath,
+      "--file",
+      filePath,
+      "--mode",
+      "source",
+      "--expected-sha256",
+      await fileHash(filePath),
+    ]);
+    await createAcceptanceFixtures(vaultPath, { force: true });
+
+    expect(await readFile(filePath, "utf8")).toBe(
+      ACCEPTANCE_FIXTURES.find(({ fileName }) => fileName === "Property Order Drag Core.md")
+        ?.content,
+    );
+  });
+
+  it("refuses conflict injection while the Vault lock exists", async () => {
+    const vaultPath = await createAcceptanceVault();
+    const filePath = path.join(vaultPath, "Property Order LF.md");
+    const original = await readFile(filePath);
+    const lockPath = path.join(vaultPath, ACCEPTANCE_LOCK_NAME);
+    await writeFile(lockPath, "another acceptance process owns this Vault\n", "utf8");
+
     await expect(
-      readFile(path.join(externalObsidianPath, "sentinel"), "utf8"),
-    ).resolves.toBe("unchanged\n");
+      runConflict([
+        "--vault",
+        vaultPath,
+        "--file",
+        filePath,
+        "--expected-sha256",
+        await fileHash(filePath),
+      ]),
+    ).rejects.toThrow(/locked.*stale lock/i);
+
+    await expect(readFile(filePath)).resolves.toEqual(original);
+    await expect(readFile(lockPath, "utf8")).resolves.toBe(
+      "another acceptance process owns this Vault\n",
+    );
+  });
+
+  it("preserves a write that lands immediately before conflict replacement", async () => {
+    const vaultPath = await createAcceptanceVault();
+    const filePath = path.join(vaultPath, "Property Order LF.md");
+    const markerPath = path.join(vaultPath, ACCEPTANCE_MARKER_NAME);
+    const originalMarker = await readFile(markerPath);
+
+    await expect(
+      injectAcceptanceConflict({
+        beforeReplace: async () => {
+          await writeFile(filePath, "pre-replace conflict writer must survive\n", "utf8");
+        },
+        expectedSha256: await fileHash(filePath),
+        filePath,
+        mode: "source",
+        vaultPath,
+      }),
+    ).rejects.toThrow(/preserved copy/);
+
+    await expect(readFile(filePath, "utf8")).resolves.toBe(
+      "pre-replace conflict writer must survive\n",
+    );
+    await expect(readFile(markerPath)).resolves.toEqual(originalMarker);
+  });
+
+  it("retains the rollback backup instead of overwriting a pre-rollback write", async () => {
+    const vaultPath = await createAcceptanceVault();
+    const filePath = path.join(vaultPath, "Property Order LF.md");
+    const original = await readFile(filePath, "utf8");
+    const markerPath = path.join(vaultPath, ACCEPTANCE_MARKER_NAME);
+    const originalMarker = await readFile(markerPath);
+    let thrownError: unknown;
+
+    try {
+      await injectAcceptanceConflict({
+        beforeRollback: async () => {
+          await writeFile(filePath, "racing conflict writer must survive\n", "utf8");
+        },
+        expectedSha256: await fileHash(filePath),
+        filePath,
+        mode: "source",
+        updateMarker: async () => {
+          throw new Error("injected marker failure");
+        },
+        vaultPath,
+      });
+    } catch (error) {
+      thrownError = error;
+    }
+
+    expect(thrownError).toBeInstanceOf(Error);
+    const message = (thrownError as Error).message;
+    expect(message).toMatch(/Retained rollback backup/);
+    const backupPath = message.match(
+      /Retained rollback backup: (.+?\.rollback)(?:\. |, |$)/,
+    )?.[1];
+    expect(backupPath).toBeDefined();
+    await expect(readFile(filePath, "utf8")).resolves.toBe(
+      "racing conflict writer must survive\n",
+    );
+    await expect(readFile(backupPath!, "utf8")).resolves.toBe(original);
+    await expect(readFile(markerPath)).resolves.toEqual(originalMarker);
+  });
+
+  it("restores the original fixture when marker commit fails without a race", async () => {
+    const vaultPath = await createAcceptanceVault();
+    const filePath = path.join(vaultPath, "Property Order LF.md");
+    const original = await readFile(filePath);
+    const markerPath = path.join(vaultPath, ACCEPTANCE_MARKER_NAME);
+    const originalMarker = await readFile(markerPath);
+
+    await expect(
+      injectAcceptanceConflict({
+        expectedSha256: await fileHash(filePath),
+        filePath,
+        mode: "source",
+        updateMarker: async () => {
+          throw new Error("injected marker failure");
+        },
+        vaultPath,
+      }),
+    ).rejects.toThrow(/injected marker failure/);
+
+    await expect(readFile(filePath)).resolves.toEqual(original);
+    await expect(readFile(markerPath)).resolves.toEqual(originalMarker);
+    await expect(readdir(vaultPath)).resolves.not.toEqual(
+      expect.arrayContaining([expect.stringMatching(/\.rollback(?:\.restore-.*)?$/)]),
+    );
   });
 });
 

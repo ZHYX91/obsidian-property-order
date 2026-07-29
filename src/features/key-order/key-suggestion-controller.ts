@@ -1,4 +1,4 @@
-import { Platform, type Plugin } from "obsidian";
+import { Platform, type EventRef, type Plugin } from "obsidian";
 
 import { orderPropertyKeys } from "../../core/suggestions/order-keys";
 import {
@@ -28,11 +28,13 @@ const OBSERVER_OPTIONS: MutationObserverInit = {
   childList: true,
   subtree: true,
 };
+const USAGE_REFRESH_DEBOUNCE_MILLISECONDS = 150;
 
 interface SuggestionElementSnapshot {
   ariaHiddenAttribute: string | null;
   element: HTMLElement;
   hadPluginHiddenClass: boolean;
+  hadSelectedClass: boolean;
   hiddenAttribute: string | null;
 }
 
@@ -58,6 +60,7 @@ interface DocumentEnhancementState {
   observing: boolean;
   pendingRoots: Set<ParentNode>;
   rafId: number | null;
+  usageRefreshTimerId: number | null;
   view: Window;
 }
 
@@ -68,6 +71,7 @@ export class KeySuggestionOrderController {
     HTMLElement,
     OriginalSuggestionSnapshot
   >();
+  private readonly registeredEventCleanups: Array<() => void> = [];
   private initialized = false;
   private readonly plugin: Plugin;
   private readonly getSettings: () => PropertyOrderSettings;
@@ -78,48 +82,90 @@ export class KeySuggestionOrderController {
   }
 
   initialize(): () => void {
+    if (this.initialized) {
+      return this.dispose;
+    }
+
     this.initialized = true;
-    this.registerDocument(document);
-    this.plugin.app.workspace.iterateAllLeaves((leaf) => {
-      this.registerDocument(leaf.view.containerEl.ownerDocument);
-    });
-    this.plugin.registerEvent(
-      this.plugin.app.workspace.on("window-open", (_workspaceWindow, targetWindow) => {
-        this.registerDocument(targetWindow.document);
-      }),
-    );
-    this.plugin.registerEvent(
-      this.plugin.app.workspace.on("window-close", (_workspaceWindow, targetWindow) => {
-        this.unregisterDocument(targetWindow.document);
-      }),
-    );
-    this.plugin.registerEvent(
-      this.plugin.app.metadataCache.on("changed", () => {
-        this.invalidateUsage();
-      }),
-    );
-    this.plugin.registerEvent(
-      this.plugin.app.metadataCache.on("deleted", () => {
-        this.invalidateUsage();
-      }),
-    );
-    this.plugin.registerEvent(
-      this.plugin.app.metadataCache.on("resolved", () => {
-        this.invalidateUsage();
-      }),
-    );
+    try {
+      this.registerDocument(document);
+      this.plugin.app.workspace.iterateAllLeaves((leaf) => {
+        this.registerDocument(leaf.view.containerEl.ownerDocument);
+      });
+      const windowOpenRef = this.plugin.app.workspace.on(
+        "window-open",
+        (_workspaceWindow, targetWindow) => {
+          this.registerDocument(targetWindow.document);
+        },
+      );
+      this.registerControllerEvent(windowOpenRef, () => {
+        this.plugin.app.workspace.offref(windowOpenRef);
+      });
+      const windowCloseRef = this.plugin.app.workspace.on(
+        "window-close",
+        (_workspaceWindow, targetWindow) => {
+          this.unregisterDocument(targetWindow.document);
+        },
+      );
+      this.registerControllerEvent(windowCloseRef, () => {
+        this.plugin.app.workspace.offref(windowCloseRef);
+      });
 
-    return () => {
-      this.initialized = false;
+      const changedRef = this.plugin.app.metadataCache.on("changed", () => {
+        this.invalidateUsage();
+      });
+      this.registerControllerEvent(changedRef, () => {
+        this.plugin.app.metadataCache.offref(changedRef);
+      });
+      const deletedRef = this.plugin.app.metadataCache.on("deleted", () => {
+        this.invalidateUsage();
+      });
+      this.registerControllerEvent(deletedRef, () => {
+        this.plugin.app.metadataCache.offref(deletedRef);
+      });
+      const resolvedRef = this.plugin.app.metadataCache.on("resolved", () => {
+        this.invalidateUsage();
+      });
+      this.registerControllerEvent(resolvedRef, () => {
+        this.plugin.app.metadataCache.offref(resolvedRef);
+      });
+    } catch (error) {
+      this.dispose();
+      throw error;
+    }
 
-      for (const targetDocument of Array.from(this.documentStates.keys())) {
-        this.unregisterDocument(targetDocument);
-      }
-
-      invalidatePropertyKeyUsage(this.plugin.app);
-      this.restoreAllContainers();
-    };
+    return this.dispose;
   }
+
+  private registerControllerEvent(eventRef: EventRef, release: () => void): void {
+    this.registeredEventCleanups.push(release);
+    this.plugin.registerEvent(eventRef);
+  }
+
+  dispose = (): void => {
+    if (
+      !this.initialized &&
+      this.documentStates.size === 0 &&
+      this.registeredEventCleanups.length === 0
+    ) {
+      return;
+    }
+
+    this.initialized = false;
+
+    for (const targetDocument of Array.from(this.documentStates.keys()).reverse()) {
+      this.unregisterDocument(targetDocument);
+    }
+
+    const eventCleanups = this.registeredEventCleanups.splice(0).reverse();
+
+    for (const cleanup of eventCleanups) {
+      this.runDocumentCleanup(cleanup);
+    }
+
+    this.runDocumentCleanup(() => invalidatePropertyKeyUsage(this.plugin.app));
+    this.runDocumentCleanup(() => this.restoreAllContainers());
+  };
 
   refresh(): void {
     const enabled = this.getSettings().enableNativeKeySuggestionOrder;
@@ -155,32 +201,41 @@ export class KeySuggestionOrderController {
     const observer = new targetWindow.MutationObserver((mutations) => {
       this.handleMutations(targetDocument, mutations);
     });
-    const keyboardCleanup = registerSuggestionKeyboardBridge({
-      getActiveContainer: () => this.getActiveContainer(targetDocument),
-      onSynchronizationFailure: (container) => this.restoreContainer(container),
-      supportsEmacsNavigation: Platform.isMacOS || Platform.isIosApp,
-      targetWindow,
-    });
     const state: DocumentEnhancementState = {
       forceEnhancement: false,
-      keyboardCleanup,
+      keyboardCleanup: () => undefined,
       observer,
       observing: false,
       pendingRoots: new Set(),
       rafId: null,
+      usageRefreshTimerId: null,
       view: targetWindow,
     };
+    // Register the per-document owner before its first observer/listener is
+    // attached so plugin rollback can always find and dispose partial setup.
     this.documentStates.set(targetDocument, state);
 
-    if (this.getSettings().enableNativeKeySuggestionOrder) {
-      this.startDocumentObservation(targetDocument, state);
-      // Android mounts the workspace incrementally while community plugins load.
-      // Scanning the entire document during that phase can monopolize the WebView
-      // main thread. Mobile suggestion menus are mounted after startup, so the
-      // observer can discover them without an eager full-document scan.
-      if (!Platform.isMobileApp) {
-        this.scheduleSuggestionEnhancement(targetDocument);
+    try {
+      state.keyboardCleanup = registerSuggestionKeyboardBridge({
+        getActiveContainer: () => this.getActiveContainer(targetDocument),
+        onSynchronizationFailure: (container) => this.restoreContainer(container),
+        supportsEmacsNavigation: Platform.isMacOS || Platform.isIosApp,
+        targetWindow,
+      });
+
+      if (this.getSettings().enableNativeKeySuggestionOrder) {
+        this.startDocumentObservation(targetDocument, state);
+        // Android mounts the workspace incrementally while community plugins load.
+        // Scanning the entire document during that phase can monopolize the WebView
+        // main thread. Mobile suggestion menus are mounted after startup, so the
+        // observer can discover them without an eager full-document scan.
+        if (!Platform.isMobileApp) {
+          this.scheduleSuggestionEnhancement(targetDocument);
+        }
       }
+    } catch (error) {
+      this.unregisterDocument(targetDocument);
+      throw error;
     }
   }
 
@@ -191,23 +246,36 @@ export class KeySuggestionOrderController {
       return;
     }
 
+    this.documentStates.delete(targetDocument);
+    this.activeContainers.delete(targetDocument);
+
     if (state.observing) {
-      this.updateNativeSnapshots(targetDocument, state.observer.takeRecords());
+      this.runDocumentCleanup(() => {
+        this.updateNativeSnapshots(targetDocument, state.observer.takeRecords());
+      });
     }
 
-    state.observer.disconnect();
+    this.runDocumentCleanup(() => state.observer.disconnect());
     state.observing = false;
-    state.keyboardCleanup();
+    this.runDocumentCleanup(state.keyboardCleanup);
     state.pendingRoots.clear();
 
     if (state.rafId != null) {
-      state.view.cancelAnimationFrame(state.rafId);
+      const rafId = state.rafId;
       state.rafId = null;
+      this.runDocumentCleanup(() => state.view.cancelAnimationFrame(rafId));
     }
 
-    this.documentStates.delete(targetDocument);
-    this.activeContainers.delete(targetDocument);
-    this.restoreContainersForDocument(targetDocument);
+    this.runDocumentCleanup(() => this.clearPendingUsageRefresh(state));
+    this.runDocumentCleanup(() => this.restoreContainersForDocument(targetDocument));
+  }
+
+  private runDocumentCleanup(cleanup: () => void): void {
+    try {
+      cleanup();
+    } catch (error) {
+      console.error("Property Order: failed to release a suggestion document resource", error);
+    }
   }
 
   private handleMutations(
@@ -271,11 +339,50 @@ export class KeySuggestionOrderController {
       return;
     }
 
-    for (const container of this.originalSuggestions.keys()) {
-      if (container.isConnected) {
-        this.scheduleSuggestionEnhancement(container, true);
+    for (const [targetDocument, state] of this.documentStates) {
+      const hasConnectedContainer = Array.from(this.originalSuggestions.keys()).some(
+        (container) => container.ownerDocument === targetDocument && container.isConnected,
+      );
+
+      if (hasConnectedContainer) {
+        this.scheduleUsageRefresh(targetDocument, state);
       }
     }
+  }
+
+  private scheduleUsageRefresh(
+    targetDocument: Document,
+    state: DocumentEnhancementState,
+  ): void {
+    this.clearPendingUsageRefresh(state);
+    state.usageRefreshTimerId = state.view.setTimeout(() => {
+      state.usageRefreshTimerId = null;
+
+      if (
+        !this.initialized ||
+        this.documentStates.get(targetDocument) !== state ||
+        !this.getSettings().enableNativeKeySuggestionOrder ||
+        this.getSettings().keySuggestionSortMode !== "usage"
+      ) {
+        return;
+      }
+
+      for (const container of this.originalSuggestions.keys()) {
+        if (container.ownerDocument === targetDocument && container.isConnected) {
+          this.scheduleSuggestionEnhancement(container, true);
+        }
+      }
+    }, USAGE_REFRESH_DEBOUNCE_MILLISECONDS);
+  }
+
+  private clearPendingUsageRefresh(state: DocumentEnhancementState): void {
+    if (state.usageRefreshTimerId == null) {
+      return;
+    }
+
+    const timerId = state.usageRefreshTimerId;
+    state.usageRefreshTimerId = null;
+    state.view.clearTimeout(timerId);
   }
 
   private isSuggestionRelatedNode(
@@ -321,6 +428,8 @@ export class KeySuggestionOrderController {
       state.view.cancelAnimationFrame(state.rafId);
       state.rafId = null;
     }
+
+    this.clearPendingUsageRefresh(state);
 
     try {
       this.restoreContainersForDocument(targetDocument);
@@ -593,14 +702,14 @@ export class KeySuggestionOrderController {
 
   private restoreAllContainers(): void {
     for (const container of Array.from(this.originalSuggestions.keys())) {
-      this.restoreContainer(container);
+      this.runDocumentCleanup(() => this.restoreContainer(container));
     }
   }
 
   private restoreContainersForDocument(targetDocument: Document): void {
     for (const container of Array.from(this.originalSuggestions.keys())) {
       if (container.ownerDocument === targetDocument) {
-        this.restoreContainer(container);
+        this.runDocumentCleanup(() => this.restoreContainer(container));
       }
     }
   }
@@ -608,7 +717,7 @@ export class KeySuggestionOrderController {
   private restoreDetachedContainers(targetDocument: Document): void {
     for (const container of Array.from(this.originalSuggestions.keys())) {
       if (container.ownerDocument === targetDocument && !container.isConnected) {
-        this.restoreContainer(container);
+        this.runDocumentCleanup(() => this.restoreContainer(container));
       }
     }
   }
@@ -700,6 +809,10 @@ function matchesAppliedState(
 function restoreSnapshot(snapshot: OriginalSuggestionSnapshot): void {
   for (const elementSnapshot of snapshot.elements) {
     restoreElementState(elementSnapshot);
+    elementSnapshot.element.classList.toggle(
+      "is-selected",
+      elementSnapshot.hadSelectedClass,
+    );
   }
 
   for (const child of snapshot.childOrder) {
@@ -799,6 +912,7 @@ function createElementSnapshot(element: HTMLElement): SuggestionElementSnapshot 
     ariaHiddenAttribute: element.getAttribute("aria-hidden"),
     element,
     hadPluginHiddenClass: element.classList.contains(PLUGIN_HIDDEN_SUGGESTION_CLASS),
+    hadSelectedClass: element.classList.contains("is-selected"),
     hiddenAttribute: element.getAttribute("hidden"),
   };
 }

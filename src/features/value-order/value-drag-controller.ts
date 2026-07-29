@@ -2,6 +2,7 @@ import {
   Notice,
   Platform,
   type Editor,
+  type EventRef,
   type MarkdownView,
   type Plugin,
   type TFile,
@@ -106,6 +107,7 @@ export class PropertyValueOrderController {
   private initialized = false;
   private lifecycleGeneration = 0;
   private readonly registeredDocumentCleanups = new Map<Document, () => void>();
+  private readonly registeredEventCleanups: Array<() => void> = [];
   private readonly plugin: Plugin;
   private readonly getSettings: () => PropertyOrderSettings;
 
@@ -115,33 +117,89 @@ export class PropertyValueOrderController {
   }
 
   initialize(): () => void {
+    if (this.initialized) {
+      return this.dispose;
+    }
+
     this.initialized = true;
     this.lifecycleGeneration += 1;
-    this.registerDocumentEvents(document);
-    this.plugin.app.workspace.iterateAllLeaves((leaf) => {
-      this.registerDocumentEvents(leaf.view.containerEl.ownerDocument);
-    });
-    this.plugin.registerEvent(
-      this.plugin.app.workspace.on("window-open", (_workspaceWindow, targetWindow) => {
-        this.registerDocumentEvents(targetWindow.document);
-      }),
-    );
-    this.plugin.registerEvent(
-      this.plugin.app.workspace.on("window-close", (_workspaceWindow, targetWindow) => {
-        this.unregisterDocumentEvents(targetWindow.document);
-      }),
-    );
+    try {
+      this.registerDocumentEvents(document);
+      this.plugin.app.workspace.iterateAllLeaves((leaf) => {
+        this.registerDocumentEvents(leaf.view.containerEl.ownerDocument);
+      });
+      const windowOpenRef = this.plugin.app.workspace.on(
+        "window-open",
+        (_workspaceWindow, targetWindow) => {
+          this.registerDocumentEvents(targetWindow.document);
+        },
+      );
+      this.registerControllerEvent(windowOpenRef, () => {
+        this.plugin.app.workspace.offref(windowOpenRef);
+      });
+      const windowCloseRef = this.plugin.app.workspace.on(
+        "window-close",
+        (_workspaceWindow, targetWindow) => {
+          this.unregisterDocumentEvents(targetWindow.document);
+        },
+      );
+      this.registerControllerEvent(windowCloseRef, () => {
+        this.plugin.app.workspace.offref(windowCloseRef);
+      });
+    } catch (error) {
+      this.dispose();
+      throw error;
+    }
 
-    return () => {
-      this.initialized = false;
-      this.lifecycleGeneration += 1;
-      this.clearInteractionState();
-
-      for (const cleanup of Array.from(this.registeredDocumentCleanups.values())) {
-        cleanup();
-      }
-    };
+    return this.dispose;
   }
+
+  private registerControllerEvent(eventRef: EventRef, release: () => void): void {
+    this.registeredEventCleanups.push(release);
+    this.plugin.registerEvent(eventRef);
+  }
+
+  dispose = (): void => {
+    if (
+      !this.initialized &&
+      this.registeredDocumentCleanups.size === 0 &&
+      this.registeredEventCleanups.length === 0
+    ) {
+      return;
+    }
+
+    this.initialized = false;
+    this.lifecycleGeneration += 1;
+
+    try {
+      this.clearInteractionState();
+    } catch (error) {
+      console.error("Property Order: failed to clear a drag interaction", error);
+    } finally {
+      const documentCleanups = Array.from(
+        this.registeredDocumentCleanups.values(),
+      ).reverse();
+      this.registeredDocumentCleanups.clear();
+
+      for (const cleanup of documentCleanups) {
+        try {
+          cleanup();
+        } catch (error) {
+          console.error("Property Order: failed to release a drag document resource", error);
+        }
+      }
+
+      const eventCleanups = this.registeredEventCleanups.splice(0).reverse();
+
+      for (const cleanup of eventCleanups) {
+        try {
+          cleanup();
+        } catch (error) {
+          console.error("Property Order: failed to release a drag host event", error);
+        }
+      }
+    }
+  };
 
   private registerDocumentEvents(targetDocument: Document): void {
     if (!this.initialized || this.registeredDocumentCleanups.has(targetDocument)) {
@@ -150,45 +208,74 @@ export class PropertyValueOrderController {
 
     const targetWindow = targetDocument.defaultView;
 
-    targetDocument.addEventListener("pointerdown", this.handlePointerDown, true);
-    targetDocument.addEventListener("pointermove", this.handlePointerMove, true);
-    targetDocument.addEventListener("pointerup", this.handlePointerUpEvent, true);
-    targetDocument.addEventListener("pointercancel", this.handlePointerCancel, true);
-    targetDocument.addEventListener("contextmenu", this.handleContextMenu, true);
-    targetDocument.addEventListener("dragstart", this.handleNativeDragStart, true);
-    targetDocument.addEventListener("drop", this.handleNativeDrop, true);
-    targetDocument.addEventListener("keydown", this.handleKeyDown, true);
-
     const handleWindowBlur = (): void => {
       this.clearInteractionForDocument(targetDocument);
     };
 
-    if (targetWindow != null) {
-      targetWindow.addEventListener("blur", handleWindowBlur);
-    }
+    const cleanups: Array<() => void> = [];
+    let disposed = false;
 
     const cleanup = (): void => {
-      targetDocument.removeEventListener("pointerdown", this.handlePointerDown, true);
-      targetDocument.removeEventListener("pointermove", this.handlePointerMove, true);
-      targetDocument.removeEventListener("pointerup", this.handlePointerUpEvent, true);
-      targetDocument.removeEventListener("pointercancel", this.handlePointerCancel, true);
-      targetDocument.removeEventListener("contextmenu", this.handleContextMenu, true);
-      targetDocument.removeEventListener("dragstart", this.handleNativeDragStart, true);
-      targetDocument.removeEventListener("drop", this.handleNativeDrop, true);
-      targetDocument.removeEventListener("keydown", this.handleKeyDown, true);
-      targetWindow?.removeEventListener("blur", handleWindowBlur);
+      if (disposed) {
+        return;
+      }
+
+      disposed = true;
+
+      for (const release of cleanups.reverse()) {
+        try {
+          release();
+        } catch (error) {
+          console.error("Property Order: failed to release a drag document listener", error);
+        }
+      }
 
       if (this.registeredDocumentCleanups.get(targetDocument) === cleanup) {
         this.registeredDocumentCleanups.delete(targetDocument);
       }
     };
 
+    // The owner must be discoverable by controller/plugin rollback before the
+    // first host listener is attached. A later attachment failure can then
+    // release every listener that was already installed on this document.
     this.registeredDocumentCleanups.set(targetDocument, cleanup);
+
+    try {
+      const registerDocumentEvent = <K extends keyof DocumentEventMap>(
+        type: K,
+        listener: (event: DocumentEventMap[K]) => void,
+      ): void => {
+        targetDocument.addEventListener(type, listener as EventListener, true);
+        cleanups.push(() =>
+          targetDocument.removeEventListener(type, listener as EventListener, true),
+        );
+      };
+
+      registerDocumentEvent("pointerdown", this.handlePointerDown);
+      registerDocumentEvent("pointermove", this.handlePointerMove);
+      registerDocumentEvent("pointerup", this.handlePointerUpEvent);
+      registerDocumentEvent("pointercancel", this.handlePointerCancel);
+      registerDocumentEvent("contextmenu", this.handleContextMenu);
+      registerDocumentEvent("dragstart", this.handleNativeDragStart);
+      registerDocumentEvent("drop", this.handleNativeDrop);
+      registerDocumentEvent("keydown", this.handleKeyDown);
+
+      if (targetWindow != null) {
+        targetWindow.addEventListener("blur", handleWindowBlur);
+        cleanups.push(() => targetWindow.removeEventListener("blur", handleWindowBlur));
+      }
+    } catch (error) {
+      cleanup();
+      throw error;
+    }
   }
 
   private unregisterDocumentEvents(targetDocument: Document): void {
-    this.clearInteractionForDocument(targetDocument);
-    this.registeredDocumentCleanups.get(targetDocument)?.();
+    try {
+      this.clearInteractionForDocument(targetDocument);
+    } finally {
+      this.registeredDocumentCleanups.get(targetDocument)?.();
+    }
   }
 
   private clearInteractionForDocument(targetDocument: Document): void {
@@ -435,20 +522,26 @@ export class PropertyValueOrderController {
   }
 
   private clearMobileArmTimer(): void {
-    if (this.mobileArmTimeoutId == null) {
-      return;
-    }
-
-    this.mobileArmWindow?.clearTimeout(this.mobileArmTimeoutId);
+    const timeoutId = this.mobileArmTimeoutId;
+    const targetWindow = this.mobileArmWindow;
     this.mobileArmTimeoutId = null;
     this.mobileArmWindow = null;
+
+    if (timeoutId != null) {
+      this.runInteractionCleanup(() => targetWindow?.clearTimeout(timeoutId));
+    }
   }
 
   private clearMobileArmState(): void {
-    this.clearMobileArmTimer();
     const armedPill = this.mobileArmedPill;
-    armedPill?.classList.remove(MOBILE_REORDER_ARMED_CLASS);
     this.mobileArmedPill = null;
+    this.clearMobileArmTimer();
+
+    if (armedPill != null) {
+      this.runInteractionCleanup(() => {
+        armedPill.classList.remove(MOBILE_REORDER_ARMED_CLASS);
+      });
+    }
   }
 
   private startTouchMoveCapture(targetDocument: Document): void {
@@ -462,12 +555,18 @@ export class PropertyValueOrderController {
   }
 
   private clearTouchMoveCapture(): void {
-    this.touchMoveDocument?.removeEventListener(
-      "touchmove",
-      this.handleTouchMove,
-      TOUCH_MOVE_LISTENER_OPTIONS,
-    );
+    const targetDocument = this.touchMoveDocument;
     this.touchMoveDocument = null;
+
+    if (targetDocument != null) {
+      this.runInteractionCleanup(() => {
+        targetDocument.removeEventListener(
+          "touchmove",
+          this.handleTouchMove,
+          TOUCH_MOVE_LISTENER_OPTIONS,
+        );
+      });
+    }
   }
 
   private readonly handleNativeDragStart = (event: DragEvent): void => {
@@ -1035,52 +1134,72 @@ export class PropertyValueOrderController {
 
     this.clearTouchLongPressTimer();
     this.clearTouchMoveCapture();
-    this.restoreNativeDragState?.();
+    const restoreNativeDragState = this.restoreNativeDragState;
     this.restoreNativeDragState = null;
     this.pressedPill = null;
     this.pressedPointerType = null;
     this.mobileDirectPointerId = null;
     this.clearMobileArmState();
+
+    if (restoreNativeDragState != null) {
+      this.runInteractionCleanup(restoreNativeDragState);
+    }
   }
 
   private clearInteractionState(): void {
     this.clearTouchLongPressTimer();
     this.clearTouchMoveCapture();
 
-    if (this.dragUpdateRafId != null) {
-      this.dragUpdateWindow?.cancelAnimationFrame(this.dragUpdateRafId);
-      this.dragUpdateRafId = null;
-    }
+    const dragUpdateRafId = this.dragUpdateRafId;
+    const dragUpdateWindow = this.dragUpdateWindow;
+    this.dragUpdateRafId = null;
     this.dragUpdateWindow = null;
+
+    if (dragUpdateRafId != null) {
+      this.runInteractionCleanup(() => {
+        dragUpdateWindow?.cancelAnimationFrame(dragUpdateRafId);
+      });
+    }
 
     this.pendingDragX = null;
     this.pendingDragY = null;
 
-    const targetDocument = this.dragState?.document;
-
-    if (this.dragState != null) {
-      updateInvalidDropTarget(
-        this.dragState.document,
-        this.dragState.invalidTarget,
-        null,
-      );
-      this.dragState.context.pill.classList.remove("property-order-dragging");
-      this.dragState.previewElement.remove();
-      this.dragState.indicatorElement.remove();
-    }
-
-    if (targetDocument != null) {
-      setDocumentDragCursorActive(targetDocument, false);
-    }
-    this.restoreNativeDragState?.();
-    this.restoreNativeDragState = null;
-
-    this.clearMobileArmState();
+    const dragState = this.dragState;
+    const restoreNativeDragState = this.restoreNativeDragState;
     this.dragState = null;
+    this.restoreNativeDragState = null;
     this.pressedPill = null;
     this.pressedPointerType = null;
     this.mobileDirectPointerId = null;
     this.interactionState = createIdleDragInteractionState();
+
+    if (dragState != null) {
+      this.runInteractionCleanup(() => {
+        updateInvalidDropTarget(dragState.document, dragState.invalidTarget, null);
+      });
+      this.runInteractionCleanup(() => {
+        dragState.context.pill.classList.remove("property-order-dragging");
+      });
+      this.runInteractionCleanup(() => dragState.previewElement.remove());
+      this.runInteractionCleanup(() => dragState.indicatorElement.remove());
+      this.runInteractionCleanup(() => {
+        setDocumentDragCursorActive(dragState.document, false);
+      });
+    }
+
+    if (restoreNativeDragState != null) {
+      this.runInteractionCleanup(restoreNativeDragState);
+    }
+
+    this.clearMobileArmState();
+  }
+
+  private runInteractionCleanup(cleanup: () => void): void {
+    try {
+      cleanup();
+    } catch (error) {
+      console.error("Property Order: failed to release a drag interaction resource", error);
+    }
   }
 
   private transition(event: DragInteractionEvent): DragInteractionAction[] {
@@ -1108,13 +1227,14 @@ export class PropertyValueOrderController {
   }
 
   private clearTouchLongPressTimer(): void {
-    if (this.touchLongPressTimeoutId == null) {
-      return;
-    }
-
-    this.touchLongPressWindow?.clearTimeout(this.touchLongPressTimeoutId);
+    const timeoutId = this.touchLongPressTimeoutId;
+    const targetWindow = this.touchLongPressWindow;
     this.touchLongPressTimeoutId = null;
     this.touchLongPressWindow = null;
+
+    if (timeoutId != null) {
+      this.runInteractionCleanup(() => targetWindow?.clearTimeout(timeoutId));
+    }
   }
 
   private maybeShowDiagnostic(messageKey: TranslationKey): void {
