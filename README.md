@@ -57,4 +57,11 @@ npm run check
 
 See the [developer documentation](https://github.com/ZHYX91/obsidian-property-order/blob/main/docs/architecture.en.md) for architecture and testing details.
 
-Questions and general feedback are welcome in [GitHub Discussions](https://github.com/ZHYX91/obsidian-property-order/discussions). Please use the structured [GitHub issue forms](https://github.com/ZHYX91/obsidian-property-order/issues/new/choose) for reproducible bugs and concrete feature requests. Report vulnerabilities privately through the repository's [security policy](https://github.com/ZHYX91/obsidian-property-order/security/policy). Remove private Vault paths, note content, YAML values, and credentials before posting publicly.
+## Support and security
+
+- Use [General](https://github.com/ZHYX91/obsidian-property-order/discussions/categories/general) for workflow ideas and general feedback.
+- Use [Q&A](https://github.com/ZHYX91/obsidian-property-order/discussions/categories/q-a) for usage and configuration questions.
+- Use the structured [GitHub issue forms](https://github.com/ZHYX91/obsidian-property-order/issues/new/choose) for reproducible bugs and concrete feature requests.
+- Report vulnerabilities privately through the repository's [security policy](https://github.com/ZHYX91/obsidian-property-order/security/policy).
+
+Remove private Vault paths, note content, YAML values, and credentials before posting publicly.
