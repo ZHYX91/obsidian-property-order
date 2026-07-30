@@ -29,12 +29,35 @@ The screenshot shows the custom tabbed settings UI used by Obsidian 1.12.x. Obsi
 - Keep keyboard navigation aligned with the final visible suggestion order.
 - Fail closed for unsupported YAML and fail open when Obsidian's suggestion DOM is not recognized.
 
-## Getting started
+## Requirements and compatibility
+
+- Obsidian 1.12.7 or later.
+- Desktop supports direct dragging. Mobile uses an explicit action in Obsidian's native long-press menu before dragging.
+- Property Order works only with top-level YAML properties that Obsidian identifies as text lists; detailed boundaries are listed below.
+
+## Installation
+
+### Manual installation
+
+Download `property-order-<version>.zip` from the [latest release](https://github.com/ZHYX91/obsidian-property-order/releases/latest) and extract it into `Vault/.obsidian/plugins/`. The archive contains the `property-order/` directory with `main.js`, `manifest.json`, and `styles.css`. Reload Obsidian, then enable Property Order under Community plugins.
+
+### Upgrade
+
+Back up and preserve `Vault/.obsidian/plugins/property-order/data.json` when it exists. Replace only `main.js`, `manifest.json`, and `styles.css`; delete `data.json` only when you explicitly want to reset all plugin preferences.
+
+## Usage
 
 1. Enable Property Order under **Settings → Community plugins**.
 2. Open a note with top-level YAML list properties in Obsidian Properties.
 3. On desktop, drag a value directly. On mobile, long-press a value, choose **Reorder** (or **Reorder or move**), then drag that value.
 4. Configure pinned, bottom, and hidden property-name rules as needed.
+
+## Settings
+
+- **General** controls the default list format used when a write cannot preserve the current representation.
+- **Value drag** enables or disables cross-property moves and related drag behavior.
+- **Key order** configures pinned, bottom, hidden, name-sorted, and usage-sorted native property-name suggestions.
+- Obsidian 1.12.x uses a three-tab settings page; Obsidian 1.13 or later exposes the same groups as searchable declarative settings pages.
 
 ## Limitations
 
@@ -44,9 +67,9 @@ The screenshot shows the custom tabbed settings UI used by Obsidian 1.12.x. Obsi
 - Converting bullet lists to bracket lists may discard item comments and blank lines that bracket syntax cannot represent.
 - Direct keyboard value reordering and screen-reader drag announcements are not currently provided.
 
-## Manual installation
+## Privacy and security
 
-Download `property-order-<version>.zip` from the [latest release](https://github.com/ZHYX91/obsidian-property-order/releases/latest) and extract it into `Vault/.obsidian/plugins/`. The archive already contains the `property-order/` directory and its three plugin files. Reload Obsidian, then enable Property Order under Community plugins.
+Property Order reads and updates the current note through Obsidian's editor and Vault APIs. It does not require an account, upload note content, or call a remote service. Unsupported YAML is rejected before writeback, and supported changes are committed through one verified editor transaction.
 
 ## Development
 
@@ -57,7 +80,7 @@ npm run check
 
 See the [developer documentation](https://github.com/ZHYX91/obsidian-property-order/blob/main/docs/architecture.en.md) for architecture and testing details.
 
-## Support and security
+## Support
 
 - Use [General](https://github.com/ZHYX91/obsidian-property-order/discussions/categories/general) for workflow ideas and general feedback.
 - Use [Q&A](https://github.com/ZHYX91/obsidian-property-order/discussions/categories/q-a) for usage and configuration questions.
@@ -65,3 +88,7 @@ See the [developer documentation](https://github.com/ZHYX91/obsidian-property-or
 - Report vulnerabilities privately through the repository's [security policy](https://github.com/ZHYX91/obsidian-property-order/security/policy).
 
 Remove private Vault paths, note content, YAML values, and credentials before posting publicly.
+
+## License
+
+[MIT](https://github.com/ZHYX91/obsidian-property-order/blob/main/LICENSE) © ZhengYX

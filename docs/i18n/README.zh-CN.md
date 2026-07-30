@@ -29,12 +29,35 @@ Property Order 用于安全地重排 Obsidian Properties 中的列表值，并�
 - 键盘导航始终遵循最终可见的候选顺序；
 - 不支持的 YAML 会安全拒绝写回，无法识别 Obsidian 候选 DOM 时保留原生行为。
 
-## 开始使用
+## 使用要求与兼容性
+
+- 需要 Obsidian 1.12.7 或更高版本；
+- 桌面端支持直接拖动；移动端需要先从 Obsidian 原生长按菜单选择相应操作，再进行拖动；
+- Property Order 只处理被 Obsidian 识别为文本列表的顶层 YAML 属性，详细边界见下方“限制”。
+
+## 安装
+
+### 手动安装
+
+从[最新版本](https://github.com/ZHYX91/obsidian-property-order/releases/latest)下载 `property-order-<version>.zip`，解压到 `Vault/.obsidian/plugins/`。压缩包包含 `property-order/` 目录及其中的 `main.js`、`manifest.json` 和 `styles.css`。重新加载 Obsidian 后，在第三方插件中启用 Property Order。
+
+### 升级
+
+如果存在 `Vault/.obsidian/plugins/property-order/data.json`，请先备份并保留。只替换 `main.js`、`manifest.json` 和 `styles.css`；只有在明确希望重置全部插件偏好时才删除 `data.json`。
+
+## 使用
 
 1. 在**设置 → 第三方插件**中启用 Property Order；
 2. 打开一篇含顶层 YAML 列表属性的笔记，并显示 Obsidian Properties；
 3. 桌面端直接拖动属性值；移动端长按属性值，选择“重排”或“重排或移动”，再拖动该值；
 4. 按需配置置顶、置底和隐藏属性名称规则。
+
+## 设置
+
+- “常规”控制无法保留当前表示形式时采用的默认列表格式；
+- “值拖拽”控制是否允许跨属性移动及相关拖动行为；
+- “属性键顺序”配置原生属性名称候选的置顶、置底、隐藏、按名称排序和按使用次数排序；
+- Obsidian 1.12.x 使用三页签设置界面；Obsidian 1.13 或更高版本会把同一组设置显示为支持搜索的声明式页面。
 
 ## 限制
 
@@ -44,9 +67,9 @@ Property Order 用于安全地重排 Obsidian Properties 中的列表值，并�
 - 将无序列表转换为中括号列表时，可能丢失中括号语法无法表达的项目注释和空行；
 - 当前不提供键盘直接重排属性值或屏幕阅读器拖拽播报。
 
-## 手动安装
+## 隐私与安全
 
-从[最新版本](https://github.com/ZHYX91/obsidian-property-order/releases/latest)下载 `property-order-<version>.zip`，解压到 `Vault/.obsidian/plugins/`。压缩包已经包含 `property-order/` 目录和三个插件文件。重新加载 Obsidian 后，在第三方插件中启用 Property Order。
+Property Order 通过 Obsidian 的编辑器和 Vault API 读取并更新当前笔记，不要求账号，不上传笔记内容，也不调用远程服务。不支持的 YAML 会在写回前被拒绝；受支持的修改通过一次经核对的编辑器事务提交。
 
 ## 开发
 
@@ -57,7 +80,7 @@ npm run check
 
 架构与测试细节见[开发者文档](https://github.com/ZHYX91/obsidian-property-order/blob/main/docs/architecture.zh-CN.md)。
 
-## 支持与安全
+## 支持
 
 - 工作流想法和一般反馈请发布到 [General](https://github.com/ZHYX91/obsidian-property-order/discussions/categories/general)；
 - 使用和配置问题请发布到 [Q&A](https://github.com/ZHYX91/obsidian-property-order/discussions/categories/q-a)；
@@ -65,3 +88,7 @@ npm run check
 - 安全漏洞请按照仓库的[安全策略](https://github.com/ZHYX91/obsidian-property-order/security/policy)私密报告。
 
 公开发布前请移除 Vault 路径、笔记内容、YAML 属性值和凭据。
+
+## 许可证
+
+[MIT](https://github.com/ZHYX91/obsidian-property-order/blob/main/LICENSE) © ZhengYX

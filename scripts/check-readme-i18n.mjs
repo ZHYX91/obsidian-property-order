@@ -1,4 +1,4 @@
-import { readFileSync, readdirSync } from "node:fs";
+import { existsSync, readFileSync, readdirSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -6,10 +6,49 @@ const projectRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "
 const config = {
   repository: "ZHYX91/obsidian-property-order",
   languages: [
-    { label: "English", path: "README.md" },
-    { label: "简体中文", path: "docs/i18n/README.zh-CN.md" },
+    {
+      label: "English",
+      path: "README.md",
+      sections: [
+        "Demo",
+        "Features",
+        "Requirements and compatibility",
+        "Installation",
+        "Usage",
+        "Settings",
+        "Limitations",
+        "Privacy and security",
+        "Development",
+        "Support",
+        "License",
+      ],
+    },
+    {
+      label: "简体中文",
+      path: "docs/i18n/README.zh-CN.md",
+      sections: [
+        "演示",
+        "功能特性",
+        "使用要求与兼容性",
+        "安装",
+        "使用",
+        "设置",
+        "限制",
+        "隐私与安全",
+        "开发",
+        "支持",
+        "许可证",
+      ],
+    },
   ],
   packagedReadmeDir: null,
+  requiredTokens: [
+    "https://github.com/ZHYX91/obsidian-property-order/releases/latest",
+    "`main.js`",
+    "`manifest.json`",
+    "`styles.css`",
+    "`data.json`",
+  ],
 };
 
 const ignoredDirectories = new Set([
@@ -55,7 +94,36 @@ function compareFileSets(label, actualFiles, expectedFiles) {
   }
 }
 
-function validateReadmeHeader(filePath, title, navigation) {
+function validateLocalLinks(filePath, source) {
+  for (const match of source.matchAll(/\[[^\]]*\]\(([^)]+)\)/gu)) {
+    const rawTarget = match[1].trim();
+    if (/^(?:[a-z][a-z0-9+.-]*:|#)/iu.test(rawTarget)) {
+      continue;
+    }
+
+    let target = rawTarget.replace(/^<|>$/gu, "").split("#", 1)[0].split("?", 1)[0];
+    try {
+      target = decodeURIComponent(target);
+    } catch {
+      errors.push(`${filePath} contains an invalid encoded link: ${rawTarget}`);
+      continue;
+    }
+    if (!target) {
+      continue;
+    }
+
+    const resolvedTarget = path.resolve(path.dirname(resolveProjectPath(filePath)), target);
+    const relativeTarget = path.relative(projectRoot, resolvedTarget);
+    if (relativeTarget.startsWith("..") || path.isAbsolute(relativeTarget)) {
+      errors.push(`${filePath} contains a local link outside the repository: ${rawTarget}`);
+    } else if (!existsSync(resolvedTarget)) {
+      errors.push(`${filePath} contains a missing local link: ${rawTarget}`);
+    }
+  }
+}
+
+function validateReadme(language, title, navigation) {
+  const { path: filePath, sections } = language;
   let source;
   try {
     source = readFileSync(resolveProjectPath(filePath), "utf8").replace(/^\uFEFF/u, "");
@@ -71,6 +139,18 @@ function validateReadmeHeader(filePath, title, navigation) {
   if (lines[1] !== "" || lines[2] !== navigation || lines[3] !== "") {
     errors.push(`${filePath} must place the shared language navigation after its title`);
   }
+  const actualSections = [...source.matchAll(/^## (.+)$/gmu)].map((match) => match[1].trim());
+  if (JSON.stringify(actualSections) !== JSON.stringify(sections)) {
+    errors.push(
+      `${filePath} must use the configured H2 section order; expected ${sections.join(" -> ")}, got ${actualSections.join(" -> ")}`,
+    );
+  }
+  for (const token of config.requiredTokens) {
+    if (!source.includes(token)) {
+      errors.push(`${filePath} is missing required README contract token: ${token}`);
+    }
+  }
+  validateLocalLinks(filePath, source);
 }
 
 function findLocalizedReadmes(directory, result = []) {
@@ -112,8 +192,8 @@ compareFileSets(
   listReadmeFiles("docs/i18n"),
   translatedReadmes.map((filePath) => path.basename(filePath)),
 );
-for (const readmePath of publicReadmes) {
-  validateReadmeHeader(readmePath, manifest.name, expectedNavigation);
+for (const language of config.languages) {
+  validateReadme(language, manifest.name, expectedNavigation);
 }
 
 const allowedLocalizedReadmes = new Set(translatedReadmes);
@@ -128,7 +208,11 @@ if (config.packagedReadmeDir) {
   for (const fileName of packagedReadmes) {
     const packagedPath = normalizePath(path.join(config.packagedReadmeDir, fileName));
     allowedLocalizedReadmes.add(packagedPath);
-    validateReadmeHeader(packagedPath, manifest.name, expectedNavigation);
+    validateReadme(
+      { path: packagedPath, sections: config.languages[0].sections },
+      manifest.name,
+      expectedNavigation,
+    );
   }
   packagedReadmeCount = packagedReadmes.length;
 }
