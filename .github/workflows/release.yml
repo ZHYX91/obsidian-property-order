@@ -42,37 +42,6 @@ jobs:
       - name: Build manual installation archive
         run: node scripts/release-assets.mjs archive --version "$GITHUB_REF_NAME"
 
-      - name: Verify repository release immutability
-        env:
-          IMMUTABILITY_TOKEN: ${{ secrets.RELEASE_IMMUTABILITY_TOKEN }}
-        shell: bash
-        run: |
-          if [[ -z "${IMMUTABILITY_TOKEN:-}" ]]; then
-            echo "RELEASE_IMMUTABILITY_TOKEN must grant read-only repository Administration access." >&2
-            exit 1
-          fi
-
-          setting_response="$RUNNER_TEMP/immutable-release-setting.json"
-          setting_status="$(
-            curl --silent --show-error \
-              --output "$setting_response" \
-              --write-out "%{http_code}" \
-              --header "Accept: application/vnd.github+json" \
-              --header "Authorization: Bearer ${IMMUTABILITY_TOKEN}" \
-              --header "X-GitHub-Api-Version: 2026-03-10" \
-              "${GITHUB_API_URL}/repos/${GITHUB_REPOSITORY}/immutable-releases"
-          )"
-
-          if [[ "$setting_status" != "200" ]]; then
-            echo "Could not verify repository release immutability (HTTP ${setting_status})." >&2
-            exit 1
-          fi
-
-          if ! jq --exit-status '.enabled == true' "$setting_response" >/dev/null; then
-            echo "Enable immutable releases in repository settings before publishing." >&2
-            exit 1
-          fi
-
       - name: Verify pushed release tag identity
         shell: bash
         run: |

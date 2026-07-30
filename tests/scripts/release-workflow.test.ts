@@ -30,12 +30,13 @@ describe("release workflow contract", () => {
     expect(workflow).toContain("node scripts/release-assets.mjs archive");
   });
 
-  it("requires the repository-level immutable Release setting", () => {
-    expect(workflow).toContain("secrets.RELEASE_IMMUTABILITY_TOKEN");
-    expect(workflow).toContain(
+  it("does not require a repository administration credential", () => {
+    expect(workflow).not.toContain("secrets.RELEASE_IMMUTABILITY_TOKEN");
+    expect(workflow).not.toContain(
       "${GITHUB_API_URL}/repos/${GITHUB_REPOSITORY}/immutable-releases",
     );
-    expect(workflow).toContain("'.enabled == true'");
+    expect(workflow).toContain(".immutable == $expected_immutable");
+    expect(workflow).toContain('"published-post-publish"');
     expect(workflow).not.toContain("--request PUT");
     expect(workflow).not.toContain("-X PUT");
     expect(workflow).not.toContain("gh api --method PUT");
