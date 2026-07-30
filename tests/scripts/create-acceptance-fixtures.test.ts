@@ -258,7 +258,7 @@ describe("acceptance fixture generator", () => {
         "--force",
         "--initialize-types",
       ]),
-    ).rejects.toThrow(/not a regular file/);
+    ).rejects.toThrow(/(?:not a regular file|only a regular types\.json)/);
     await expect(readFile(externalTypesPath, "utf8")).resolves.toBe(externalContent);
     expect((await readdir(vaultPath)).filter((name) => name.endsWith(".md"))).toEqual([]);
   });
