@@ -114,6 +114,7 @@ interface ControllerHarness {
     setContent(content: string): void;
     transaction: ReturnType<typeof vi.fn>;
   };
+  editorChange(editor?: Editor): void;
   file: TFile;
   frontmatter: Record<string, unknown>;
   layoutChange(): void;
@@ -335,6 +336,7 @@ function createHarness(): ControllerHarness {
   let windowOpenCallback: ((_workspaceWindow: unknown, targetWindow: Window) => void) | null = null;
   let windowCloseCallback: ((_workspaceWindow: unknown, targetWindow: Window) => void) | null = null;
   let layoutChangeCallback: (() => void) | null = null;
+  let editorChangeCallback: ((editor: Editor) => void) | null = null;
   const plugin = {
     app: {
       metadataCache: {
@@ -362,6 +364,8 @@ function createHarness(): ControllerHarness {
               ) => void;
             } else if (name === "layout-change") {
               layoutChangeCallback = callback;
+            } else if (name === "editor-change") {
+              editorChangeCallback = callback as (editor: Editor) => void;
             }
 
             return { type: name };
@@ -385,6 +389,9 @@ function createHarness(): ControllerHarness {
     container,
     controller,
     editor,
+    editorChange(targetEditor = editor.instance) {
+      editorChangeCallback?.(targetEditor);
+    },
     file,
     frontmatter,
     layoutChange() {
@@ -1554,6 +1561,106 @@ describe("PropertyValueOrderController", () => {
     expect(harness.editor.getContent()).toBe("---\nflow: [beta, alpha]\n---\n");
     expect(harness.editor.transaction).toHaveBeenCalledTimes(2);
     expect(noticeSpy).not.toHaveBeenCalled();
+    harness.cleanup();
+  });
+
+  it("reconciles delayed undo and redo editor changes without another transaction", async () => {
+    installRafHarness();
+    const harness = createHarness();
+    const originalContent = "---\nflow: [alpha, beta]\n---\n";
+    const committedContent = "---\nflow: [beta, alpha]\n---\n";
+    const metadataContainer = harness.leaf.containerEl.querySelector<HTMLElement>(
+      ".metadata-container",
+    );
+    const synchronize = vi.fn((properties: Record<string, unknown>) => {
+      const values = properties.flow;
+      const content =
+        Array.isArray(values) && values[0] === "beta" ? committedContent : originalContent;
+      rerenderHostListProperties(harness.leaf.containerEl, content);
+    });
+    Object.assign(harness.leaf.view, {
+      getFile: () => harness.file,
+      metadataEditor: {
+        containerEl: metadataContainer,
+        owner: harness.leaf.view,
+        synchronize,
+      },
+    });
+    vi.mocked(parseYaml).mockImplementation((body: string) =>
+      body.includes("[beta, alpha]")
+        ? { flow: ["beta", "alpha"] }
+        : { flow: ["alpha", "beta"] },
+    );
+
+    dispatchPointer(harness.pill, "pointerdown", 10);
+    dispatchPointer(document, "pointermove", 250);
+    dispatchPointer(document, "pointerup", 250);
+
+    await waitForDragFinish();
+    expect(harness.editor.getContent()).toBe(committedContent);
+    expect(synchronize).not.toHaveBeenCalled();
+
+    harness.editorChange({} as Editor);
+    await new Promise<void>((resolve) => window.setTimeout(resolve, 0));
+    expect(synchronize).not.toHaveBeenCalled();
+
+    harness.editor.setContent(originalContent);
+    harness.editorChange();
+
+    await vi.waitFor(() => expect(synchronize).toHaveBeenCalledTimes(1));
+    expect(
+      Array.from(
+        harness.leaf.containerEl.querySelectorAll<HTMLElement>(".multi-select-pill"),
+      ).map((pill) => pill.textContent),
+    ).toEqual(["alpha", "beta"]);
+
+    harness.editor.setContent(committedContent);
+    harness.editorChange();
+
+    await vi.waitFor(() => expect(synchronize).toHaveBeenCalledTimes(2));
+    expect(
+      Array.from(
+        harness.leaf.containerEl.querySelectorAll<HTMLElement>(".multi-select-pill"),
+      ).map((pill) => pill.textContent),
+    ).toEqual(["beta", "alpha"]);
+    expect(harness.editor.transaction).toHaveBeenCalledTimes(1);
+    expect(harness.leaf.view.requestSave).toHaveBeenCalledTimes(1);
+    expect(noticeSpy).not.toHaveBeenCalled();
+    harness.cleanup();
+  });
+
+  it("invalidates delayed post-drag reconciliation after a third editor state", async () => {
+    installRafHarness();
+    const harness = createHarness();
+    const originalContent = "---\nflow: [alpha, beta]\n---\n";
+    const metadataContainer = harness.leaf.containerEl.querySelector<HTMLElement>(
+      ".metadata-container",
+    );
+    const synchronize = vi.fn();
+    Object.assign(harness.leaf.view, {
+      getFile: () => harness.file,
+      metadataEditor: {
+        containerEl: metadataContainer,
+        owner: harness.leaf.view,
+        synchronize,
+      },
+    });
+    vi.mocked(parseYaml).mockReturnValue({ flow: ["alpha", "beta"] });
+
+    dispatchPointer(harness.pill, "pointerdown", 10);
+    dispatchPointer(document, "pointermove", 250);
+    dispatchPointer(document, "pointerup", 250);
+    await waitForDragFinish();
+
+    harness.editor.setContent("---\nflow: [external]\n---\n");
+    harness.editorChange();
+    harness.editor.setContent(originalContent);
+    harness.editorChange();
+    await new Promise<void>((resolve) => window.setTimeout(resolve, 0));
+
+    expect(synchronize).not.toHaveBeenCalled();
+    expect(harness.editor.transaction).toHaveBeenCalledTimes(1);
+    expect(harness.leaf.view.requestSave).toHaveBeenCalledTimes(1);
     harness.cleanup();
   });
 

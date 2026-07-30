@@ -229,7 +229,9 @@ describe("writePropertyValueDrop", () => {
 
     expect(result).toEqual({
       status: "persistence-failed",
+      changedPropertyKeys: ["tags"],
       committedContent: expectedContent,
+      previousContent: content,
     });
     expect(fixture.getContent()).toBe(expectedContent);
     expect(warning).toHaveBeenCalledOnce();

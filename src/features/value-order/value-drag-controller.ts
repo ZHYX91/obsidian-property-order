@@ -102,6 +102,10 @@ interface PropertiesRefreshNoticeState {
   releaseButton: () => void;
 }
 
+interface PostDragReconciliationContext extends PropertiesRefreshRecoveryContext {
+  revision: number;
+}
+
 interface TrailingClickSuppression {
   clientX: number;
   clientY: number;
@@ -114,6 +118,10 @@ type PropertiesRefreshRetryResult = "diverged" | "failed" | "refreshed" | "stale
 type PropertiesRefreshContextState =
   | { content: string; status: "current" }
   | { status: "diverged" | "stale" };
+type CommittedValueWritebackResult = Extract<
+  ValueWritebackResult,
+  { status: "persistence-failed" | "written" }
+>;
 type WrittenValueWritebackResult = Extract<ValueWritebackResult, { status: "written" }>;
 
 const TOUCH_MOVE_LISTENER_OPTIONS: AddEventListenerOptions = {
@@ -149,6 +157,10 @@ export class PropertyValueOrderController {
   private readonly propertiesRefreshNotices = new Map<
     HTMLElement,
     PropertiesRefreshNoticeState
+  >();
+  private readonly postDragReconciliations = new Map<
+    HTMLElement,
+    PostDragReconciliationContext
   >();
   private readonly registeredDocumentCleanups = new Map<Document, () => void>();
   private readonly registeredEventCleanups: Array<() => void> = [];
@@ -192,9 +204,16 @@ export class PropertyValueOrderController {
       });
       const layoutChangeRef = this.plugin.app.workspace.on("layout-change", () => {
         this.pruneDisconnectedPropertiesRefreshNotices();
+        this.pruneDisconnectedPostDragReconciliations();
       });
       this.registerControllerEvent(layoutChangeRef, () => {
         this.plugin.app.workspace.offref(layoutChangeRef);
+      });
+      const editorChangeRef = this.plugin.app.workspace.on("editor-change", (editor) => {
+        this.handleEditorChange(editor);
+      });
+      this.registerControllerEvent(editorChangeRef, () => {
+        this.plugin.app.workspace.offref(editorChangeRef);
       });
     } catch (error) {
       this.dispose();
@@ -230,6 +249,7 @@ export class PropertyValueOrderController {
     try {
       this.clearTrailingClickSuppression();
       this.clearAllPropertiesRefreshNotices();
+      this.postDragReconciliations.clear();
     } catch (error) {
       console.error("Property Order: failed to clear post-drag recovery state", error);
     } finally {
@@ -333,6 +353,7 @@ export class PropertyValueOrderController {
     try {
       this.clearInteractionForDocument(targetDocument);
       this.clearPropertiesRefreshNoticesForDocument(targetDocument);
+      this.clearPostDragReconciliationsForDocument(targetDocument);
     } finally {
       this.registeredDocumentCleanups.get(targetDocument)?.();
     }
@@ -1076,12 +1097,14 @@ export class PropertyValueOrderController {
 
       if (writebackResult.status === "persistence-failed") {
         this.focusEditorAfterCommittedDrag(dragState, target);
+        this.trackPostDragReconciliation(dragState, writebackResult);
         new Notice(this.t("notice.persistenceFailed"));
         return;
       }
 
       if (writebackResult.status === "written") {
         await this.finalizeWrittenDrag(dragState, target, writebackResult);
+        this.trackPostDragReconciliation(dragState, writebackResult);
       }
     } catch (error) {
       if (this.isDragOperationOwned(dragState)) {
@@ -1378,6 +1401,165 @@ export class PropertyValueOrderController {
     return targetWindow == null
       ? Promise.resolve()
       : new Promise((resolve) => targetWindow.setTimeout(resolve, 0));
+  }
+
+  private trackPostDragReconciliation(
+    dragState: DragState,
+    writebackResult: CommittedValueWritebackResult,
+  ): void {
+    const context: PostDragReconciliationContext = {
+      committedContent: writebackResult.committedContent,
+      document: dragState.document,
+      editor: dragState.editor,
+      file: dragState.file,
+      generation: dragState.generation,
+      paneContainer: dragState.paneContainer,
+      previousContent: writebackResult.previousContent,
+      propertyKeys: writebackResult.changedPropertyKeys,
+      revision: 0,
+      view: dragState.paneView,
+    };
+
+    if (this.getPropertiesRefreshContextState(context).status === "current") {
+      this.postDragReconciliations.set(context.paneContainer, context);
+    }
+  }
+
+  private handleEditorChange(editor: Editor): void {
+    for (const context of Array.from(this.postDragReconciliations.values())) {
+      if (context.editor !== editor) {
+        continue;
+      }
+
+      const state = this.getPropertiesRefreshContextState(context);
+
+      if (state.status !== "current") {
+        this.clearPostDragReconciliation(context.paneContainer);
+        continue;
+      }
+
+      context.revision += 1;
+      const revision = context.revision;
+      void this.reconcilePostDragEditorChange(context, revision).catch((error: unknown) => {
+        console.warn("Property Order: failed to reconcile Properties after editor change", error);
+      });
+    }
+  }
+
+  private async reconcilePostDragEditorChange(
+    context: PostDragReconciliationContext,
+    revision: number,
+  ): Promise<void> {
+    await this.waitForHostUiSettlement(context.document);
+
+    if (!this.isPostDragReconciliationCurrent(context, revision)) {
+      return;
+    }
+
+    const state = this.getPropertiesRefreshContextState(context);
+
+    if (state.status !== "current") {
+      this.clearPostDragReconciliation(context.paneContainer);
+      return;
+    }
+
+    const expectedContent = state.content;
+
+    if (
+      this.arePropertiesAlignedWithContent(
+        context.paneContainer,
+        context.propertyKeys,
+        expectedContent,
+      )
+    ) {
+      this.clearPropertiesRefreshNotice(context.paneContainer);
+      return;
+    }
+
+    reconcileMetadataEditorProperties({
+      canRefresh: () => {
+        if (!this.isPostDragReconciliationCurrent(context, revision)) {
+          return false;
+        }
+
+        const currentState = this.getPropertiesRefreshContextState(context);
+        return currentState.status === "current" && currentState.content === expectedContent;
+      },
+      document: context.document,
+      editor: context.editor,
+      expectedContent,
+      file: context.file,
+      isAligned: () =>
+        this.arePropertiesAlignedWithContent(
+          context.paneContainer,
+          context.propertyKeys,
+          expectedContent,
+        ),
+      paneContainer: context.paneContainer,
+      propertyKeys: context.propertyKeys,
+      view: context.view,
+    });
+
+    await this.waitForHostUiSettlement(context.document);
+
+    if (!this.isPostDragReconciliationCurrent(context, revision)) {
+      return;
+    }
+
+    const settledState = this.getPropertiesRefreshContextState(context);
+
+    if (settledState.status !== "current") {
+      this.clearPostDragReconciliation(context.paneContainer);
+      return;
+    }
+
+    if (settledState.content !== expectedContent) {
+      return;
+    }
+
+    if (
+      this.arePropertiesAlignedWithContent(
+        context.paneContainer,
+        context.propertyKeys,
+        expectedContent,
+      )
+    ) {
+      this.clearPropertiesRefreshNotice(context.paneContainer);
+      return;
+    }
+
+    this.showPropertiesRefreshRecovery(context);
+  }
+
+  private isPostDragReconciliationCurrent(
+    context: PostDragReconciliationContext,
+    revision: number,
+  ): boolean {
+    return (
+      this.postDragReconciliations.get(context.paneContainer) === context &&
+      context.revision === revision
+    );
+  }
+
+  private clearPostDragReconciliation(paneContainer: HTMLElement): void {
+    this.postDragReconciliations.delete(paneContainer);
+    this.clearPropertiesRefreshNotice(paneContainer);
+  }
+
+  private clearPostDragReconciliationsForDocument(targetDocument: Document): void {
+    for (const [paneContainer, context] of this.postDragReconciliations) {
+      if (context.document === targetDocument) {
+        this.clearPostDragReconciliation(paneContainer);
+      }
+    }
+  }
+
+  private pruneDisconnectedPostDragReconciliations(): void {
+    for (const paneContainer of Array.from(this.postDragReconciliations.keys())) {
+      if (!paneContainer.isConnected) {
+        this.clearPostDragReconciliation(paneContainer);
+      }
+    }
   }
 
   private showPropertiesRefreshRecovery(context: PropertiesRefreshRecoveryContext): void {

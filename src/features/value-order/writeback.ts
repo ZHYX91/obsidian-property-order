@@ -22,7 +22,12 @@ export type ValueWritebackResult =
       reason: "position-resolution-threw" | "transaction-ignored" | "transaction-threw";
     }
   | { status: "diverged"; actualContent: string }
-  | { status: "persistence-failed"; committedContent: string }
+  | {
+      status: "persistence-failed";
+      changedPropertyKeys: readonly string[];
+      committedContent: string;
+      previousContent: string;
+    }
   | { status: "skipped" }
   | {
       status: "written";
@@ -177,7 +182,9 @@ export async function writePropertyValueDrop(
   if (commitResult.status === "persistence-failed") {
     return {
       status: "persistence-failed",
+      changedPropertyKeys,
       committedContent: commitResult.actualContent,
+      previousContent: currentContent,
     };
   }
 
