@@ -25,7 +25,8 @@ The screenshot shows the custom tabbed settings UI used by Obsidian 1.12.x. Obsi
 - Treat empty or scalar YAML storage as a text list when Obsidian's native Properties UI assigns the list type, allowing safe moves in or out and normalizing every affected non-string item from its original token text.
 - Preserve the current list format by default, or write every affected property as bracket or bullet lists. Same-property reorders and cross-property moves each commit through one verified editor transaction.
 - Pin, move to the bottom, or hide native property-name suggestions.
-- Sort suggestions by mixed-language name or property usage count.
+- Sort suggestions by mixed-language name, strict recent-use order, or the number of Markdown notes containing each property.
+- Advance recent history only after Metadata Cache confirms that the property-name commit succeeded; hover, keyboard navigation, cancellation, and unconfirmed edits do not count.
 - Keep keyboard navigation aligned with the final visible suggestion order.
 - Fail closed for unsupported YAML and fail open when Obsidian's suggestion DOM is not recognized.
 
@@ -50,13 +51,15 @@ Back up and preserve `Vault/.obsidian/plugins/property-order/data.json` when it 
 1. Enable Property Order under **Settings → Community plugins**.
 2. Open a note with top-level YAML list properties in Obsidian Properties.
 3. On desktop, drag a value directly. On mobile, long-press a value, choose **Reorder** (or **Reorder or move**), then drag that value.
-4. Configure pinned, bottom, and hidden property-name rules as needed.
+4. Configure pinned, bottom, and hidden property-name rules, choose Name, Recently used, or Note count, and clear device-local recent history when needed.
 
 ## Settings
 
 - **General** controls the default list format used when a write cannot preserve the current representation.
 - **Value drag** enables or disables cross-property moves and related drag behavior.
-- **Key order** configures pinned, bottom, hidden, name-sorted, and usage-sorted native property-name suggestions.
+- **Key order** configures pinned, bottom, hidden, name-sorted, recently used, and note-count-sorted native property-name suggestions. Recent order is strict MRU: pinned rules remain first, confirmed recent names follow in newest-first order, names absent from history fall back to name order, and bottom rules remain last. Note count means the number of cached Markdown notes containing the property, not interaction frequency.
+- Recent history contains at most 100 exact property names in order and no timestamps. It is stored through Obsidian local storage for the current Vault on the current device; it is separate from `data.json` and is not synced. **Clear recent property history** removes it.
+- Name and Recently used sorting do not traverse the Vault. Note count scans cached frontmatter lazily only when that mode needs data and reuses the invalidatable cache.
 - Obsidian 1.12.x uses a three-tab settings page; Obsidian 1.13 or later exposes the same groups as searchable declarative settings pages.
 
 ## Limitations
@@ -69,7 +72,7 @@ Back up and preserve `Vault/.obsidian/plugins/property-order/data.json` when it 
 
 ## Privacy and security
 
-Property Order reads and updates the current note through Obsidian's editor and Vault APIs. It does not require an account, upload note content, or call a remote service. Unsupported YAML is rejected before writeback, and supported changes are committed through one verified editor transaction.
+Property Order reads and updates the current note through Obsidian's editor and Vault APIs. It does not require an account, upload note content, or call a remote service. Unsupported YAML is rejected before writeback, and supported changes are committed through one verified editor transaction. While property-name suggestion enhancement is enabled, the plugin keeps only an ordered, timestamp-free list of up to 100 confirmed property names in Obsidian's per-Vault, device-local storage so recent order is ready when selected; the settings page provides a clear action.
 
 ## Development
 

@@ -11,7 +11,10 @@ import {
 import { getPropertyNameSuggestions } from "../core/suggestions/property-names";
 import { t, type TranslationKey } from "../shared/i18n";
 import { getCachedPropertyKeyUsage } from "../obsidian/metadata";
-import type { PropertyOrderSettings } from "../shared/types";
+import type {
+  KeySuggestionSortMode,
+  PropertyOrderSettings,
+} from "../shared/types";
 import { PropertyNameSuggest } from "./property-name-suggest";
 import {
   applyPropertyOrderControlValue,
@@ -27,6 +30,7 @@ import {
 } from "./settings-tabs";
 
 interface PropertyOrderSettingsHost extends Plugin {
+  clearRecentPropertyKeys(): boolean;
   hasPendingSettingsSave(): boolean;
   saveSettings(refreshKeySuggestions?: boolean): Promise<void>;
   propertyOrderSettings: PropertyOrderSettings;
@@ -238,10 +242,14 @@ export class PropertyOrderSettingTab extends PluginSettingTab {
           type: "dropdown",
           key: "keySuggestionSortMode",
           defaultValue: "name",
-          options: {
-            name: this.t("settings.keyOrder.sortMode.nameOption"),
-            usage: this.t("settings.keyOrder.sortMode.usage"),
-          },
+          options: this.getKeySuggestionSortOptions(),
+        },
+      },
+      {
+        name: this.t("settings.keyOrder.recentHistory.name"),
+        desc: this.t("settings.keyOrder.recentHistory.desc"),
+        render: (setting) => {
+          this.addClearRecentPropertyKeysButton(setting);
         },
       },
       this.createKeyListDefinition(
@@ -290,6 +298,29 @@ export class PropertyOrderSettingTab extends PluginSettingTab {
         return this.trackKeyListSetting(lifecycle);
       },
     };
+  }
+
+  private getKeySuggestionSortOptions(): Record<KeySuggestionSortMode, string> {
+    return {
+      name: this.t("settings.keyOrder.sortMode.nameOption"),
+      recent: this.t("settings.keyOrder.sortMode.recent"),
+      usage: this.t("settings.keyOrder.sortMode.usage"),
+    };
+  }
+
+  private addClearRecentPropertyKeysButton(setting: Setting): void {
+    setting.addButton((button) => {
+      button
+        .setButtonText(this.t("settings.keyOrder.recentHistory.clear"))
+        .onClick(() => {
+          const persisted = this.plugin.clearRecentPropertyKeys();
+          new Notice(this.t(
+            persisted
+              ? "notice.recentHistoryCleared"
+              : "notice.recentHistoryClearFailed",
+          ));
+        });
+    });
   }
 
   private createSaveStatusDefinition(): SettingDefinitionItem {
@@ -455,14 +486,23 @@ export class PropertyOrderSettingTab extends PluginSettingTab {
       .setName(this.t("settings.keyOrder.sortMode.name"))
       .setDesc(this.t("settings.keyOrder.sortMode.desc"))
       .addDropdown((dropdown) => {
+        for (const [value, label] of Object.entries(
+          this.getKeySuggestionSortOptions(),
+        )) {
+          dropdown.addOption(value, label);
+        }
+
         dropdown
-          .addOption("name", this.t("settings.keyOrder.sortMode.nameOption"))
-          .addOption("usage", this.t("settings.keyOrder.sortMode.usage"))
           .setValue(this.plugin.propertyOrderSettings.keySuggestionSortMode)
           .onChange(async (value) => {
             await this.applyImperativeControlValue("keySuggestionSortMode", value);
           });
       });
+
+    const recentHistorySetting = new Setting(containerEl)
+      .setName(this.t("settings.keyOrder.recentHistory.name"))
+      .setDesc(this.t("settings.keyOrder.recentHistory.desc"));
+    this.addClearRecentPropertyKeysButton(recentHistorySetting);
 
     const surfaceGeneration = this.settingsSurfaceGeneration;
     this.trackKeyListSetting(

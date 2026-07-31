@@ -1,5 +1,5 @@
 export type ListWritebackFormat = "preserve" | "flow" | "block";
-export type KeySuggestionSortMode = "name" | "usage";
+export type KeySuggestionSortMode = "name" | "recent" | "usage";
 export type PluginLanguage = "auto" | "en" | "zh-CN" | "zh-TW";
 
 export interface PropertyOrderSettings {
@@ -42,6 +42,7 @@ export interface PropertyKeyOrderOptions {
   bottomKeys: string[];
   hiddenPatterns: string[];
   pinnedKeys: string[];
+  recentKeys: string[];
   sortMode: KeySuggestionSortMode;
   usage: PropertyKeyUsage[];
 }

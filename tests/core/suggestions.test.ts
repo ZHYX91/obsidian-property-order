@@ -8,6 +8,7 @@ describe("orderPropertyKeys", () => {
       bottomKeys: ["tags"],
       hiddenPatterns: ["TQ_*"],
       pinnedKeys: ["主题", "aliases"],
+      recentKeys: [],
       sortMode: "name",
       usage: [],
     });
@@ -20,6 +21,7 @@ describe("orderPropertyKeys", () => {
       bottomKeys: [],
       hiddenPatterns: [],
       pinnedKeys: [],
+      recentKeys: [],
       sortMode: "usage",
       usage: [
         { key: "alpha", count: 3 },
@@ -36,6 +38,7 @@ describe("orderPropertyKeys", () => {
       bottomKeys: [],
       hiddenPatterns: [],
       pinnedKeys: [],
+      recentKeys: [],
       sortMode: "usage",
       usage: [
         { key: "张三", count: 2 },
@@ -48,11 +51,35 @@ describe("orderPropertyKeys", () => {
     expect(orderedKeys.map((item) => item.key)).toEqual(["Alpha", "beta", "李四", "张三"]);
   });
 
+  it("sorts recorded keys by most-recent order and unrecorded keys by name", () => {
+    const orderedKeys = orderPropertyKeys(["beta", "alpha", "gamma", "delta"], {
+      bottomKeys: [],
+      hiddenPatterns: [],
+      pinnedKeys: [],
+      recentKeys: ["gamma", "beta"],
+      sortMode: "recent",
+      usage: [
+        { key: "delta", count: 100 },
+        { key: "alpha", count: 80 },
+        { key: "gamma", count: 1 },
+        { key: "beta", count: 0 },
+      ],
+    });
+
+    expect(orderedKeys.map((item) => item.key)).toEqual([
+      "gamma",
+      "beta",
+      "alpha",
+      "delta",
+    ]);
+  });
+
   it("deduplicates keys without exposing unused source indexes", () => {
     const orderedKeys = orderPropertyKeys(["tags", "aliases", "tags"], {
       bottomKeys: [],
       hiddenPatterns: [],
       pinnedKeys: [],
+      recentKeys: [],
       sortMode: "name",
       usage: [],
     });
@@ -70,6 +97,7 @@ describe("orderPropertyKeys", () => {
         bottomKeys: ["bot*"],
         hiddenPatterns: ["HIDEME", "hidden*"],
         pinnedKeys: ["pinned"],
+        recentKeys: [],
         sortMode: "name",
         usage: [],
       },
@@ -85,6 +113,7 @@ describe("orderPropertyKeys", () => {
         bottomKeys: ["*_date"],
         hiddenPatterns: [],
         pinnedKeys: ["TQ_*"],
+        recentKeys: [],
         sortMode: "name",
         usage: [],
       },
@@ -102,13 +131,14 @@ describe("orderPropertyKeys", () => {
 
   it("gives pinned rules priority over bottom rules after hidden filtering", () => {
     const orderedKeys = orderPropertyKeys(["TQ_keep", "TQ_hide", "alpha", "zeta"], {
-      bottomKeys: ["TQ_*"],
+      bottomKeys: ["TQ_*", "alpha"],
       hiddenPatterns: ["TQ_hide"],
       pinnedKeys: ["TQ_keep"],
-      sortMode: "name",
-      usage: [],
+      recentKeys: ["alpha", "zeta", "TQ_keep"],
+      sortMode: "recent",
+      usage: [{ key: "alpha", count: 100 }],
     });
 
-    expect(orderedKeys.map((item) => item.key)).toEqual(["TQ_keep", "alpha", "zeta"]);
+    expect(orderedKeys.map((item) => item.key)).toEqual(["TQ_keep", "zeta", "alpha"]);
   });
 });

@@ -20,6 +20,8 @@ import {
   synchronizeSuggestionSelection,
 } from "./suggestion-keyboard-bridge";
 import { PLUGIN_HIDDEN_SUGGESTION_CLASS } from "./suggestion-visibility";
+import { RecentPropertyKeyStore } from "./recent-property-key-store";
+import { RecentPropertyKeyTracker } from "./recent-property-key-tracker";
 
 const OBSERVER_OPTIONS: MutationObserverInit = {
   attributeFilter: ["aria-hidden", "hidden"],
@@ -60,6 +62,7 @@ interface DocumentEnhancementState {
   observing: boolean;
   pendingRoots: Set<ParentNode>;
   rafId: number | null;
+  recentTrackingCleanup: () => void;
   usageRefreshTimerId: number | null;
   view: Window;
 }
@@ -75,10 +78,24 @@ export class KeySuggestionOrderController {
   private initialized = false;
   private readonly plugin: Plugin;
   private readonly getSettings: () => PropertyOrderSettings;
+  private recentKeyRevision = 0;
+  private readonly recentKeyStore: RecentPropertyKeyStore;
+  private readonly recentKeyTracker: RecentPropertyKeyTracker;
 
-  constructor(plugin: Plugin, getSettings: () => PropertyOrderSettings) {
+  constructor(
+    plugin: Plugin,
+    getSettings: () => PropertyOrderSettings,
+    recentKeyStore = new RecentPropertyKeyStore(plugin.app),
+  ) {
     this.plugin = plugin;
     this.getSettings = getSettings;
+    this.recentKeyStore = recentKeyStore;
+    this.recentKeyTracker = new RecentPropertyKeyTracker({
+      getEnabled: () => this.initialized &&
+        this.getSettings().enableNativeKeySuggestionOrder,
+      onConfirmed: (key) => this.recordRecentPropertyKey(key),
+      plugin,
+    });
   }
 
   initialize(): () => void {
@@ -111,13 +128,15 @@ export class KeySuggestionOrderController {
         this.plugin.app.workspace.offref(windowCloseRef);
       });
 
-      const changedRef = this.plugin.app.metadataCache.on("changed", () => {
+      const changedRef = this.plugin.app.metadataCache.on("changed", (file, _data, cache) => {
+        this.recentKeyTracker.handleMetadataChanged(file, cache);
         this.invalidateUsage();
       });
       this.registerControllerEvent(changedRef, () => {
         this.plugin.app.metadataCache.offref(changedRef);
       });
-      const deletedRef = this.plugin.app.metadataCache.on("deleted", () => {
+      const deletedRef = this.plugin.app.metadataCache.on("deleted", (file) => {
+        this.recentKeyTracker.handleFileDeleted(file);
         this.invalidateUsage();
       });
       this.registerControllerEvent(deletedRef, () => {
@@ -164,11 +183,16 @@ export class KeySuggestionOrderController {
     }
 
     this.runDocumentCleanup(() => invalidatePropertyKeyUsage(this.plugin.app));
+    this.runDocumentCleanup(() => this.recentKeyTracker.dispose());
     this.runDocumentCleanup(() => this.restoreAllContainers());
   };
 
   refresh(): void {
     const enabled = this.getSettings().enableNativeKeySuggestionOrder;
+
+    if (!enabled) {
+      this.recentKeyTracker.clearPending();
+    }
 
     for (const [targetDocument, state] of this.documentStates) {
       if (enabled) {
@@ -184,6 +208,24 @@ export class KeySuggestionOrderController {
         this.restoreDocumentEnhancements(targetDocument, state);
       }
     }
+  }
+
+  clearRecentPropertyKeys(): boolean {
+    const hadKeys = this.recentKeyStore.getKeys().length > 0;
+    this.recentKeyTracker.clearPending();
+    const persisted = this.recentKeyStore.clear();
+
+    if (!hadKeys) {
+      return persisted;
+    }
+
+    this.recentKeyRevision += 1;
+
+    if (this.getSettings().keySuggestionSortMode === "recent") {
+      this.refresh();
+    }
+
+    return persisted;
   }
 
   private registerDocument(targetDocument: Document): void {
@@ -208,6 +250,7 @@ export class KeySuggestionOrderController {
       observing: false,
       pendingRoots: new Set(),
       rafId: null,
+      recentTrackingCleanup: () => undefined,
       usageRefreshTimerId: null,
       view: targetWindow,
     };
@@ -216,8 +259,16 @@ export class KeySuggestionOrderController {
     this.documentStates.set(targetDocument, state);
 
     try {
+      state.recentTrackingCleanup = this.recentKeyTracker.registerDocument(targetDocument);
       state.keyboardCleanup = registerSuggestionKeyboardBridge({
         getActiveContainer: () => this.getActiveContainer(targetDocument),
+        onActivationIntent: (element, activation, event) => {
+          this.recentKeyTracker.captureSuggestionActivation(
+            element,
+            activation === "tab",
+            event,
+          );
+        },
         onSynchronizationFailure: (container) => this.restoreContainer(container),
         supportsEmacsNavigation: Platform.isMacOS || Platform.isIosApp,
         targetWindow,
@@ -258,6 +309,7 @@ export class KeySuggestionOrderController {
     this.runDocumentCleanup(() => state.observer.disconnect());
     state.observing = false;
     this.runDocumentCleanup(state.keyboardCleanup);
+    this.runDocumentCleanup(state.recentTrackingCleanup);
     state.pendingRoots.clear();
 
     if (state.rafId != null) {
@@ -584,6 +636,7 @@ export class KeySuggestionOrderController {
     const structuralSignature = createStructuralSignature(
       settings,
       items.map((item) => item.key),
+      this.recentKeyRevision,
     );
     const needsForcedUsageRefresh =
       force && settings.keySuggestionSortMode === "usage";
@@ -604,6 +657,9 @@ export class KeySuggestionOrderController {
         bottomKeys: settings.bottomPropertyKeys,
         hiddenPatterns: settings.hiddenPropertyKeyPatterns,
         pinnedKeys: settings.pinnedPropertyKeys,
+        recentKeys: settings.keySuggestionSortMode === "recent"
+          ? this.recentKeyStore.getKeys()
+          : [],
         sortMode: settings.keySuggestionSortMode,
         usage,
       },
@@ -659,6 +715,7 @@ export class KeySuggestionOrderController {
     container.dataset.propertyOrderSignature = createStructuralSignature(
       settings,
       getSuggestionItems(container).map((item) => item.key),
+      this.recentKeyRevision,
     );
     snapshot.appliedState = createAppliedState(getSuggestionItems(container));
     this.activeContainers.set(container.ownerDocument, container);
@@ -666,6 +723,18 @@ export class KeySuggestionOrderController {
 
   private getCachedUsage(): PropertyKeyUsage[] {
     return getCachedPropertyKeyUsage(this.plugin.app);
+  }
+
+  private recordRecentPropertyKey(key: string): void {
+    const beforeKeys = this.recentKeyStore.getKeys();
+    const afterKeys = this.recentKeyStore.touch(key);
+
+    if (
+      beforeKeys.length !== afterKeys.length ||
+      beforeKeys.some((existingKey, index) => existingKey !== afterKeys[index])
+    ) {
+      this.recentKeyRevision += 1;
+    }
   }
 
   private ensureCurrentSnapshot(
@@ -758,12 +827,16 @@ export class KeySuggestionOrderController {
 function createStructuralSignature(
   settings: PropertyOrderSettings,
   keys: string[],
+  recentKeyRevision: number,
 ): string {
   return JSON.stringify({
     bottom: settings.bottomPropertyKeys,
     hidden: settings.hiddenPropertyKeyPatterns,
     keys,
     pinned: settings.pinnedPropertyKeys,
+    recentRevision: settings.keySuggestionSortMode === "recent"
+      ? recentKeyRevision
+      : 0,
     sortMode: settings.keySuggestionSortMode,
   });
 }

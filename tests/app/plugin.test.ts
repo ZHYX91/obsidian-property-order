@@ -38,6 +38,19 @@ beforeEach(() => {
 });
 
 describe("PropertyOrderPlugin settings persistence", () => {
+  it("delegates recent-history clearing and reports whether it persisted", () => {
+    const { plugin } = createPlugin(createDefaultSettings());
+    const clearRecentPropertyKeys = vi.fn(() => false);
+    (
+      plugin as unknown as {
+        keySuggestionOrderController: { clearRecentPropertyKeys(): boolean };
+      }
+    ).keySuggestionOrderController = { clearRecentPropertyKeys };
+
+    expect(plugin.clearRecentPropertyKeys()).toBe(false);
+    expect(clearRecentPropertyKeys).toHaveBeenCalledOnce();
+  });
+
   it("does not register controllers after unloading during async settings load", async () => {
     const { plugin } = createPlugin(createDefaultSettings());
     let resolveLoad!: (value: unknown) => void;
@@ -201,7 +214,7 @@ describe("PropertyOrderPlugin settings persistence", () => {
     const storedSettings = {
       ...createDefaultSettings(),
       schemaVersion: 999,
-      keySuggestionSortMode: "recent",
+      keySuggestionSortMode: "future-sort",
       futureOption: { mode: "future" },
     };
     const { plugin, saveData } = createPlugin(storedSettings);

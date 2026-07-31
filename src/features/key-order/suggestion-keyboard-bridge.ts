@@ -5,10 +5,16 @@ import {
 import { isSuggestionElementVisible } from "./suggestion-visibility";
 
 const SELECTED_SUGGESTION_CLASS = "is-selected";
+type SuggestionActivation = "enter" | "tab";
 
 interface SuggestionKeyboardBridgeOptions {
-  getActiveContainer(): HTMLElement | null;
-  onSynchronizationFailure(container: HTMLElement): void;
+  getActiveContainer: () => HTMLElement | null;
+  onActivationIntent?: (
+    element: HTMLElement,
+    activation: SuggestionActivation,
+    event: KeyboardEvent,
+  ) => void;
+  onSynchronizationFailure: (container: HTMLElement) => void;
   supportsEmacsNavigation: boolean;
   targetWindow: Window;
 }
@@ -29,10 +35,31 @@ export function registerSuggestionKeyboardBridge(
 
     const visibleElements = getVisibleSuggestionElements(container);
 
+    if (event.key === "Tab") {
+      const selectedElement = getSelectedSuggestionElement(container);
+
+      if (selectedElement != null && visibleElements.includes(selectedElement)) {
+        notifyActivationIntent(
+          options.onActivationIntent,
+          selectedElement,
+          "tab",
+          event,
+        );
+      }
+
+      return;
+    }
+
     if (event.key === "Enter") {
-      handleEnter(event, container, visibleElements, (failedContainer) => {
-        options.onSynchronizationFailure(failedContainer);
-      });
+      handleEnter(
+        event,
+        container,
+        visibleElements,
+        options.onActivationIntent,
+        (failedContainer) => {
+          options.onSynchronizationFailure(failedContainer);
+        },
+      );
       return;
     }
 
@@ -91,6 +118,11 @@ function handleEnter(
   event: KeyboardEvent,
   container: HTMLElement,
   visibleElements: HTMLElement[],
+  onActivationIntent: ((
+    element: HTMLElement,
+    activation: SuggestionActivation,
+    event: KeyboardEvent,
+  ) => void) | undefined,
   onSynchronizationFailure: (container: HTMLElement) => void,
 ): void {
   event.preventDefault();
@@ -111,8 +143,27 @@ function handleEnter(
     return;
   }
 
+  notifyActivationIntent(onActivationIntent, targetElement, "enter", event);
+
   if (!activateSuggestion(targetElement)) {
     onSynchronizationFailure(container);
+  }
+}
+
+function notifyActivationIntent(
+  onActivationIntent: ((
+    element: HTMLElement,
+    activation: SuggestionActivation,
+    event: KeyboardEvent,
+  ) => void) | undefined,
+  element: HTMLElement,
+  activation: SuggestionActivation,
+  event: KeyboardEvent,
+): void {
+  try {
+    onActivationIntent?.(element, activation, event);
+  } catch (error) {
+    console.error("Property Order: failed to capture a property key activation", error);
   }
 }
 

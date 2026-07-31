@@ -41,9 +41,14 @@ const EN_TRANSLATIONS = {
     "Property name suggestions are currently disabled. Rules below will take effect when enabled.",
   "settings.keyOrder.sortMode.name": "Default suggestion sort",
   "settings.keyOrder.sortMode.desc":
-    "Name order groups numbers, Latin names, Chinese names by pinyin, then other characters. Usage-count ties use the same name order.",
+    "Name order groups numbers, Latin names, Chinese names by pinyin, then other characters. Note count is the number of notes containing the property; ties use name order. Recently used history is stored only on this device, and unrecorded properties use name order.",
   "settings.keyOrder.sortMode.nameOption": "Name",
-  "settings.keyOrder.sortMode.usage": "Usage count",
+  "settings.keyOrder.sortMode.recent": "Recently used",
+  "settings.keyOrder.sortMode.usage": "Notes containing the property",
+  "settings.keyOrder.recentHistory.name": "Recently used history",
+  "settings.keyOrder.recentHistory.desc":
+    "Clears this vault's device-local property name history used by Recently used sorting. New uses will build the history again.",
+  "settings.keyOrder.recentHistory.clear": "Clear history",
   "settings.keyOrder.pinned.name": "Pinned property names",
   "settings.keyOrder.pinned.desc":
     "One property name or pattern per line. Use * as a wildcard. Matched property names are shown first, in this order.",
@@ -83,6 +88,9 @@ const EN_TRANSLATIONS = {
   "notice.unsupportedContext":
     "Property Order: can't resolve this property pill. Try updating Obsidian or theme.",
   "notice.settingsSaveFailed": "Property Order: failed to save settings. Try again.",
+  "notice.recentHistoryCleared": "Property Order: recent property history cleared.",
+  "notice.recentHistoryClearFailed":
+    "Property Order: saved recent history could not be cleared. It is cleared for this session but may return after restart.",
   "notice.mobileReorderArmed":
     "Property Order: drag the selected value now. Tap elsewhere or wait to cancel.",
 } as const;
@@ -127,9 +135,14 @@ export const TRANSLATIONS = {
     "settings.keyOrder.disabledHint": "属性名称候选当前未启用。下方规则仍可编辑，启用后生效。",
     "settings.keyOrder.sortMode.name": "默认候选排序",
     "settings.keyOrder.sortMode.desc":
-      "名称排序依次显示数字、拉丁字母、按拼音排列的中文和其他字符；使用次数相同时也按此规则排序。",
+      "名称排序依次显示数字、拉丁字母、按拼音排列的中文和其他字符；笔记数是包含该属性的笔记数量，相同时按名称排序；最近使用记录仅保存在本设备，未记录的属性按名称排序。",
     "settings.keyOrder.sortMode.nameOption": "按名称排序",
-    "settings.keyOrder.sortMode.usage": "按使用次数排序",
+    "settings.keyOrder.sortMode.recent": "按最近使用排序",
+    "settings.keyOrder.sortMode.usage": "按包含该属性的笔记数排序",
+    "settings.keyOrder.recentHistory.name": "最近使用记录",
+    "settings.keyOrder.recentHistory.desc":
+      "清除当前 Vault 中仅保存在本设备、供最近使用排序使用的属性名称记录。之后会从新的使用重新积累。",
+    "settings.keyOrder.recentHistory.clear": "清除记录",
     "settings.keyOrder.pinned.name": "置顶属性名称",
     "settings.keyOrder.pinned.desc":
       "每行一个属性名称或规则。可使用 * 作为通配符。匹配到的属性名称会按规则顺序显示在最上方。",
@@ -166,6 +179,9 @@ export const TRANSLATIONS = {
     "notice.targetNotList": "Property Order：无法将值移动到“{property}”：目标不是列表属性。",
     "notice.unsupportedContext": "Property Order：无法识别该属性值组件，建议更新 Obsidian 或主题。",
     "notice.settingsSaveFailed": "Property Order：设置保存失败，请重试。",
+    "notice.recentHistoryCleared": "Property Order：最近使用记录已清除。",
+    "notice.recentHistoryClearFailed":
+      "Property Order：无法清除已保存的最近使用记录。本次会话中已清除，但重启后可能恢复。",
     "notice.mobileReorderArmed":
       "Property Order：现在拖动已选中的值；点击其他位置或等待即可取消。",
   },
@@ -203,9 +219,14 @@ export const TRANSLATIONS = {
     "settings.keyOrder.disabledHint": "屬性名稱候選目前未啟用。下方規則仍可編輯，啟用後生效。",
     "settings.keyOrder.sortMode.name": "預設候選排序",
     "settings.keyOrder.sortMode.desc":
-      "名稱排序依次顯示數字、拉丁字母、按拼音排列的中文和其他字元；使用次數相同時也按此規則排序。",
+      "名稱排序依次顯示數字、拉丁字母、按拼音排列的中文和其他字元；筆記數是包含該屬性的筆記數量，相同時按名稱排序；最近使用記錄僅儲存在本裝置，未記錄的屬性按名稱排序。",
     "settings.keyOrder.sortMode.nameOption": "按名稱排序",
-    "settings.keyOrder.sortMode.usage": "按使用次數排序",
+    "settings.keyOrder.sortMode.recent": "按最近使用排序",
+    "settings.keyOrder.sortMode.usage": "按包含該屬性的筆記數排序",
+    "settings.keyOrder.recentHistory.name": "最近使用記錄",
+    "settings.keyOrder.recentHistory.desc":
+      "清除目前 Vault 中僅儲存在本裝置、供最近使用排序使用的屬性名稱記錄。之後會從新的使用重新累積。",
+    "settings.keyOrder.recentHistory.clear": "清除記錄",
     "settings.keyOrder.pinned.name": "置頂屬性名稱",
     "settings.keyOrder.pinned.desc":
       "每行一個屬性名稱或規則。可使用 * 作為萬用字元。匹配到的屬性名稱會按規則順序顯示在最上方。",
@@ -242,6 +263,9 @@ export const TRANSLATIONS = {
     "notice.targetNotList": "Property Order：無法將值移動到「{property}」：目標不是清單屬性。",
     "notice.unsupportedContext": "Property Order：無法識別該屬性值元件，建議更新 Obsidian 或佈景主題。",
     "notice.settingsSaveFailed": "Property Order：設定儲存失敗，請重試。",
+    "notice.recentHistoryCleared": "Property Order：最近使用記錄已清除。",
+    "notice.recentHistoryClearFailed":
+      "Property Order：無法清除已儲存的最近使用記錄。本次工作階段中已清除，但重新啟動後可能恢復。",
     "notice.mobileReorderArmed":
       "Property Order：現在拖曳已選取的值；點擊其他位置或等待即可取消。",
   },

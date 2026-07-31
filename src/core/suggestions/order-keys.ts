@@ -27,9 +27,31 @@ export function orderPropertyKeys(
   );
   const reservedKeys = new Set([...pinnedKeys, ...bottomKeys]);
   const middleKeys = visibleKeys.filter((key) => !reservedKeys.has(key));
+  const recentRankByKey = new Map(
+    options.recentKeys.map((key, index) => [key, index]),
+  );
   const usageByKey = new Map(options.usage.map((item) => [item.key, item.count]));
 
   middleKeys.sort((left, right) => {
+    if (options.sortMode === "recent") {
+      const leftRank = recentRankByKey.get(left);
+      const rightRank = recentRankByKey.get(right);
+
+      if (leftRank != null || rightRank != null) {
+        if (leftRank == null) {
+          return 1;
+        }
+
+        if (rightRank == null) {
+          return -1;
+        }
+
+        if (leftRank !== rightRank) {
+          return leftRank - rightRank;
+        }
+      }
+    }
+
     if (options.sortMode === "usage") {
       const usageDelta = (usageByKey.get(right) ?? 0) - (usageByKey.get(left) ?? 0);
 

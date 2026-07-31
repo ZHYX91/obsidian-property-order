@@ -17,7 +17,7 @@ describe("normalizeSettings", () => {
         listWritebackFormat: "inline",
         enableCrossPropertyDrag: "yes",
         enableNativeKeySuggestionOrder: false,
-        keySuggestionSortMode: "recent",
+        keySuggestionSortMode: "smart",
         pinnedPropertyKeys: [" tags ", "", 42, "aliases"],
         bottomPropertyKeys: "tags",
         hiddenPropertyKeyPatterns: ["TQ_*"],
@@ -88,6 +88,18 @@ describe("normalizeSettings", () => {
     ).toBe("name");
   });
 
+  it("migrates schema 3 while preserving the recent sort mode", () => {
+    expect(
+      normalizeSettings({
+        schemaVersion: 3,
+        keySuggestionSortMode: "recent",
+      }),
+    ).toMatchObject({
+      schemaVersion: CURRENT_SETTINGS_SCHEMA_VERSION,
+      keySuggestionSortMode: "recent",
+    });
+  });
+
   it("reads known fields from a future schema without treating it as legacy", () => {
     expect(normalizeSettings({ schemaVersion: 999, language: "zh-CN" })).toMatchObject({
       schemaVersion: CURRENT_SETTINGS_SCHEMA_VERSION,
@@ -99,7 +111,7 @@ describe("normalizeSettings", () => {
     const stored = {
       schemaVersion: 999,
       language: "zh-CN",
-      keySuggestionSortMode: "recent",
+      keySuggestionSortMode: "future-sort",
       futureOption: { mode: "future" },
     };
     const baseline = normalizeSettings(stored);
@@ -123,7 +135,7 @@ describe("normalizeSettings", () => {
   it("does not overwrite future values for known keys unless the user changes that setting", () => {
     const stored = {
       schemaVersion: 999,
-      keySuggestionSortMode: "recent",
+      keySuggestionSortMode: "future-sort",
       futureOption: { mode: "future" },
     };
     const baseline = normalizeSettings(stored);

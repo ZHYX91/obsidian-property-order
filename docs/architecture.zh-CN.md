@@ -23,13 +23,13 @@ translation_status: source
    - `interaction/`：指针拖拽状态转换和文档身份守卫。
 2. `src/features/`：功能编排。
    - `value-order/`：把状态机动作、drop 几何、DOM 呈现、pane 上下文和写回组合成一次拖拽事务。
-   - `key-order/`：监听候选菜单、应用纯排序规则，并把键盘选择桥接到可见候选顺序。
+   - `key-order/`：监听候选菜单、应用纯排序规则，把键盘选择桥接到可见候选顺序，并由 recent tracker 与 device-local store 管理已确认属性名称的严格 MRU。
 3. `src/obsidian/`：Obsidian 和 DOM 适配边界。
    - `properties-dom.ts`：Properties 容器、pill 和属性名识别。
    - `native-suggest-dom.ts`：原生属性键候选菜单识别。
    - `pane-context.ts`：workspace leaf 与文件解析。
    - `editor-transaction.ts`：公开 editor transaction 的宿主兼容、精确核对、Properties 公开重载和持久化边界。
-   - `metadata.ts`：通过公开的 Vault 文件枚举与 Metadata Cache 文件缓存，把 top-level frontmatter 转换为候选键/使用次数；设置页和候选控制器共享同一份可失效缓存。拖拽目标判定中，缓存存储形态只能佐证原生类型证据，不得单独定义属性类型。
+   - `metadata.ts`：通过公开的 Vault 文件枚举与 Metadata Cache 文件缓存，把 top-level frontmatter 转换为候选键/包含该属性的 Markdown 笔记数；设置页和候选控制器共享同一份可失效缓存。拖拽目标判定中，缓存存储形态只能佐证原生类型证据，不得单独定义属性类型。
 4. `src/app/`：插件生命周期、设置持久化和设置页；已有属性名称通过 Obsidian 公开的 `AbstractInputSuggest` 呈现和筛选。
 5. `src/shared/`：跨层设置 schema、共享类型和 i18n。
 
@@ -91,15 +91,19 @@ translation_status: source
 
 设置禁用、菜单复用、窗口关闭或插件卸载时必须恢复原生状态并清理 observer、键盘 listener 和活动菜单引用。如果宿主选择状态无法同步，controller 立即恢复该菜单；菜单无法识别、DOM 结构不匹配或候选文本不可读时不修改任何节点。上述路径都以保留 Obsidian 原生输入、选择和关闭行为为 fail-open 结果。
 
+recent tracker 只捕获已增强属性名候选上的主指针按下、键盘 Enter/Tab 候选激活，以及属性名编辑器的 Enter、Tab、change 和 focusout 提交意图；普通 `input` 事件不会更新历史，因此输入过程中的中间草稿不算提交。hover、方向键浏览和单纯聚焦也不会直接写历史。与候选或显式按键 action 处于同一浏览器 task 的伴随 change/focusout 信号会被抑制，既避免把半成品草稿变成第二个 action，也不会遮蔽后续独立的 focusout 提交。每次意图都会重新解析所属 pane 和文件，从 Metadata Cache 快照当前提交前键集合，再等待该精确文件的 `changed` 事件。桥接后的 Tab 会携带精确的 `KeyboardEvent` 身份，document listener 因此不会再创建第二个 typed action；同一次 keydown 分发结束后的两个 microtask hop 还会快照编辑器最终解析出的值，让宿主安排的 microtask 先稳定下来，从而兼容原生候选索引滞后，同时不会接受无关缓存增量。只有新缓存确认精确属性名称已从不存在变为存在时，store 才把该名称移动到 MRU 首位。每个 document 保留最多十项短期待确认队列，使不同 pane 的快速连续提交不会互相覆盖；队列只保留弱 editor 身份，不强引用 DOM 节点。删除、超时、文件或 document 身份丢失、设置禁用、清除历史、插件卸载和未确认提交都会丢弃待确认项。短期 age guard 只存在内存，不写入历史。
+
 ## 设置与即时生效
 
-`src/shared/settings.ts` 当前 schema 版本为 3。加载过程按版本逐步迁移旧键，再归一化未知或非法值；默认数组和每次归一化结果都使用独立引用。键候选排序模式只接受 `name` 和 `usage`：`name` 依次排列数字、拉丁字母、按拼音排列的中文和其他字符，`usage` 按使用次数降序并以同一名称比较器处理平局。旧 `alphabetical` 值没有别名或迁移路径，会作为非法值回落到默认 `name`。迁移后的结果由插件持久化。
+`src/shared/settings.ts` 当前 schema 版本为 4。加载过程按版本逐步迁移旧键，再归一化未知或非法值；schema 3 到 4 只建立新增 `recent` 枚举的版本边界，不改变已有 `name` 或 `usage` 值。默认数组和每次归一化结果都使用独立引用。键候选排序模式只接受 `name`、`recent` 和 `usage`：`name` 依次排列数字、拉丁字母、按拼音排列的中文和其他字符；`recent` 使用严格 MRU，并让未记录候选回退到名称排序；`usage` 按包含该属性的缓存 Markdown 笔记数降序排列，并以同一名称比较器处理平局。`usage` 保留为兼容的持久化枚举名称，不表示交互次数。旧 `alphabetical` 值没有别名或迁移路径，会作为非法值回落到默认 `name`。迁移后的结果由插件持久化。
 
-设置页与实际 Properties 候选菜单必须调用 `src/core/suggestions/property-names.ts` 的同一比较器。设置页的置顶、置底和隐藏列表复用一个具体的属性名称建议组件；该组件只负责过滤、排除已配置项和选择回调，不复制排序规则，也不扩展成与当前业务无关的通用框架。
+设置页与实际 Properties 候选菜单必须调用 `src/core/suggestions/property-names.ts` 的同一比较器。`order-keys.ts` 先应用隐藏规则，再按配置顺序展开置顶规则；普通区在 `recent` 下依次放置历史中仍存在的名称并以名称顺序排列未记录项，在 `usage` 下按笔记数与名称平局规则排列；置底规则最后应用。设置页的置顶、置底和隐藏列表复用一个具体的属性名称建议组件；该组件只负责过滤、排除已配置项和选择回调，不复制排序规则，也不扩展成与当前业务无关的通用框架。
 
-属性使用次数由设置页与候选控制器共享惰性缓存。Metadata Cache 的 `changed`、`deleted` 或 `resolved` 事件只使缓存失效；若已有连接中的增强菜单，只定向刷新这些菜单，不扫描整个 document。没有菜单打开时不安排 animation frame，也不遍历 Vault；只有 usage 排序真正显示菜单或设置页请求属性名时才重新遍历 Markdown 文件缓存。
+属性笔记数由设置页与候选控制器共享惰性缓存。Metadata Cache 的 `changed`、`deleted` 或 `resolved` 事件只使缓存失效；若已有连接中的增强菜单，只定向刷新这些菜单，不扫描整个 document。没有菜单打开时不安排 animation frame，也不遍历 Vault；只有 `usage` 排序真正显示菜单或设置页请求属性名时才重新遍历 Markdown 文件缓存。`name` 和 `recent` 排序不请求该计数，因此不会为排序遍历 Vault。
 
-Obsidian 1.12.x 保留自定义 General、Value drag、Key order 三个选项卡，并提供 `tablist`/`tab`/`tabpanel`、本地化标签栏名称、`aria-selected`、roving `tabindex`、左右方向键、Home/End 和重渲染后的焦点保持。选项卡在窄宽度下保持单行横向滚动，活动标签在初次布局和 viewport resize 后自动进入可视区，纵向溢出被隐藏；桌面精细指针下高度为 34px，粗指针下为 44px。Obsidian 1.13+ 改用三个原生声明式设置页面，使所有简单控件进入设置搜索；这些控件覆盖默认绑定并读写 `propertyOrderSettings`，三个属性规则编辑器则通过声明式 `render` 定义继续保留自定义 textarea、属性名称建议、防抖与清理语义。定义构造阶段不得遍历 Vault，已有属性名称只在规则编辑器实际渲染时惰性读取。宽度不超过 480px 时，两条路径中的属性规则文本框与已有属性输入框都改为纵向占满控制区。
+recent store 使用 Obsidian 公开的 `App.loadLocalStorage()` / `App.saveLocalStorage()`，以 namespaced key 在当前 Vault、当前设备保存一个版本化的精确字符串数组。数组顺序本身就是严格 MRU，最多 100 项，不保存时间戳；重复确认只把精确同名项移到首位，当前候选中不存在的陈旧项被排序器忽略。读取失败、未知版本或畸形数据按空历史 fail open；后台 MRU 写入失败时保留本次会话的内存顺序，不影响原生属性编辑。只有 Metadata Cache 确认成功提交且顺序实际变化时才写入这一小数组；该状态不进入 `data.json`，不参与 Obsidian Sync。“清除最近使用历史”先取消待确认意图，再清除当前 Vault、当前设备的内存历史并立即刷新候选，不修改设置、笔记或其他 Vault；如果 local-storage 删除失败，界面会提示旧的已保存历史可能在重启后恢复。
+
+Obsidian 1.12.x 保留自定义 General、Value drag、Key order 三个选项卡，并提供 `tablist`/`tab`/`tabpanel`、本地化标签栏名称、`aria-selected`、roving `tabindex`、左右方向键、Home/End 和重渲染后的焦点保持。选项卡在窄宽度下保持单行横向滚动，活动标签在初次布局和 viewport resize 后自动进入可视区，纵向溢出被隐藏；桌面精细指针下高度为 34px，粗指针下为 44px。Obsidian 1.13+ 改用三个原生声明式设置页面，使所有简单控件进入设置搜索；这些控件覆盖默认绑定并读写 `propertyOrderSettings`，三个属性规则编辑器和“清除最近使用历史”则通过声明式 `render` 定义保留自定义行为。定义构造阶段不得遍历 Vault，已有属性名称只在规则编辑器实际渲染时惰性读取。清除按钮只读取 store 是否为空并执行本地删除，不触发 Vault 枚举。宽度不超过 480px 时，两条路径中的属性规则文本框与已有属性输入框都改为纵向占满控制区。
 
 设置保存失败时，设置页保留当前内存快照，显示本地化 Notice 和带 `role="alert"` 的未保存状态，并提供重试按钮。重试必须保留失败批次是否需要刷新键候选的语义；成功后清除未保存状态。
 

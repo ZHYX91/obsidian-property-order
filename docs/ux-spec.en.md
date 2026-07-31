@@ -26,6 +26,9 @@ This document mirrors the authoritative current interaction and presentation con
 
 - Enhancement reuses native menu nodes rather than rendering a look-alike replacement.
 - Pinned items come first, normal items remain in the middle, bottom items come last, and hidden items do not occupy visible navigation order.
+- **Recently used** applies strict MRU inside the normal section: confirmed names follow newest first and candidates absent from history use name order. Pinned, bottom, and hidden rule priority remains unchanged. History names no longer present in the menu are neither shown nor allocated a position.
+- Recent order changes only after a property-name commit succeeds and Metadata Cache confirms that the name was added to the current note. Hover, keyboard navigation, cancellation, failure, and unconfirmed input never mutate MRU, so visual selection before menu closure is not itself a use.
+- **Note count** sorts descending by the number of cached Markdown notes containing the property and falls back to name order for ties. It is not a click or selection count. Name and recent modes never traverse the Vault for ordering.
 - Keyboard selection follows final visible order. Enter activates only the current visible item; an all-hidden menu submits nothing.
 - After mouse hover, the next keyboard action re-establishes one selection in keyboard order.
 - Escape, focus departure, menu closure, disabled enhancement, and plugin unload preserve or restore native close and input behavior.
@@ -37,6 +40,7 @@ This document mirrors the authoritative current interaction and presentation con
 - Obsidian 1.12.x uses the custom three-tab UI with `tablist`, `tab`, `tabpanel`, `aria-selected`, and roving `tabindex`. Left/Right and Home/End switch tabs; rerender, rotation, and viewport resize keep the active tab visible with sensible focus.
 - On 1.12.x, tab height is 34px for fine pointers and 44px for coarse pointers. Narrow layouts keep one horizontally scrollable row without vertical clipping.
 - Obsidian 1.13+ uses three native declarative settings pages and native search. Custom property-rule editors retain suggestion, persistence, and cleanup lifecycles.
+- Key order provides **Clear recent property history** in both render paths. It cancels pending confirmations, removes only the current Vault and device's in-memory timestamp-free MRU of at most 100 entries, and immediately refreshes open enhanced menus; it changes neither `data.json` nor notes. Success shows confirmation. A local-storage deletion failure shows that history is cleared for this session but may return after restart.
 - At widths up to 480px, both render paths stack rule textareas and existing-property inputs to fill their card or control area.
 - Persistence failure presents a Notice and `role="alert"` unsaved state. Successful Retry clears the state and performs any required suggestion refresh.
 

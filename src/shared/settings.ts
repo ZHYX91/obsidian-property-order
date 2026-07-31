@@ -5,7 +5,7 @@ import type {
   PropertyOrderSettings,
 } from "./types";
 
-export const CURRENT_SETTINGS_SCHEMA_VERSION = 3;
+export const CURRENT_SETTINGS_SCHEMA_VERSION = 4;
 
 export const DEFAULT_SETTINGS: PropertyOrderSettings = {
   schemaVersion: CURRENT_SETTINGS_SCHEMA_VERSION,
@@ -137,7 +137,7 @@ export function isListWritebackFormat(value: unknown): value is ListWritebackFor
 }
 
 export function isKeySuggestionSortMode(value: unknown): value is KeySuggestionSortMode {
-  return value === "name" || value === "usage";
+  return value === "name" || value === "recent" || value === "usage";
 }
 
 export function isPluginLanguage(value: unknown): value is PluginLanguage {
@@ -230,6 +230,13 @@ function migrateSettingsVersion(
     return {
       ...value,
       schemaVersion: 3,
+    };
+  }
+
+  if (version === 3) {
+    return {
+      ...value,
+      schemaVersion: 4,
     };
   }
 

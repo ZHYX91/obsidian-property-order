@@ -104,6 +104,10 @@ export default class PropertyOrderPlugin extends Plugin {
     return this.pendingSettingsSave;
   }
 
+  clearRecentPropertyKeys(): boolean {
+    return this.keySuggestionOrderController?.clearRecentPropertyKeys() ?? false;
+  }
+
   private async initialize(lifecycleEpoch: number): Promise<void> {
     const settingsLoaded = await this.loadSettings(lifecycleEpoch);
 

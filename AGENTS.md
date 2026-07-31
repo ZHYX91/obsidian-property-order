@@ -22,7 +22,7 @@ Use TypeScript with ES modules and strict typing. Follow the existing style: two
 
 ## Testing Guidelines
 
-Tests use Vitest and are named `*.test.ts`. Add focused tests under `tests/` for core behavior and regression-prone parsing. Frontmatter changes should cover block lists, flow lists, empty lists, comments, quoting, newline preservation, and diagnostics. Suggestion ordering changes should cover pinning, bottom placement, hidden patterns, mixed-language name sorting, usage sorting, and duplicate keys.
+Tests use Vitest and are named `*.test.ts`. Add focused tests under `tests/` for core behavior and regression-prone parsing. Frontmatter changes should cover block lists, flow lists, empty lists, comments, quoting, newline preservation, and diagnostics. Suggestion ordering changes should cover pinning, bottom placement, hidden patterns, mixed-language name sorting, strict recent-use MRU ordering, Markdown-note-count sorting, and duplicate keys. Recent-use tests must distinguish intent from a Metadata Cache-confirmed commit, cover device-local per-Vault storage and clearing, and prove that recent mode does not traverse the Vault.
 
 ## Documentation
 

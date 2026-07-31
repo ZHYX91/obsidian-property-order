@@ -6,19 +6,24 @@ import type {
   SettingDefinitionPage,
   SettingDefinitionRender,
 } from "obsidian";
+import { Notice } from "obsidian";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { PropertyNameSuggest } from "../../src/app/property-name-suggest";
 import { PropertyOrderSettingTab } from "../../src/app/settings-tab";
 import { createDefaultSettings } from "../../src/shared/settings";
 
+const MockNotice = Notice as typeof Notice & { messages: string[] };
+
 interface TestControl {
   readonly disabled?: boolean | (() => boolean);
   readonly key: string;
+  readonly options?: Readonly<Record<string, string>>;
   readonly type: string;
 }
 
 afterEach(() => {
+  MockNotice.messages.length = 0;
   vi.useRealTimers();
   vi.restoreAllMocks();
 });
@@ -80,8 +85,8 @@ describe("PropertyOrderSettingTab declarative definitions", () => {
     expect(update).toHaveBeenCalledTimes(1);
     expect(refreshDomState).not.toHaveBeenCalled();
 
-    await settingTab.setControlValue("keySuggestionSortMode", "usage");
-    expect(settings.keySuggestionSortMode).toBe("usage");
+    await settingTab.setControlValue("keySuggestionSortMode", "recent");
+    expect(settings.keySuggestionSortMode).toBe("recent");
     expect(saveSettings).toHaveBeenLastCalledWith(true);
     expect(update).toHaveBeenCalledTimes(1);
     expect(refreshDomState).not.toHaveBeenCalled();
@@ -108,6 +113,54 @@ describe("PropertyOrderSettingTab declarative definitions", () => {
     await expect(settingTab.setControlValue("unknown", true)).rejects.toThrow(
       "Unsupported Property Order setting control: unknown",
     );
+  });
+
+  it("exposes recent sorting and clears its device-local history", () => {
+    const clearRecentPropertyKeys = vi.fn(() => true);
+    const settingTab = createSettingTab({ clearRecentPropertyKeys });
+    const pages = getPages(settingTab.getSettingDefinitions());
+    const keyOrderItems = pages[2]?.items ?? [];
+    const sortControl = getControls(pages).find(
+      (control) => control.key === "keySuggestionSortMode",
+    );
+
+    expect(sortControl?.options).toEqual({
+      name: "Name",
+      recent: "Recently used",
+      usage: "Notes containing the property",
+    });
+
+    const clearDefinition = getRenderDefinition(
+      keyOrderItems,
+      "Recently used history",
+    );
+    const settingHarness = createSettingHarness();
+    clearDefinition.render(settingHarness.setting, {} as never);
+
+    expect(settingHarness.buttonEl.textContent).toBe("Clear history");
+    settingHarness.buttonEl.click();
+    expect(clearRecentPropertyKeys).toHaveBeenCalledOnce();
+    expect(MockNotice.messages).toEqual([
+      "Property Order: recent property history cleared.",
+    ]);
+  });
+
+  it("warns when recent-history clearing cannot be persisted", () => {
+    const settingTab = createSettingTab({
+      clearRecentPropertyKeys: () => false,
+    });
+    const clearDefinition = getRenderDefinition(
+      getPages(settingTab.getSettingDefinitions())[2]?.items ?? [],
+      "Recently used history",
+    );
+    const settingHarness = createSettingHarness();
+    clearDefinition.render(settingHarness.setting, {} as never);
+
+    settingHarness.buttonEl.click();
+
+    expect(MockNotice.messages).toEqual([
+      "Property Order: saved recent history could not be cleared. It is cleared for this session but may return after restart.",
+    ]);
   });
 
   it("disables cross-property drag while the parent feature is disabled", () => {
@@ -212,6 +265,7 @@ describe("PropertyOrderSettingTab declarative definitions", () => {
 });
 
 interface SettingHarness {
+  buttonEl: HTMLButtonElement;
   changeTextArea(value: string): void;
   setting: Setting;
   textAreaEl: HTMLTextAreaElement;
@@ -220,6 +274,7 @@ interface SettingHarness {
 
 function createSettingHarness(): SettingHarness {
   const settingEl = document.createElement("div");
+  const buttonEl = document.createElement("button");
   const textAreaEl = document.createElement("textarea");
   const textInputEl = document.createElement("input");
   Reflect.set(textAreaEl, "addClass", (className: string) => {
@@ -251,8 +306,23 @@ function createSettingHarness(): SettingHarness {
       return this;
     },
   };
+  const button = {
+    onClick(callback: (event: MouseEvent) => unknown) {
+      buttonEl.addEventListener("click", callback);
+      return this;
+    },
+    setButtonText(value: string) {
+      buttonEl.textContent = value;
+      return this;
+    },
+  };
   const setting = {
     settingEl,
+    addButton(callback: (component: typeof button) => void) {
+      callback(button);
+      settingEl.appendChild(buttonEl);
+      return this;
+    },
     addText(callback: (component: typeof text) => void) {
       callback(text);
       return this;
@@ -268,6 +338,7 @@ function createSettingHarness(): SettingHarness {
   } as unknown as Setting;
 
   return {
+    buttonEl,
     changeTextArea: (value) => {
       if (handleTextAreaChange == null) {
         throw new Error("Textarea change handler was not registered.");
@@ -299,6 +370,7 @@ function getRenderDefinition(
 }
 
 function createSettingTab(options: {
+  clearRecentPropertyKeys?: () => boolean;
   getMarkdownFiles?: () => unknown[];
   saveSettings?: (refreshKeySuggestions?: boolean) => Promise<void>;
   settings?: ReturnType<typeof createDefaultSettings>;
@@ -312,6 +384,7 @@ function createSettingTab(options: {
     },
   };
   const plugin = {
+    clearRecentPropertyKeys: options.clearRecentPropertyKeys ?? vi.fn(() => true),
     hasPendingSettingsSave: vi.fn(() => false),
     propertyOrderSettings: options.settings ?? createDefaultSettings(),
     saveSettings: options.saveSettings ?? vi.fn(() => Promise.resolve()),

@@ -5,6 +5,7 @@ import { Platform, type App, type Plugin, type TFile } from "obsidian";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { KeySuggestionOrderController } from "../../../src/features/key-order/key-suggestion-controller";
+import { RecentPropertyKeyTracker } from "../../../src/features/key-order/recent-property-key-tracker";
 import { createDefaultSettings } from "../../../src/shared/settings";
 import type { PropertyOrderSettings } from "../../../src/shared/types";
 
@@ -432,6 +433,35 @@ describe("KeySuggestionOrderController", () => {
     expect(menu.querySelectorAll("[hidden]")).toHaveLength(0);
     expect(menu.dataset.propertyOrderEnhanced).toBeUndefined();
     expect(menu.querySelector<HTMLElement>(".is-selected")?.textContent).toBe("zeta");
+    cleanup();
+  });
+
+  it("orders from device-local recent history and clears it without a vault scan", () => {
+    const settings = createDefaultSettings();
+    settings.keySuggestionSortMode = "recent";
+    const menu = createMenu(["zeta", "beta", "status", "alpha"]);
+    const raf = installRafHarness();
+    const saveLocalStorage = vi.fn();
+    const controller = createController(settings, {
+      loadLocalStorage: vi.fn(() => ({
+        version: 1,
+        keys: ["status", "beta"],
+      })),
+      saveLocalStorage,
+    });
+    const cleanup = controller.initialize();
+
+    raf.flush();
+    expect(visibleKeys(menu)).toEqual(["status", "beta", "alpha", "zeta"]);
+
+    expect(controller.clearRecentPropertyKeys()).toBe(true);
+    expect(saveLocalStorage).toHaveBeenCalledWith(
+      "property-order:recent-property-keys",
+      null,
+    );
+    expect(raf.pending()).toBe(1);
+    raf.flush();
+    expect(visibleKeys(menu)).toEqual(["alpha", "beta", "status", "zeta"]);
     cleanup();
   });
 
@@ -863,12 +893,29 @@ describe("KeySuggestionOrderController", () => {
       });
     }
     const raf = installRafHarness();
+    const activationIntent = vi.spyOn(
+      RecentPropertyKeyTracker.prototype,
+      "captureSuggestionActivation",
+    );
     const controller = createController(settings);
     const cleanup = controller.initialize();
 
     raf.flush();
     expect(visibleKeys(menu)).toEqual(["tags", "alpha", "zeta"]);
     expect(menu.querySelector<HTMLElement>(".is-selected")?.textContent).toBe("tags");
+
+    const tab = new KeyboardEvent("keydown", {
+      bubbles: true,
+      cancelable: true,
+      key: "Tab",
+    });
+    editor.dispatchEvent(tab);
+    expect(tab.defaultPrevented).toBe(false);
+    expect(activationIntent).toHaveBeenLastCalledWith(
+      menu.querySelector<HTMLElement>(".is-selected"),
+      true,
+      tab,
+    );
 
     const moveDown = new KeyboardEvent("keydown", {
       bubbles: true,
@@ -892,10 +939,18 @@ describe("KeySuggestionOrderController", () => {
     menu.querySelector<HTMLElement>(".is-selected")?.classList.remove("is-selected");
     nativeElements[1]!.classList.add("is-selected");
     expect(menu.querySelector<HTMLElement>(".is-selected")?.textContent).toBe("TQ_internal");
-    editor.dispatchEvent(
-      new KeyboardEvent("keydown", { bubbles: true, cancelable: true, key: "Enter" }),
-    );
+    const enter = new KeyboardEvent("keydown", {
+      bubbles: true,
+      cancelable: true,
+      key: "Enter",
+    });
+    editor.dispatchEvent(enter);
     expect(submittedKey).toBe("tags");
+    expect(activationIntent).toHaveBeenLastCalledWith(
+      menu.querySelector<HTMLElement>(".is-selected"),
+      false,
+      enter,
+    );
 
     cleanup();
   });

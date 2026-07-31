@@ -32,8 +32,11 @@ The enhancement must remain local, reversible, and fail-safe. Unrecognized host 
 
 ## Property-key suggestions
 
-- Support pinned, bottom, wildcard-hidden, name, and usage-count rules.
-- Name order handles numbers, Latin text, Chinese text by pinyin, then other characters; usage ties use the same comparator.
+- Support pinned, bottom, wildcard-hidden, name, recently used, and Markdown-note-count rules.
+- Name order handles numbers, Latin text, Chinese text by pinyin, then other characters. Note count sorts descending and uses the same name comparator for ties. The count is the number of cached Markdown frontmatter documents containing the property, not a count of user interactions.
+- Recently used is a strict MRU. Hidden rules filter first; pinned rules take priority in configured order; the remaining recorded property names follow newest confirmed use first; unrecorded names use name order; and bottom rules apply last. History entries absent from the current candidates do not participate in menu ordering.
+- A property's exact string moves to the MRU front only after a property-name commit and Metadata Cache confirmation that the name was added to the target note. Hover, keyboard navigation, cancellation, failure, and unconfirmed edits do not count. History stores at most 100 names and no timestamps.
+- MRU is stored through Obsidian local storage for the current Vault and device, separately from settings `data.json`, and is not synced. Read failure or malformed data fails open as empty history. Name and recent modes never traverse the Vault; note-count mode reads Markdown file caches lazily only when needed and reuses the invalidatable cache.
 - Settings and the native menu share one ordering contract.
 - Keyboard navigation follows final visible DOM order for arrows, Home/End, PageUp/PageDown, macOS/iOS Ctrl+P/N, and Enter.
 - An all-hidden menu cannot submit a hidden item; keyboard interception stops when focus leaves the property-name editor.
@@ -41,9 +44,10 @@ The enhancement must remain local, reversible, and fail-safe. Unrecognized host 
 
 ## Settings
 
-- Settings use a versioned schema with sequential migration and normalization of invalid values.
+- Settings currently use schema 4, with sequential migration and normalization of invalid values.
 - General, Value drag, and Key order remain three logical groups with immediate-application semantics: Obsidian 1.12.x uses custom tabs, while 1.13+ uses native declarative pages and settings search.
 - Persistence failure keeps the in-memory state and presents a localized Notice, accessible unsaved status, and Retry action.
+- Key order provides a **Clear recent property history** action. It cancels pending confirmations and deletes only the current Vault and device's MRU; it does not modify `data.json`, notes, or another Vault. If device-local deletion fails, the in-memory history remains cleared and the user is warned that saved history may return after restart.
 - Cross-property drag is enabled by default and can be disabled independently; key-suggestion enhancement can also be disabled independently and fully restores host state.
 
 ## Explicit non-goals and limitations
