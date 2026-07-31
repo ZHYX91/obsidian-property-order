@@ -36,7 +36,7 @@ describe("release workflow contract", () => {
       "${GITHUB_API_URL}/repos/${GITHUB_REPOSITORY}/immutable-releases",
     );
     expect(workflow).toContain(".immutable == $expected_immutable");
-    expect(workflow).toContain('"published-post-publish"');
+    expect(workflow).toContain('"published"');
     expect(workflow).not.toContain("--request PUT");
     expect(workflow).not.toContain("-X PUT");
     expect(workflow).not.toContain("gh api --method PUT");
@@ -87,22 +87,18 @@ describe("release workflow contract", () => {
     );
   });
 
-  it("verifies the exact remote draft and immutable asset bytes around publication", () => {
+  it("verifies the exact published immutable asset bytes after publication", () => {
     expect(workflow).toContain('gh release create "$GITHUB_REF_NAME" "${assets[@]}"');
-    expect(workflow).toMatch(/gh release create[\s\S]*?--draft[\s\S]*?gh release edit/u);
-    expect(workflow).toContain('--draft=false');
+    expect(workflow).not.toContain("--draft");
+    expect(workflow).not.toContain("gh release edit");
     expect(workflow).toContain("verify_release_assets() {");
     expect(workflow).toContain(".draft == $expected_draft");
     expect(workflow).toContain(".immutable == $expected_immutable");
-    expect(workflow).toContain('"draft-pre-publish"');
-    expect(workflow).toContain('"published-post-publish"');
+    expect(workflow).toContain('"published"');
     expect(workflow).toContain("Release supply-chain verification failed");
     expect(workflow.match(/node scripts\/release-assets\.mjs compare/gu)).toHaveLength(2);
     expect(workflow).toMatch(
-      /gh release create[\s\S]*?verify_release_assets[\s\S]*?gh release edit/u,
-    );
-    expect(workflow).toMatch(
-      /gh release edit[\s\S]*?--draft=false[\s\S]*?verify_release_assets/u,
+      /gh release create[\s\S]*?verify_release_assets[\s\S]*?verify_release_tag_identity/u,
     );
   });
 

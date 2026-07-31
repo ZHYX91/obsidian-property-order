@@ -167,39 +167,48 @@ jobs:
         run: |
           verify_release_assets() {
             local expected_draft="$1" expected_immutable="$2" stage="$3" assets_directory="$4"
-            local archive_name release_response release_status
+            local archive_name release_response release_status attempt
 
             archive_name="property-order-${GITHUB_REF_NAME}.zip"
             release_response="$RUNNER_TEMP/${stage}-release.json"
-            release_status="$(
-              curl --silent --show-error \
-                --output "$release_response" \
-                --write-out "%{http_code}" \
-                --header "Accept: application/vnd.github+json" \
-                --header "Authorization: Bearer ${GH_TOKEN}" \
-                --header "X-GitHub-Api-Version: 2026-03-10" \
-                "${GITHUB_API_URL}/repos/${GITHUB_REPOSITORY}/releases/tags/${GITHUB_REF_NAME}"
-            )"
 
-            if [[ "$release_status" != "200" ]]; then
-              echo "::error title=Release supply-chain verification failed::${stage}: tagged Release query returned HTTP ${release_status}." >&2
-              return 1
-            fi
+            for attempt in {1..10}; do
+              release_status="$(
+                curl --silent --show-error \
+                  --output "$release_response" \
+                  --write-out "%{http_code}" \
+                  --header "Accept: application/vnd.github+json" \
+                  --header "Authorization: Bearer ${GH_TOKEN}" \
+                  --header "X-GitHub-Api-Version: 2026-03-10" \
+                  "${GITHUB_API_URL}/repos/${GITHUB_REPOSITORY}/releases/tags/${GITHUB_REF_NAME}"
+              )"
 
-            if ! jq --exit-status \
-              --arg archive_name "$archive_name" \
-              --argjson expected_draft "$expected_draft" \
-              --argjson expected_immutable "$expected_immutable" '
-                .draft == $expected_draft and
-                .immutable == $expected_immutable and
-                (.assets | type == "array") and
-                ([.assets[].name] | sort) ==
-                  (["main.js", "manifest.json", "styles.css", $archive_name] | sort) and
-                ([.assets[].name] | unique | length) == 4
-              ' "$release_response" >/dev/null; then
-              echo "::error title=Release supply-chain verification failed::${stage}: Release state or asset inventory is not the exact expected immutable contract." >&2
-              return 1
-            fi
+              if [[ "$release_status" != "200" ]]; then
+                echo "::error title=Release supply-chain verification failed::${stage}: tagged Release query returned HTTP ${release_status}." >&2
+                return 1
+              fi
+
+              if jq --exit-status \
+                --arg archive_name "$archive_name" \
+                --argjson expected_draft "$expected_draft" \
+                --argjson expected_immutable "$expected_immutable" '
+                  .draft == $expected_draft and
+                  .immutable == $expected_immutable and
+                  (.assets | type == "array") and
+                  ([.assets[].name] | sort) ==
+                    (["main.js", "manifest.json", "styles.css", $archive_name] | sort) and
+                  ([.assets[].name] | unique | length) == 4
+                ' "$release_response" >/dev/null; then
+                break
+              fi
+
+              if [[ "$attempt" -eq 10 ]]; then
+                echo "::error title=Release supply-chain verification failed::${stage}: Release state or asset inventory is not the exact expected immutable contract." >&2
+                return 1
+              fi
+
+              sleep 3
+            done
 
             mkdir "$assets_directory"
             if ! gh release download "$GITHUB_REF_NAME" \
@@ -274,20 +283,12 @@ jobs:
           verify_release_tag_identity
           gh release create "$GITHUB_REF_NAME" "${assets[@]}" \
             --repo "$GITHUB_REPOSITORY" \
-            --draft \
             --verify-tag \
             --title "$GITHUB_REF_NAME" \
             --generate-notes
           verify_release_tag_identity
           verify_release_assets \
-            true false \
-            "draft-pre-publish" \
-            "$RUNNER_TEMP/draft-release-assets"
-          gh release edit "$GITHUB_REF_NAME" \
-            --repo "$GITHUB_REPOSITORY" \
-            --draft=false
-          verify_release_tag_identity
-          verify_release_assets \
             false true \
-            "published-post-publish" \
+            "published" \
             "$RUNNER_TEMP/published-release-assets"
+          verify_release_tag_identity
