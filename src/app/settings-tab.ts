@@ -8,6 +8,7 @@ import {
   type SettingDefinitionItem,
 } from "obsidian";
 
+import { explainPropertyKeyRules } from "../core/suggestions/order-keys";
 import { getPropertyNameSuggestions } from "../core/suggestions/property-names";
 import { t, type TranslationKey } from "../shared/i18n";
 import { getCachedPropertyKeyUsage } from "../obsidian/metadata";
@@ -52,6 +53,8 @@ export class PropertyOrderSettingTab extends PluginSettingTab {
   >();
   private pendingUnsavedKeySuggestionRefresh = false;
   private readonly plugin: PropertyOrderSettingsHost;
+  private readonly ruleDiagnosticCleanups = new Set<SettingsCleanup>();
+  private readonly ruleDiagnosticRefreshes = new Set<() => void>();
   private saveStatusEl: HTMLElement | null = null;
   private settingsSurfaceGeneration = 0;
   private settingsSurfaceVisible = true;
@@ -270,6 +273,7 @@ export class PropertyOrderSettingTab extends PluginSettingTab {
         this.t("settings.keyOrder.hidden.desc"),
         getAvailableNames,
       ),
+      this.createRuleDiagnosticDefinition(),
     ];
   }
 
@@ -289,6 +293,7 @@ export class PropertyOrderSettingTab extends PluginSettingTab {
           this.plugin.propertyOrderSettings[key],
           async (values) => {
             this.plugin.propertyOrderSettings[key] = values;
+            this.refreshRuleDiagnostics();
             await this.persistSettings(true, surfaceGeneration);
           },
           this.app,
@@ -297,6 +302,14 @@ export class PropertyOrderSettingTab extends PluginSettingTab {
         );
         return this.trackKeyListSetting(lifecycle);
       },
+    };
+  }
+
+  private createRuleDiagnosticDefinition(): SettingDefinitionItem {
+    return {
+      name: this.t("settings.keyOrder.ruleDiagnostic.name"),
+      desc: this.t("settings.keyOrder.ruleDiagnostic.desc"),
+      render: (setting) => this.configureRuleDiagnosticSetting(setting),
     };
   }
 
@@ -513,6 +526,7 @@ export class PropertyOrderSettingTab extends PluginSettingTab {
         this.plugin.propertyOrderSettings.pinnedPropertyKeys,
         async (values) => {
           this.plugin.propertyOrderSettings.pinnedPropertyKeys = values;
+          this.refreshRuleDiagnostics();
           await this.persistSettings(true, surfaceGeneration);
         },
         this.app,
@@ -528,6 +542,7 @@ export class PropertyOrderSettingTab extends PluginSettingTab {
         this.plugin.propertyOrderSettings.bottomPropertyKeys,
         async (values) => {
           this.plugin.propertyOrderSettings.bottomPropertyKeys = values;
+          this.refreshRuleDiagnostics();
           await this.persistSettings(true, surfaceGeneration);
         },
         this.app,
@@ -543,6 +558,7 @@ export class PropertyOrderSettingTab extends PluginSettingTab {
         this.plugin.propertyOrderSettings.hiddenPropertyKeyPatterns,
         async (values) => {
           this.plugin.propertyOrderSettings.hiddenPropertyKeyPatterns = values;
+          this.refreshRuleDiagnostics();
           await this.persistSettings(true, surfaceGeneration);
         },
         this.app,
@@ -550,6 +566,82 @@ export class PropertyOrderSettingTab extends PluginSettingTab {
         this.t("settings.keyOrder.addExisting.placeholder"),
       ),
     );
+
+    this.configureRuleDiagnosticSetting(
+      new Setting(containerEl)
+        .setName(this.t("settings.keyOrder.ruleDiagnostic.name"))
+        .setDesc(this.t("settings.keyOrder.ruleDiagnostic.desc")),
+    );
+  }
+
+  private configureRuleDiagnosticSetting(setting: Setting): SettingsCleanup {
+    let propertyName = "";
+    const resultEl = setting.descEl.createDiv({
+      cls: "property-order-rule-diagnostic-result",
+    });
+    resultEl.setAttribute("aria-live", "polite");
+
+    const refresh = () => {
+      resultEl.textContent = this.formatRuleDiagnostic(propertyName);
+    };
+    setting
+      .setClass("property-order-rule-diagnostic-setting")
+      .addText((text) => {
+        text
+          .setPlaceholder(this.t("settings.keyOrder.ruleDiagnostic.placeholder"))
+          .setValue("")
+          .onChange((value) => {
+            propertyName = value;
+            refresh();
+          });
+        text.inputEl.setAttribute(
+          "aria-label",
+          this.t("settings.keyOrder.ruleDiagnostic.name"),
+        );
+        text.inputEl.addClass("property-order-rule-diagnostic-input");
+      });
+
+    refresh();
+    this.ruleDiagnosticRefreshes.add(refresh);
+    const cleanup = createSettingsDisposer(
+      () => this.ruleDiagnosticCleanups.delete(cleanup),
+      () => this.ruleDiagnosticRefreshes.delete(refresh),
+    );
+    this.ruleDiagnosticCleanups.add(cleanup);
+    return cleanup;
+  }
+
+  private formatRuleDiagnostic(propertyName: string): string {
+    const explanation = explainPropertyKeyRules(propertyName, {
+      bottomKeys: this.plugin.propertyOrderSettings.bottomPropertyKeys,
+      hiddenPatterns: this.plugin.propertyOrderSettings.hiddenPropertyKeyPatterns,
+      pinnedKeys: this.plugin.propertyOrderSettings.pinnedPropertyKeys,
+    });
+    if (explanation.key.length === 0) {
+      return this.t("settings.keyOrder.ruleDiagnostic.empty");
+    }
+
+    const placementKey = `settings.keyOrder.ruleDiagnostic.${explanation.placement}` as const;
+    const parts: string[] = [this.t(placementKey)];
+    for (const [labelKey, pattern] of [
+      ["settings.keyOrder.ruleDiagnostic.hiddenMatch", explanation.hiddenPattern],
+      ["settings.keyOrder.ruleDiagnostic.pinnedMatch", explanation.pinnedPattern],
+      ["settings.keyOrder.ruleDiagnostic.bottomMatch", explanation.bottomPattern],
+    ] as const) {
+      if (pattern != null) {
+        parts.push(`${this.t(labelKey)}: ${pattern}`);
+      }
+    }
+    if (parts.length > 1) {
+      parts.push(this.t("settings.keyOrder.ruleDiagnostic.priority"));
+    }
+    return parts.join(" · ");
+  }
+
+  private refreshRuleDiagnostics(): void {
+    for (const refresh of this.ruleDiagnosticRefreshes) {
+      refresh();
+    }
   }
 
   private trackKeyListSetting(lifecycle: KeyListSettingLifecycle): SettingsCleanup {
@@ -570,10 +662,13 @@ export class PropertyOrderSettingTab extends PluginSettingTab {
     const cleanup = createSettingsDisposer(
       ...(tabLayoutCleanup == null ? [] : [tabLayoutCleanup]),
       ...this.keyListSettingCleanups.values(),
+      ...this.ruleDiagnosticCleanups,
     );
 
     cleanup();
     this.keyListSettingCleanups.clear();
+    this.ruleDiagnosticCleanups.clear();
+    this.ruleDiagnosticRefreshes.clear();
     this.saveStatusEl = null;
   }
 

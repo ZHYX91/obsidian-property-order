@@ -163,6 +163,105 @@ describe("PropertyOrderSettingTab declarative definitions", () => {
     ]);
   });
 
+  it("explains rule matches without traversing the Vault or persisting test input", () => {
+    const getMarkdownFiles = vi.fn(() => []);
+    const saveSettings = vi.fn<(refreshKeySuggestions?: boolean) => Promise<void>>();
+    const settings = createDefaultSettings();
+    settings.hiddenPropertyKeyPatterns = ["TQ_*"];
+    settings.pinnedPropertyKeys = ["TQ_status"];
+    settings.bottomPropertyKeys = ["*_status"];
+    const settingTab = createSettingTab({ getMarkdownFiles, saveSettings, settings });
+    const definition = getRenderDefinition(
+      getPages(settingTab.getSettingDefinitions())[2]?.items ?? [],
+      "Test property name rules",
+    );
+    const settingHarness = createSettingHarness();
+
+    const cleanup = definition.render(settingHarness.setting, {} as never);
+    const resultEl = settingHarness.descEl.querySelector<HTMLElement>(
+      ".property-order-rule-diagnostic-result",
+    );
+    expect(resultEl?.getAttribute("aria-live")).toBe("polite");
+    expect(resultEl?.textContent).toBe("Enter a property name to test the current rules.");
+
+    settingHarness.changeTextInput("TQ_status");
+    expect(resultEl?.textContent).toBe(
+      "Result: hidden · Hidden rule: TQ_* · Pinned rule: TQ_status · Bottom rule: *_status · Priority: hidden > pinned > bottom",
+    );
+    expect(getMarkdownFiles).not.toHaveBeenCalled();
+    expect(saveSettings).not.toHaveBeenCalled();
+
+    cleanup?.();
+    expect((settingTab as unknown as { ruleDiagnosticRefreshes: Set<unknown> })
+      .ruleDiagnosticRefreshes.size).toBe(0);
+  });
+
+  it("refreshes a declarative diagnostic after a debounced rule edit", async () => {
+    vi.useFakeTimers();
+    const settings = createDefaultSettings();
+    const settingTab = createSettingTab({ settings });
+    const keyOrderItems = getPages(settingTab.getSettingDefinitions())[2]?.items ?? [];
+    const diagnosticDefinition = getRenderDefinition(
+      keyOrderItems,
+      "Test property name rules",
+    );
+    const pinnedDefinition = getRenderDefinition(
+      keyOrderItems,
+      "Pinned property names",
+    );
+    const diagnosticHarness = createSettingHarness();
+    const pinnedHarness = createSettingHarness();
+    const diagnosticCleanup = diagnosticDefinition.render(
+      diagnosticHarness.setting,
+      {} as never,
+    );
+    const pinnedCleanup = pinnedDefinition.render(pinnedHarness.setting, {} as never);
+    const resultEl = diagnosticHarness.descEl.querySelector<HTMLElement>(
+      ".property-order-rule-diagnostic-result",
+    );
+
+    diagnosticHarness.changeTextInput("project");
+    expect(resultEl?.textContent).toBe("Result: normal; no rule matched");
+
+    pinnedHarness.changeTextArea("pro*");
+    await vi.advanceTimersByTimeAsync(200);
+
+    expect(settings.pinnedPropertyKeys).toEqual(["pro*"]);
+    expect(resultEl?.textContent).toBe(
+      "Result: pinned · Pinned rule: pro* · Priority: hidden > pinned > bottom",
+    );
+
+    pinnedCleanup?.();
+    diagnosticCleanup?.();
+  });
+
+  it("cleans the shared imperative diagnostic lifecycle on settings hide", () => {
+    const settings = createDefaultSettings();
+    const settingTab = createSettingTab({ settings });
+    const testableSettingTab = settingTab as unknown as {
+      configureRuleDiagnosticSetting(setting: Setting): () => void;
+      ruleDiagnosticCleanups: Set<unknown>;
+      ruleDiagnosticRefreshes: Set<() => void>;
+    };
+    const settingHarness = createSettingHarness();
+
+    testableSettingTab.configureRuleDiagnosticSetting(settingHarness.setting);
+    settingHarness.changeTextInput("project");
+    settings.hiddenPropertyKeyPatterns = ["pro*"];
+    for (const refresh of testableSettingTab.ruleDiagnosticRefreshes) {
+      refresh();
+    }
+
+    expect(settingHarness.descEl.textContent).toContain("Result: hidden");
+    expect(testableSettingTab.ruleDiagnosticCleanups.size).toBe(1);
+    Reflect.set(settingTab.containerEl, "empty", () => settingTab.containerEl.replaceChildren());
+
+    settingTab.hide();
+
+    expect(testableSettingTab.ruleDiagnosticCleanups.size).toBe(0);
+    expect(testableSettingTab.ruleDiagnosticRefreshes.size).toBe(0);
+  });
+
   it("disables cross-property drag while the parent feature is disabled", () => {
     const settings = createDefaultSettings();
     const settingTab = createSettingTab({ settings });
@@ -266,7 +365,9 @@ describe("PropertyOrderSettingTab declarative definitions", () => {
 
 interface SettingHarness {
   buttonEl: HTMLButtonElement;
+  changeTextInput(value: string): void;
   changeTextArea(value: string): void;
+  descEl: HTMLElement;
   setting: Setting;
   textAreaEl: HTMLTextAreaElement;
   textInputEl: HTMLInputElement;
@@ -274,6 +375,8 @@ interface SettingHarness {
 
 function createSettingHarness(): SettingHarness {
   const settingEl = document.createElement("div");
+  const descEl = document.createElement("div");
+  settingEl.appendChild(descEl);
   const buttonEl = document.createElement("button");
   const textAreaEl = document.createElement("textarea");
   const textInputEl = document.createElement("input");
@@ -284,6 +387,7 @@ function createSettingHarness(): SettingHarness {
     textInputEl.classList.add(className);
   });
   let handleTextAreaChange: ((value: string) => void) | null = null;
+  let handleTextInputChange: ((value: string) => void) | null = null;
   const textArea = {
     inputEl: textAreaEl,
     onChange(callback: (value: string) => void) {
@@ -297,6 +401,10 @@ function createSettingHarness(): SettingHarness {
   };
   const text = {
     inputEl: textInputEl,
+    onChange(callback: (value: string) => void) {
+      handleTextInputChange = callback;
+      return this;
+    },
     setPlaceholder(value: string) {
       textInputEl.placeholder = value;
       return this;
@@ -317,6 +425,7 @@ function createSettingHarness(): SettingHarness {
     },
   };
   const setting = {
+    descEl,
     settingEl,
     addButton(callback: (component: typeof button) => void) {
       callback(button);
@@ -339,6 +448,14 @@ function createSettingHarness(): SettingHarness {
 
   return {
     buttonEl,
+    changeTextInput: (value) => {
+      if (handleTextInputChange == null) {
+        throw new Error("Text input change handler was not registered.");
+      }
+
+      textInputEl.value = value;
+      handleTextInputChange(value);
+    },
     changeTextArea: (value) => {
       if (handleTextAreaChange == null) {
         throw new Error("Textarea change handler was not registered.");
@@ -347,6 +464,7 @@ function createSettingHarness(): SettingHarness {
       textAreaEl.value = value;
       handleTextAreaChange(value);
     },
+    descEl,
     setting,
     textAreaEl,
     textInputEl,

@@ -11,12 +11,13 @@ translation_status: source
 
 交付前运行 `npm run check`，顺序执行：
 
-1. 对插件入口与源码执行 Obsidian 官方 `eslint-plugin-obsidianmd` 推荐规则集及已记录的兼容性例外，并对测试、Node 脚本和工具配置执行适合各自环境的静态规则；所有已启用 warning 均阻断；
-2. README 导航与全部稳定中英文文档的 frontmatter、标题层级、关键 token、表格形状和相对链接契约；
-3. TypeScript 严格类型检查；
-4. 当前完整 Vitest suite；
-5. production bundle；
-6. bundle 可重现性以及静态资产、manifest 和版本契约审计。
+1. 核对当前 Node.js/npm 与 `.node-version`、`engines.node`、`packageManager` 的精确版本契约；
+2. 对插件入口与源码执行 Obsidian 官方 `eslint-plugin-obsidianmd` 推荐规则集及已记录的兼容性例外，并对测试、Node 脚本和工具配置执行适合各自环境的静态规则；所有已启用 warning 均阻断；
+3. README 导航与全部稳定中英文文档的 frontmatter、标题层级、关键 token、表格形状和相对链接契约；
+4. TypeScript 严格类型检查；
+5. 当前完整 Vitest suite；
+6. production bundle；
+7. bundle 可重现性以及静态资产、manifest、lockfile 和版本契约审计。
 
 Lint 使用当前 Obsidian API typings，兼容性仍以 `manifest.json` 为契约。只有在多窗口支持需要目标 `ownerDocument` 时才保留原生 DOM 创建。设置页采用双路径支持：Obsidian 1.12.x 保留 imperative 三页签 UI，1.13+ 使用原生声明式页面与搜索。自动契约必须证明两套定义覆盖同一组持久化设置、保留自定义规则编辑器，并且声明式搜索索引构建期间不遍历 Vault。
 
@@ -27,10 +28,12 @@ Lint 使用当前 Obsidian API typings，兼容性仍以 `manifest.json` 为契�
 - 精确提交后的首次 editor focus、宿主重建丢焦后的受守卫二次恢复、提交前或提交后用户主动转焦时不抢回、noop/拒绝/冲突/事务未生效时不聚焦、保存调度失败但 buffer 已提交时仍可撤销，以及异步对账和手动刷新期间 original/committed undo-redo 状态不误报 divergence；
 - Properties 与候选 DOM adapter、可见候选排序、全部隐藏、键盘导航、焦点离开、置顶/隐藏/置底优先级、严格 MRU 与未记录项名称回退、笔记数平局、菜单复用，以及 DOM 不匹配时 fail open；
 - recent tracker 的点击与键盘/输入提交意图、Metadata Cache 成功确认、hover/浏览/取消/失败不记录、文件与 document 身份、超时/删除/卸载清理；recent store 的精确大小写、去重前移、100 项上限、无时间戳版本化格式、畸形或读取失败回退、写入失败 fail open、当前 Vault/设备隔离和清除；名称与 recent 模式零 Vault 遍历，无菜单时 usage 缓存失效也不触发扫描；
-- schema 3 到 4 的 settings 迁移、`recent` 合法值、即时生效、保存失败、Retry、1.13 之前页签与 1.13 声明式页面都包含三种排序及清除入口、自定义控件存储和窄屏 CSS；
-- release 标签、三个官方附件、手动安装 ZIP 和幂等 Release 更新。
+- schema 3 到 4 的 settings 迁移、`recent` 合法值、即时生效、保存失败、Retry、1.13 之前页签与 1.13 声明式页面都包含三种排序、清除入口与不持久化的规则测试框、自定义控件存储、诊断 cleanup、零 Vault 遍历和窄屏 CSS；
+- 精确 Node.js/npm 与 lockfile root 契约、默认分支发布预检、仓库级发布串行化、标签 commit 的默认分支可达性、真实 Release 说明基线、三个官方附件、手动安装 ZIP 和幂等 Release 更新。
 
 `npm run test:coverage` 是独立的诊断命令，使用 V8 coverage 并显式包含 `main.ts` 与 `src/**/*.ts`，使没有被任何测试导入的运行时代码仍以 0% 出现在源清单中。当前不以仓促设置的全局百分比阈值阻断 `npm run check`；覆盖率报告用于发现遗漏文件和指导针对性测试，不能替代真实宿主证据。
+
+`npm run bench:usage` 与 `npm run bench:usage:large` 是不进入 `npm run check` 的确定性 Metadata Cache 微基准，分别构造 10,000 与 50,000 篇缓存笔记，对真实 `getPropertyKeyUsage()` 预热后采样 25 次并报告 p50、p95、max 与缓存命中耗时。每次性能判断都应把操作系统、CPU、Node.js 与 npm 版本连同原始输出记录在交付证据中。该合成结果尚不足以证明真实 Obsidian 主线程、移动设备或内存表现，也不单独作为定时门禁；只有真实大 Vault 或重复回归数据越过产品预算时，才据此重新评估增量索引。
 
 可注入的故障路径以自动测试为主证据，包括：设置保存拒绝、宿主 DOM 不匹配、选择同步失败、Escape/blur、组件消失、外部内容冲突和异步乱序。真实宿主用于确认 Obsidian 实际 DOM、输入、视觉和磁盘结果，不重复伪造难以稳定注入的失败。
 
@@ -82,11 +85,11 @@ Android 模拟器必须验证：
 
 ## CI 与 Release
 
-CI 在 Node 20 上执行 `npm ci` 和 `npm run check`，并上传 `dist/` 顶层的 `main.js`、`manifest.json` 与 `styles.css`。Release workflow 只接受与 `manifest.json` 完全一致、无 `v` 前缀的 `x.y.z` 标签，重新执行完整门禁后发布：
+CI 与 Release workflow 都从 `.node-version` 使用 Node.js 24.18.0，并通过 `packageManager` 要求 npm 11.16.0；在 `npm ci` 前先核对精确运行时，随后执行 `npm run check`。CI 上传 `dist/` 顶层的 `main.js`、`manifest.json` 与 `styles.css`。Release workflow 只接受与 `manifest.json` 完全一致、无 `v` 前缀的 `x.y.z` 版本，重新执行完整门禁后发布：
 
 - `main.js`；
 - `manifest.json`；
 - `styles.css`；
 - `property-order-<version>.zip`，其中只含 `property-order/` 目录与上述三个文件。
 
-安装 ZIP 必须固定条目顺序、时间、权限和无关 metadata，使相同输入得到相同字节。仓库必须预先启用匹配发布版本标签的 active tag ruleset，同时限制 update 与 delete，且 release actor 不得具有 bypass；这是阻断“核对与发布之间”竞态的外部发布前提，workflow 不修改该规则。workflow 在查询 Release 前、创建新 Release 前、创建后和核对发布状态后分别解析远端轻量或 annotated 标签的 commit，并要求它与 push 事件的 `GITHUB_SHA` 一致；标签缺失、歧义、移动或无法解析都必须 fail closed。仓库级 immutable Releases 由维护者在 GitHub 设置中保持启用；workflow 不持有仓库 Administration 凭据，也不读取或修改该设置，而是在发布后要求 Release 报告 `immutable: true`。精确标签 REST 查询只把 HTTP `404` 视为不存在；鉴权、传输、限流、服务器或响应解析失败都必须 fail closed。若同标签 Release 已存在，它必须报告 `immutable: true`；远端附件名称必须无重复并精确等于三个独立文件与当前版本 ZIP，随后四项逐一哈希完全相同才 no-op。旧的可变 Release 或任一附件缺失、不同、重复、多出都必须要求提升版本。缺失的 Release 直接附齐全部附件创建；发布后必须查询并下载远端四项，短暂重试直到 Release 报告 `immutable: true`，再复核名称唯一、集合精确且 SHA-256 与候选构建一致；任何差异都以明确的供应链错误失败，不得只凭客户端上传参数或服务器 immutable 标记推断附件正确。推送任何版本标签前必须确认本地工作区干净、版本标签规则已生效、真实宿主矩阵满足当前产品范围、CI 全绿。发布后下载四个附件并核对标签 commit、版本、ZIP 目录结构和文件哈希。
+安装 ZIP 必须固定条目顺序、时间、权限和无关 metadata，使相同输入得到相同字节。一个仓库级固定 concurrency group 串行化所有版本且不取消在途发布。创建标签前必须从远端默认分支当前 HEAD 手工运行带候选版本的 `workflow_dispatch`；预检要求候选标签尚不存在，并完成与正式标签事件相同的门禁和归档。仓库必须预先启用匹配发布版本标签的 active tag ruleset，同时限制 update 与 delete，且 release actor 不得具有 bypass；这是阻断“核对与发布之间”竞态的外部发布前提，workflow 不修改该规则。标签事件除持续解析远端轻量或 annotated 标签并要求其 commit 等于 push 事件的 `GITHUB_SHA` 外，还要求该 commit 可从当前远端默认分支到达；缺失、歧义、移动、不可达或无法解析都必须 fail closed。准备新建 Release 时，生成说明只以所有已发布、非 draft、非 prerelease、精确 SemVer 的真实 Releases 中低于候选版本的最高版本为起点，并证明其标签是候选 commit 的祖先；存在同版或更高版真实 Release 时停止新建发布。仓库级 immutable Releases 由维护者在 GitHub 设置中保持启用；workflow 不持有仓库 Administration 凭据，也不读取或修改该设置，而是在发布后要求 Release 报告 `immutable: true`。精确标签 REST 查询只把 HTTP `404` 视为不存在；鉴权、传输、限流、服务器或响应解析失败都必须 fail closed。若同标签 Release 已存在，它必须是非 draft、非 prerelease 并报告 `immutable: true`；远端附件名称必须无重复并精确等于三个独立文件与当前版本 ZIP，随后四项逐一哈希完全相同才 no-op。旧的可变 Release 或任一附件缺失、不同、重复、多出都必须要求提升版本。缺失的 Release 直接附齐全部附件创建；发布后必须查询并下载远端四项，短暂重试直到 Release 报告 `immutable: true`，再复核名称唯一、集合精确且 SHA-256 与候选构建一致；任何差异都以明确的供应链错误失败，不得只凭客户端上传参数或服务器 immutable 标记推断附件正确。推送任何版本标签前必须确认本地工作区干净、版本标签规则已生效、真实宿主矩阵满足当前产品范围、CI 全绿；保护标签创建后的失败不得通过移动、删除或重建同名标签修复，应提升版本。发布后下载四个附件并核对标签 commit、版本、ZIP 目录结构和文件哈希。

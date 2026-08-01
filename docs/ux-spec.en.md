@@ -41,7 +41,8 @@ This document mirrors the authoritative current interaction and presentation con
 - On 1.12.x, tab height is 34px for fine pointers and 44px for coarse pointers. Narrow layouts keep one horizontally scrollable row without vertical clipping.
 - Obsidian 1.13+ uses three native declarative settings pages and native search. Custom property-rule editors retain suggestion, persistence, and cleanup lifecycles.
 - Key order provides **Clear recent property history** in both render paths. It cancels pending confirmations, removes only the current Vault and device's in-memory timestamp-free MRU of at most 100 entries, and immediately refreshes open enhanced menus; it changes neither `data.json` nor notes. Success shows confirmation. A local-storage deletion failure shows that history is cleared for this session but may return after restart.
-- At widths up to 480px, both render paths stack rule textareas and existing-property inputs to fill their card or control area.
+- Key order provides a non-persisted rule-test field in both render paths. After a property name is entered, its result region lists the first matching hidden, pinned, and bottom rules, states the effective hidden > pinned > bottom priority, and announces updates with `aria-live="polite"`; clearing the input restores the prompt. Existing results refresh immediately after a rule edit, and testing never scans the Vault.
+- At widths up to 480px, both render paths stack rule textareas, existing-property inputs, and the rule-test input to fill their card or control area.
 - Persistence failure presents a Notice and `role="alert"` unsaved state. Successful Retry clears the state and performs any required suggestion refresh.
 
 ## Accessibility and accepted boundary

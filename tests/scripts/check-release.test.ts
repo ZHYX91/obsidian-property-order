@@ -22,7 +22,20 @@ async function createReleaseProject(): Promise<string> {
   };
   await mkdir(releaseDir, { recursive: true });
   await Promise.all([
-    writeFile(path.join(root, "package.json"), JSON.stringify({ version: "0.1.0" })),
+    writeFile(
+      path.join(root, "package.json"),
+      JSON.stringify({ name: "obsidian-property-order", version: "0.1.0" }),
+    ),
+    writeFile(
+      path.join(root, "package-lock.json"),
+      JSON.stringify({
+        name: "obsidian-property-order",
+        packages: {
+          "": { name: "obsidian-property-order", version: "0.1.0" },
+        },
+        version: "0.1.0",
+      }),
+    ),
     writeFile(path.join(root, "manifest.json"), JSON.stringify(manifest)),
     writeFile(path.join(root, "versions.json"), JSON.stringify({ "0.1.0": "1.5.7" })),
     writeFile(path.join(root, "styles.css"), ".property-order { color: red; }\n"),

@@ -2,7 +2,7 @@ import { defineConfig } from "eslint/config";
 import obsidianmd from "eslint-plugin-obsidianmd";
 import tseslint from "typescript-eslint";
 
-const TEST_FILES = ["tests/**/*.ts"];
+const TEST_FILES = ["benchmarks/**/*.ts", "tests/**/*.ts"];
 const NODE_SCRIPT_FILES = ["*.mjs", "*.mts", "scripts/**/*.mjs"];
 const disabledObsidianRules = Object.fromEntries(
   Object.keys(obsidianmd.rules).map((ruleName) => [`obsidianmd/${ruleName}`, "off"]),

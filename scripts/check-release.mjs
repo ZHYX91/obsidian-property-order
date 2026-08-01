@@ -6,7 +6,10 @@ import { isDeepStrictEqual } from "node:util";
 import esbuild from "esbuild";
 
 import { createEsbuildOptions } from "./esbuild-options.mjs";
-import { assertPackageVersionContract } from "./release-contract.mjs";
+import {
+  assertPackageLockContract,
+  assertPackageVersionContract,
+} from "./release-contract.mjs";
 
 async function readJson(filePath) {
   return JSON.parse(await readFile(filePath, "utf8"));
@@ -30,9 +33,11 @@ export async function checkRelease(projectRoot = process.cwd()) {
   const fromRoot = (...segments) => path.join(projectRoot, ...segments);
   const packageJson = await readJson(fromRoot("package.json"));
   const manifest = await readJson(fromRoot("manifest.json"));
+  const packageLock = await readJson(fromRoot("package-lock.json"));
   const versions = await readJson(fromRoot("versions.json"));
 
   assertPackageVersionContract(manifest, packageJson, versions);
+  assertPackageLockContract(packageJson, packageLock);
 
   const releaseDir = fromRoot("dist");
   const bundledMainPath = path.join(releaseDir, "main.js");

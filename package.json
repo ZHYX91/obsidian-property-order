@@ -6,14 +6,17 @@
   "scripts": {
     "dev": "node esbuild.config.mjs",
     "build": "node esbuild.config.mjs production",
-    "check": "npm run lint && npm run check:readme-i18n && npm run check:docs-i18n && npm run typecheck && npm test && npm run build && npm run check:release",
-    "lint": "eslint main.ts src tests scripts esbuild.config.mjs eslint.config.mjs vitest.config.mts --max-warnings 0",
+    "check": "npm run check:runtime && npm run lint && npm run check:readme-i18n && npm run check:docs-i18n && npm run typecheck && npm test && npm run build && npm run check:release",
+    "check:runtime": "node scripts/check-runtime.mjs",
+    "lint": "eslint main.ts src tests benchmarks scripts esbuild.config.mjs eslint.config.mjs vitest.config.mts vitest.performance.config.mts --max-warnings 0",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "test:coverage": "vitest run --coverage",
     "check:docs-i18n": "node scripts/check-docs-i18n.mjs",
     "check:readme-i18n": "node scripts/check-readme-i18n.mjs",
     "check:release": "node scripts/check-release.mjs",
+    "bench:usage": "vitest run --config vitest.performance.config.mts --mode quick --reporter=verbose",
+    "bench:usage:large": "vitest run --config vitest.performance.config.mts --mode large --reporter=verbose",
     "acceptance:fixtures": "node scripts/create-acceptance-fixtures.mjs",
     "acceptance:conflict": "node scripts/inject-acceptance-conflict.mjs"
   },
@@ -27,8 +30,9 @@
   ],
   "author": "ZhengYX",
   "license": "MIT",
+  "packageManager": "npm@11.16.0",
   "engines": {
-    "node": ">=20"
+    "node": "24.18.0"
   },
   "overrides": {
     "brace-expansion": "5.0.8",

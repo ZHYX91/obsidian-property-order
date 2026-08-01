@@ -4,12 +4,18 @@ on:
   push:
     tags:
       - "[0-9]*.[0-9]*.[0-9]*"
+  workflow_dispatch:
+    inputs:
+      version:
+        description: Exact x.y.z version to preflight before creating a tag
+        required: true
+        type: string
 
 permissions:
   contents: read
 
 concurrency:
-  group: release-${{ github.ref }}
+  group: release-${{ github.repository }}
   cancel-in-progress: false
 
 jobs:
@@ -20,18 +26,25 @@ jobs:
       attestations: write
       contents: write
       id-token: write
+    env:
+      RELEASE_VERSION: ${{ github.event_name == 'workflow_dispatch' && inputs.version || github.ref_name }}
     steps:
       - name: Check out repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          fetch-depth: 0
 
       - name: Set up Node.js
         uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
         with:
-          node-version: 20
+          node-version-file: .node-version
           cache: npm
 
       - name: Verify release version
-        run: node scripts/check-release-version.mjs "$GITHUB_REF_NAME"
+        run: node scripts/check-release-version.mjs "$RELEASE_VERSION"
+
+      - name: Verify runtime contract
+        run: npm run check:runtime
 
       - name: Install dependencies
         run: npm ci
@@ -40,18 +53,76 @@ jobs:
         run: npm run check
 
       - name: Build manual installation archive
-        run: node scripts/release-assets.mjs archive --version "$GITHUB_REF_NAME"
+        run: node scripts/release-assets.mjs archive --version "$RELEASE_VERSION"
 
-      - name: Verify pushed release tag identity
+      - name: Verify release source identity
+        env:
+          DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
+          EVENT_NAME: ${{ github.event_name }}
+          EVENT_REF: ${{ github.ref }}
         shell: bash
         run: |
+          expected_commit="$(git rev-parse "${GITHUB_SHA}^{commit}")"
+          checkout_commit="$(git rev-parse "HEAD^{commit}")"
+          remote_default_ref="refs/heads/${DEFAULT_BRANCH}"
+
+          if [[ -z "$DEFAULT_BRANCH" ]] || ! git check-ref-format --branch "$DEFAULT_BRANCH" >/dev/null; then
+            echo "The repository default branch is missing or invalid." >&2
+            exit 1
+          fi
+
+          if [[ "$checkout_commit" != "$expected_commit" ]]; then
+            echo "The checked-out commit no longer matches the workflow event commit." >&2
+            exit 1
+          fi
+
+          if ! remote_default_refs="$(
+            git ls-remote --exit-code origin "$remote_default_ref"
+          )"; then
+            echo "Could not resolve the repository default branch from origin." >&2
+            exit 1
+          fi
+          mapfile -t default_commits < <(
+            awk -v ref="$remote_default_ref" '$2 == ref { print $1 }' <<< "$remote_default_refs"
+          )
+          if [[ "${#default_commits[@]}" -ne 1 ]]; then
+            echo "The repository default branch did not resolve to one commit." >&2
+            exit 1
+          fi
+          remote_default_commit="${default_commits[0]}"
+          git fetch --quiet --no-tags origin "$remote_default_ref"
+
+          if [[ "$EVENT_NAME" == "workflow_dispatch" ]]; then
+            if [[ "$EVENT_REF" != "$remote_default_ref" ]]; then
+              echo "Release preflight must run from the repository default branch." >&2
+              exit 1
+            fi
+            if [[ "$expected_commit" != "$remote_default_commit" ]]; then
+              echo "Release preflight must run at the current remote default-branch HEAD." >&2
+              exit 1
+            fi
+
+            tag_ref="refs/tags/${RELEASE_VERSION}"
+            if ! remote_tag_refs="$(git ls-remote origin "$tag_ref" "${tag_ref}^{}")"; then
+              echo "Could not check whether the candidate release tag already exists." >&2
+              exit 1
+            fi
+            if [[ -n "$remote_tag_refs" ]]; then
+              echo "Release preflight requires a version whose remote tag does not exist." >&2
+              exit 1
+            fi
+
+            echo "Preflight passed for ${RELEASE_VERSION} at ${expected_commit}."
+            exit 0
+          fi
+
           verify_release_tag_identity() {
             local expected_commit checkout_commit tag_ref remote_refs remote_commit
             local -a tag_objects peeled_commits
 
             expected_commit="$(git rev-parse "${GITHUB_SHA}^{commit}")"
             checkout_commit="$(git rev-parse "HEAD^{commit}")"
-            tag_ref="refs/tags/${GITHUB_REF_NAME}"
+            tag_ref="refs/tags/${RELEASE_VERSION}"
 
             if [[ "$checkout_commit" != "$expected_commit" ]]; then
               echo "The checked-out commit no longer matches the release event commit." >&2
@@ -89,8 +160,13 @@ jobs:
           }
 
           verify_release_tag_identity
+          if ! git merge-base --is-ancestor "$expected_commit" "$remote_default_commit"; then
+            echo "The release commit is not reachable from the current remote default branch." >&2
+            exit 1
+          fi
 
       - name: Check existing immutable Release
+        if: github.event_name == 'push'
         id: release_state
         env:
           GH_TOKEN: ${{ github.token }}
@@ -104,17 +180,17 @@ jobs:
               --header "Accept: application/vnd.github+json" \
               --header "Authorization: Bearer ${GH_TOKEN}" \
               --header "X-GitHub-Api-Version: 2026-03-10" \
-              "${GITHUB_API_URL}/repos/${GITHUB_REPOSITORY}/releases/tags/${GITHUB_REF_NAME}"
+              "${GITHUB_API_URL}/repos/${GITHUB_REPOSITORY}/releases/tags/${RELEASE_VERSION}"
           )"
 
           case "$release_status" in
             "200")
-              if ! jq --exit-status '.immutable == true and .draft == false' "$release_response" >/dev/null; then
-                echo "The tagged Release exists but is not immutable; publish a new version." >&2
+              if ! jq --exit-status '.immutable == true and .draft == false and .prerelease == false' "$release_response" >/dev/null; then
+                echo "The tagged Release exists but is not an immutable stable Release; publish a new version." >&2
                 exit 1
               fi
 
-              archive_name="property-order-${GITHUB_REF_NAME}.zip"
+              archive_name="property-order-${RELEASE_VERSION}.zip"
               if ! jq --exit-status --arg archive_name "$archive_name" '
                 (.assets | type == "array") and
                 ([.assets[].name] | sort) ==
@@ -127,15 +203,15 @@ jobs:
 
               existing_assets="$RUNNER_TEMP/existing-release-assets"
               mkdir -p "$existing_assets"
-              gh release download "$GITHUB_REF_NAME" \
+              gh release download "$RELEASE_VERSION" \
                 --repo "$GITHUB_REPOSITORY" \
                 --dir "$existing_assets" \
                 --pattern main.js \
                 --pattern manifest.json \
                 --pattern styles.css \
-                --pattern "property-order-${GITHUB_REF_NAME}.zip"
+                --pattern "property-order-${RELEASE_VERSION}.zip"
               node scripts/release-assets.mjs compare \
-                --version "$GITHUB_REF_NAME" \
+                --version "$RELEASE_VERSION" \
                 --local-dir dist \
                 --existing-dir "$existing_assets"
               echo "exists=true" >> "$GITHUB_OUTPUT"
@@ -149,27 +225,77 @@ jobs:
               ;;
           esac
 
+      - name: Select previous published Release for generated notes
+        if: github.event_name == 'push' && steps.release_state.outputs.exists != 'true'
+        id: release_notes
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          releases_response="$RUNNER_TEMP/published-releases.json"
+          gh api --paginate --slurp \
+            --header "X-GitHub-Api-Version: 2026-03-10" \
+            "/repos/${GITHUB_REPOSITORY}/releases?per_page=100" \
+            > "$releases_response"
+          previous_tag="$(
+            node scripts/release-notes-baseline.mjs \
+              --current-version "$RELEASE_VERSION" \
+              < "$releases_response"
+          )"
+
+          if [[ -n "$previous_tag" ]]; then
+            previous_ref="refs/tags/${previous_tag}"
+            if ! previous_refs="$(
+              git ls-remote --exit-code origin "$previous_ref" "${previous_ref}^{}"
+            )"; then
+              echo "Could not resolve the previous published Release tag from origin." >&2
+              exit 1
+            fi
+            mapfile -t previous_objects < <(
+              awk -v ref="$previous_ref" '$2 == ref { print $1 }' <<< "$previous_refs"
+            )
+            mapfile -t previous_peeled < <(
+              awk -v ref="${previous_ref}^{}" '$2 == ref { print $1 }' <<< "$previous_refs"
+            )
+            if [[ "${#previous_objects[@]}" -ne 1 || "${#previous_peeled[@]}" -gt 1 ]]; then
+              echo "The previous published Release tag is ambiguous." >&2
+              exit 1
+            fi
+            previous_commit="${previous_objects[0]}"
+            if [[ "${#previous_peeled[@]}" -eq 1 ]]; then
+              previous_commit="${previous_peeled[0]}"
+            fi
+            git fetch --quiet --no-tags origin "$previous_ref"
+            if ! git merge-base --is-ancestor "$previous_commit" "$GITHUB_SHA"; then
+              echo "The previous published Release is not an ancestor of this release." >&2
+              exit 1
+            fi
+          fi
+
+          echo "previous_tag=${previous_tag}" >> "$GITHUB_OUTPUT"
+
       - name: Attest Obsidian release assets
-        if: steps.release_state.outputs.exists != 'true'
+        if: github.event_name == 'push' && steps.release_state.outputs.exists != 'true'
         uses: actions/attest@36051bcae73b7c2a8a6945a48cbf80953c6baa35 # v4
         with:
           subject-path: |
             dist/main.js
             dist/manifest.json
             dist/styles.css
-            dist/property-order-${{ github.ref_name }}.zip
+            dist/property-order-${{ env.RELEASE_VERSION }}.zip
 
       - name: Publish immutable GitHub release
-        if: steps.release_state.outputs.exists != 'true'
+        if: github.event_name == 'push' && steps.release_state.outputs.exists != 'true'
         env:
           GH_TOKEN: ${{ github.token }}
+          PREVIOUS_RELEASE_TAG: ${{ steps.release_notes.outputs.previous_tag }}
         shell: bash
         run: |
           verify_release_assets() {
             local expected_draft="$1" expected_immutable="$2" stage="$3" assets_directory="$4"
             local archive_name release_response release_status attempt
 
-            archive_name="property-order-${GITHUB_REF_NAME}.zip"
+            archive_name="property-order-${RELEASE_VERSION}.zip"
             release_response="$RUNNER_TEMP/${stage}-release.json"
 
             for attempt in {1..10}; do
@@ -180,7 +306,7 @@ jobs:
                   --header "Accept: application/vnd.github+json" \
                   --header "Authorization: Bearer ${GH_TOKEN}" \
                   --header "X-GitHub-Api-Version: 2026-03-10" \
-                  "${GITHUB_API_URL}/repos/${GITHUB_REPOSITORY}/releases/tags/${GITHUB_REF_NAME}"
+                  "${GITHUB_API_URL}/repos/${GITHUB_REPOSITORY}/releases/tags/${RELEASE_VERSION}"
               )"
 
               if [[ "$release_status" != "200" ]]; then
@@ -193,6 +319,7 @@ jobs:
                 --argjson expected_draft "$expected_draft" \
                 --argjson expected_immutable "$expected_immutable" '
                   .draft == $expected_draft and
+                  .prerelease == false and
                   .immutable == $expected_immutable and
                   (.assets | type == "array") and
                   ([.assets[].name] | sort) ==
@@ -211,7 +338,7 @@ jobs:
             done
 
             mkdir "$assets_directory"
-            if ! gh release download "$GITHUB_REF_NAME" \
+            if ! gh release download "$RELEASE_VERSION" \
               --repo "$GITHUB_REPOSITORY" \
               --dir "$assets_directory" \
               --pattern main.js \
@@ -223,7 +350,7 @@ jobs:
             fi
 
             if ! node scripts/release-assets.mjs compare \
-              --version "$GITHUB_REF_NAME" \
+              --version "$RELEASE_VERSION" \
               --local-dir dist \
               --existing-dir "$assets_directory"; then
               echo "::error title=Release supply-chain verification failed::${stage}: remote asset SHA-256 values differ from the candidate build." >&2
@@ -237,7 +364,7 @@ jobs:
 
             expected_commit="$(git rev-parse "${GITHUB_SHA}^{commit}")"
             checkout_commit="$(git rev-parse "HEAD^{commit}")"
-            tag_ref="refs/tags/${GITHUB_REF_NAME}"
+            tag_ref="refs/tags/${RELEASE_VERSION}"
 
             if [[ "$checkout_commit" != "$expected_commit" ]]; then
               echo "The checked-out commit no longer matches the release event commit." >&2
@@ -278,14 +405,18 @@ jobs:
             dist/main.js
             dist/manifest.json
             dist/styles.css
-            "dist/property-order-${GITHUB_REF_NAME}.zip"
+            "dist/property-order-${RELEASE_VERSION}.zip"
           )
+          notes_arguments=(--generate-notes)
+          if [[ -n "$PREVIOUS_RELEASE_TAG" ]]; then
+            notes_arguments+=(--notes-start-tag "$PREVIOUS_RELEASE_TAG")
+          fi
           verify_release_tag_identity
-          gh release create "$GITHUB_REF_NAME" "${assets[@]}" \
+          gh release create "$RELEASE_VERSION" "${assets[@]}" \
             --repo "$GITHUB_REPOSITORY" \
             --verify-tag \
-            --title "$GITHUB_REF_NAME" \
-            --generate-notes
+            --title "$RELEASE_VERSION" \
+            "${notes_arguments[@]}"
           verify_release_tag_identity
           verify_release_assets \
             false true \

@@ -260,6 +260,17 @@ body.property-order-value-drag-enabled .metadata-property .multi-select-pill {
   min-width: 12rem;
 }
 
+.property-order-rule-diagnostic-input {
+  max-width: 100%;
+  min-width: 12rem;
+}
+
+.property-order-rule-diagnostic-result {
+  color: var(--text-normal);
+  margin-block-start: var(--size-2-2);
+  overflow-wrap: anywhere;
+}
+
 @media (pointer: coarse) {
   .property-order-settings-tab {
     height: 44px;
@@ -268,14 +279,16 @@ body.property-order-value-drag-enabled .metadata-property .multi-select-pill {
 }
 
 @media (max-width: 480px) {
-  .property-order-key-list-setting .setting-item-control {
+  .property-order-key-list-setting .setting-item-control,
+  .property-order-rule-diagnostic-setting .setting-item-control {
     align-items: stretch;
     flex-direction: column;
     width: 100%;
   }
 
   .property-order-key-list-input,
-  .property-order-property-name-input {
+  .property-order-property-name-input,
+  .property-order-rule-diagnostic-input {
     box-sizing: border-box;
     min-width: 0;
     width: 100%;

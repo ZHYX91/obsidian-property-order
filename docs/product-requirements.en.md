@@ -48,6 +48,7 @@ The enhancement must remain local, reversible, and fail-safe. Unrecognized host 
 - General, Value drag, and Key order remain three logical groups with immediate-application semantics: Obsidian 1.12.x uses custom tabs, while 1.13+ uses native declarative pages and settings search.
 - Persistence failure keeps the in-memory state and presents a localized Notice, accessible unsaved status, and Retry action.
 - Key order provides a **Clear recent property history** action. It cancels pending confirmations and deletes only the current Vault and device's MRU; it does not modify `data.json`, notes, or another Vault. If device-local deletion fails, the in-memory history remains cleared and the user is warned that saved history may return after restart.
+- Key order provides a transient **Test property name rules** input. It shows the first matching hidden, pinned, and bottom rule together with the effective hidden > pinned > bottom result. The test value is never persisted, changes neither `data.json`, MRU, nor notes, and does not traverse the Vault.
 - Cross-property drag is enabled by default and can be disabled independently; key-suggestion enhancement can also be disabled independently and fully restores host state.
 
 ## Explicit non-goals and limitations

@@ -15,5 +15,12 @@
     "skipLibCheck": true,
     "types": ["node", "vitest/globals"]
   },
-  "include": ["src/**/*.ts", "main.ts", "tests/**/*.ts", "vitest.config.mts"]
+  "include": [
+    "src/**/*.ts",
+    "main.ts",
+    "tests/**/*.ts",
+    "benchmarks/**/*.ts",
+    "vitest.config.mts",
+    "vitest.performance.config.mts"
+  ]
 }

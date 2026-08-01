@@ -5,6 +5,46 @@ export interface OrderedPropertyKey {
   key: string;
 }
 
+export type PropertyKeyRulePlacement = "bottom" | "hidden" | "normal" | "pinned";
+
+export interface PropertyKeyRuleExplanation {
+  bottomPattern: string | null;
+  hiddenPattern: string | null;
+  key: string;
+  pinnedPattern: string | null;
+  placement: PropertyKeyRulePlacement;
+}
+
+type PropertyKeyRules = Pick<
+  PropertyKeyOrderOptions,
+  "bottomKeys" | "hiddenPatterns" | "pinnedKeys"
+>;
+
+export function explainPropertyKeyRules(
+  rawKey: string,
+  rules: PropertyKeyRules,
+): PropertyKeyRuleExplanation {
+  const key = rawKey.trim();
+  const hiddenPattern = findMatchingPattern(rules.hiddenPatterns, key);
+  const pinnedPattern = findMatchingPattern(rules.pinnedKeys, key);
+  const bottomPattern = findMatchingPattern(rules.bottomKeys, key);
+  const placement = hiddenPattern != null
+    ? "hidden"
+    : pinnedPattern != null
+      ? "pinned"
+      : bottomPattern != null
+        ? "bottom"
+        : "normal";
+
+  return {
+    bottomPattern,
+    hiddenPattern,
+    key,
+    pinnedPattern,
+    placement,
+  };
+}
+
 export function orderPropertyKeys(
   keys: string[],
   options: PropertyKeyOrderOptions,
@@ -106,6 +146,21 @@ function expandKeyPatterns(patterns: string[], keys: string[]): string[] {
   }
 
   return result;
+}
+
+function findMatchingPattern(patterns: string[], key: string): string | null {
+  if (key.length === 0) {
+    return null;
+  }
+
+  for (const rawPattern of patterns) {
+    const pattern = rawPattern.trim();
+    if (pattern.length > 0 && createWildcardMatcher(pattern)(key)) {
+      return pattern;
+    }
+  }
+
+  return null;
 }
 
 function createWildcardMatcher(pattern: string): (value: string) => boolean {

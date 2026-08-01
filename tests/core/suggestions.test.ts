@@ -1,6 +1,9 @@
 import { describe, expect, it } from "vitest";
 
-import { orderPropertyKeys } from "../../src/core/suggestions/order-keys";
+import {
+  explainPropertyKeyRules,
+  orderPropertyKeys,
+} from "../../src/core/suggestions/order-keys";
 
 describe("orderPropertyKeys", () => {
   it("pins, hides, sorts, and bottoms property keys", () => {
@@ -140,5 +143,47 @@ describe("orderPropertyKeys", () => {
     });
 
     expect(orderedKeys.map((item) => item.key)).toEqual(["TQ_keep", "zeta", "alpha"]);
+  });
+});
+
+describe("explainPropertyKeyRules", () => {
+  it("reports every first match and the effective hidden-pinned-bottom priority", () => {
+    expect(explainPropertyKeyRules(" TQ_status ", {
+      bottomKeys: ["TQ_*"],
+      hiddenPatterns: ["tq_status", "TQ_*"],
+      pinnedKeys: ["status", "TQ_*"],
+    })).toEqual({
+      bottomPattern: "TQ_*",
+      hiddenPattern: "tq_status",
+      key: "TQ_status",
+      pinnedPattern: "TQ_*",
+      placement: "hidden",
+    });
+
+    expect(explainPropertyKeyRules("project", {
+      bottomKeys: ["project"],
+      hiddenPatterns: [],
+      pinnedKeys: ["pro*"],
+    }).placement).toBe("pinned");
+    expect(explainPropertyKeyRules("date", {
+      bottomKeys: ["date"],
+      hiddenPatterns: [],
+      pinnedKeys: [],
+    }).placement).toBe("bottom");
+  });
+
+  it("reports an empty or unmatched name as normal without a rule match", () => {
+    for (const key of ["", "owner"]) {
+      expect(explainPropertyKeyRules(key, {
+        bottomKeys: ["date"],
+        hiddenPatterns: ["TQ_*"],
+        pinnedKeys: ["project"],
+      })).toMatchObject({
+        bottomPattern: null,
+        hiddenPattern: null,
+        pinnedPattern: null,
+        placement: "normal",
+      });
+    }
   });
 });
