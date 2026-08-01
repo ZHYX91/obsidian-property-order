@@ -267,7 +267,7 @@ jobs:
           esac
 
       - name: Select previous published Release for generated notes
-        if: steps.release_state.outputs.exists != 'true'
+        if: steps.release_state.outputs.exists == 'false'
         id: release_notes
         env:
           GH_TOKEN: ${{ github.token }}
@@ -321,7 +321,7 @@ jobs:
         run: echo "Preflight passed for ${RELEASE_VERSION} at ${GITHUB_SHA}."
 
       - name: Prepare exact verified release candidate
-        if: github.event_name == 'push' && steps.release_state.outputs.exists != 'true'
+        if: github.event_name == 'push' && steps.release_state.outputs.exists == 'false'
         id: candidate
         shell: bash
         run: |
@@ -356,7 +356,7 @@ jobs:
           echo "artifact_name=${artifact_name}" >> "$GITHUB_OUTPUT"
 
       - name: Upload exact verified release candidate
-        if: github.event_name == 'push' && steps.release_state.outputs.exists != 'true'
+        if: github.event_name == 'push' && steps.release_state.outputs.exists == 'false'
         id: upload_candidate
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
         with:
@@ -368,7 +368,7 @@ jobs:
           retention-days: 1
 
   publish:
-    if: github.event_name == 'push' && needs.verify.outputs.release_exists != 'true'
+    if: github.event_name == 'push' && needs.verify.outputs.release_exists == 'false'
     needs: verify
     runs-on: ubuntu-latest
     timeout-minutes: 20

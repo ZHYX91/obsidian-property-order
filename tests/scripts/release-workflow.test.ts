@@ -3,6 +3,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 
 import { describe, expect, it } from "vitest";
+import { parse as parseYaml } from "yaml";
 
 const projectRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../..");
 const workflow = readFileSync(
@@ -15,6 +16,18 @@ const ciWorkflow = readFileSync(
 );
 const verifyJob = getJobSource("verify", "publish");
 const publishJob = getJobSource("publish");
+
+interface WorkflowJob {
+  if?: string;
+  needs?: string;
+  outputs?: Record<string, string>;
+  permissions?: Record<string, string>;
+  steps?: Array<{ if?: string; name?: string }>;
+}
+
+const parsedWorkflow = parseYaml(workflow) as {
+  jobs?: Record<string, WorkflowJob>;
+};
 
 describe("release workflow contract", () => {
   it("uploads the three standard build files from the top level of dist", () => {
@@ -39,7 +52,7 @@ describe("release workflow contract", () => {
     expect(verifyJob).not.toContain("id-token: write");
 
     expect(publishJob).toContain(
-      "if: github.event_name == 'push' && needs.verify.outputs.release_exists != 'true'",
+      "if: github.event_name == 'push' && needs.verify.outputs.release_exists == 'false'",
     );
     expect(publishJob).toContain("needs: verify");
     expect(publishJob).toContain("actions: read");
@@ -47,6 +60,39 @@ describe("release workflow contract", () => {
     expect(publishJob).toContain("contents: write");
     expect(publishJob).toContain("id-token: write");
     expect(publishJob).not.toContain("workflow_dispatch");
+  });
+
+  it("fails closed on missing release-state outputs before every publication path", () => {
+    const jobs = parsedWorkflow.jobs ?? {};
+    const writeJobs = Object.entries(jobs)
+      .filter(([, job]) => Object.values(job.permissions ?? {}).includes("write"))
+      .map(([name]) => name);
+
+    expect(writeJobs).toEqual(["publish"]);
+    expect(jobs.verify?.outputs?.release_exists).toBe(
+      "${{ steps.release_state.outputs.exists }}",
+    );
+    expect(jobs.publish).toMatchObject({
+      if: "github.event_name == 'push' && needs.verify.outputs.release_exists == 'false'",
+      needs: "verify",
+    });
+    expect(jobs.verify?.steps
+      ?.filter((step) => step.if?.includes("release_state"))
+      .map(({ if: condition, name }) => ({ if: condition, name }))).toEqual([
+      {
+        if: "steps.release_state.outputs.exists == 'false'",
+        name: "Select previous published Release for generated notes",
+      },
+      {
+        if: "github.event_name == 'push' && steps.release_state.outputs.exists == 'false'",
+        name: "Prepare exact verified release candidate",
+      },
+      {
+        if: "github.event_name == 'push' && steps.release_state.outputs.exists == 'false'",
+        name: "Upload exact verified release candidate",
+      },
+    ]);
+    expect(workflow).not.toMatch(/!=\s*["']true["']/u);
   });
 
   it("verifies source identity before repository code or write operations", () => {

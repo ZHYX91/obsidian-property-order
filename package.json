@@ -50,6 +50,7 @@
     "obsidian": "1.13.1",
     "typescript": "6.0.3",
     "typescript-eslint": "8.65.0",
-    "vitest": "4.1.9"
+    "vitest": "4.1.9",
+    "yaml": "2.9.0"
   }
 }
