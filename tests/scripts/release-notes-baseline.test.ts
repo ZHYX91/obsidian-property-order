@@ -44,8 +44,12 @@ describe("release notes baseline", () => {
     expect(() => selectReleaseNotesBaseline([
       published("0.5.0"),
     ], "0.4.2")).toThrow(/must advance/u);
-    expect(() => selectReleaseNotesBaseline([], "9007199254740992.0.0")).toThrow(
-      /safe integers/u,
-    );
+  });
+
+  it("compares arbitrarily large strict SemVer components without precision loss", () => {
+    expect(selectReleaseNotesBaseline([
+      published("9007199254740992.0.0"),
+      published("9007199254740993.0.0"),
+    ], "9007199254740994.0.0")).toBe("9007199254740993.0.0");
   });
 });

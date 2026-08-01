@@ -40,19 +40,18 @@ function flattenReleases(value) {
 function parseVersion(value, label) {
   const match = SEMVER_PATTERN.exec(value);
   assert.ok(match, `${label} must use x.y.z without a v prefix`);
-  const version = match.slice(1).map((part) => Number.parseInt(part, 10));
-  assert.ok(
-    version.every(Number.isSafeInteger),
-    `${label} components must be safe integers`,
-  );
-  return version;
+  return match.slice(1).map((part) => BigInt(part));
 }
 
 function compareVersions(left, right) {
   for (let index = 0; index < 3; index += 1) {
-    const difference = (left[index] ?? 0) - (right[index] ?? 0);
-    if (difference !== 0) {
-      return difference;
+    const leftPart = left[index] ?? 0n;
+    const rightPart = right[index] ?? 0n;
+    if (leftPart < rightPart) {
+      return -1;
+    }
+    if (leftPart > rightPart) {
+      return 1;
     }
   }
 

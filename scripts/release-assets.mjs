@@ -231,8 +231,13 @@ function parseJson(source, label) {
 }
 
 function assertReleaseVersion(version) {
-  if (typeof version !== "string" || !/^\d+\.\d+\.\d+$/u.test(version)) {
-    throw new Error("Release version must use x.y.z without a v prefix");
+  if (
+    typeof version !== "string" ||
+    !/^(?:0|[1-9]\d*)\.(?:0|[1-9]\d*)\.(?:0|[1-9]\d*)$/u.test(version)
+  ) {
+    throw new Error(
+      "Release version must use x.y.z without a v prefix or leading zeroes",
+    );
   }
 }
 
