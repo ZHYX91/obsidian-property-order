@@ -11,6 +11,8 @@ import {
   assertPackageVersionContract,
 } from "./release-contract.mjs";
 
+export const PRODUCTION_MAIN_JS_BUDGET_BYTES = 320_000;
+
 async function readJson(filePath) {
   return JSON.parse(await readFile(filePath, "utf8"));
 }
@@ -27,9 +29,18 @@ async function assertNonemptyFile(filePath) {
   if (!fileStats.isFile() || fileStats.size === 0) {
     throw new Error(`Release asset must be a non-empty file: ${filePath}`);
   }
+
+  return fileStats;
 }
 
-export async function checkRelease(projectRoot = process.cwd()) {
+export async function checkRelease(
+  projectRoot = process.cwd(),
+  { mainJavascriptBudgetBytes = PRODUCTION_MAIN_JS_BUDGET_BYTES } = {},
+) {
+  if (!Number.isSafeInteger(mainJavascriptBudgetBytes) || mainJavascriptBudgetBytes <= 0) {
+    throw new Error("Production main.js budget must be a positive safe integer");
+  }
+
   const fromRoot = (...segments) => path.join(projectRoot, ...segments);
   const packageJson = await readJson(fromRoot("package.json"));
   const manifest = await readJson(fromRoot("manifest.json"));
@@ -44,11 +55,16 @@ export async function checkRelease(projectRoot = process.cwd()) {
   const bundledManifestPath = path.join(releaseDir, "manifest.json");
   const bundledStylesPath = path.join(releaseDir, "styles.css");
 
-  await Promise.all([
+  const [bundledMainStats] = await Promise.all([
     assertNonemptyFile(bundledMainPath),
     assertNonemptyFile(bundledManifestPath),
     assertNonemptyFile(bundledStylesPath),
   ]);
+  if (bundledMainStats.size > mainJavascriptBudgetBytes) {
+    throw new Error(
+      `Production main.js is ${bundledMainStats.size} B; budget is ${mainJavascriptBudgetBytes} B`,
+    );
+  }
 
   const [bundledMain, bundledManifest, sourceStyles, bundledStyles, expectedBuild] =
     await Promise.all([
@@ -78,12 +94,19 @@ export async function checkRelease(projectRoot = process.cwd()) {
     throw new Error("dist/styles.css is stale; run npm run build");
   }
 
-  return { id: manifest.id, version: manifest.version };
+  return {
+    id: manifest.id,
+    mainJavascriptBudgetBytes,
+    mainJavascriptBytes: bundledMainStats.size,
+    version: manifest.version,
+  };
 }
 
 async function main() {
   const result = await checkRelease();
-  console.log(`Release check passed for ${result.id} ${result.version}`);
+  console.log(
+    `Release check passed for ${result.id} ${result.version}; main.js ${result.mainJavascriptBytes}/${result.mainJavascriptBudgetBytes} B`,
+  );
 }
 
 const entryPoint = process.argv[1] ? pathToFileURL(path.resolve(process.argv[1])).href : undefined;

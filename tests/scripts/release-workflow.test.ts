@@ -228,9 +228,19 @@ describe("release workflow contract", () => {
     expect(publishJob).toContain(".draft == $expected_draft");
     expect(publishJob).toContain(".immutable == $expected_immutable");
     expect(publishJob).toContain("Release supply-chain verification failed");
+    expect(publishJob).toContain('gh attestation verify "$assets_directory/$asset_name"');
+    expect(publishJob).toContain('--repo "$GITHUB_REPOSITORY"');
+    expect(publishJob).toContain(
+      '--signer-workflow "${GITHUB_REPOSITORY}/.github/workflows/release.yml"',
+    );
+    expect(publishJob).toContain('--source-digest "$GITHUB_SHA"');
+    expect(publishJob).toContain('--source-ref "$GITHUB_REF"');
+    expect(publishJob).toContain("--deny-self-hosted-runners");
     expect(publishJob).toMatch(
       /gh release create[\s\S]*?verify_release_assets[\s\S]*?verify_release_tag_identity/u,
     );
+    expect(workflow.match(/gh attestation verify/gu)).toHaveLength(2);
+    expect(workflow.match(/--deny-self-hosted-runners/gu)).toHaveLength(2);
   });
 
   it("generates notes from the highest older real stable Release", () => {

@@ -1,11 +1,11 @@
-import { mkdtemp, mkdir, rm, writeFile } from "node:fs/promises";
+import { mkdtemp, mkdir, rm, stat, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import esbuild from "esbuild";
 import { afterEach, describe, expect, it } from "vitest";
 
 // @ts-expect-error The release checker is an executable JavaScript module without declarations.
-import { checkRelease } from "../../scripts/check-release.mjs";
+import { PRODUCTION_MAIN_JS_BUDGET_BYTES, checkRelease } from "../../scripts/check-release.mjs";
 // @ts-expect-error The shared esbuild options are implemented in JavaScript.
 import { createEsbuildOptions } from "../../scripts/esbuild-options.mjs";
 
@@ -58,8 +58,32 @@ afterEach(async () => {
 describe("release checker", () => {
   it("accepts non-empty, synchronized release assets", async () => {
     const root = await createReleaseProject();
-    await expect(checkRelease(root)).resolves.toEqual({ id: "property-order", version: "0.1.0" });
+    const mainJavascriptBytes = (await stat(path.join(root, "dist", "main.js"))).size;
+    await expect(checkRelease(root)).resolves.toEqual({
+      id: "property-order",
+      mainJavascriptBudgetBytes: PRODUCTION_MAIN_JS_BUDGET_BYTES,
+      mainJavascriptBytes,
+      version: "0.1.0",
+    });
   }, 15_000);
+
+  it("accepts the exact main.js budget boundary and rejects one byte over", async () => {
+    const root = await createReleaseProject();
+    const mainJavascriptBytes = (await stat(path.join(root, "dist", "main.js"))).size;
+
+    await expect(checkRelease(root, {
+      mainJavascriptBudgetBytes: mainJavascriptBytes,
+    })).resolves.toMatchObject({ mainJavascriptBytes });
+    await expect(checkRelease(root, {
+      mainJavascriptBudgetBytes: mainJavascriptBytes - 1,
+    })).rejects.toThrow(
+      `Production main.js is ${mainJavascriptBytes} B; budget is ${mainJavascriptBytes - 1} B`,
+    );
+  });
+
+  it("pins a 320,000-byte production budget", () => {
+    expect(PRODUCTION_MAIN_JS_BUDGET_BYTES).toBe(320_000);
+  });
 
   it("rejects stale static assets and empty bundles", async () => {
     const staleStylesRoot = await createReleaseProject();

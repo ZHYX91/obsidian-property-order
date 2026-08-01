@@ -754,6 +754,15 @@ jobs:
                 echo "::error title=Release supply-chain verification failed::${stage}: remote asset ${asset_name} differs from the verified candidate." >&2
                 return 1
               fi
+              if ! gh attestation verify "$assets_directory/$asset_name" \
+                --repo "$GITHUB_REPOSITORY" \
+                --signer-workflow "${GITHUB_REPOSITORY}/.github/workflows/release.yml" \
+                --source-digest "$GITHUB_SHA" \
+                --source-ref "$GITHUB_REF" \
+                --deny-self-hosted-runners; then
+                echo "::error title=Release supply-chain verification failed::${stage}: remote asset ${asset_name} provenance does not match the exact release workflow, ref, and commit." >&2
+                return 1
+              fi
             done
           }
 
