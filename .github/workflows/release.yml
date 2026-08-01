@@ -19,13 +19,15 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
-  publish:
+  verify:
     runs-on: ubuntu-latest
     timeout-minutes: 20
     permissions:
-      attestations: write
-      contents: write
-      id-token: write
+      attestations: read
+      contents: read
+    outputs:
+      previous_tag: ${{ steps.release_notes.outputs.previous_tag }}
+      release_exists: ${{ steps.release_state.outputs.exists }}
     env:
       RELEASE_VERSION: ${{ github.event_name == 'workflow_dispatch' && inputs.version || github.ref_name }}
     steps:
@@ -33,6 +35,100 @@ jobs:
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           fetch-depth: 0
+
+      - name: Verify read-only release source identity
+        env:
+          DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
+          EVENT_NAME: ${{ github.event_name }}
+          EVENT_REF: ${{ github.ref }}
+        shell: bash
+        run: |
+          if [[ ! "$RELEASE_VERSION" =~ ^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$ ]]; then
+            echo "Release version must use x.y.z without a v prefix or leading zeroes." >&2
+            exit 1
+          fi
+
+          expected_commit="$(git rev-parse "${GITHUB_SHA}^{commit}")"
+          checkout_commit="$(git rev-parse "HEAD^{commit}")"
+          remote_default_ref="refs/heads/${DEFAULT_BRANCH}"
+
+          if [[ -z "$DEFAULT_BRANCH" ]] || ! git check-ref-format --branch "$DEFAULT_BRANCH" >/dev/null; then
+            echo "The repository default branch is missing or invalid." >&2
+            exit 1
+          fi
+          if [[ "$checkout_commit" != "$expected_commit" ]]; then
+            echo "The checked-out commit no longer matches the workflow event commit." >&2
+            exit 1
+          fi
+          if ! remote_default_refs="$(
+            git ls-remote --exit-code origin "$remote_default_ref"
+          )"; then
+            echo "Could not resolve the repository default branch from origin." >&2
+            exit 1
+          fi
+          mapfile -t default_commits < <(
+            awk -v ref="$remote_default_ref" '$2 == ref { print $1 }' <<< "$remote_default_refs"
+          )
+          if [[ "${#default_commits[@]}" -ne 1 ]]; then
+            echo "The repository default branch did not resolve to one commit." >&2
+            exit 1
+          fi
+          remote_default_commit="${default_commits[0]}"
+          git fetch --quiet --no-tags origin "$remote_default_ref"
+
+          tag_ref="refs/tags/${RELEASE_VERSION}"
+          if [[ "$EVENT_NAME" == "workflow_dispatch" ]]; then
+            if [[ "$EVENT_REF" != "$remote_default_ref" ]]; then
+              echo "Release preflight must run from the repository default branch." >&2
+              exit 1
+            fi
+            if [[ "$expected_commit" != "$remote_default_commit" ]]; then
+              echo "Release preflight must run at the current remote default-branch HEAD." >&2
+              exit 1
+            fi
+            if ! remote_tag_refs="$(git ls-remote origin "$tag_ref" "${tag_ref}^{}")"; then
+              echo "Could not check whether the candidate release tag already exists." >&2
+              exit 1
+            fi
+            if [[ -n "$remote_tag_refs" ]]; then
+              echo "Release preflight requires a version whose remote tag does not exist." >&2
+              exit 1
+            fi
+            exit 0
+          fi
+
+          if [[ "$EVENT_NAME" != "push" || "$EVENT_REF" != "$tag_ref" ]]; then
+            echo "Release publication requires the exact version-tag push event." >&2
+            exit 1
+          fi
+          if ! remote_refs="$(
+            git ls-remote --exit-code origin "$tag_ref" "${tag_ref}^{}"
+          )"; then
+            echo "Could not resolve the pushed release tag from origin." >&2
+            exit 1
+          fi
+          mapfile -t tag_objects < <(
+            awk -v ref="$tag_ref" '$2 == ref { print $1 }' <<< "$remote_refs"
+          )
+          mapfile -t peeled_commits < <(
+            awk -v ref="${tag_ref}^{}" '$2 == ref { print $1 }' <<< "$remote_refs"
+          )
+          if [[ "${#tag_objects[@]}" -ne 1 || "${#peeled_commits[@]}" -gt 1 ]]; then
+            echo "The remote release tag did not resolve to one unambiguous object." >&2
+            exit 1
+          fi
+          remote_commit="${tag_objects[0]}"
+          if [[ "${#peeled_commits[@]}" -eq 1 ]]; then
+            remote_commit="${peeled_commits[0]}"
+          fi
+          if [[ "$remote_commit" != "$expected_commit" ]]; then
+            echo "The remote release tag no longer points to the pushed event commit." >&2
+            exit 1
+          fi
+          if ! git merge-base --is-ancestor "$expected_commit" "$remote_default_commit"; then
+            echo "The release commit is not reachable from the current remote default branch." >&2
+            exit 1
+          fi
 
       - name: Set up Node.js
         uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
@@ -55,67 +151,13 @@ jobs:
       - name: Build manual installation archive
         run: node scripts/release-assets.mjs archive --version "$RELEASE_VERSION"
 
-      - name: Verify release source identity
+      - name: Check tagged Release state and existing provenance
+        id: release_state
         env:
-          DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
           EVENT_NAME: ${{ github.event_name }}
-          EVENT_REF: ${{ github.ref }}
+          GH_TOKEN: ${{ github.token }}
         shell: bash
         run: |
-          expected_commit="$(git rev-parse "${GITHUB_SHA}^{commit}")"
-          checkout_commit="$(git rev-parse "HEAD^{commit}")"
-          remote_default_ref="refs/heads/${DEFAULT_BRANCH}"
-
-          if [[ -z "$DEFAULT_BRANCH" ]] || ! git check-ref-format --branch "$DEFAULT_BRANCH" >/dev/null; then
-            echo "The repository default branch is missing or invalid." >&2
-            exit 1
-          fi
-
-          if [[ "$checkout_commit" != "$expected_commit" ]]; then
-            echo "The checked-out commit no longer matches the workflow event commit." >&2
-            exit 1
-          fi
-
-          if ! remote_default_refs="$(
-            git ls-remote --exit-code origin "$remote_default_ref"
-          )"; then
-            echo "Could not resolve the repository default branch from origin." >&2
-            exit 1
-          fi
-          mapfile -t default_commits < <(
-            awk -v ref="$remote_default_ref" '$2 == ref { print $1 }' <<< "$remote_default_refs"
-          )
-          if [[ "${#default_commits[@]}" -ne 1 ]]; then
-            echo "The repository default branch did not resolve to one commit." >&2
-            exit 1
-          fi
-          remote_default_commit="${default_commits[0]}"
-          git fetch --quiet --no-tags origin "$remote_default_ref"
-
-          if [[ "$EVENT_NAME" == "workflow_dispatch" ]]; then
-            if [[ "$EVENT_REF" != "$remote_default_ref" ]]; then
-              echo "Release preflight must run from the repository default branch." >&2
-              exit 1
-            fi
-            if [[ "$expected_commit" != "$remote_default_commit" ]]; then
-              echo "Release preflight must run at the current remote default-branch HEAD." >&2
-              exit 1
-            fi
-
-            tag_ref="refs/tags/${RELEASE_VERSION}"
-            if ! remote_tag_refs="$(git ls-remote origin "$tag_ref" "${tag_ref}^{}")"; then
-              echo "Could not check whether the candidate release tag already exists." >&2
-              exit 1
-            fi
-            if [[ -n "$remote_tag_refs" ]]; then
-              echo "Release preflight requires a version whose remote tag does not exist." >&2
-              exit 1
-            fi
-
-            echo "Preflight passed for ${RELEASE_VERSION} at ${expected_commit}."
-            exit 0
-          fi
-
           verify_release_tag_identity() {
             local expected_commit checkout_commit tag_ref remote_refs remote_commit
             local -a tag_objects peeled_commits
@@ -123,55 +165,36 @@ jobs:
             expected_commit="$(git rev-parse "${GITHUB_SHA}^{commit}")"
             checkout_commit="$(git rev-parse "HEAD^{commit}")"
             tag_ref="refs/tags/${RELEASE_VERSION}"
-
             if [[ "$checkout_commit" != "$expected_commit" ]]; then
               echo "The checked-out commit no longer matches the release event commit." >&2
-              exit 1
+              return 1
             fi
-
             if ! remote_refs="$(
               git ls-remote --exit-code origin "$tag_ref" "${tag_ref}^{}"
             )"; then
               echo "Could not resolve the pushed release tag from origin." >&2
-              exit 1
+              return 1
             fi
-
             mapfile -t tag_objects < <(
               awk -v ref="$tag_ref" '$2 == ref { print $1 }' <<< "$remote_refs"
             )
             mapfile -t peeled_commits < <(
               awk -v ref="${tag_ref}^{}" '$2 == ref { print $1 }' <<< "$remote_refs"
             )
-
             if [[ "${#tag_objects[@]}" -ne 1 || "${#peeled_commits[@]}" -gt 1 ]]; then
               echo "The remote release tag did not resolve to one unambiguous object." >&2
-              exit 1
+              return 1
             fi
-
             remote_commit="${tag_objects[0]}"
             if [[ "${#peeled_commits[@]}" -eq 1 ]]; then
               remote_commit="${peeled_commits[0]}"
             fi
-
             if [[ "$remote_commit" != "$expected_commit" ]]; then
               echo "The remote release tag no longer points to the pushed event commit." >&2
-              exit 1
+              return 1
             fi
           }
 
-          verify_release_tag_identity
-          if ! git merge-base --is-ancestor "$expected_commit" "$remote_default_commit"; then
-            echo "The release commit is not reachable from the current remote default branch." >&2
-            exit 1
-          fi
-
-      - name: Check existing immutable Release
-        if: github.event_name == 'push'
-        id: release_state
-        env:
-          GH_TOKEN: ${{ github.token }}
-        shell: bash
-        run: |
           release_response="$RUNNER_TEMP/tagged-release.json"
           release_status="$(
             curl --silent --show-error \
@@ -185,6 +208,10 @@ jobs:
 
           case "$release_status" in
             "200")
+              if [[ "$EVENT_NAME" == "workflow_dispatch" ]]; then
+                echo "Release preflight requires a version whose published Release does not exist." >&2
+                exit 1
+              fi
               if ! jq --exit-status '.immutable == true and .draft == false and .prerelease == false' "$release_response" >/dev/null; then
                 echo "The tagged Release exists but is not an immutable stable Release; publish a new version." >&2
                 exit 1
@@ -202,18 +229,27 @@ jobs:
               fi
 
               existing_assets="$RUNNER_TEMP/existing-release-assets"
-              mkdir -p "$existing_assets"
+              mkdir "$existing_assets"
               gh release download "$RELEASE_VERSION" \
                 --repo "$GITHUB_REPOSITORY" \
                 --dir "$existing_assets" \
                 --pattern main.js \
                 --pattern manifest.json \
                 --pattern styles.css \
-                --pattern "property-order-${RELEASE_VERSION}.zip"
+                --pattern "$archive_name"
               node scripts/release-assets.mjs compare \
                 --version "$RELEASE_VERSION" \
                 --local-dir dist \
                 --existing-dir "$existing_assets"
+
+              expected_commit="$(git rev-parse "${GITHUB_SHA}^{commit}")"
+              for asset_name in main.js manifest.json styles.css "$archive_name"; do
+                gh attestation verify "$existing_assets/$asset_name" \
+                  --repo "$GITHUB_REPOSITORY" \
+                  --source-digest "$expected_commit" \
+                  --source-ref "$GITHUB_REF"
+              done
+              verify_release_tag_identity
               echo "exists=true" >> "$GITHUB_OUTPUT"
               ;;
             "404")
@@ -226,7 +262,7 @@ jobs:
           esac
 
       - name: Select previous published Release for generated notes
-        if: github.event_name == 'push' && steps.release_state.outputs.exists != 'true'
+        if: steps.release_state.outputs.exists != 'true'
         id: release_notes
         env:
           GH_TOKEN: ${{ github.token }}
@@ -266,7 +302,8 @@ jobs:
               previous_commit="${previous_peeled[0]}"
             fi
             git fetch --quiet --no-tags origin "$previous_ref"
-            if ! git merge-base --is-ancestor "$previous_commit" "$GITHUB_SHA"; then
+            candidate_commit="$(git rev-parse "${GITHUB_SHA}^{commit}")"
+            if ! git merge-base --is-ancestor "$previous_commit" "$candidate_commit"; then
               echo "The previous published Release is not an ancestor of this release." >&2
               exit 1
             fi
@@ -274,8 +311,137 @@ jobs:
 
           echo "previous_tag=${previous_tag}" >> "$GITHUB_OUTPUT"
 
+      - name: Report successful preflight
+        if: github.event_name == 'workflow_dispatch'
+        run: echo "Preflight passed for ${RELEASE_VERSION} at ${GITHUB_SHA}."
+
+  publish:
+    if: github.event_name == 'push' && needs.verify.outputs.release_exists != 'true'
+    needs: verify
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      attestations: write
+      contents: write
+      id-token: write
+    env:
+      RELEASE_VERSION: ${{ github.ref_name }}
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          fetch-depth: 0
+
+      - name: Reverify trusted tag source before repository code
+        env:
+          DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
+          EVENT_REF: ${{ github.ref }}
+        shell: bash
+        run: |
+          if [[ ! "$RELEASE_VERSION" =~ ^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$ ]]; then
+            echo "Release version must use x.y.z without a v prefix or leading zeroes." >&2
+            exit 1
+          fi
+
+          expected_commit="$(git rev-parse "${GITHUB_SHA}^{commit}")"
+          checkout_commit="$(git rev-parse "HEAD^{commit}")"
+          tag_ref="refs/tags/${RELEASE_VERSION}"
+          remote_default_ref="refs/heads/${DEFAULT_BRANCH}"
+          if [[ -z "$DEFAULT_BRANCH" ]] || ! git check-ref-format --branch "$DEFAULT_BRANCH" >/dev/null; then
+            echo "The repository default branch is missing or invalid." >&2
+            exit 1
+          fi
+          if [[ "$EVENT_REF" != "$tag_ref" || "$checkout_commit" != "$expected_commit" ]]; then
+            echo "The publication checkout does not match the exact version-tag event." >&2
+            exit 1
+          fi
+          if ! remote_default_refs="$(
+            git ls-remote --exit-code origin "$remote_default_ref"
+          )"; then
+            echo "Could not resolve the repository default branch from origin." >&2
+            exit 1
+          fi
+          mapfile -t default_commits < <(
+            awk -v ref="$remote_default_ref" '$2 == ref { print $1 }' <<< "$remote_default_refs"
+          )
+          if [[ "${#default_commits[@]}" -ne 1 ]]; then
+            echo "The repository default branch did not resolve to one commit." >&2
+            exit 1
+          fi
+          remote_default_commit="${default_commits[0]}"
+          git fetch --quiet --no-tags origin "$remote_default_ref"
+
+          if ! remote_refs="$(
+            git ls-remote --exit-code origin "$tag_ref" "${tag_ref}^{}"
+          )"; then
+            echo "Could not resolve the pushed release tag from origin." >&2
+            exit 1
+          fi
+          mapfile -t tag_objects < <(
+            awk -v ref="$tag_ref" '$2 == ref { print $1 }' <<< "$remote_refs"
+          )
+          mapfile -t peeled_commits < <(
+            awk -v ref="${tag_ref}^{}" '$2 == ref { print $1 }' <<< "$remote_refs"
+          )
+          if [[ "${#tag_objects[@]}" -ne 1 || "${#peeled_commits[@]}" -gt 1 ]]; then
+            echo "The remote release tag did not resolve to one unambiguous object." >&2
+            exit 1
+          fi
+          remote_commit="${tag_objects[0]}"
+          if [[ "${#peeled_commits[@]}" -eq 1 ]]; then
+            remote_commit="${peeled_commits[0]}"
+          fi
+          if [[ "$remote_commit" != "$expected_commit" ]]; then
+            echo "The remote release tag no longer points to the pushed event commit." >&2
+            exit 1
+          fi
+          if ! git merge-base --is-ancestor "$expected_commit" "$remote_default_commit"; then
+            echo "The release commit is not reachable from the current remote default branch." >&2
+            exit 1
+          fi
+
+      - name: Set up Node.js
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
+        with:
+          node-version-file: .node-version
+          cache: npm
+
+      - name: Verify release version
+        run: node scripts/check-release-version.mjs "$RELEASE_VERSION"
+
+      - name: Verify runtime contract
+        run: npm run check:runtime
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Rebuild verified release assets
+        run: |
+          npm run build
+          npm run check:release
+          node scripts/release-assets.mjs archive --version "$RELEASE_VERSION"
+
+      - name: Require the tagged Release to remain absent
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          release_response="$RUNNER_TEMP/pre-publish-release.json"
+          release_status="$(
+            curl --silent --show-error \
+              --output "$release_response" \
+              --write-out "%{http_code}" \
+              --header "Accept: application/vnd.github+json" \
+              --header "Authorization: Bearer ${GH_TOKEN}" \
+              --header "X-GitHub-Api-Version: 2026-03-10" \
+              "${GITHUB_API_URL}/repos/${GITHUB_REPOSITORY}/releases/tags/${RELEASE_VERSION}"
+          )"
+          if [[ "$release_status" != "404" ]]; then
+            echo "The tagged Release changed after read-only verification (HTTP ${release_status}); rerun the workflow." >&2
+            exit 1
+          fi
+
       - name: Attest Obsidian release assets
-        if: github.event_name == 'push' && steps.release_state.outputs.exists != 'true'
         uses: actions/attest@36051bcae73b7c2a8a6945a48cbf80953c6baa35 # v4
         with:
           subject-path: |
@@ -285,21 +451,56 @@ jobs:
             dist/property-order-${{ env.RELEASE_VERSION }}.zip
 
       - name: Publish immutable GitHub release
-        if: github.event_name == 'push' && steps.release_state.outputs.exists != 'true'
         env:
           GH_TOKEN: ${{ github.token }}
-          PREVIOUS_RELEASE_TAG: ${{ steps.release_notes.outputs.previous_tag }}
+          PREVIOUS_RELEASE_TAG: ${{ needs.verify.outputs.previous_tag }}
         shell: bash
         run: |
+          verify_release_tag_identity() {
+            local expected_commit checkout_commit tag_ref remote_refs remote_commit
+            local -a tag_objects peeled_commits
+
+            expected_commit="$(git rev-parse "${GITHUB_SHA}^{commit}")"
+            checkout_commit="$(git rev-parse "HEAD^{commit}")"
+            tag_ref="refs/tags/${RELEASE_VERSION}"
+            if [[ "$checkout_commit" != "$expected_commit" ]]; then
+              echo "The checked-out commit no longer matches the release event commit." >&2
+              return 1
+            fi
+            if ! remote_refs="$(
+              git ls-remote --exit-code origin "$tag_ref" "${tag_ref}^{}"
+            )"; then
+              echo "Could not resolve the pushed release tag from origin." >&2
+              return 1
+            fi
+            mapfile -t tag_objects < <(
+              awk -v ref="$tag_ref" '$2 == ref { print $1 }' <<< "$remote_refs"
+            )
+            mapfile -t peeled_commits < <(
+              awk -v ref="${tag_ref}^{}" '$2 == ref { print $1 }' <<< "$remote_refs"
+            )
+            if [[ "${#tag_objects[@]}" -ne 1 || "${#peeled_commits[@]}" -gt 1 ]]; then
+              echo "The remote release tag did not resolve to one unambiguous object." >&2
+              return 1
+            fi
+            remote_commit="${tag_objects[0]}"
+            if [[ "${#peeled_commits[@]}" -eq 1 ]]; then
+              remote_commit="${peeled_commits[0]}"
+            fi
+            if [[ "$remote_commit" != "$expected_commit" ]]; then
+              echo "The remote release tag no longer points to the pushed event commit." >&2
+              return 1
+            fi
+          }
+
           verify_release_assets() {
             local expected_draft="$1" expected_immutable="$2" stage="$3" assets_directory="$4"
             local archive_name release_response release_status attempt
 
             archive_name="property-order-${RELEASE_VERSION}.zip"
             release_response="$RUNNER_TEMP/${stage}-release.json"
-
             for attempt in {1..10}; do
-              release_status="$(
+              if ! release_status="$(
                 curl --silent --show-error \
                   --output "$release_response" \
                   --write-out "%{http_code}" \
@@ -307,10 +508,25 @@ jobs:
                   --header "Authorization: Bearer ${GH_TOKEN}" \
                   --header "X-GitHub-Api-Version: 2026-03-10" \
                   "${GITHUB_API_URL}/repos/${GITHUB_REPOSITORY}/releases/tags/${RELEASE_VERSION}"
-              )"
+              )"; then
+                if [[ "$attempt" -eq 10 ]]; then
+                  echo "::error title=Release supply-chain verification failed::${stage}: tagged Release query failed after ${attempt} attempts." >&2
+                  return 1
+                fi
+                sleep 3
+                continue
+              fi
 
+              if [[ "$release_status" == "404" || "$release_status" =~ ^5[0-9][0-9]$ ]]; then
+                if [[ "$attempt" -eq 10 ]]; then
+                  echo "::error title=Release supply-chain verification failed::${stage}: tagged Release query remained HTTP ${release_status} after ${attempt} attempts." >&2
+                  return 1
+                fi
+                sleep 3
+                continue
+              fi
               if [[ "$release_status" != "200" ]]; then
-                echo "::error title=Release supply-chain verification failed::${stage}: tagged Release query returned HTTP ${release_status}." >&2
+                echo "::error title=Release supply-chain verification failed::${stage}: tagged Release query returned non-retryable HTTP ${release_status}." >&2
                 return 1
               fi
 
@@ -330,10 +546,9 @@ jobs:
               fi
 
               if [[ "$attempt" -eq 10 ]]; then
-                echo "::error title=Release supply-chain verification failed::${stage}: Release state or asset inventory is not the exact expected immutable contract." >&2
+                echo "::error title=Release supply-chain verification failed::${stage}: Release state or asset inventory did not reach the exact expected immutable contract." >&2
                 return 1
               fi
-
               sleep 3
             done
 
@@ -348,56 +563,12 @@ jobs:
               echo "::error title=Release supply-chain verification failed::${stage}: could not download the exact remote asset set." >&2
               return 1
             fi
-
             if ! node scripts/release-assets.mjs compare \
               --version "$RELEASE_VERSION" \
               --local-dir dist \
               --existing-dir "$assets_directory"; then
               echo "::error title=Release supply-chain verification failed::${stage}: remote asset SHA-256 values differ from the candidate build." >&2
               return 1
-            fi
-          }
-
-          verify_release_tag_identity() {
-            local expected_commit checkout_commit tag_ref remote_refs remote_commit
-            local -a tag_objects peeled_commits
-
-            expected_commit="$(git rev-parse "${GITHUB_SHA}^{commit}")"
-            checkout_commit="$(git rev-parse "HEAD^{commit}")"
-            tag_ref="refs/tags/${RELEASE_VERSION}"
-
-            if [[ "$checkout_commit" != "$expected_commit" ]]; then
-              echo "The checked-out commit no longer matches the release event commit." >&2
-              exit 1
-            fi
-
-            if ! remote_refs="$(
-              git ls-remote --exit-code origin "$tag_ref" "${tag_ref}^{}"
-            )"; then
-              echo "Could not resolve the pushed release tag from origin." >&2
-              exit 1
-            fi
-
-            mapfile -t tag_objects < <(
-              awk -v ref="$tag_ref" '$2 == ref { print $1 }' <<< "$remote_refs"
-            )
-            mapfile -t peeled_commits < <(
-              awk -v ref="${tag_ref}^{}" '$2 == ref { print $1 }' <<< "$remote_refs"
-            )
-
-            if [[ "${#tag_objects[@]}" -ne 1 || "${#peeled_commits[@]}" -gt 1 ]]; then
-              echo "The remote release tag did not resolve to one unambiguous object." >&2
-              exit 1
-            fi
-
-            remote_commit="${tag_objects[0]}"
-            if [[ "${#peeled_commits[@]}" -eq 1 ]]; then
-              remote_commit="${peeled_commits[0]}"
-            fi
-
-            if [[ "$remote_commit" != "$expected_commit" ]]; then
-              echo "The remote release tag no longer points to the pushed event commit." >&2
-              exit 1
             fi
           }
 
@@ -411,6 +582,7 @@ jobs:
           if [[ -n "$PREVIOUS_RELEASE_TAG" ]]; then
             notes_arguments+=(--notes-start-tag "$PREVIOUS_RELEASE_TAG")
           fi
+
           verify_release_tag_identity
           gh release create "$RELEASE_VERSION" "${assets[@]}" \
             --repo "$GITHUB_REPOSITORY" \
