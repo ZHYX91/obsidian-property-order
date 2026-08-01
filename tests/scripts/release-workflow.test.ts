@@ -185,15 +185,35 @@ describe("release workflow contract", () => {
 
     expect(publishJob).toContain("Download and verify exact release candidate handoff");
     expect(publishJob).toContain("/actions/artifacts/${CANDIDATE_ARTIFACT_ID}/zip");
-    expect(publishJob).toContain(".digest == $artifact_digest");
+    expect(publishJob).toContain(
+      '(.digest == $artifact_digest or .digest == ("sha256:" + $artifact_digest))',
+    );
     expect(publishJob).toContain(".workflow_run.head_sha == $head_sha");
     expect(publishJob).toContain("actual_artifact_digest");
-    expect(publishJob).toContain("sha256sum --check --strict --status SHA256SUMS");
-    expect(publishJob).toContain("The candidate artifact must contain exactly four assets");
-    expect(publishJob).toContain("The manual installation archive layout is invalid.");
+    expect(publishJob).toContain(
+      '[[ ! "$CANDIDATE_ARTIFACT_DIGEST" =~ ^[0-9a-f]{64}$ ]]',
+    );
+    expect(publishJob).toContain(
+      'actual_artifact_digest="$(sha256sum "$artifact_archive"',
+    );
+    expect(publishJob).not.toContain("actual_artifact_digest=\"sha256:");
+    expect(publishJob.match(/# RELEASE_ZIP_VALIDATOR_BEGIN/gmu)).toHaveLength(1);
+    expect(publishJob.match(/# RELEASE_ZIP_VALIDATOR_END/gmu)).toHaveLength(1);
+    expect(publishJob).toContain("target.open(\"xb\")");
+    expect(publishJob).not.toContain("extractall(");
+    expect(publishJob).not.toContain("unzip -q");
     expect(publishJob).not.toContain("actions/checkout");
     expect(publishJob).not.toContain("npm ci");
     expect(publishJob).not.toContain("scripts/release-assets.mjs");
+  });
+
+  it.each([
+    ["a".repeat(64), true],
+    [`sha256:${"a".repeat(64)}`, false],
+    ["a".repeat(63), false],
+    ["a".repeat(65), false],
+  ])("requires the upload-artifact digest output %s to be raw SHA-256: %s", (digest, valid) => {
+    expect(/^[0-9a-f]{64}$/u.test(digest)).toBe(valid);
   });
 
   it("requires every remote asset inventory to be exactly four unique files", () => {

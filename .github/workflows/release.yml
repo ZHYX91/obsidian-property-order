@@ -468,7 +468,7 @@ jobs:
           expected_artifact_name="property-order-release-candidate-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
           if [[ ! "$CANDIDATE_ARTIFACT_ID" =~ ^[1-9][0-9]*$ ]] ||
             [[ "$CANDIDATE_ARTIFACT_NAME" != "$expected_artifact_name" ]] ||
-            [[ ! "$CANDIDATE_ARTIFACT_DIGEST" =~ ^sha256:[0-9a-f]{64}$ ]]; then
+            [[ ! "$CANDIDATE_ARTIFACT_DIGEST" =~ ^[0-9a-f]{64}$ ]]; then
             echo "The verified candidate handoff metadata is missing or invalid." >&2
             exit 1
           fi
@@ -490,7 +490,7 @@ jobs:
             --arg head_sha "$GITHUB_SHA" \
             --arg run_id "$GITHUB_RUN_ID" '
               (.id | tostring) == $artifact_id and
-              .digest == $artifact_digest and
+              (.digest == $artifact_digest or .digest == ("sha256:" + $artifact_digest)) and
               .name == $artifact_name and
               .expired == false and
               (.workflow_run.id | tostring) == $run_id and
@@ -514,56 +514,206 @@ jobs:
             echo "Could not download the verified candidate artifact (HTTP ${download_status})." >&2
             exit 1
           fi
-          actual_artifact_digest="sha256:$(sha256sum "$artifact_archive" | awk '{ print $1 }')"
+          actual_artifact_digest="$(sha256sum "$artifact_archive" | awk '{ print $1 }')"
           if [[ "$actual_artifact_digest" != "$CANDIDATE_ARTIFACT_DIGEST" ]]; then
             echo "The downloaded candidate artifact digest does not match the verify job output." >&2
             exit 1
           fi
 
           archive_name="property-order-${RELEASE_VERSION}.zip"
-          expected_entries=(SHA256SUMS main.js manifest.json styles.css "$archive_name")
-          mapfile -t actual_entries < <(unzip -Z1 "$artifact_archive" | LC_ALL=C sort)
-          mapfile -t expected_sorted < <(printf '%s\n' "${expected_entries[@]}" | LC_ALL=C sort)
-          if [[ "${#actual_entries[@]}" -ne 5 ]] ||
-            [[ "$(printf '%s\n' "${actual_entries[@]}")" != "$(printf '%s\n' "${expected_sorted[@]}")" ]]; then
-            echo "The candidate artifact must contain exactly four assets and SHA256SUMS." >&2
-            exit 1
-          fi
-
           candidate_directory="$RUNNER_TEMP/release-candidate"
-          mkdir "$candidate_directory"
-          unzip -q "$artifact_archive" -d "$candidate_directory"
-          mapfile -t extracted_entries < <(
-            find "$candidate_directory" -mindepth 1 -maxdepth 1 -printf '%f\n' | LC_ALL=C sort
-          )
-          if [[ "${#extracted_entries[@]}" -ne 5 ]] ||
-            [[ "$(printf '%s\n' "${extracted_entries[@]}")" != "$(printf '%s\n' "${expected_sorted[@]}")" ]]; then
-            echo "The extracted candidate inventory is not exact." >&2
-            exit 1
-          fi
-          for entry_name in "${expected_entries[@]}"; do
-            if [[ ! -f "$candidate_directory/$entry_name" || -L "$candidate_directory/$entry_name" ]]; then
-              echo "Candidate entry is not a regular file: ${entry_name}" >&2
-              exit 1
-            fi
-          done
+          python3 - "$artifact_archive" "$candidate_directory" "$RELEASE_VERSION" <<'PY'
+          # RELEASE_ZIP_VALIDATOR_BEGIN
+          import hashlib
+          import re
+          import shutil
+          import stat
+          import sys
+          import zipfile
+          from pathlib import Path
 
-          mapfile -t checksum_names < <(
-            awk 'NF == 2 && length($1) == 64 && $1 ~ /^[0-9a-f]+$/ { print $2 }' \
-              "$candidate_directory/SHA256SUMS" | LC_ALL=C sort
-          )
-          mapfile -t asset_names_sorted < <(
-            printf '%s\n' main.js manifest.json styles.css "$archive_name" | LC_ALL=C sort
-          )
-          if [[ "${#checksum_names[@]}" -ne 4 ]] ||
-            [[ "$(printf '%s\n' "${checksum_names[@]}")" != "$(printf '%s\n' "${asset_names_sorted[@]}")" ]]; then
-            echo "SHA256SUMS must name each release asset exactly once." >&2
-            exit 1
-          fi
-          (
-            cd "$candidate_directory"
-            sha256sum --check --strict --status SHA256SUMS
-          )
+
+          if sys.version_info < (3, 9):
+              raise SystemExit("Release ZIP validation requires Python 3.9 or newer")
+
+
+          class ValidationError(Exception):
+              pass
+
+
+          MAX_ZIP_ENTRY_BYTES = 8 * 1024 * 1024
+          MAX_ZIP_TOTAL_BYTES = 24 * 1024 * 1024
+
+
+          def validate_path(info):
+              original = info.orig_filename
+              name = info.filename
+              if "\0" in original:
+                  raise ValidationError("archive path contains a NUL byte")
+              if "\\" in original:
+                  raise ValidationError(f"archive path contains a backslash: {original!r}")
+              if any(ord(character) < 32 or ord(character) == 127 for character in original):
+                  raise ValidationError(f"archive path contains a control character: {original!r}")
+              if original != name:
+                  raise ValidationError(f"archive path was normalized ambiguously: {original!r}")
+              if name.startswith("/") or re.match(r"^[A-Za-z]:", name):
+                  raise ValidationError(f"archive path is absolute: {name!r}")
+              parts = name.split("/")
+              if not parts or any(part in {"", ".", ".."} for part in parts):
+                  raise ValidationError(f"archive path is not canonical: {name!r}")
+              if "/".join(parts) != name:
+                  raise ValidationError(f"archive path is not canonical: {name!r}")
+              return name
+
+
+          def validate_regular_file(info, *, fixed_mode=None):
+              if info.flag_bits & 0x1:
+                  raise ValidationError(f"encrypted archive entry is forbidden: {info.filename!r}")
+              if info.is_dir() or info.external_attr & 0x10:
+                  raise ValidationError(f"directory archive entry is forbidden: {info.filename!r}")
+              unix_mode = (info.external_attr >> 16) & 0xFFFF
+              if info.create_system == 3:
+                  if stat.S_IFMT(unix_mode) != stat.S_IFREG:
+                      raise ValidationError(
+                          f"non-regular archive entry is forbidden: {info.filename!r}"
+                      )
+                  if fixed_mode is not None and unix_mode != fixed_mode:
+                      raise ValidationError(
+                          f"archive entry mode is not fixed at {oct(fixed_mode)}: {info.filename!r}"
+                      )
+              elif fixed_mode is not None:
+                  raise ValidationError(
+                      f"archive entry lacks the required Unix file mode: {info.filename!r}"
+                  )
+              # GitHub's artifact ZIP may use DOS metadata. With the exact ASCII
+              # inventory already pinned, a DOS non-directory is copied only to
+              # its known regular-file target rather than trusting its path.
+
+
+          def validate_inventory(archive, expected_names, *, fixed_mode=None, exact_order=False):
+              infos = archive.infolist()
+              names = []
+              by_name = {}
+              total_size = 0
+              for info in infos:
+                  name = validate_path(info)
+                  validate_regular_file(info, fixed_mode=fixed_mode)
+                  if info.file_size < 0 or info.file_size > MAX_ZIP_ENTRY_BYTES:
+                      raise ValidationError(
+                          f"archive entry exceeds the {MAX_ZIP_ENTRY_BYTES}-byte limit: {name!r}"
+                      )
+                  total_size += info.file_size
+                  if total_size > MAX_ZIP_TOTAL_BYTES:
+                      raise ValidationError(
+                          f"archive exceeds the {MAX_ZIP_TOTAL_BYTES}-byte total limit"
+                      )
+                  if name in by_name:
+                      raise ValidationError(f"duplicate archive entry is forbidden: {name!r}")
+                  names.append(name)
+                  by_name[name] = info
+              if len(names) != len(expected_names) or set(names) != set(expected_names):
+                  raise ValidationError(
+                      f"archive inventory mismatch: expected {expected_names!r}, found {names!r}"
+                  )
+              if exact_order and names != expected_names:
+                  raise ValidationError(
+                      f"archive entry order mismatch: expected {expected_names!r}, found {names!r}"
+                  )
+              return by_name
+
+
+          def validate_checksums(candidate, archive_name):
+              expected_names = ["main.js", "manifest.json", "styles.css", archive_name]
+              manifest_path = candidate / "SHA256SUMS"
+              try:
+                  manifest_bytes = manifest_path.read_bytes()
+                  manifest = manifest_bytes.decode("ascii")
+              except (OSError, UnicodeDecodeError) as error:
+                  raise ValidationError("SHA256SUMS must be readable ASCII") from error
+              if not manifest.endswith("\n") or "\r" in manifest:
+                  raise ValidationError("SHA256SUMS must use canonical LF-terminated lines")
+              lines = manifest.splitlines()
+              if len(lines) != len(expected_names):
+                  raise ValidationError("SHA256SUMS does not contain the exact four checksums")
+              records = []
+              for line in lines:
+                  match = re.fullmatch(r"([0-9a-f]{64})  ([A-Za-z0-9.-]+)", line)
+                  if match is None:
+                      raise ValidationError(f"SHA256SUMS entry is non-canonical: {line!r}")
+                  records.append((match.group(1), match.group(2)))
+              names = [name for _, name in records]
+              if len(set(names)) != len(names):
+                  raise ValidationError("SHA256SUMS contains a duplicate file entry")
+              if set(names) != set(expected_names):
+                  raise ValidationError("SHA256SUMS file inventory is incomplete or contains extras")
+              if names != expected_names:
+                  raise ValidationError("SHA256SUMS entries are not in canonical order")
+              for (expected_digest, expected_name) in records:
+                  actual_digest = hashlib.sha256((candidate / expected_name).read_bytes()).hexdigest()
+                  if actual_digest != expected_digest:
+                      raise ValidationError(f"SHA256SUMS mismatch for {expected_name}")
+
+
+          def validate_install_archive(candidate, archive_name):
+              expected_names = [
+                  "property-order/main.js",
+                  "property-order/manifest.json",
+                  "property-order/styles.css",
+              ]
+              try:
+                  with zipfile.ZipFile(candidate / archive_name, "r") as archive:
+                      entries = validate_inventory(
+                          archive,
+                          expected_names,
+                          fixed_mode=stat.S_IFREG | 0o644,
+                          exact_order=True,
+                      )
+                      for name in expected_names:
+                          loose_name = name.removeprefix("property-order/")
+                          if archive.read(entries[name]) != (candidate / loose_name).read_bytes():
+                              raise ValidationError(
+                                  f"manual installation archive differs from loose asset {loose_name}"
+                              )
+              except zipfile.BadZipFile as error:
+                  raise ValidationError("manual installation archive is not a valid ZIP") from error
+
+
+          def main():
+              if len(sys.argv) != 4:
+                  raise ValidationError("expected artifact ZIP, candidate directory, and release version")
+              artifact_path = Path(sys.argv[1])
+              candidate = Path(sys.argv[2])
+              version = sys.argv[3]
+              if re.fullmatch(r"(?:0|[1-9][0-9]*)\.(?:0|[1-9][0-9]*)\.(?:0|[1-9][0-9]*)", version) is None:
+                  raise ValidationError("release version is not canonical")
+              archive_name = f"property-order-{version}.zip"
+              expected_outer_names = [
+                  "SHA256SUMS",
+                  archive_name,
+                  "main.js",
+                  "manifest.json",
+                  "styles.css",
+              ]
+              try:
+                  with zipfile.ZipFile(artifact_path, "r") as archive:
+                      entries = validate_inventory(archive, expected_outer_names)
+                      candidate.mkdir(mode=0o700)
+                      for name in expected_outer_names:
+                          target = candidate / name
+                          with archive.open(entries[name], "r") as source, target.open("xb") as output:
+                              shutil.copyfileobj(source, output)
+              except zipfile.BadZipFile as error:
+                  raise ValidationError("Actions artifact is not a valid ZIP") from error
+              validate_checksums(candidate, archive_name)
+              validate_install_archive(candidate, archive_name)
+
+
+          try:
+              main()
+          except (OSError, ValidationError, zipfile.BadZipFile) as error:
+              raise SystemExit(f"Release ZIP validation failed: {error}") from error
+          # RELEASE_ZIP_VALIDATOR_END
+          PY
 
           if ! jq --exit-status --arg version "$RELEASE_VERSION" \
             '.id == "property-order" and .version == $version' \
@@ -578,24 +728,6 @@ jobs:
             fi
           done
 
-          expected_archive_entries=(
-            property-order/main.js
-            property-order/manifest.json
-            property-order/styles.css
-          )
-          mapfile -t actual_archive_entries < <(unzip -Z1 "$candidate_directory/$archive_name")
-          if [[ "${#actual_archive_entries[@]}" -ne 3 ]] ||
-            [[ "$(printf '%s\n' "${actual_archive_entries[@]}")" != "$(printf '%s\n' "${expected_archive_entries[@]}")" ]]; then
-            echo "The manual installation archive layout is invalid." >&2
-            exit 1
-          fi
-          for asset_name in main.js manifest.json styles.css; do
-            if ! unzip -p "$candidate_directory/$archive_name" "property-order/$asset_name" |
-              cmp --silent - "$candidate_directory/$asset_name"; then
-              echo "The manual installation archive differs from loose asset ${asset_name}." >&2
-              exit 1
-            fi
-          done
 
       - name: Require the tagged Release to remain absent
         env:
