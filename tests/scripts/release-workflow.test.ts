@@ -30,6 +30,10 @@ const parsedWorkflow = parseYaml(workflow) as {
 };
 
 describe("release workflow contract", () => {
+  it("runs the canonical release gate including the quick benchmark", () => {
+    expect(verifyJob).toContain("run: npm run release:check");
+  });
+
   it("uploads the three standard build files from the top level of dist", () => {
     expect(ciWorkflow).toContain("dist/main.js");
     expect(ciWorkflow).toContain("dist/manifest.json");

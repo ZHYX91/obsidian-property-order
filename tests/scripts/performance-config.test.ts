@@ -20,6 +20,9 @@ describe("performance benchmark configuration", () => {
       "npm run check:runtime && npm run lint && npm run check:readme-i18n && npm run check:docs-i18n && npm run typecheck && npm test && npm run build && npm run check:release",
     );
     expect(packageJson.scripts?.check).not.toMatch(/bench|curl|gh api|https?:\/\//u);
+    expect(packageJson.scripts?.["release:check"]).toBe(
+      "npm run check && npm run bench:usage",
+    );
     expect(ordinaryConfig).toContain('"benchmarks/**"');
   });
 

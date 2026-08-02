@@ -149,7 +149,7 @@ jobs:
         run: npm ci
 
       - name: Run release gates
-        run: npm run check
+        run: npm run release:check
 
       - name: Build manual installation archive
         run: node scripts/release-assets.mjs archive --version "$RELEASE_VERSION"

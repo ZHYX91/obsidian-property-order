@@ -1,12 +1,13 @@
 {
   "name": "obsidian-property-order",
-  "version": "0.4.1",
+  "version": "0.5.0",
   "description": "Reorder property values and customize native property name suggestions.",
   "main": "main.js",
   "scripts": {
     "dev": "node esbuild.config.mjs",
     "build": "node esbuild.config.mjs production",
     "check": "npm run check:runtime && npm run lint && npm run check:readme-i18n && npm run check:docs-i18n && npm run typecheck && npm test && npm run build && npm run check:release",
+    "release:check": "npm run check && npm run bench:usage",
     "check:runtime": "node scripts/check-runtime.mjs",
     "lint": "eslint main.ts src tests benchmarks scripts esbuild.config.mjs eslint.config.mjs vitest.config.mts vitest.performance.config.mts --max-warnings 0",
     "typecheck": "tsc --noEmit",

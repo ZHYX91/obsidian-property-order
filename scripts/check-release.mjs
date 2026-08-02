@@ -12,6 +12,7 @@ import {
 } from "./release-contract.mjs";
 
 export const PRODUCTION_MAIN_JS_BUDGET_BYTES = 320_000;
+export const PRODUCTION_MAIN_JS_REFERENCE_BYTES = 267_789;
 
 async function readJson(filePath) {
   return JSON.parse(await readFile(filePath, "utf8"));
@@ -98,6 +99,7 @@ export async function checkRelease(
     id: manifest.id,
     mainJavascriptBudgetBytes,
     mainJavascriptBytes: bundledMainStats.size,
+    mainJavascriptReferenceBytes: PRODUCTION_MAIN_JS_REFERENCE_BYTES,
     version: manifest.version,
   };
 }
@@ -105,7 +107,7 @@ export async function checkRelease(
 async function main() {
   const result = await checkRelease();
   console.log(
-    `Release check passed for ${result.id} ${result.version}; main.js ${result.mainJavascriptBytes}/${result.mainJavascriptBudgetBytes} B`,
+    `Release check passed for ${result.id} ${result.version}; main.js ${result.mainJavascriptBytes} B, reference ${result.mainJavascriptReferenceBytes} B, budget ${result.mainJavascriptBudgetBytes} B`,
   );
 }
 

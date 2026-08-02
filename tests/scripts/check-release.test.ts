@@ -5,7 +5,7 @@ import esbuild from "esbuild";
 import { afterEach, describe, expect, it } from "vitest";
 
 // @ts-expect-error The release checker is an executable JavaScript module without declarations.
-import { PRODUCTION_MAIN_JS_BUDGET_BYTES, checkRelease } from "../../scripts/check-release.mjs";
+import { PRODUCTION_MAIN_JS_BUDGET_BYTES, PRODUCTION_MAIN_JS_REFERENCE_BYTES, checkRelease } from "../../scripts/check-release.mjs";
 // @ts-expect-error The shared esbuild options are implemented in JavaScript.
 import { createEsbuildOptions } from "../../scripts/esbuild-options.mjs";
 
@@ -63,6 +63,7 @@ describe("release checker", () => {
       id: "property-order",
       mainJavascriptBudgetBytes: PRODUCTION_MAIN_JS_BUDGET_BYTES,
       mainJavascriptBytes,
+      mainJavascriptReferenceBytes: PRODUCTION_MAIN_JS_REFERENCE_BYTES,
       version: "0.1.0",
     });
   }, 15_000);
@@ -83,6 +84,10 @@ describe("release checker", () => {
 
   it("pins a 320,000-byte production budget", () => {
     expect(PRODUCTION_MAIN_JS_BUDGET_BYTES).toBe(320_000);
+  });
+
+  it("records the measured 0.5.0 production bundle reference", () => {
+    expect(PRODUCTION_MAIN_JS_REFERENCE_BYTES).toBe(267_789);
   });
 
   it("rejects stale static assets and empty bundles", async () => {
