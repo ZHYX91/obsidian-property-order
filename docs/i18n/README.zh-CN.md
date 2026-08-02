@@ -1,6 +1,6 @@
 # Property Order
 
-[English](https://github.com/ZHYX91/obsidian-property-order/blob/main/README.md) · [简体中文](https://github.com/ZHYX91/obsidian-property-order/blob/main/docs/i18n/README.zh-CN.md)
+[English](../../README.md) · [简体中文](README.zh-CN.md)
 
 Property Order 用于安全地重排 Obsidian Properties 中的列表值，并按规则调整原生属性名称候选。
 
@@ -8,13 +8,13 @@ Property Order 用于安全地重排 Obsidian Properties 中的列表值，并�
 
 在桌面端的受支持顶层 YAML 列表属性之间移动值：
 
-![在属性之间移动值](https://raw.githubusercontent.com/ZHYX91/obsidian-property-order/main/docs/assets/property-order-cross-property-drag.gif)
+![在属性之间移动值](../assets/property-order-cross-property-drag.gif)
 
 跨属性拖拽默认开启，可在“值拖拽”设置中关闭。
 
 配置原生属性名称候选排序：
 
-![属性名称候选设置](https://raw.githubusercontent.com/ZHYX91/obsidian-property-order/main/docs/assets/property-order-settings.png)
+![属性名称候选设置](../assets/property-order-settings.png)
 
 截图展示的是 Obsidian 1.12.x 使用的自定义页签设置界面；Obsidian 1.13+ 会把同一组“常规、值拖拽、属性键顺序”设置显示为支持搜索的原生声明式页面。
 
@@ -81,7 +81,7 @@ npm install
 npm run check
 ```
 
-架构与测试细节见[开发者文档](https://github.com/ZHYX91/obsidian-property-order/blob/main/docs/architecture.zh-CN.md)。
+架构与测试细节见[开发者文档](../architecture.zh-CN.md)。
 
 ## 支持
 
@@ -94,4 +94,4 @@ npm run check
 
 ## 许可证
 
-[MIT](https://github.com/ZHYX91/obsidian-property-order/blob/main/LICENSE) © ZhengYX
+[MIT](../../LICENSE) © ZhengYX
