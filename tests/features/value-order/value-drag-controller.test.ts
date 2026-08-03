@@ -288,6 +288,15 @@ function positionToOffset(
   return offset + position.ch;
 }
 
+function renderWikilinkPill(pill: HTMLElement, target: string, displayText: string): void {
+  pill.textContent = "";
+  const content = document.createElement("div");
+  content.className = "multi-select-pill-content internal-link";
+  content.setAttribute("data-href", target);
+  content.textContent = displayText;
+  pill.appendChild(content);
+}
+
 function createHarness(): ControllerHarness {
   const settings = createDefaultSettings();
   const file = { path: "Source.md" } as TFile;
@@ -1373,6 +1382,62 @@ describe("PropertyValueOrderController", () => {
     await waitForDragFinish();
     expect(harness.editor.transaction).toHaveBeenCalledTimes(1);
     expect(harness.editor.getContent()).toBe("---\nflow: [beta, alpha]\n---\n");
+    harness.cleanup();
+  });
+
+  it("drags a rendered wiki link pill by proving its host link target", async () => {
+    installRafHarness();
+    const harness = createHarness();
+    harness.editor.setContent('---\nflow: ["[[医院 A|医院]]", beta]\n---\n');
+    harness.frontmatter.flow = ["[[医院 A|医院]]", "beta"];
+    renderWikilinkPill(harness.pill, "医院 A", "医院");
+
+    dispatchPointer(harness.pill, "pointerdown", 10);
+    dispatchPointer(document, "pointermove", 250);
+    dispatchPointer(document, "pointerup", 250);
+
+    await waitForDragFinish();
+    expect(harness.editor.transaction).toHaveBeenCalledTimes(1);
+    expect(harness.editor.getContent()).toBe('---\nflow: [beta, "[[医院 A|医院]]"]\n---\n');
+    expect(noticeSpy).not.toHaveBeenCalled();
+    harness.cleanup();
+  });
+
+  it("allows dragging a plain value when another list value is a rendered wiki link", async () => {
+    installRafHarness();
+    const harness = createHarness();
+    harness.editor.setContent('---\nflow: ["[[医院 A|医院]]", beta]\n---\n');
+    harness.frontmatter.flow = ["[[医院 A|医院]]", "beta"];
+    renderWikilinkPill(harness.pill, "医院 A", "医院");
+    const plainPill = harness.container.querySelectorAll<HTMLElement>(".multi-select-pill")[1];
+
+    if (plainPill != null) {
+      dispatchPointer(plainPill, "pointerdown", 10);
+      dispatchPointer(document, "pointermove", 250);
+      dispatchPointer(document, "pointerup", 250);
+    }
+
+    await waitForDragFinish();
+    expect(noticeSpy).not.toHaveBeenCalled();
+    harness.cleanup();
+  });
+
+  it("rejects a wiki link pill whose host target differs from YAML", async () => {
+    installRafHarness();
+    const harness = createHarness();
+    harness.editor.setContent('---\nflow: ["[[医院 A|医院]]", beta]\n---\n');
+    harness.frontmatter.flow = ["[[医院 A|医院]]", "beta"];
+    renderWikilinkPill(harness.pill, "医院 B", "医院");
+
+    dispatchPointer(harness.pill, "pointerdown", 10);
+    dispatchPointer(document, "pointermove", 250);
+    dispatchPointer(document, "pointerup", 250);
+
+    await vi.waitFor(() => expect(noticeSpy).toHaveBeenCalledTimes(1));
+    expect(noticeSpy).toHaveBeenCalledWith(
+      "Property Order: Properties is out of sync with the note. Reopen the note before dragging again.",
+    );
+    expect(harness.editor.transaction).not.toHaveBeenCalled();
     harness.cleanup();
   });
 

@@ -18,11 +18,18 @@ export interface PropertyElementContext {
 
 export type NativePropertyTypeEvidence = "list" | "non-list" | "unknown";
 
+export type PropertyPillValueEvidence =
+  | { kind: "text"; text: string }
+  | { kind: "link"; target: string; text: string }
+  | { kind: "unsupported" };
+
 const METADATA_CONTAINER_SELECTOR = ".metadata-container";
 const PROPERTY_CONTAINER_SELECTOR = ".multi-select-container";
 const PROPERTY_ELEMENT_SELECTOR = ".metadata-property";
 const PROPERTY_ICON_SELECTOR = ".metadata-property-icon";
 const PROPERTY_PILL_SELECTOR = ".multi-select-pill";
+const PROPERTY_PILL_CONTENT_SELECTOR = ".multi-select-pill-content";
+const PROPERTY_PILL_INTERNAL_LINK_SELECTOR = "[data-href].internal-link";
 const PROPERTY_PILL_INTERACTIVE_SELECTOR = "button, input, textarea";
 const PROPERTY_VALUE_SELECTOR = ".metadata-property-value";
 const PROPERTY_WARNING_SELECTOR = ".metadata-property-warning-icon";
@@ -157,14 +164,40 @@ export function getContainerPills(container: HTMLElement): HTMLElement[] {
   );
 }
 
-export function getPropertyPillDisplayValues(
+export function getPropertyPillValueEvidence(
   context: PropertyContainerContext,
-): readonly string[] | null {
+): readonly PropertyPillValueEvidence[] | null {
   if (context.editorKind !== "multi-select") {
     return null;
   }
 
-  return context.pills.map((pill) => (pill.textContent ?? "").trim());
+  return context.pills.map(readPropertyPillValueEvidence);
+}
+
+function readPropertyPillValueEvidence(pill: HTMLElement): PropertyPillValueEvidence {
+  const pillText = (pill.textContent ?? "").trim();
+  const content = pill.querySelector<HTMLElement>(PROPERTY_PILL_CONTENT_SELECTOR) ?? pill;
+  const links =
+    content.matches(PROPERTY_PILL_INTERNAL_LINK_SELECTOR)
+      ? [content]
+      : Array.from(content.querySelectorAll<HTMLElement>(PROPERTY_PILL_INTERNAL_LINK_SELECTOR));
+
+  if (links.length === 0) {
+    return { kind: "text", text: pillText };
+  }
+
+  if (links.length !== 1) {
+    return { kind: "unsupported" };
+  }
+
+  const target = links[0]?.getAttribute("data-href");
+  const linkText = (links[0]?.textContent ?? "").trim();
+
+  if (target == null || target.length === 0 || linkText.length === 0 || linkText !== pillText) {
+    return { kind: "unsupported" };
+  }
+
+  return { kind: "link", target, text: linkText };
 }
 
 export function getListTypeMismatchDisplayValue(

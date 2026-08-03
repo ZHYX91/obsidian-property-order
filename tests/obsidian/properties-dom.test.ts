@@ -9,6 +9,7 @@ import {
   findPropertyListContextByKey,
   getListTypeMismatchDisplayValue,
   getNativePropertyTypeEvidence,
+  getPropertyPillValueEvidence,
   isPropertyPillTarget,
   resolveDraggablePropertyPill,
   resolveListTypeMismatchContext,
@@ -310,4 +311,165 @@ describe("Properties DOM", () => {
 
     expect(document.activeElement).not.toBe(input);
   });
+
+  it("reports plain pill values as text evidence", () => {
+    const { context } = createEvidenceContext("alpha", "beta");
+
+    expect(getPropertyPillValueEvidence(context)).toEqual([
+      { kind: "text", text: "alpha" },
+      { kind: "text", text: "beta" },
+    ]);
+  });
+
+  it("reports a single verified host link as link evidence with its target", () => {
+    const { context, contentElements } = createEvidenceContext("alpha", "[[医院 A|医院]]");
+    const linkElement = document.createElement("a");
+    linkElement.className = "internal-link";
+    linkElement.setAttribute("data-href", "医院 A");
+    linkElement.textContent = "医院";
+    if (contentElements[1] != null) {
+      contentElements[1].textContent = "";
+      contentElements[1].appendChild(linkElement);
+    }
+
+    expect(getPropertyPillValueEvidence(context)).toEqual([
+      { kind: "text", text: "alpha" },
+      { kind: "link", target: "医院 A", text: "医院" },
+    ]);
+  });
+
+  it("reports the host pill content itself as link evidence when it carries the link", () => {
+    const { context, contentElements } = createEvidenceContext("alpha", "[[医院 A|医院]]");
+    if (contentElements[1] != null) {
+      contentElements[1].className = "multi-select-pill-content internal-link";
+      contentElements[1].setAttribute("data-href", "医院 A");
+      contentElements[1].textContent = "医院";
+    }
+
+    expect(getPropertyPillValueEvidence(context)).toEqual([
+      { kind: "text", text: "alpha" },
+      { kind: "link", target: "医院 A", text: "医院" },
+    ]);
+  });
+
+  it("fails closed when a host link has an empty target", () => {
+    const { context, contentElements } = createEvidenceContext("alpha");
+    const linkElement = document.createElement("a");
+    linkElement.className = "internal-link";
+    linkElement.setAttribute("data-href", "");
+    linkElement.textContent = "医院";
+    if (contentElements[0] != null) {
+      contentElements[0].textContent = "";
+      contentElements[0].appendChild(linkElement);
+    }
+
+    expect(getPropertyPillValueEvidence(context)).toEqual([{ kind: "unsupported" }]);
+  });
+
+  it("fails closed when a pill contains multiple candidate links", () => {
+    const { context, contentElements } = createEvidenceContext("alpha");
+    const firstLink = document.createElement("a");
+    firstLink.className = "internal-link";
+    firstLink.setAttribute("data-href", "医院 A");
+    firstLink.textContent = "医院 A";
+    const secondLink = document.createElement("a");
+    secondLink.className = "internal-link";
+    secondLink.setAttribute("data-href", "医院 B");
+    secondLink.textContent = "医院 B";
+    if (contentElements[0] != null) {
+      contentElements[0].textContent = "";
+      contentElements[0].append(firstLink, secondLink);
+    }
+
+    expect(getPropertyPillValueEvidence(context)).toEqual([{ kind: "unsupported" }]);
+  });
+
+  it("fails closed when a host link is mixed with extra pill text", () => {
+    const { context, contentElements } = createEvidenceContext("alpha");
+    const linkElement = document.createElement("a");
+    linkElement.className = "internal-link";
+    linkElement.setAttribute("data-href", "医院 A");
+    linkElement.textContent = "医院";
+    if (contentElements[0] != null) {
+      contentElements[0].textContent = "";
+      contentElements[0].appendChild(linkElement);
+      contentElements[0].append(document.createTextNode("后缀"));
+    }
+
+    expect(getPropertyPillValueEvidence(context)).toEqual([{ kind: "unsupported" }]);
+  });
+
+  it("keeps external link pills as text evidence", () => {
+    const { context, contentElements } = createEvidenceContext("alpha");
+    const externalLink = document.createElement("a");
+    externalLink.className = "external-link";
+    externalLink.setAttribute("data-href", "https://example.com");
+    externalLink.textContent = "https://example.com";
+    if (contentElements[0] != null) {
+      contentElements[0].textContent = "";
+      contentElements[0].appendChild(externalLink);
+    }
+
+    expect(getPropertyPillValueEvidence(context)).toEqual([
+      { kind: "text", text: "https://example.com" },
+    ]);
+  });
+
+  it("returns null outside a multi-select context", () => {
+    const metadata = document.createElement("div");
+    metadata.className = "metadata-container";
+    const property = document.createElement("div");
+    property.className = "metadata-property";
+    property.dataset.propertyKey = "related";
+    const icon = document.createElement("div");
+    icon.className = "metadata-property-icon";
+    icon.dataset.icon = "list";
+    const value = document.createElement("div");
+    value.className = "metadata-property-value";
+    const input = document.createElement("input");
+    input.value = "123";
+    const warning = document.createElement("div");
+    warning.className = "metadata-property-warning-icon";
+    value.append(input, warning);
+    property.append(icon, value);
+    metadata.appendChild(property);
+    document.body.appendChild(metadata);
+
+    const context = resolveListTypeMismatchContext(property);
+
+    expect(context).not.toBeNull();
+    expect(getPropertyPillValueEvidence(context!)).toBeNull();
+  });
 });
+
+function createEvidenceContext(...values: string[]): {
+  context: NonNullable<ReturnType<typeof resolvePropertyContainerContext>>;
+  contentElements: (HTMLElement | null)[];
+} {
+  const metadata = document.createElement("div");
+  metadata.className = "metadata-container";
+  const property = document.createElement("div");
+  property.className = "metadata-property";
+  property.dataset.propertyKey = "project";
+  const container = document.createElement("div");
+  container.className = "multi-select-container";
+  const contentElements = values.map((value) => {
+    const pill = document.createElement("div");
+    pill.className = "multi-select-pill";
+    const content = document.createElement("div");
+    content.className = "multi-select-pill-content";
+    content.textContent = value;
+    pill.appendChild(content);
+    container.appendChild(pill);
+    return content;
+  });
+  property.appendChild(container);
+  metadata.appendChild(property);
+  document.body.appendChild(metadata);
+  return {
+    context: resolvePropertyContainerContext(container) as NonNullable<
+      ReturnType<typeof resolvePropertyContainerContext>
+    >,
+    contentElements,
+  };
+}

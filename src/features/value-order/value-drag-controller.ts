@@ -30,7 +30,7 @@ import {
   findPropertyListContextByKey,
   getContainerPills,
   getListTypeMismatchDisplayValue,
-  getPropertyPillDisplayValues,
+  getPropertyPillValueEvidence,
   isPropertyPillTarget,
   resolveDraggablePropertyPill,
   resolveListTypeMismatchContext,
@@ -58,6 +58,7 @@ import {
   resolveDropTarget,
 } from "./drop-targeting";
 import type { DropTarget, InvalidDropTarget } from "./types";
+import { arePropertyListValuesAligned } from "./value-alignment";
 import {
   writePropertyValueDrop,
   type ValueWritebackResult,
@@ -1358,9 +1359,9 @@ export class PropertyValueOrderController {
     }
 
     const expectedValues = getFrontmatterTextListPropertyValues(content, context.propertyKey);
-    const visibleValues = getPropertyPillDisplayValues(context);
+    const visibleValues = getPropertyPillValueEvidence(context);
 
-    return areStringArraysEqual(expectedValues, visibleValues);
+    return arePropertyListValuesAligned(expectedValues, visibleValues);
   }
 
   private arePropertiesAlignedWithContent(
@@ -2005,18 +2006,6 @@ export class PropertyValueOrderController {
   private t(messageKey: TranslationKey): string {
     return t(messageKey, this.getSettings().language);
   }
-}
-
-function areStringArraysEqual(
-  left: readonly string[] | null,
-  right: readonly string[] | null,
-): boolean {
-  return (
-    left != null &&
-    right != null &&
-    left.length === right.length &&
-    left.every((value, index) => right[index] === value)
-  );
 }
 
 function isListTypeMismatchContextAlignedWithContent(
