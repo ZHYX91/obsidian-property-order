@@ -129,8 +129,10 @@ describe("acceptance fixture generator", () => {
       ),
     );
 
-    for (const { fileName } of ACCEPTANCE_FIXTURES) {
-      await expect(readFile(path.join(vaultPath, fileName), "utf8")).resolves.toBeDefined();
+    for (const { content, fileName } of ACCEPTANCE_FIXTURES) {
+      await expect(readFile(path.join(vaultPath, fileName), "utf8")).resolves.toBe(
+        content,
+      );
     }
 
     for (const [label, expectedNewline] of [
@@ -159,6 +161,30 @@ describe("acceptance fixture generator", () => {
         "--force",
       ]),
     ).resolves.toBeDefined();
+  });
+
+  it("preserves wiki-link alias whitespace and distinct NFC/NFD targets", () => {
+    const fixture = ACCEPTANCE_FIXTURES.find(
+      ({ fileName }) => fileName === "Property Order Wiki Link Contract.md",
+    );
+    const decomposedTarget = "[[e\u0301|Alias]]";
+    const composedTarget = "[[\u00e9|Alias]]";
+    const decomposedAlias = "[[Target|e\u0301]]";
+    const composedAlias = "[[Target|\u00e9]]";
+
+    expect(ACCEPTANCE_FIXTURES).toHaveLength(7);
+    expect(REQUIRED_ACCEPTANCE_PROPERTY_TYPES.po_wiki_links).toBe("multitext");
+    expect(fixture?.content).toContain('  - "[[Target|Alias]]"');
+    expect(fixture?.content).toContain('  - "[[Target | Alias]]"');
+    expect(fixture?.content).toContain('  - "[[Target| Alias ]]"');
+    expect(fixture?.content).toContain(`  - "${decomposedTarget}"`);
+    expect(fixture?.content).toContain(`  - "${composedTarget}"`);
+    expect(fixture?.content).toContain(`  - "${decomposedAlias}"`);
+    expect(fixture?.content).toContain(`  - "${composedAlias}"`);
+    expect(decomposedTarget).not.toBe(composedTarget);
+    expect(decomposedTarget.normalize("NFC")).toBe(composedTarget);
+    expect(decomposedAlias).not.toBe(composedAlias);
+    expect(decomposedAlias.normalize("NFC")).toBe(composedAlias);
   });
 
   it("requires explicit initialization when the acceptance marker is missing", async () => {

@@ -27,6 +27,28 @@ export default defineConfig([
     },
   },
   {
+    files: ["src/core/**/*.ts"],
+    rules: {
+      "no-restricted-imports": [
+        "error",
+        {
+          paths: [
+            {
+              message: "Core modules must remain independent of the Obsidian runtime.",
+              name: "obsidian",
+            },
+          ],
+          patterns: [
+            {
+              regex: "^(?:obsidian/|(?:\\.\\./)+(?:app|features|obsidian)(?:/|$))",
+              message: "Core modules may only depend on core or shared contracts.",
+            },
+          ],
+        },
+      ],
+    },
+  },
+  {
     ...tseslint.configs.disableTypeChecked,
     files: TEST_FILES,
     rules: {

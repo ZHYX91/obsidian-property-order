@@ -21,6 +21,7 @@ export const REQUIRED_ACCEPTANCE_PROPERTY_TYPES = Object.freeze({
   po_scalar_source: "multitext",
   po_source: "multitext",
   po_target: "multitext",
+  po_wiki_links: "multitext",
 });
 
 export const ACCEPTANCE_FIXTURES = Object.freeze([
@@ -85,6 +86,26 @@ export const ACCEPTANCE_FIXTURES = Object.freeze([
       "# Property Order representation preservation",
       "",
       "Verify preserve, flow, block, noop, comments, quotes, duplicate values, and undo.",
+      "",
+    ].join("\n"),
+  },
+  {
+    fileName: "Property Order Wiki Link Contract.md",
+    content: [
+      "---",
+      "po_wiki_links:",
+      '  - "[[Target|Alias]]"',
+      '  - "[[Target | Alias]]"',
+      '  - "[[Target| Alias ]]"',
+      '  - "[[e\u0301|Alias]]"',
+      '  - "[[\u00e9|Alias]]"',
+      '  - "[[Target|e\u0301]]"',
+      '  - "[[Target|\u00e9]]"',
+      "---",
+      "",
+      "# Property Order wiki link host contract",
+      "",
+      "Before changing alias normalization, record each rendered pill's data-href, raw textContent code points, internal-link structure, and drag eligibility.",
       "",
     ].join("\n"),
   },
