@@ -30,6 +30,12 @@ Simplified Chinese is the source language for stable product, architecture, UX, 
 
 Documentation describes current behavior and current verification requirements. Remove superseded plans, progress records, dated evidence snapshots, version-transition narratives, and obsolete alternatives once their durable rules are incorporated. Active settings migrations and compatibility boundaries remain documented because they are current runtime behavior.
 
+## Deployment and host acceptance
+
+Deploy to a production Vault only when the user explicitly names and authorizes the exact target. Before copying, resolve the target plugin directory, record or back up the currently installed runtime assets, and hash `data.json` when present. Replace only the verified production assets declared by the release contract, preserve `data.json` unless the user explicitly authorizes a reset, and verify the installed hashes after copying.
+
+Acceptance fixtures, cleanup scripts, and destructive test operations may target only explicitly identified temporary Vaults; never point them at an ordinary or production Vault. Source checks, packaged-candidate checks, deployed-host behavior, emulator evidence, and physical-device evidence remain separate claims.
+
 ## Commit & Pull Request Guidelines
 
 Use Conventional Commit-style subjects such as `feat: add key suggestion ordering` or `fix: reorder reused native suggestion menu`. Keep subjects imperative, scoped, and under roughly 72 characters.
