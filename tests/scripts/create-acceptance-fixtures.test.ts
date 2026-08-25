@@ -161,7 +161,7 @@ describe("acceptance fixture generator", () => {
         "--force",
       ]),
     ).resolves.toBeDefined();
-  });
+  }, 15_000);
 
   it("preserves wiki-link alias whitespace and distinct NFC/NFD targets", () => {
     const fixture = ACCEPTANCE_FIXTURES.find(

@@ -6,10 +6,11 @@
   "scripts": {
     "dev": "node esbuild.config.mjs",
     "build": "node esbuild.config.mjs production",
-    "check": "npm run check:runtime && npm run lint && npm run check:readme-i18n && npm run check:docs-i18n && npm run typecheck && npm test && npm run build && npm run check:release",
-    "release:check": "npm run check && npm run bench:usage",
+    "check": "npm run check:runtime && npm run lint && npm run format:check && npm run check:readme-i18n && npm run check:docs-i18n && npm run typecheck && npm run test:coverage && npm run build && npm run check:release",
+    "release:check": "node scripts/check-release-version.mjs && npm run check && npm run bench:usage",
     "check:runtime": "node scripts/check-runtime.mjs",
     "lint": "eslint main.ts src tests benchmarks scripts esbuild.config.mjs eslint.config.mjs vitest.config.mts vitest.performance.config.mts --max-warnings 0",
+    "format:check": "node scripts/check-format.mjs",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "test:coverage": "vitest run --coverage",
@@ -31,9 +32,9 @@
   ],
   "author": "ZhengYX",
   "license": "MIT",
-  "packageManager": "npm@11.16.0",
+  "packageManager": "npm@11.17.0",
   "engines": {
-    "node": "24.18.0"
+    "node": "24.19.0"
   },
   "overrides": {
     "brace-expansion": "5.0.8",
@@ -53,5 +54,8 @@
     "typescript-eslint": "8.65.0",
     "vitest": "4.1.9",
     "yaml": "2.9.0"
+  },
+  "allowScripts": {
+    "esbuild": true
   }
 }

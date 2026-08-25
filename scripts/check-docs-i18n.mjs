@@ -48,6 +48,20 @@ export const stableDocumentPairs = [
     source: "docs/testing-strategy.zh-CN.md",
     translation: "docs/testing-strategy.en.md",
   },
+  {
+    requiredTokens: [
+      "manifest.json",
+      "package.json",
+      "package-lock.json",
+      "versions.json",
+      "npm run release:check",
+      "main.js",
+      "SHA256SUMS",
+      "property-order-x.y.z.zip",
+    ],
+    source: "docs/release.zh-CN.md",
+    translation: "docs/release.en.md",
+  },
 ];
 
 export function checkDocsI18n(projectRoot = defaultProjectRoot) {

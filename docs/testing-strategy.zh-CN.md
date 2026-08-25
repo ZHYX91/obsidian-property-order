@@ -13,25 +13,26 @@ translation_status: source
 
 1. 核对当前 Node.js/npm 与 `.node-version`、`engines.node`、`packageManager` 的精确版本契约；
 2. 对插件入口与源码执行 Obsidian 官方 `eslint-plugin-obsidianmd` 推荐规则集及已记录的兼容性例外，强制 `src/core/` 禁止导入 Obsidian runtime 和上层模块，并对测试、Node 脚本和工具配置执行适合各自环境的静态规则；所有已启用 warning 均阻断；
-3. README 导航与全部稳定中英文文档的 frontmatter、标题层级、关键 token、表格形状和相对链接契约；
-4. TypeScript 严格类型检查；
-5. 当前完整 Vitest suite；
-6. production bundle；
-7. bundle 可重现性以及静态资产、manifest、lockfile 和版本契约审计。
+3. 源码、文档与配置的确定性 UTF-8/LF 格式契约，禁止 BOM、NUL、尾随空白和缺失末尾换行；
+4. README 导航与全部稳定中英文文档的 frontmatter、标题层级、关键 token、表格形状和相对链接契约；
+5. TypeScript 严格类型检查；
+6. 带 V8 coverage 的当前完整 Vitest suite；
+7. production bundle；
+8. bundle 可重现性以及静态资产、manifest、lockfile 和版本契约审计。
 
 Lint 使用当前 Obsidian API typings，兼容性仍以 `manifest.json` 为契约。只有在多窗口支持需要目标 `ownerDocument` 时才保留原生 DOM 创建。设置页采用双路径支持：Obsidian 1.12.x 保留 imperative 三页签 UI，1.13+ 使用原生声明式页面与搜索。自动契约必须证明两套定义覆盖同一组持久化设置、保留自定义规则编辑器，并且声明式搜索索引构建期间不遍历 Vault。
 
 测试按职责分布在 `tests/core/`、`tests/features/`、`tests/obsidian/`、`tests/shared/`、`tests/app/` 和 `tests/scripts/`。固定契约覆盖：
 
 - flow/block/empty、宿主文本列表下 scalar source/target 与全部元素规范化、原始 number/boolean/null token 文本化、重复值保留、重复属性键拒绝、BOM、LF/CRLF/CR、引号、注释、空行和不支持结构 fail closed；
-- 桌面 mouse/touch/pen 状态机、移动端原生菜单扩展与单次待拖动状态、四态 drop 解析、空列表与空标量区分、有正面证据的非列表拒绝、经过不提示、松手单次 Notice、noop、取消、内容冲突、pane/file/editor/DOM 身份、未保存编辑内容、以原始文本为统一坐标的单次原子 editor transaction、1.12.x 精确 `"set"` origin 兼容、忽略/抛错/部分应用/divergence 且不自动回滚、只抑制坐标匹配的拖拽尾随 click 而保留无关点击、宿主事件循环后与 `setViewData()` 后的文档身份复核、blur 清理拖拽 UI 后仍保存精确提交、精确核对后才调用 `requestSave()`、保存调度失败的独立结果与 Notice、正常及类型不匹配列表 UI 对账、受守卫 `metadataEditor.synchronize()` 的成功/缺失/抛错/宿主归属错误/同步后文本 divergence、可点击刷新重试的单次性与卸载/换页失效、多个 pane 的恢复操作互不清除，以及不调用原生属性 setter、不 Vault 直写、不手工修改宿主 pill DOM；
+- 桌面 mouse/touch/pen 状态机、移动端原生菜单扩展与单次待拖动状态、四态 drop 解析、空列表与空标量区分、有正面证据的非列表拒绝、经过不提示、松手单次 Notice、noop、取消、内容冲突、pane/file/editor/DOM 身份、未保存编辑内容、以原始文本为统一坐标的单次原子 editor transaction、1.12.x 精确 `"set"` origin 兼容、事务前所有权失效时内容不变、事务后精确内容已应用时归类为未安排持久化、忽略/抛错/部分应用/divergence 且不自动回滚、只抑制坐标匹配的拖拽尾随 click 而保留无关点击、宿主事件循环后与 `setViewData()` 后的文档身份复核、blur 清理拖拽 UI 后仍保存精确提交、精确核对后才调用 `requestSave()`、保存调度失败的独立结果与 Notice、正常及类型不匹配列表 UI 对账、受守卫 `metadataEditor.synchronize()` 的成功/缺失/抛错/宿主归属错误/同步后文本 divergence、可点击刷新重试的单次性与卸载/换页失效、多个 pane 的恢复操作互不清除，以及不调用原生属性 setter、不 Vault 直写、不手工修改宿主 pill DOM；
 - 精确提交后的首次 editor focus、宿主重建丢焦后的受守卫二次恢复、提交前或提交后用户主动转焦时不抢回、noop/拒绝/冲突/事务未生效时不聚焦、保存调度失败但 buffer 已提交时仍可撤销，以及异步对账和手动刷新期间 original/committed undo-redo 状态不误报 divergence；
-- Properties 与候选 DOM adapter、可见候选排序、全部隐藏、键盘导航、焦点离开、置顶/隐藏/置底优先级、严格 MRU 与未记录项名称回退、笔记数平局、菜单复用，以及 DOM 不匹配时 fail open；
+- Properties 与候选 DOM adapter、限定原 pane 的点几何回退、包含隐藏祖先及计算 display/visibility 的可见候选排序、仅候选菜单文本观察且不启用全 document character-data 观察、全部隐藏、键盘导航、焦点离开、置顶/隐藏/置底优先级、严格 MRU 与未记录项名称回退、笔记数平局、菜单复用，以及 DOM 不匹配时 fail open；
 - recent tracker 的点击与键盘/输入提交意图、Metadata Cache 成功确认、hover/浏览/取消/失败不记录、文件与 document 身份、超时/删除/卸载清理；recent store 的精确大小写、去重前移、100 项上限、无时间戳版本化格式、畸形或读取失败回退、写入失败 fail open、当前 Vault/设备隔离和清除；名称与 recent 模式零 Vault 遍历，无菜单时 usage 缓存失效也不触发扫描；
-- schema 3 到 4 的 settings 迁移、`recent` 合法值、即时生效、保存失败、Retry、1.13 之前页签与 1.13 声明式页面都包含三种排序、清除入口与不持久化的规则测试框、自定义控件存储、诊断 cleanup、零 Vault 遍历和窄屏 CSS；
+- schema 3 到 4 的 settings 迁移、`recent` 合法值、即时生效、保存失败、Retry、公开外部设置回调的三方合并与实时 surface 刷新、跨实例存储串行化、卸载后新保存拒绝、关闭值拖拽时保留跨属性偏好、1.13 之前页签与 1.13 声明式页面都包含三种排序、清除入口与不持久化的规则测试框、自定义控件存储、诊断 cleanup、零 Vault 遍历和窄屏 CSS；
 - 精确 Node.js/npm 与 lockfile root 契约、发布 job 读写权限隔离、仓库代码执行前的默认分支与标签身份核对、只读四资产加 SHA-256 artifact handoff、裸 action digest 与 REST 前缀兼容、外层/内层恶意 ZIP fail closed、写权限 job 零 checkout/npm/仓库脚本、仓库级发布串行化、真实 Release 版本与说明基线预检、existing no-op 与新发布四资产的字节及精确 signer/repo/ref/commit provenance、发布后 HTTP 重试分类、三个官方附件、手动安装 ZIP 和幂等 Release 更新。
 
-`npm run test:coverage` 是独立的诊断命令，使用 V8 coverage 并显式包含 `main.ts` 与 `src/**/*.ts`，使没有被任何测试导入的运行时代码仍以 0% 出现在源清单中。当前不以仓促设置的全局百分比阈值阻断 `npm run check`；覆盖率报告用于发现遗漏文件和指导针对性测试，不能替代真实宿主证据。
+`npm run check` 通过 `npm run test:coverage` 执行完整 Vitest suite，并使用 V8 coverage 显式包含 `main.ts` 与 `src/**/*.ts`，使没有被任何测试导入的运行时代码仍以 0% 出现在源清单中。当前不设置仓促选择的全局百分比阈值；统一门禁仍会生成覆盖率报告，用于发现遗漏文件和指导针对性测试，但不能替代真实宿主证据。
 
 `npm run bench:usage` 与 `npm run bench:usage:large` 是不进入 `npm run check` 的确定性 Metadata Cache 微基准，分别构造 10,000 与 50,000 篇缓存笔记，对真实 `getPropertyKeyUsage()` 预热后采样 25 次并报告 p50、p95、max 与缓存命中耗时。每次性能判断都应把操作系统、CPU、Node.js 与 npm 版本连同原始输出记录在交付证据中。该合成结果尚不足以证明真实 Obsidian 主线程、移动设备或内存表现，也不单独作为定时门禁；只有真实大 Vault 或重复回归数据越过产品预算时，才据此重新评估增量索引。
 
@@ -87,7 +88,7 @@ Android 模拟器必须验证：
 
 ## CI 与 Release
 
-CI 与 Release workflow 都从 `.node-version` 使用 Node.js 24.18.0，并通过 `packageManager` 要求 npm 11.16.0；在 `npm ci` 前先核对精确运行时，随后执行 `npm run check`。其中发布产物门会独立重现 bundle，并要求生产 `main.js` 不超过 320,000 B。当前 267,789 B 基线因此保留 52,211 B（约 19.5%）余量；这是项目回归预算，不是 Obsidian 平台限制。CI 上传 `dist/` 顶层的 `main.js`、`manifest.json` 与 `styles.css`。Release workflow 只接受与 `manifest.json` 完全一致、无 `v` 前缀的 `x.y.z` 版本，重新执行完整门禁后发布：
+CI 与 Release workflow 都从 `.node-version` 使用 Node.js 24.19.0，并通过 `packageManager` 要求 npm 11.17.0；在 `npm ci` 前先核对精确运行时，随后执行 `npm run check`。其中发布产物门会独立重现 bundle，并要求生产 `main.js` 不超过 320,000 B；这是项目回归预算，不是 Obsidian 平台限制。CI 上传 `dist/` 顶层的 `main.js`、`manifest.json` 与 `styles.css`。Release workflow 只接受与 `manifest.json` 完全一致、无 `v` 前缀的 `x.y.z` 版本，重新执行完整门禁后发布：
 
 - `main.js`；
 - `manifest.json`；

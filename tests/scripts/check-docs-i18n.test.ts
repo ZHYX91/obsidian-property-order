@@ -18,6 +18,8 @@ beforeEach(async () => {
   await cp(path.join(projectRoot, "docs"), path.join(fixtureRoot, "docs"), {
     recursive: true,
   });
+  await cp(path.join(projectRoot, "CHANGELOG.md"), path.join(fixtureRoot, "CHANGELOG.md"));
+  await cp(path.join(projectRoot, "SECURITY.md"), path.join(fixtureRoot, "SECURITY.md"));
 });
 
 afterEach(async () => {
@@ -96,6 +98,14 @@ describe("stable documentation i18n checker", () => {
 
     expect(checkDocsI18n(fixtureRoot)).toContain(
       "docs/testing-strategy.en.md must retain the stable contract token `src/**/*.ts`",
+    );
+  });
+
+  it("enforces the release guide's hosted-asset contract tokens", async () => {
+    await replaceInDocument("docs/release.en.md", "`SHA256SUMS`", "the hash manifest");
+
+    expect(checkDocsI18n(fixtureRoot)).toContain(
+      "docs/release.en.md must retain the stable contract token `SHA256SUMS`",
     );
   });
 

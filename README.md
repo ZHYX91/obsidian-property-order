@@ -12,12 +12,6 @@ Move a value between supported top-level YAML list properties on desktop:
 
 Cross-property drag is enabled by default and can be disabled in the Value drag settings.
 
-Configure native property-name suggestion ordering:
-
-![Property-name suggestion settings](https://raw.githubusercontent.com/ZHYX91/obsidian-property-order/main/docs/assets/property-order-settings.png)
-
-The screenshot shows the custom tabbed settings UI used by Obsidian 1.12.x. Obsidian 1.13+ presents the same General, Value drag, and Key order groups as native declarative settings pages with search.
-
 ## Features
 
 - Drag to reorder values inside a top-level YAML list property.
@@ -55,12 +49,15 @@ Back up and preserve `Vault/.obsidian/plugins/property-order/data.json` when it 
 
 ## Settings
 
-- **General** controls the default list format used when a write cannot preserve the current representation.
-- **Value drag** enables or disables cross-property moves and related drag behavior.
+Every supported Obsidian version uses the same accessible General, Value drag, and Key order tabs.
+The active tab already names the current section, so content begins directly with its first setting
+instead of repeating that title.
+
+- **General** controls the interface language and optional diagnostic notices. **Follow Obsidian** uses Obsidian's interface language.
+- **Value drag** controls list writeback format, cross-property moves, and related drag behavior. Temporarily disabling value drag preserves the separate cross-property preference for the next time value drag is enabled.
 - **Key order** configures pinned, bottom, hidden, name-sorted, recently used, and note-count-sorted native property-name suggestions. Recent order is strict MRU: pinned rules remain first, confirmed recent names follow in newest-first order, names absent from history fall back to name order, and bottom rules remain last. Note count means the number of cached Markdown notes containing the property, not interaction frequency.
 - Recent history contains at most 100 exact property names in order and no timestamps. It is stored through Obsidian local storage for the current Vault on the current device; it is separate from `data.json` and is not synced. **Clear recent property history** removes it.
-- Name and Recently used sorting do not traverse the Vault. Note count scans cached frontmatter lazily only when that mode needs data and reuses the invalidatable cache.
-- Obsidian 1.12.x uses a three-tab settings page; Obsidian 1.13 or later exposes the same groups as searchable declarative settings pages.
+- Name and Recently used sorting do not traverse the Vault. Note count scans cached frontmatter lazily only when that mode needs data and reuses the invalidatable cache. Opening a property-rule editor may also load cached property names lazily for its autocomplete, independently of the selected sort mode.
 
 ## Limitations
 
@@ -76,12 +73,24 @@ Property Order reads and updates the current note through Obsidian's editor and 
 
 ## Development
 
+Use Node.js 24.19.0 and npm 11.17.0. Install the exact dependency graph from the frozen lockfile,
+then run the complete repository gate:
+
 ```bash
-npm install
+npm ci
 npm run check
 ```
 
-See the [developer documentation](https://github.com/ZHYX91/obsidian-property-order/blob/main/docs/architecture.en.md) for architecture and testing details.
+### Documentation
+
+- [Product requirements](https://github.com/ZHYX91/obsidian-property-order/blob/main/docs/product-requirements.en.md)
+- [UX specification](https://github.com/ZHYX91/obsidian-property-order/blob/main/docs/ux-spec.en.md)
+- [Architecture](https://github.com/ZHYX91/obsidian-property-order/blob/main/docs/architecture.en.md)
+- [Testing strategy](https://github.com/ZHYX91/obsidian-property-order/blob/main/docs/testing-strategy.en.md)
+- [Release guide](https://github.com/ZHYX91/obsidian-property-order/blob/main/docs/release.en.md)
+- [Changelog](https://github.com/ZHYX91/obsidian-property-order/blob/main/CHANGELOG.md)
+- [Contributing guide](https://github.com/ZHYX91/obsidian-property-order/blob/main/CONTRIBUTING.md)
+- [Security policy](https://github.com/ZHYX91/obsidian-property-order/blob/main/SECURITY.md)
 
 ## Support
 
