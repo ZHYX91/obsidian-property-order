@@ -149,13 +149,13 @@ describe("reorderFrontmatterListProperty preserve mode", () => {
     );
   });
 
-  it("tolerates BOM and whitespace around frontmatter delimiters", () => {
+  it("tolerates a BOM and trailing whitespace on frontmatter delimiters", () => {
     const input = [
       "\uFEFF---  ",
       "tags:",
       "  - alpha",
       "  - beta",
-      " ...",
+      "... \t",
       "",
     ].join("\n");
 
@@ -171,7 +171,7 @@ describe("reorderFrontmatterListProperty preserve mode", () => {
       "tags:",
       "  - beta",
       "  - alpha",
-      " ...",
+      "... \t",
       "",
     ].join("\n"));
   });

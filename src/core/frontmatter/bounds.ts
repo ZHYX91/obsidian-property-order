@@ -2,12 +2,19 @@ import type { FrontmatterBounds } from "./types";
 import { parseTopLevelPropertyLine } from "./property-line";
 import { splitInlineComment } from "./scalar";
 
+const FRONTMATTER_OPENING_DELIMITER_PATTERN = /^---[ \t]*$/u;
+const FRONTMATTER_CLOSING_DELIMITER_PATTERN = /^(?:---|\.\.\.)[ \t]*$/u;
+
 export function extractFrontmatterBounds(content: string): FrontmatterBounds | null {
   const newline = detectNewline(content);
   const lines = splitLines(content, newline);
-  const openingLine = lines[0]?.replace(/^\uFEFF/, "").trim();
+  const openingLine = lines[0]?.replace(/^\uFEFF/u, "");
 
-  if (lines.length < 2 || openingLine !== "---") {
+  if (
+    lines.length < 2 ||
+    openingLine == null ||
+    !FRONTMATTER_OPENING_DELIMITER_PATTERN.test(openingLine)
+  ) {
     return null;
   }
 
@@ -34,9 +41,7 @@ export function extractFrontmatterBounds(content: string): FrontmatterBounds | n
       blockScalar = null;
     }
 
-    const candidate = line.trim();
-
-    if (candidate === "---" || candidate === "...") {
+    if (FRONTMATTER_CLOSING_DELIMITER_PATTERN.test(line)) {
       closingLineIndex = index;
       break;
     }

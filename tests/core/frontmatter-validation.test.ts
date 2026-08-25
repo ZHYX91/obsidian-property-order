@@ -68,6 +68,75 @@ describe("reorderFrontmatterListProperty syntax boundaries", () => {
     expect(output).toBe(["---", "owner's#key: [other, don't] # note", "---"].join("\n"));
   });
 
+  it.each(["---", "..."])(
+    "does not close frontmatter on indented ordinary marker content: %s",
+    (marker) => {
+      const input = [
+        "---",
+        "marker:",
+        `  ${marker}`,
+        "tags: [alpha, beta]",
+        "---",
+      ].join("\n");
+
+      expect(
+        reorderFrontmatterListProperty(input, {
+          propertyKey: "tags",
+          sourceIndex: 0,
+          targetSlot: 2,
+          writebackFormat: "preserve",
+        }),
+      ).toBe(
+        [
+          "---",
+          "marker:",
+          `  ${marker}`,
+          "tags: [beta, alpha]",
+          "---",
+        ].join("\n"),
+      );
+    },
+  );
+
+  it.each(["---", "..."])(
+    "does not miss a duplicate key after indented ordinary marker content: %s",
+    (marker) => {
+      const input = [
+        "---",
+        "tags: [alpha, beta]",
+        "marker:",
+        `  ${marker}`,
+        "tags: [gamma]",
+        "---",
+      ].join("\n");
+
+      expect(
+        reorderFrontmatterListProperty(input, {
+          propertyKey: "tags",
+          sourceIndex: 0,
+          targetSlot: 2,
+          writebackFormat: "preserve",
+        }),
+      ).toBeNull();
+      expect(getFrontmatterListPropertyValues(input, "tags")).toBeNull();
+      expect(diagnoseFrontmatterReorder(input, "tags")).toBe("unsupported_property");
+    },
+  );
+
+  it.each([" ---", "\t---"])("does not accept an indented opening delimiter: %j", (opening) => {
+    const input = [opening, "tags: [alpha, beta]", "---"].join("\n");
+
+    expect(
+      reorderFrontmatterListProperty(input, {
+        propertyKey: "tags",
+        sourceIndex: 0,
+        targetSlot: 2,
+        writebackFormat: "preserve",
+      }),
+    ).toBeNull();
+    expect(diagnoseFrontmatterReorder(input, "tags")).toBe("no_frontmatter");
+  });
+
   it("does not close frontmatter on indented block-scalar marker text", () => {
     const input = [
       "---",
