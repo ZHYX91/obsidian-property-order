@@ -289,15 +289,19 @@ export function findPropertyContainerAtPoint(
   clientX: number,
   clientY: number,
   targetDocument: Document,
+  searchRoot: Document | HTMLElement = targetDocument,
 ): HTMLElement | null {
   const targetElement = targetDocument.elementFromPoint(clientX, clientY);
   const directContainer = targetElement?.closest<HTMLElement>(PROPERTY_CONTAINER_SELECTOR);
 
-  if (directContainer?.closest(METADATA_CONTAINER_SELECTOR) != null) {
+  if (
+    directContainer?.closest(METADATA_CONTAINER_SELECTOR) != null &&
+    isWithinSearchRoot(directContainer, searchRoot, targetDocument)
+  ) {
     return directContainer;
   }
 
-  const candidates = targetDocument.querySelectorAll<HTMLElement>(
+  const candidates = searchRoot.querySelectorAll<HTMLElement>(
     `${METADATA_CONTAINER_SELECTOR} ${PROPERTY_CONTAINER_SELECTOR}`,
   );
   return (
@@ -311,15 +315,19 @@ export function findPropertyElementAtPoint(
   clientX: number,
   clientY: number,
   targetDocument: Document,
+  searchRoot: Document | HTMLElement = targetDocument,
 ): HTMLElement | null {
   const targetElement = targetDocument.elementFromPoint(clientX, clientY);
   const directProperty = targetElement?.closest<HTMLElement>(PROPERTY_ELEMENT_SELECTOR);
 
-  if (directProperty?.closest(METADATA_CONTAINER_SELECTOR) != null) {
+  if (
+    directProperty?.closest(METADATA_CONTAINER_SELECTOR) != null &&
+    isWithinSearchRoot(directProperty, searchRoot, targetDocument)
+  ) {
     return directProperty;
   }
 
-  const candidates = targetDocument.querySelectorAll<HTMLElement>(
+  const candidates = searchRoot.querySelectorAll<HTMLElement>(
     `${METADATA_CONTAINER_SELECTOR} ${PROPERTY_ELEMENT_SELECTOR}`,
   );
   return (
@@ -327,6 +335,14 @@ export function findPropertyElementAtPoint(
       isPointInsideRect(clientX, clientY, propertyElement.getBoundingClientRect()),
     ) ?? null
   );
+}
+
+function isWithinSearchRoot(
+  element: HTMLElement,
+  searchRoot: Document | HTMLElement,
+  targetDocument: Document,
+): boolean {
+  return searchRoot === targetDocument || searchRoot.contains(element);
 }
 
 function asElement(target: EventTarget | null): Element | null {

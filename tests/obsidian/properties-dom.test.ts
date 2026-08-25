@@ -1,6 +1,6 @@
 // @vitest-environment happy-dom
 
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 
 import {
   blurFocusedPropertyEditor,
@@ -61,6 +61,41 @@ describe("Properties DOM", () => {
     } as unknown as Document;
 
     expect(findPropertyContainerAtPoint(10, 20, targetDocument)).toBeNull();
+  });
+
+  it("limits fallback geometry scans to the supplied pane", () => {
+    const scopedPane = document.createElement("div");
+    const scopedMetadata = document.createElement("div");
+    scopedMetadata.className = "metadata-container";
+    const scopedProperty = document.createElement("div");
+    scopedProperty.className = "metadata-property";
+    const scopedContainer = document.createElement("div");
+    scopedContainer.className = "multi-select-container";
+    scopedProperty.appendChild(scopedContainer);
+    scopedMetadata.appendChild(scopedProperty);
+    scopedPane.appendChild(scopedMetadata);
+    document.body.appendChild(scopedPane);
+    const outsidePill = createPill(true);
+    const outsideContainer = outsidePill.closest<HTMLElement>(".multi-select-container");
+    const outsideRect = vi.fn(() => new DOMRect(0, 0, 100, 100));
+    const scopedRect = vi.fn(() => new DOMRect(0, 0, 100, 100));
+    const scopedPropertyRect = vi.fn(() => new DOMRect(0, 0, 100, 100));
+    Reflect.set(outsideContainer ?? {}, "getBoundingClientRect", outsideRect);
+    Reflect.set(scopedContainer, "getBoundingClientRect", scopedRect);
+    Reflect.set(scopedProperty, "getBoundingClientRect", scopedPropertyRect);
+    const targetDocument = {
+      elementFromPoint: () => outsidePill,
+    } as unknown as Document;
+
+    expect(
+      findPropertyContainerAtPoint(10, 20, targetDocument, scopedPane),
+    ).toBe(scopedContainer);
+    expect(
+      findPropertyElementAtPoint(10, 20, targetDocument, scopedPane),
+    ).toBe(scopedProperty);
+    expect(scopedRect).toHaveBeenCalledOnce();
+    expect(scopedPropertyRect).toHaveBeenCalledOnce();
+    expect(outsideRect).not.toHaveBeenCalled();
   });
 
   it("resolves a scalar property row at a point without requiring a list container", () => {

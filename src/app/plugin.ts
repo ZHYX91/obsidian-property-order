@@ -13,6 +13,10 @@ import type { PropertyOrderSettings } from "../shared/types";
 import { PropertyOrderSettingTab } from "./settings-tab";
 
 export const VALUE_DRAG_ENABLED_CLASS = "property-order-value-drag-enabled";
+const STALE_SETTINGS_INSTANCE_ERROR =
+  "Property Order settings cannot be saved after plugin unload.";
+
+let settingsStorageQueue: Promise<void> = Promise.resolve();
 
 interface SettingsSaveWaiter {
   reject(reason: unknown): void;
@@ -28,8 +32,8 @@ export default class PropertyOrderPlugin extends Plugin {
   private readonly pendingSettingsSaveWaiters: SettingsSaveWaiter[] = [];
   private settingsSaveRequested = false;
   private settingsSaveTask: Promise<void> | null = null;
+  private settingTab: PropertyOrderSettingTab | null = null;
   private persistedSettingsBaseline = createDefaultSettings();
-  private storedSettings: unknown = null;
   private trackedDocuments = new Set<Document>();
   private unloaded = false;
   propertyOrderSettings: PropertyOrderSettings = createDefaultSettings();
@@ -51,17 +55,62 @@ export default class PropertyOrderPlugin extends Plugin {
 
     this.clearTrackedDocumentState();
     this.keySuggestionOrderController = null;
+    this.settingTab = null;
+  }
+
+  override async onExternalSettingsChange(): Promise<void> {
+    const lifecycleEpoch = this.lifecycleEpoch;
+    await this.settingsSaveTask;
+
+    if (!this.isLifecycleCurrent(lifecycleEpoch)) {
+      return;
+    }
+
+    let externalSettings: unknown;
+
+    try {
+      externalSettings = await runSettingsStorageOperation(() => this.loadData());
+    } catch (error) {
+      if (this.isLifecycleCurrent(lifecycleEpoch)) {
+        console.error("Property Order: failed to reload external settings", error);
+      }
+      return;
+    }
+
+    if (!this.isLifecycleCurrent(lifecycleEpoch)) {
+      return;
+    }
+
+    const previousSettings = normalizeSettings(this.propertyOrderSettings);
+    const externalBaseline = normalizeSettings(externalSettings);
+    const mergedSettings = normalizeSettings(
+      prepareSettingsForStorage(
+        previousSettings,
+        externalSettings,
+        this.persistedSettingsBaseline,
+      ),
+    );
+    this.propertyOrderSettings = mergedSettings;
+    this.persistedSettingsBaseline = externalBaseline;
+    this.syncValueDragState();
+
+    if (!areSuggestionSettingsEqual(previousSettings, mergedSettings)) {
+      this.refreshKeySuggestionsSafely();
+    }
+
+    this.settingTab?.refreshAfterExternalSettingsChange();
   }
 
   async loadSettings(expectedLifecycleEpoch?: number): Promise<boolean> {
-    const storedSettings: unknown = await this.loadData();
+    const storedSettings: unknown = await runSettingsStorageOperation(() =>
+      this.loadData(),
+    );
 
     if (!this.isLifecycleCurrent(expectedLifecycleEpoch)) {
       return false;
     }
 
     const normalizedSettings = normalizeSettings(storedSettings);
-    this.storedSettings = storedSettings;
     this.propertyOrderSettings = normalizedSettings;
     this.persistedSettingsBaseline = normalizeSettings(storedSettings);
     this.pendingSettingsSave = false;
@@ -77,7 +126,7 @@ export default class PropertyOrderPlugin extends Plugin {
       );
 
       try {
-        await this.saveData(settingsForStorage);
+        await runSettingsStorageOperation(() => this.saveData(settingsForStorage));
       } catch (error) {
         if (!this.isLifecycleCurrent(expectedLifecycleEpoch)) {
           return false;
@@ -93,7 +142,6 @@ export default class PropertyOrderPlugin extends Plugin {
         return false;
       }
 
-      this.storedSettings = settingsForStorage;
       this.persistedSettingsBaseline = normalizeSettings(settingsForStorage);
     }
 
@@ -162,10 +210,12 @@ export default class PropertyOrderPlugin extends Plugin {
         return;
       }
 
-      this.addSettingTab(new PropertyOrderSettingTab(this.app, this));
+      this.settingTab = new PropertyOrderSettingTab(this.app, this);
+      this.addSettingTab(this.settingTab);
     } catch (error) {
       this.releaseCleanupCallbacks(cleanupCheckpoint);
       this.keySuggestionOrderController = null;
+      this.settingTab = null;
       this.clearTrackedDocumentState();
       throw error;
     }
@@ -177,6 +227,10 @@ export default class PropertyOrderPlugin extends Plugin {
    * a failed batch rejects only its own callers and does not strand later work.
    */
   saveSettings(refreshKeySuggestions = false): Promise<void> {
+    if (this.unloaded) {
+      return Promise.reject(new Error(STALE_SETTINGS_INSTANCE_ERROR));
+    }
+
     this.settingsSaveRequested = true;
     this.pendingKeySuggestionRefresh ||= refreshKeySuggestions;
     this.syncValueDragState();
@@ -249,17 +303,40 @@ export default class PropertyOrderPlugin extends Plugin {
 
       try {
         const settingsSnapshot = normalizeSettings(this.propertyOrderSettings);
-        const settingsForStorage = prepareSettingsForStorage(
-          settingsSnapshot,
-          this.storedSettings,
-          this.persistedSettingsBaseline,
-        );
-        await this.saveData(settingsForStorage);
-        this.storedSettings = settingsForStorage;
-        this.persistedSettingsBaseline = settingsSnapshot;
-        this.pendingSettingsSave = false;
+        const settingsForStorage = await runSettingsStorageOperation(async () => {
+          const latestStoredSettings: unknown = await this.loadData();
+          const preparedSettings = prepareSettingsForStorage(
+            settingsSnapshot,
+            latestStoredSettings,
+            this.persistedSettingsBaseline,
+          );
 
-        if (shouldRefreshKeySuggestions) {
+          if (this.unloaded) {
+            throw new Error(STALE_SETTINGS_INSTANCE_ERROR);
+          }
+
+          await this.saveData(preparedSettings);
+          return preparedSettings;
+        });
+        const mergedSettings = normalizeSettings(settingsForStorage);
+        const currentSettings = normalizeSettings(this.propertyOrderSettings);
+        const runtimeSettings = normalizeSettings(
+          prepareSettingsForStorage(
+            currentSettings,
+            settingsForStorage,
+            settingsSnapshot,
+          ),
+        );
+        const settingsChangedExternally = !areSuggestionSettingsEqual(
+          settingsSnapshot,
+          runtimeSettings,
+        );
+        this.propertyOrderSettings = runtimeSettings;
+        this.persistedSettingsBaseline = mergedSettings;
+        this.pendingSettingsSave = false;
+        this.syncValueDragState();
+
+        if (shouldRefreshKeySuggestions || settingsChangedExternally) {
           this.refreshKeySuggestionsSafely();
         }
 
@@ -321,4 +398,33 @@ export default class PropertyOrderPlugin extends Plugin {
       this.propertyOrderSettings.enablePropertyValueDrag,
     );
   }
+}
+
+function areSuggestionSettingsEqual(
+  left: PropertyOrderSettings,
+  right: PropertyOrderSettings,
+): boolean {
+  return (
+    left.enableNativeKeySuggestionOrder === right.enableNativeKeySuggestionOrder &&
+    left.keySuggestionSortMode === right.keySuggestionSortMode &&
+    areStringListsEqual(left.pinnedPropertyKeys, right.pinnedPropertyKeys) &&
+    areStringListsEqual(left.bottomPropertyKeys, right.bottomPropertyKeys) &&
+    areStringListsEqual(left.hiddenPropertyKeyPatterns, right.hiddenPropertyKeyPatterns)
+  );
+}
+
+function areStringListsEqual(left: readonly string[], right: readonly string[]): boolean {
+  return (
+    left.length === right.length &&
+    left.every((value, index) => value === right[index])
+  );
+}
+
+function runSettingsStorageOperation<T>(operation: () => Promise<T>): Promise<T> {
+  const result = settingsStorageQueue.then(operation, operation);
+  settingsStorageQueue = result.then(
+    () => undefined,
+    () => undefined,
+  );
+  return result;
 }

@@ -104,11 +104,8 @@ export function applyPropertyOrderControlValue(
 
     if (key === "enablePropertyValueDrag") {
       settings.enablePropertyValueDrag = value;
-      if (!value) {
-        settings.enableCrossPropertyDrag = false;
-      }
     } else if (key === "enableCrossPropertyDrag") {
-      settings.enableCrossPropertyDrag = settings.enablePropertyValueDrag && value;
+      settings.enableCrossPropertyDrag = value;
     } else {
       settings[key] = value;
     }

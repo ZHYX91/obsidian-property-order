@@ -30,6 +30,10 @@ interface EditorTransactionCommitOptions {
 export async function commitHiddenFrontmatterEditorTransaction(
   options: EditorTransactionCommitOptions,
 ): Promise<EditorTransactionCommitResult> {
+  if (!canFinalizeTransaction(options.canFinalize)) {
+    return { status: "aborted", actualContent: options.editor.getValue() };
+  }
+
   let transactionThrew = false;
 
   try {
@@ -47,8 +51,8 @@ export async function commitHiddenFrontmatterEditorTransaction(
   const actualContent = options.editor.getValue();
 
   if (actualContent === options.expectedContent) {
-    if (options.canFinalize?.() === false) {
-      return { status: "aborted", actualContent };
+    if (!canFinalizeTransaction(options.canFinalize)) {
+      return { status: "persistence-failed", actualContent };
     }
 
     try {
@@ -63,8 +67,8 @@ export async function commitHiddenFrontmatterEditorTransaction(
       return { status: "diverged", actualContent: reloadedContent };
     }
 
-    if (options.canFinalize?.() === false) {
-      return { status: "aborted", actualContent: reloadedContent };
+    if (!canFinalizeTransaction(options.canFinalize)) {
+      return { status: "persistence-failed", actualContent: reloadedContent };
     }
 
     try {
@@ -90,4 +94,17 @@ function waitForEditorSettlement(view: MarkdownView): Promise<void> {
   }
 
   return new Promise((resolve) => targetWindow.setTimeout(resolve, 0));
+}
+
+function canFinalizeTransaction(canFinalize: (() => boolean) | undefined): boolean {
+  if (canFinalize == null) {
+    return true;
+  }
+
+  try {
+    return canFinalize();
+  } catch (error) {
+    console.warn("Property Order: failed to verify value-drag ownership", error);
+    return false;
+  }
 }

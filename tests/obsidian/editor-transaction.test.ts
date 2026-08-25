@@ -181,7 +181,7 @@ describe("hidden-frontmatter editor transactions", () => {
     warning.mockRestore();
   });
 
-  it("does not reconcile or schedule a save after the owning view becomes stale", async () => {
+  it("does not mutate when the owning view is already stale", async () => {
     const editorHarness = createEditorHarness(originalContent, "accept-set");
     const viewHarness = createViewHarness(editorHarness.getContent);
 
@@ -194,11 +194,95 @@ describe("hidden-frontmatter editor transactions", () => {
         originalContent,
         view: viewHarness.view,
       }),
-    ).resolves.toEqual({ status: "aborted", actualContent: "AAxyBBzzCC" });
+    ).resolves.toEqual({ status: "aborted", actualContent: originalContent });
 
-    expect(editorHarness.getContent()).toBe("AAxyBBzzCC");
+    expect(editorHarness.getContent()).toBe(originalContent);
+    expect(editorHarness.transactions).toHaveLength(0);
     expect(viewHarness.setViewData).not.toHaveBeenCalled();
     expect(viewHarness.requestSave).not.toHaveBeenCalled();
+  });
+
+  it("reports an exact applied transaction as unscheduled when ownership becomes stale", async () => {
+    const editorHarness = createEditorHarness(originalContent, "accept-set");
+    const viewHarness = createViewHarness(editorHarness.getContent);
+    let ownershipChecks = 0;
+
+    await expect(
+      commitHiddenFrontmatterEditorTransaction({
+        canFinalize: () => ownershipChecks++ === 0,
+        changes: twoChanges,
+        editor: editorHarness.editor,
+        expectedContent: "AAxyBBzzCC",
+        originalContent,
+        view: viewHarness.view,
+      }),
+    ).resolves.toEqual({
+      status: "persistence-failed",
+      actualContent: "AAxyBBzzCC",
+    });
+
+    expect(editorHarness.getContent()).toBe("AAxyBBzzCC");
+    expect(editorHarness.transactions).toHaveLength(1);
+    expect(viewHarness.setViewData).not.toHaveBeenCalled();
+    expect(viewHarness.requestSave).not.toHaveBeenCalled();
+  });
+
+  it("fails closed without mutation when the ownership preflight throws", async () => {
+    const warning = vi.spyOn(console, "warn").mockImplementation(() => undefined);
+    const editorHarness = createEditorHarness(originalContent, "accept-set");
+    const viewHarness = createViewHarness(editorHarness.getContent);
+
+    await expect(
+      commitHiddenFrontmatterEditorTransaction({
+        canFinalize: () => {
+          throw new Error("owner unavailable");
+        },
+        changes: twoChanges,
+        editor: editorHarness.editor,
+        expectedContent: "AAxyBBzzCC",
+        originalContent,
+        view: viewHarness.view,
+      }),
+    ).resolves.toEqual({ status: "aborted", actualContent: originalContent });
+
+    expect(editorHarness.transactions).toHaveLength(0);
+    expect(viewHarness.setViewData).not.toHaveBeenCalled();
+    expect(viewHarness.requestSave).not.toHaveBeenCalled();
+    expect(warning).toHaveBeenCalledOnce();
+    warning.mockRestore();
+  });
+
+  it("reports an applied change as unscheduled when the post-commit ownership check throws", async () => {
+    const warning = vi.spyOn(console, "warn").mockImplementation(() => undefined);
+    const editorHarness = createEditorHarness(originalContent, "accept-set");
+    const viewHarness = createViewHarness(editorHarness.getContent);
+    let ownershipChecks = 0;
+
+    await expect(
+      commitHiddenFrontmatterEditorTransaction({
+        canFinalize: () => {
+          ownershipChecks += 1;
+          if (ownershipChecks > 1) {
+            throw new Error("owner unavailable");
+          }
+          return true;
+        },
+        changes: twoChanges,
+        editor: editorHarness.editor,
+        expectedContent: "AAxyBBzzCC",
+        originalContent,
+        view: viewHarness.view,
+      }),
+    ).resolves.toEqual({
+      status: "persistence-failed",
+      actualContent: "AAxyBBzzCC",
+    });
+
+    expect(editorHarness.transactions).toHaveLength(1);
+    expect(viewHarness.setViewData).not.toHaveBeenCalled();
+    expect(viewHarness.requestSave).not.toHaveBeenCalled();
+    expect(warning).toHaveBeenCalledOnce();
+    warning.mockRestore();
   });
 
   it("rechecks ownership after reconciliation before scheduling persistence", async () => {
@@ -218,7 +302,10 @@ describe("hidden-frontmatter editor transactions", () => {
         originalContent,
         view: viewHarness.view,
       }),
-    ).resolves.toEqual({ status: "aborted", actualContent: "AAxyBBzzCC" });
+    ).resolves.toEqual({
+      status: "persistence-failed",
+      actualContent: "AAxyBBzzCC",
+    });
 
     expect(viewHarness.setViewData).toHaveBeenCalledWith("AAxyBBzzCC", false);
     expect(viewHarness.requestSave).not.toHaveBeenCalled();

@@ -30,7 +30,13 @@ export function resolveDropPoint(
   }
 
   const targetDocument = sourceContext.container.ownerDocument;
-  const directContainer = findPropertyContainerAtPoint(clientX, clientY, targetDocument);
+  const searchRoot = paneContainer ?? targetDocument;
+  const directContainer = findPropertyContainerAtPoint(
+    clientX,
+    clientY,
+    targetDocument,
+    searchRoot,
+  );
   const directContext =
     directContainer == null ? null : resolvePropertyContainerContext(directContainer);
 
@@ -46,6 +52,7 @@ export function resolveDropPoint(
     clientX,
     clientY,
     targetDocument,
+    searchRoot,
   );
 
   if (

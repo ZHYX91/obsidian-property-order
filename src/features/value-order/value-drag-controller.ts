@@ -1067,6 +1067,15 @@ export class PropertyValueOrderController {
         return;
       }
 
+      if (writebackResult.status === "persistence-failed") {
+        if (this.isOriginalDocumentActive(dragState)) {
+          this.focusEditorAfterCommittedDrag(dragState, target);
+          this.trackPostDragReconciliation(dragState, writebackResult);
+        }
+        new Notice(this.t("notice.persistenceFailed"));
+        return;
+      }
+
       if (!this.isOriginalDocumentActive(dragState)) {
         new Notice(this.t("notice.activeFileChanged"));
         return;
@@ -1093,13 +1102,6 @@ export class PropertyValueOrderController {
 
       if (writebackResult.status === "diverged") {
         new Notice(this.t("notice.writebackDiverged"));
-        return;
-      }
-
-      if (writebackResult.status === "persistence-failed") {
-        this.focusEditorAfterCommittedDrag(dragState, target);
-        this.trackPostDragReconciliation(dragState, writebackResult);
-        new Notice(this.t("notice.persistenceFailed"));
         return;
       }
 

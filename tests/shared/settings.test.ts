@@ -149,6 +149,23 @@ describe("normalizeSettings", () => {
     });
   });
 
+  it("merges external current-schema changes without overwriting local edits", () => {
+    const baseline = createDefaultSettings();
+    const settings = createDefaultSettings();
+    settings.language = "en";
+    const externallyChanged = {
+      ...createDefaultSettings(),
+      enablePropertyValueDrag: false,
+      keySuggestionSortMode: "usage",
+      showDiagnostics: true,
+    };
+
+    expect(prepareSettingsForStorage(settings, externallyChanged, baseline)).toEqual({
+      ...externallyChanged,
+      language: "en",
+    });
+  });
+
   it("does not classify malformed or current schemas as future", () => {
     expect(hasFutureSettingsSchema({ schemaVersion: CURRENT_SETTINGS_SCHEMA_VERSION })).toBe(
       false,
@@ -168,13 +185,13 @@ describe("normalizeSettings", () => {
     expect(second.pinnedPropertyKeys).toEqual(["tags"]);
   });
 
-  it("disables cross-property drag when value drag is disabled", () => {
+  it("preserves the cross-property preference while value drag is disabled", () => {
     expect(
       normalizeSettings({
         enablePropertyValueDrag: false,
         enableCrossPropertyDrag: true,
       }).enableCrossPropertyDrag,
-    ).toBe(false);
+    ).toBe(true);
   });
 
   it("preserves Traditional Chinese language setting", () => {

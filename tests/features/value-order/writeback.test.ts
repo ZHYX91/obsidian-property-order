@@ -186,12 +186,13 @@ describe("writePropertyValueDrop", () => {
     expect(fixture.transactions).toEqual([]);
   });
 
-  it("reports an aborted finalization after the atomic editor commit", async () => {
+  it("reports an exact applied change as unscheduled when finalization becomes stale", async () => {
     const content = ["---", "tags: [alpha, beta]", "---"].join("\n");
     const fixture = createEditorWithCurrentContent(content);
+    let ownershipChecks = 0;
 
     const result = await writeTestPropertyValueDrop({
-      canFinalize: () => false,
+      canFinalize: () => ownershipChecks++ === 0,
       editor: fixture.editor,
       expectedContent: content,
       sourceContext: createContext("tags", 0),
@@ -200,8 +201,10 @@ describe("writePropertyValueDrop", () => {
     });
 
     expect(result).toEqual({
-      status: "aborted",
+      status: "persistence-failed",
+      changedPropertyKeys: ["tags"],
       committedContent: ["---", "tags: [beta, alpha]", "---"].join("\n"),
+      previousContent: content,
     });
     expect(fixture.transactions).toHaveLength(1);
   });

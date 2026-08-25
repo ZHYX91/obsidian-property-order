@@ -130,6 +130,17 @@ export class PropertyOrderSettingTab extends PluginSettingTab {
     this.resetRenderedSettings();
   }
 
+  refreshAfterExternalSettingsChange(): void {
+    this.hasUnsavedSettings = this.plugin.hasPendingSettingsSave();
+
+    if (this.settingsSurfaceVisible && this.tabLayoutCleanup != null) {
+      this.render(null);
+    }
+
+    updateDeclarativeSettingTab(this);
+    refreshDeclarativeSettingTabState(this);
+  }
+
   private getGeneralSettingDefinitions(): SettingDefinitionItem[] {
     return [
       {

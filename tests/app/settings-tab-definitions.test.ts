@@ -93,7 +93,7 @@ describe("PropertyOrderSettingTab declarative definitions", () => {
 
     await settingTab.setControlValue("enablePropertyValueDrag", false);
     expect(settings.enablePropertyValueDrag).toBe(false);
-    expect(settings.enableCrossPropertyDrag).toBe(false);
+    expect(settings.enableCrossPropertyDrag).toBe(true);
     expect(saveSettings).toHaveBeenLastCalledWith(false);
     expect(update).toHaveBeenCalledTimes(1);
     expect(refreshDomState).toHaveBeenCalledTimes(1);
@@ -104,8 +104,10 @@ describe("PropertyOrderSettingTab declarative definitions", () => {
     expect(update).toHaveBeenCalledTimes(1);
     expect(refreshDomState).toHaveBeenCalledTimes(2);
 
-    await settingTab.setControlValue("enableCrossPropertyDrag", true);
+    await settingTab.setControlValue("enableCrossPropertyDrag", false);
     expect(settings.enableCrossPropertyDrag).toBe(false);
+    await settingTab.setControlValue("enableCrossPropertyDrag", true);
+    expect(settings.enableCrossPropertyDrag).toBe(true);
 
     await expect(settingTab.setControlValue("language", "invalid")).rejects.toThrow(
       "Invalid Property Order language setting.",
@@ -260,6 +262,17 @@ describe("PropertyOrderSettingTab declarative definitions", () => {
 
     expect(testableSettingTab.ruleDiagnosticCleanups.size).toBe(0);
     expect(testableSettingTab.ruleDiagnosticRefreshes.size).toBe(0);
+  });
+
+  it("refreshes declarative state after settings change externally", () => {
+    const settingTab = createSettingTab({ settings: createDefaultSettings() });
+    const update = vi.spyOn(settingTab, "update");
+    const refreshDomState = vi.spyOn(settingTab, "refreshDomState");
+
+    settingTab.refreshAfterExternalSettingsChange();
+
+    expect(update).toHaveBeenCalledOnce();
+    expect(refreshDomState).toHaveBeenCalledOnce();
   });
 
   it("disables cross-property drag while the parent feature is disabled", () => {

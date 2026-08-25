@@ -19,15 +19,21 @@ import {
   registerSuggestionKeyboardBridge,
   synchronizeSuggestionSelection,
 } from "./suggestion-keyboard-bridge";
-import { PLUGIN_HIDDEN_SUGGESTION_CLASS } from "./suggestion-visibility";
+import {
+  isSuggestionElementVisible,
+  PLUGIN_HIDDEN_SUGGESTION_CLASS,
+} from "./suggestion-visibility";
 import { RecentPropertyKeyStore } from "./recent-property-key-store";
 import { RecentPropertyKeyTracker } from "./recent-property-key-tracker";
 
 const OBSERVER_OPTIONS: MutationObserverInit = {
   attributeFilter: ["aria-hidden", "hidden"],
   attributes: true,
-  characterData: true,
   childList: true,
+  subtree: true,
+};
+const SUGGESTION_CONTENT_OBSERVER_OPTIONS: MutationObserverInit = {
+  characterData: true,
   subtree: true,
 };
 const USAGE_REFRESH_DEBOUNCE_MILLISECONDS = 150;
@@ -56,6 +62,7 @@ interface EnhancementCycle {
 }
 
 interface DocumentEnhancementState {
+  contentObserver: MutationObserver;
   forceEnhancement: boolean;
   keyboardCleanup: () => void;
   observer: MutationObserver;
@@ -243,7 +250,11 @@ export class KeySuggestionOrderController {
     const observer = new targetWindow.MutationObserver((mutations) => {
       this.handleMutations(targetDocument, mutations);
     });
+    const contentObserver = new targetWindow.MutationObserver((mutations) => {
+      this.handleMutations(targetDocument, mutations);
+    });
     const state: DocumentEnhancementState = {
+      contentObserver,
       forceEnhancement: false,
       keyboardCleanup: () => undefined,
       observer,
@@ -302,11 +313,15 @@ export class KeySuggestionOrderController {
 
     if (state.observing) {
       this.runDocumentCleanup(() => {
-        this.updateNativeSnapshots(targetDocument, state.observer.takeRecords());
+        this.updateNativeSnapshots(targetDocument, [
+          ...state.observer.takeRecords(),
+          ...state.contentObserver.takeRecords(),
+        ]);
       });
     }
 
     this.runDocumentCleanup(() => state.observer.disconnect());
+    this.runDocumentCleanup(() => state.contentObserver.disconnect());
     state.observing = false;
     this.runDocumentCleanup(state.keyboardCleanup);
     this.runDocumentCleanup(state.recentTrackingCleanup);
@@ -358,7 +373,11 @@ export class KeySuggestionOrderController {
       const mutationRoot = getElementAtOrAboveNode(mutation.target);
       const targetIsRelated =
         mutationRoot != null &&
-        this.isSuggestionRelatedNode(targetDocument, mutationRoot, false);
+        this.isSuggestionRelatedNode(
+          targetDocument,
+          mutationRoot,
+          mutation.type === "attributes",
+        );
 
       if (targetIsRelated) {
         this.scheduleSuggestionEnhancement(mutationRoot);
@@ -393,7 +412,10 @@ export class KeySuggestionOrderController {
 
     for (const [targetDocument, state] of this.documentStates) {
       const hasConnectedContainer = Array.from(this.originalSuggestions.keys()).some(
-        (container) => container.ownerDocument === targetDocument && container.isConnected,
+        (container) =>
+          container.ownerDocument === targetDocument &&
+          container.isConnected &&
+          isSuggestionElementVisible(container),
       );
 
       if (hasConnectedContainer) {
@@ -420,7 +442,11 @@ export class KeySuggestionOrderController {
       }
 
       for (const container of this.originalSuggestions.keys()) {
-        if (container.ownerDocument === targetDocument && container.isConnected) {
+        if (
+          container.ownerDocument === targetDocument &&
+          container.isConnected &&
+          isSuggestionElementVisible(container)
+        ) {
           this.scheduleSuggestionEnhancement(container, true);
         }
       }
@@ -504,6 +530,7 @@ export class KeySuggestionOrderController {
     }
 
     state.observer.observe(targetDocument.body, OBSERVER_OPTIONS);
+    this.rebuildSuggestionContentObservation(targetDocument, state);
     state.observing = true;
   }
 
@@ -621,6 +648,11 @@ export class KeySuggestionOrderController {
     settings: PropertyOrderSettings,
     force: boolean,
   ): void {
+    if (!isSuggestionElementVisible(container)) {
+      this.restoreContainer(container);
+      return;
+    }
+
     const items = getSuggestionItems(container);
     const itemParent = getSuggestionItemParent(items);
 
@@ -766,6 +798,11 @@ export class KeySuggestionOrderController {
       parent: itemParent,
     };
     this.originalSuggestions.set(container, snapshot);
+    const state = this.documentStates.get(container.ownerDocument);
+    state?.contentObserver.observe(
+      container,
+      SUGGESTION_CONTENT_OBSERVER_OPTIONS,
+    );
     return snapshot;
   }
 
@@ -802,6 +839,10 @@ export class KeySuggestionOrderController {
     delete container.dataset.propertyOrderEnhanced;
     delete container.dataset.propertyOrderSignature;
     this.originalSuggestions.delete(container);
+    const state = this.documentStates.get(container.ownerDocument);
+    if (state != null) {
+      this.rebuildSuggestionContentObservation(container.ownerDocument, state);
+    }
 
     if (this.activeContainers.get(container.ownerDocument) === container) {
       this.activeContainers.delete(container.ownerDocument);
@@ -814,6 +855,7 @@ export class KeySuggestionOrderController {
     if (
       container == null ||
       !container.isConnected ||
+      !isSuggestionElementVisible(container) ||
       container.dataset.propertyOrderEnhanced !== "true"
     ) {
       this.activeContainers.delete(targetDocument);
@@ -821,6 +863,26 @@ export class KeySuggestionOrderController {
     }
 
     return container;
+  }
+
+  private rebuildSuggestionContentObservation(
+    targetDocument: Document,
+    state: DocumentEnhancementState,
+  ): void {
+    state.contentObserver.disconnect();
+
+    if (!this.initialized || this.documentStates.get(targetDocument) !== state) {
+      return;
+    }
+
+    for (const container of this.originalSuggestions.keys()) {
+      if (container.ownerDocument === targetDocument && container.isConnected) {
+        state.contentObserver.observe(
+          container,
+          SUGGESTION_CONTENT_OBSERVER_OPTIONS,
+        );
+      }
+    }
   }
 }
 

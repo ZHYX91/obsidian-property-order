@@ -12,6 +12,7 @@ import { createDefaultSettings } from "../../src/shared/settings";
 const MockNotice = Notice as typeof Notice & { messages: string[] };
 
 function createPlugin(storedSettings: unknown): {
+  loadData: ReturnType<typeof vi.fn>;
   plugin: PropertyOrderPlugin;
   saveData: ReturnType<typeof vi.fn>;
 } {
@@ -26,9 +27,9 @@ function createPlugin(storedSettings: unknown): {
       on: vi.fn(() => ({})),
     },
   };
-  vi.spyOn(plugin, "loadData").mockResolvedValue(storedSettings);
+  const loadData = vi.spyOn(plugin, "loadData").mockResolvedValue(storedSettings);
   const saveData = vi.spyOn(plugin, "saveData").mockResolvedValue();
-  return { plugin, saveData };
+  return { loadData, plugin, saveData };
 }
 
 beforeEach(() => {
@@ -65,6 +66,7 @@ describe("PropertyOrderPlugin settings persistence", () => {
     ).on;
 
     expect(plugin.onload()).toBeUndefined();
+    await vi.waitFor(() => expect(resolveLoad).toBeTypeOf("function"));
     plugin.onunload();
     resolveLoad(createDefaultSettings());
     await new Promise((resolve) => window.setTimeout(resolve, 0));
@@ -197,12 +199,14 @@ describe("PropertyOrderPlugin settings persistence", () => {
     error.mockRestore();
   });
 
-  it("does not restore drag classes when a stale save is requested after unload", async () => {
+  it("rejects a stale save requested after unload", async () => {
     const { plugin } = createPlugin(createDefaultSettings());
     await plugin.loadSettings();
     plugin.onunload();
 
-    await plugin.saveSettings();
+    await expect(plugin.saveSettings()).rejects.toThrow(
+      "Property Order settings cannot be saved after plugin unload.",
+    );
 
     expect(document.body.classList.contains(VALUE_DRAG_ENABLED_CLASS)).toBe(false);
     expect(
@@ -272,6 +276,108 @@ describe("PropertyOrderPlugin settings persistence", () => {
     await expect(plugin.saveSettings(true)).rejects.toThrow("disk unavailable");
 
     expect(refresh).toHaveBeenCalledTimes(1);
+  });
+
+  it("merges external settings before saving and refreshes affected runtime state", async () => {
+    const initialSettings = createDefaultSettings();
+    const { plugin, saveData } = createPlugin(initialSettings);
+    const loadData = vi.spyOn(plugin, "loadData");
+    const externalSettings = {
+      ...initialSettings,
+      enablePropertyValueDrag: false,
+      keySuggestionSortMode: "usage" as const,
+    };
+    loadData.mockResolvedValueOnce(initialSettings).mockResolvedValueOnce(externalSettings);
+
+    await plugin.loadSettings();
+    const refresh = vi.fn();
+    (
+      plugin as unknown as {
+        keySuggestionOrderController: { refresh(): void };
+      }
+    ).keySuggestionOrderController = { refresh };
+    plugin.propertyOrderSettings.language = "zh-CN";
+
+    await plugin.saveSettings();
+
+    expect(saveData).toHaveBeenLastCalledWith({
+      ...externalSettings,
+      language: "zh-CN",
+    });
+    expect(plugin.propertyOrderSettings).toMatchObject({
+      enablePropertyValueDrag: false,
+      keySuggestionSortMode: "usage",
+      language: "zh-CN",
+    });
+    expect(document.body.classList.contains(VALUE_DRAG_ENABLED_CLASS)).toBe(false);
+    expect(refresh).toHaveBeenCalledOnce();
+  });
+
+  it("reloads external settings, preserves local edits, and refreshes live surfaces", async () => {
+    const initialSettings = createDefaultSettings();
+    const { loadData, plugin } = createPlugin(initialSettings);
+    await plugin.loadSettings();
+    const refreshSuggestions = vi.fn();
+    const refreshSettings = vi.fn();
+    (
+      plugin as unknown as {
+        keySuggestionOrderController: { refresh(): void };
+        settingTab: { refreshAfterExternalSettingsChange(): void };
+      }
+    ).keySuggestionOrderController = { refresh: refreshSuggestions };
+    (
+      plugin as unknown as {
+        settingTab: { refreshAfterExternalSettingsChange(): void };
+      }
+    ).settingTab = { refreshAfterExternalSettingsChange: refreshSettings };
+    plugin.propertyOrderSettings.language = "zh-CN";
+    loadData.mockResolvedValueOnce({
+      ...initialSettings,
+      enablePropertyValueDrag: false,
+      keySuggestionSortMode: "usage",
+    });
+
+    await plugin.onExternalSettingsChange();
+
+    expect(plugin.propertyOrderSettings).toMatchObject({
+      enablePropertyValueDrag: false,
+      keySuggestionSortMode: "usage",
+      language: "zh-CN",
+    });
+    expect(document.body.classList.contains(VALUE_DRAG_ENABLED_CLASS)).toBe(false);
+    expect(refreshSuggestions).toHaveBeenCalledOnce();
+    expect(refreshSettings).toHaveBeenCalledOnce();
+  });
+
+  it("serializes a new instance load behind an older instance's in-flight save", async () => {
+    const initialSettings = createDefaultSettings();
+    const { plugin: oldPlugin, saveData: oldSaveData } = createPlugin(initialSettings);
+    await oldPlugin.loadSettings();
+    let resolveOldSave!: () => void;
+    oldSaveData.mockImplementationOnce(
+      () =>
+        new Promise<void>((resolve) => {
+          resolveOldSave = resolve;
+        }),
+    );
+    oldPlugin.propertyOrderSettings.language = "en";
+    const oldSave = oldPlugin.saveSettings();
+    await vi.waitFor(() => expect(oldSaveData).toHaveBeenCalledOnce());
+    oldPlugin.onunload();
+
+    const { loadData: newLoadData, plugin: newPlugin } = createPlugin({
+      ...initialSettings,
+      language: "en",
+    });
+    const newLoad = newPlugin.loadSettings();
+    await Promise.resolve();
+    expect(newLoadData).not.toHaveBeenCalled();
+
+    resolveOldSave();
+    await expect(oldSave).resolves.toBeUndefined();
+    await expect(newLoad).resolves.toBe(true);
+    expect(newLoadData).toHaveBeenCalledOnce();
+    expect(newPlugin.propertyOrderSettings.language).toBe("en");
   });
 
   it("continues with a queued save after the in-flight batch fails", async () => {

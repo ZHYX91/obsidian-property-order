@@ -31,7 +31,7 @@ describe("settings control contract", () => {
       refreshKeySuggestions: false,
       refreshMode: "state",
     });
-    expect(settings.enableCrossPropertyDrag).toBe(false);
+    expect(settings.enableCrossPropertyDrag).toBe(true);
     expect(
       applyPropertyOrderControlValue(settings, "enableNativeKeySuggestionOrder", false),
     ).toEqual({
@@ -44,12 +44,12 @@ describe("settings control contract", () => {
     });
   });
 
-  it("preserves invariants and rejects invalid values centrally", () => {
+  it("preserves dependent preferences and rejects invalid values centrally", () => {
     const settings = createDefaultSettings();
     settings.enablePropertyValueDrag = false;
 
     applyPropertyOrderControlValue(settings, "enableCrossPropertyDrag", true);
-    expect(settings.enableCrossPropertyDrag).toBe(false);
+    expect(settings.enableCrossPropertyDrag).toBe(true);
 
     expect(() => applyPropertyOrderControlValue(settings, "language", "invalid")).toThrow(
       "Invalid Property Order language setting.",

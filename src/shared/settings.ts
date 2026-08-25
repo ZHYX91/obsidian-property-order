@@ -55,10 +55,9 @@ export function normalizeSettings(value: unknown): PropertyOrderSettings {
       ? migratedValue.listWritebackFormat
       : defaults.listWritebackFormat,
     enableCrossPropertyDrag:
-      enablePropertyValueDrag &&
-      (typeof migratedValue.enableCrossPropertyDrag === "boolean"
+      typeof migratedValue.enableCrossPropertyDrag === "boolean"
         ? migratedValue.enableCrossPropertyDrag
-        : defaults.enableCrossPropertyDrag),
+        : defaults.enableCrossPropertyDrag,
     enableNativeKeySuggestionOrder:
       typeof migratedValue.enableNativeKeySuggestionOrder === "boolean"
         ? migratedValue.enableNativeKeySuggestionOrder
@@ -101,11 +100,16 @@ export function prepareSettingsForStorage(
     hiddenPropertyKeyPatterns: [...settings.hiddenPropertyKeyPatterns],
   };
 
-  if (!hasFutureSettingsSchema(storedValue) || !isRecord(storedValue)) {
-    return settingsSnapshot;
-  }
-
-  const preparedValue = { ...storedValue };
+  const storedSettings = normalizeSettings(storedValue);
+  const preparedValue =
+    hasFutureSettingsSchema(storedValue) && isRecord(storedValue)
+      ? { ...storedValue }
+      : {
+          ...storedSettings,
+          pinnedPropertyKeys: [...storedSettings.pinnedPropertyKeys],
+          bottomPropertyKeys: [...storedSettings.bottomPropertyKeys],
+          hiddenPropertyKeyPatterns: [...storedSettings.hiddenPropertyKeyPatterns],
+        };
 
   for (const key of getPersistedSettingKeys()) {
     if (!areSettingValuesEqual(settingsSnapshot[key], persistedSettingsBaseline[key])) {
