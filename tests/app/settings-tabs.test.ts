@@ -72,6 +72,26 @@ describe("createSettingsTabLayout", () => {
     },
   );
 
+  it("reverses left and right arrow navigation in right-to-left layouts", () => {
+    const container = document.createElement("div");
+    container.dir = "rtl";
+    document.body.appendChild(container);
+    const onSelect = vi.fn();
+    createSettingsTabLayout(
+      container,
+      tabs,
+      "general",
+      "Property Order settings categories",
+      onSelect,
+    );
+    const activeTab = container.querySelector<HTMLElement>("[role=tab][aria-selected=true]");
+
+    activeTab?.dispatchEvent(new KeyboardEvent("keydown", { key: "ArrowRight", bubbles: true }));
+    expect(onSelect).toHaveBeenLastCalledWith("keyOrder");
+    activeTab?.dispatchEvent(new KeyboardEvent("keydown", { key: "ArrowLeft", bubbles: true }));
+    expect(onSelect).toHaveBeenLastCalledWith("valueDrag");
+  });
+
   it("keeps focus on the newly active tab after a rerender", () => {
     const container = document.createElement("div");
     document.body.appendChild(container);

@@ -30,6 +30,10 @@ import {
   type SettingsTabId,
 } from "./settings-tabs";
 
+// Obsidian 1.13 bypasses display() for non-empty definitions. Temporarily keep
+// the established top-tab settings surface while retaining the definitions.
+const ENABLE_DECLARATIVE_SETTINGS = false;
+
 interface PropertyOrderSettingsHost extends Plugin {
   clearRecentPropertyKeys(): boolean;
   hasPendingSettingsSave(): boolean;
@@ -67,6 +71,10 @@ export class PropertyOrderSettingTab extends PluginSettingTab {
   }
 
   override getSettingDefinitions(): SettingDefinitionItem[] {
+    return ENABLE_DECLARATIVE_SETTINGS ? this.getDeclarativeSettingDefinitions() : [];
+  }
+
+  getDeclarativeSettingDefinitions(): SettingDefinitionItem[] {
     return [
       {
         type: "page",
@@ -402,10 +410,6 @@ export class PropertyOrderSettingTab extends PluginSettingTab {
 
   private displayGeneralSettings(containerEl: HTMLElement): void {
     new Setting(containerEl)
-      .setName(this.t("settings.general.heading"))
-      .setHeading();
-
-    new Setting(containerEl)
       .setName(this.t("settings.language.name"))
       .setDesc(this.t("settings.language.desc"))
       .addDropdown((dropdown) => {
@@ -431,10 +435,6 @@ export class PropertyOrderSettingTab extends PluginSettingTab {
   }
 
   private displayValueDragSettings(containerEl: HTMLElement): void {
-    new Setting(containerEl)
-      .setName(this.t("settings.valueDrag.heading"))
-      .setHeading();
-
     if (Platform.isMobileApp) {
       addInactiveHint(containerEl, this.t("settings.valueDrag.mobileHint"));
     }
@@ -486,9 +486,6 @@ export class PropertyOrderSettingTab extends PluginSettingTab {
   }
 
   private displayKeyOrderSettings(containerEl: HTMLElement): void {
-    new Setting(containerEl)
-      .setName(this.t("settings.keyOrder.heading"))
-      .setHeading();
     const availableNames = getAvailablePropertyNames(this.app);
 
     new Setting(containerEl)

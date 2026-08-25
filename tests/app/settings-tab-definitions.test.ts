@@ -33,7 +33,8 @@ describe("PropertyOrderSettingTab declarative definitions", () => {
     const getMarkdownFiles = vi.fn(() => []);
     const settingTab = createSettingTab({ getMarkdownFiles });
 
-    const pages = getPages(settingTab.getSettingDefinitions());
+    expect(settingTab.getSettingDefinitions()).toEqual([]);
+    const pages = getPages(settingTab.getDeclarativeSettingDefinitions());
 
     expect(pages.map((page) => page.name)).toEqual([
       "General",
@@ -120,7 +121,7 @@ describe("PropertyOrderSettingTab declarative definitions", () => {
   it("exposes recent sorting and clears its device-local history", () => {
     const clearRecentPropertyKeys = vi.fn(() => true);
     const settingTab = createSettingTab({ clearRecentPropertyKeys });
-    const pages = getPages(settingTab.getSettingDefinitions());
+    const pages = getPages(settingTab.getDeclarativeSettingDefinitions());
     const keyOrderItems = pages[2]?.items ?? [];
     const sortControl = getControls(pages).find(
       (control) => control.key === "keySuggestionSortMode",
@@ -152,7 +153,7 @@ describe("PropertyOrderSettingTab declarative definitions", () => {
       clearRecentPropertyKeys: () => false,
     });
     const clearDefinition = getRenderDefinition(
-      getPages(settingTab.getSettingDefinitions())[2]?.items ?? [],
+      getPages(settingTab.getDeclarativeSettingDefinitions())[2]?.items ?? [],
       "Recently used history",
     );
     const settingHarness = createSettingHarness();
@@ -174,7 +175,7 @@ describe("PropertyOrderSettingTab declarative definitions", () => {
     settings.bottomPropertyKeys = ["*_status"];
     const settingTab = createSettingTab({ getMarkdownFiles, saveSettings, settings });
     const definition = getRenderDefinition(
-      getPages(settingTab.getSettingDefinitions())[2]?.items ?? [],
+      getPages(settingTab.getDeclarativeSettingDefinitions())[2]?.items ?? [],
       "Test property name rules",
     );
     const settingHarness = createSettingHarness();
@@ -202,7 +203,7 @@ describe("PropertyOrderSettingTab declarative definitions", () => {
     vi.useFakeTimers();
     const settings = createDefaultSettings();
     const settingTab = createSettingTab({ settings });
-    const keyOrderItems = getPages(settingTab.getSettingDefinitions())[2]?.items ?? [];
+    const keyOrderItems = getPages(settingTab.getDeclarativeSettingDefinitions())[2]?.items ?? [];
     const diagnosticDefinition = getRenderDefinition(
       keyOrderItems,
       "Test property name rules",
@@ -278,7 +279,7 @@ describe("PropertyOrderSettingTab declarative definitions", () => {
   it("disables cross-property drag while the parent feature is disabled", () => {
     const settings = createDefaultSettings();
     const settingTab = createSettingTab({ settings });
-    const pages = getPages(settingTab.getSettingDefinitions());
+    const pages = getPages(settingTab.getDeclarativeSettingDefinitions());
     const crossPropertyControl = getControls(pages).find(
       (control) => control.key === "enableCrossPropertyDrag",
     );
@@ -297,7 +298,7 @@ describe("PropertyOrderSettingTab declarative definitions", () => {
     const settings = createDefaultSettings();
     settings.pinnedPropertyKeys = ["project"];
     const settingTab = createSettingTab({ getMarkdownFiles, saveSettings, settings });
-    const pages = getPages(settingTab.getSettingDefinitions());
+    const pages = getPages(settingTab.getDeclarativeSettingDefinitions());
     const pinnedDefinition = getRenderDefinition(
       pages[2]?.items ?? [],
       "Pinned property names",
@@ -334,7 +335,7 @@ describe("PropertyOrderSettingTab declarative definitions", () => {
 
   it("continues declarative cleanup after a rule-editor flush failure", () => {
     const settingTab = createSettingTab({ getMarkdownFiles: vi.fn(() => []) });
-    const pages = getPages(settingTab.getSettingDefinitions());
+    const pages = getPages(settingTab.getDeclarativeSettingDefinitions());
     const pinnedDefinition = getRenderDefinition(
       pages[2]?.items ?? [],
       "Pinned property names",

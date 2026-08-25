@@ -52,7 +52,12 @@ export function createSettingsTabLayout(
     buttonEl.tabIndex = isActive ? 0 : -1;
     buttonEl.addEventListener("click", () => selectTab(tab.id, activeTab, buttonEl, onSelect));
     buttonEl.addEventListener("keydown", (event) => {
-      const targetIndex = getKeyboardTargetIndex(event.key, index, tabs.length);
+      const targetIndex = getKeyboardTargetIndex(
+        event.key,
+        index,
+        tabs.length,
+        isRightToLeft(buttonEl),
+      );
 
       if (targetIndex == null) {
         return;
@@ -144,13 +149,19 @@ export function focusSettingsTab(buttonEl: HTMLButtonElement): void {
   buttonEl.focus({ preventScroll: true });
 }
 
-function getKeyboardTargetIndex(key: string, index: number, length: number): number | null {
+function getKeyboardTargetIndex(
+  key: string,
+  index: number,
+  length: number,
+  rightToLeft: boolean,
+): number | null {
+  const inlineDirection = rightToLeft ? -1 : 1;
   if (key === "ArrowRight") {
-    return (index + 1) % length;
+    return (index + inlineDirection + length) % length;
   }
 
   if (key === "ArrowLeft") {
-    return (index - 1 + length) % length;
+    return (index - inlineDirection + length) % length;
   }
 
   if (key === "Home") {
@@ -162,6 +173,20 @@ function getKeyboardTargetIndex(key: string, index: number, length: number): num
   }
 
   return null;
+}
+
+function isRightToLeft(element: HTMLElement): boolean {
+  const explicitDirection = element.closest<HTMLElement>("[dir]")?.dir;
+  if (explicitDirection === "rtl") {
+    return true;
+  }
+  if (explicitDirection === "ltr") {
+    return false;
+  }
+  if (element.ownerDocument.documentElement.dir === "rtl") {
+    return true;
+  }
+  return element.ownerDocument.defaultView?.getComputedStyle(element).direction === "rtl";
 }
 
 function getTabElementId(tabId: SettingsTabId): string {

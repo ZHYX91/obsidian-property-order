@@ -15,13 +15,13 @@ describe("Obsidian community review contract", () => {
     expect(manifest.description).not.toMatch(/\bObsidian\b/i);
   });
 
-  it("uses Setting headings instead of raw HTML headings", () => {
+  it("does not add redundant or raw HTML headings to the tab content", () => {
     const settingsTab = readFileSync(
       path.join(projectRoot, "src", "app", "settings-tab.ts"),
       "utf8",
     );
 
-    expect(settingsTab.match(/\.setHeading\(\)/g)).toHaveLength(3);
+    expect(settingsTab).not.toContain(".setHeading()");
     expect(settingsTab).not.toMatch(/createEl\(["']h[1-6]["']/);
   });
 });
