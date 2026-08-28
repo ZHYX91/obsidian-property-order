@@ -3,7 +3,7 @@ source_language: zh-CN
 translation_status: source
 ---
 
-# Property Order 架构
+# Property Order — 架构
 
 本文是 Property Order 的权威现行架构说明。英文版用于同步阅读；实现、测试或英文文档与本文冲突时，以本文定义的边界和契约为准。
 
@@ -104,7 +104,7 @@ recent tracker 只捕获已增强属性名候选上的主指针按下、键盘 E
 
 recent store 使用 Obsidian 公开的 `App.loadLocalStorage()` / `App.saveLocalStorage()`，以 namespaced key 在当前 Vault、当前设备保存一个版本化的精确字符串数组。数组顺序本身就是严格 MRU，最多 100 项，不保存时间戳；重复确认只把精确同名项移到首位，当前候选中不存在的陈旧项被排序器忽略。读取失败、未知版本或畸形数据按空历史 fail open；后台 MRU 写入失败时保留本次会话的内存顺序，不影响原生属性编辑。只有 Metadata Cache 确认成功提交且顺序实际变化时才写入这一小数组；该状态不进入 `data.json`，不参与 Obsidian Sync。“清除最近使用历史”先取消待确认意图，再清除当前 Vault、当前设备的内存历史并立即刷新候选，不修改设置、笔记或其他 Vault；如果 local-storage 删除失败，界面会提示旧的已保存历史可能在重启后恢复。
 
-Obsidian 1.12.x 保留自定义 General、Value drag、Key order 三个选项卡，并提供 `tablist`/`tab`/`tabpanel`、本地化标签栏名称、`aria-selected`、roving `tabindex`、左右方向键、Home/End 和重渲染后的焦点保持。选项卡在窄宽度下保持单行横向滚动，活动标签在初次布局和 viewport resize 后自动进入可视区，纵向溢出被隐藏；桌面精细指针下最小高度为 34px，粗指针下为 44px。Obsidian 1.13+ 改用三个原生声明式设置页面，使所有简单控件进入设置搜索；这些控件覆盖默认绑定并读写 `propertyOrderSettings`，三个属性规则编辑器、“清除最近使用历史”和规则测试框则通过声明式 `render` 定义保留自定义行为。定义构造阶段不得遍历 Vault，已有属性名称只在规则编辑器实际渲染时惰性读取。清除按钮只读取 store 是否为空并执行本地删除，不触发 Vault 枚举；规则测试值只存在于当前设置 surface，既不保存也不读取属性笔记数。宽度不超过 480px 时，两条路径中的属性规则文本框、已有属性输入框与规则测试框都改为纵向占满控制区。
+所有受支持 Obsidian 版本都使用自定义 General、Value drag、Key order 三个选项卡，并提供 `tablist`/`tab`/`tabpanel`、本地化标签栏名称、`aria-selected`、roving `tabindex`、左右方向键、Home/End 和重渲染后的焦点保持。declarative definitions 保持为空，避免 Obsidian 绕过这套布局。选项卡在窄宽度下保持单行横向滚动，活动标签在初次布局和 viewport resize 后自动进入可视区，纵向溢出被隐藏；桌面精细指针下最小高度为 34px，粗指针下为 44px。控件读写 `propertyOrderSettings`，三个属性规则编辑器、“清除最近使用历史”和规则测试框保留自定义行为。设置构造阶段不得遍历 Vault，已有属性名称只在规则编辑器实际渲染时惰性读取。清除按钮只读取 store 是否为空并执行本地删除，不触发 Vault 枚举；规则测试值只存在于当前设置 surface，既不保存也不读取属性笔记数。宽度不超过 480px 时，属性规则文本框、已有属性输入框与规则测试框都改为纵向占满控制区。
 
 设置保存失败时，设置页保留当前内存快照，显示本地化 Notice 和带 `role="alert"` 的未保存状态，并提供重试按钮。重试必须保留失败批次是否需要刷新键候选的语义；成功后清除未保存状态。每次保存前重新读取 `data.json`，并相对上次持久化基线执行三方合并：当前设置界面修改过的键优先，外部并发修改的其他键保留，未来 schema 的未知字段保持原样。Obsidian 的公开 `onExternalSettingsChange()` hook 使用同一合并规则，并刷新设置 surface 与受影响的运行时状态。模块级存储队列保证旧实例的在途写入先完成、替代实例再读取；已卸载实例不得启动新保存，因此旧实例延迟写入不能覆盖替代实例已经读取并编辑的设置。
 

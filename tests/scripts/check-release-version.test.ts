@@ -1,5 +1,6 @@
 import { execFileSync } from "node:child_process";
-import { readFileSync } from "node:fs";
+import { cpSync, mkdirSync, mkdtempSync, readFileSync, rmSync } from "node:fs";
+import { tmpdir } from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -16,19 +17,51 @@ const differentVersion = manifestVersion.replace(
   /(\d+)$/u,
   (patch) => String(Number(patch) + 1),
 );
-const checkReleaseVersion = (...arguments_: string[]) => execFileSync(
+const releaseCheckFiles = [
+  "manifest.json",
+  "package.json",
+  "package-lock.json",
+  "versions.json",
+  "scripts/check-release-version.mjs",
+  "scripts/local-tag-contract.mjs",
+  "scripts/release-contract.mjs",
+];
+
+function createIsolatedReleaseCheckProject(): string {
+  const root = mkdtempSync(path.join(tmpdir(), "property-order-release-version-"));
+  for (const relativePath of releaseCheckFiles) {
+    const destination = path.join(root, relativePath);
+    mkdirSync(path.dirname(destination), { recursive: true });
+    cpSync(path.join(projectRoot, relativePath), destination);
+  }
+  execFileSync("git", ["init"], { cwd: root, stdio: "pipe" });
+  execFileSync("git", ["config", "user.name", "Release Contract Test"], { cwd: root });
+  execFileSync("git", ["config", "user.email", "release-contract@example.invalid"], { cwd: root });
+  execFileSync("git", ["add", "."], { cwd: root });
+  execFileSync("git", ["commit", "-m", "test fixture"], { cwd: root, stdio: "pipe" });
+  return root;
+}
+
+const checkReleaseVersion = (cwd: string, ...arguments_: string[]) => execFileSync(
   process.execPath,
   ["scripts/check-release-version.mjs", ...arguments_],
-  { cwd: projectRoot, encoding: "utf8", stdio: "pipe" },
+  { cwd, encoding: "utf8", stdio: "pipe" },
 );
 
 describe("release version and local tag contract", () => {
   it("defaults to the manifest version and preserves an explicit exact tag", () => {
-    expect(checkReleaseVersion()).toContain(`Release version contract passed for ${manifestVersion}.`);
-    expect(checkReleaseVersion(manifestVersion)).toContain(
-      `Release version contract passed for ${manifestVersion}.`,
-    );
-    expect(() => checkReleaseVersion(differentVersion)).toThrow();
+    const isolatedProject = createIsolatedReleaseCheckProject();
+    try {
+      expect(checkReleaseVersion(isolatedProject)).toContain(
+        `Release version contract passed for ${manifestVersion}.`,
+      );
+      expect(checkReleaseVersion(isolatedProject, manifestVersion)).toContain(
+        `Release version contract passed for ${manifestVersion}.`,
+      );
+      expect(() => checkReleaseVersion(isolatedProject, differentVersion)).toThrow();
+    } finally {
+      rmSync(isolatedProject, { recursive: true, force: true });
+    }
   });
 
   it("allows a missing local tag and an existing tag at HEAD", async () => {

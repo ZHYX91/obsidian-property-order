@@ -3,7 +3,7 @@ source_language: zh-CN
 translation_status: source
 ---
 
-# Property Order UX 规范
+# Property Order — 交互规范
 
 本文描述 Property Order 的当前交互与呈现契约。英文版用于同步阅读；若翻译冲突，以本文为准。
 
@@ -38,7 +38,7 @@ translation_status: source
 - General、Value drag、Key order 是跨宿主版本保持一致的三个逻辑设置组；控件值、条件显隐、即时生效、保存失败和重试语义不得因渲染路径而变化。
 - Obsidian 1.12.x 使用自定义三页签界面，并提供 `tablist`、`tab`、`tabpanel`、`aria-selected` 和 roving `tabindex`；Left/Right、Home/End 切换页签，重渲染、旋转和 viewport resize 后活动页签保持可见并保留合理焦点。
 - 1.12.x 的精细指针页签最小高度为 34px，粗指针为 44px；活动页签同时使用强调色下划线和半粗字重，标签基线与内容面板之间保留稳定间距；窄宽度下标签栏单行横向滚动，不产生纵向裁切。
-- Obsidian 1.13+ 使用三个原生声明式设置页面与原生搜索；自定义属性规则编辑器仍保留建议、保存和 cleanup 生命周期。
+- 所有受支持 Obsidian 版本都使用同一套 imperative 三个顶部页签。声明式设置保持关闭，因为它会绕过这套布局；自定义属性规则编辑器仍保留建议、保存和 cleanup 生命周期。
 - Key order 在两条渲染路径中都提供“清除最近使用历史”。操作会取消待确认项，只清除当前 Vault、当前设备在内存中的最多 100 项无时间戳 MRU，并立即刷新已打开的增强菜单；不修改 `data.json` 或笔记。成功时显示确认；local-storage 删除失败时提示本次会话已清除、但重启后可能恢复。
 - Key order 在两条渲染路径中都提供一个不保存的规则测试框。输入属性名称后，结果区实时列出首个命中的隐藏、置顶和置底规则，明确显示“隐藏 > 置顶 > 置底”的生效优先级，并以 `aria-live="polite"` 播报变化；清空输入恢复提示文案。规则编辑后已有测试结果立即刷新，测试过程不扫描 Vault。
 - 两条渲染路径在宽度不超过 480px 时，都让规则文本框、“添加已有属性”和规则测试输入纵向占满卡片或控件区。

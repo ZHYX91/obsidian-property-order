@@ -4,7 +4,7 @@ translation_of: product-requirements.zh-CN.md
 translation_status: synced
 ---
 
-# Property Order Product Requirements
+# Property Order — Product requirements
 
 This document defines the current Property Order product boundary. It mirrors the authoritative Chinese version.
 
@@ -45,7 +45,7 @@ The enhancement must remain local, reversible, and fail-safe. Unrecognized host 
 ## Settings
 
 - Settings currently use schema 4, with sequential migration and normalization of invalid values.
-- General, Value drag, and Key order remain three logical groups with immediate-application semantics: Obsidian 1.12.x uses custom tabs, while 1.13+ uses native declarative pages and settings search.
+- General, Value drag, and Key order remain three immediate-application tabs on the imperative settings surface used by every supported Obsidian version. Declarative settings remain disabled because they bypass this layout.
 - Persistence failure keeps the in-memory state and presents a localized Notice, accessible unsaved status, and Retry action. Before each save and when Obsidian reports an external settings change, a three-way merge preserves external changes to keys untouched in the current UI and preserves unknown future-schema fields; current UI edits win for the keys they changed. Storage operations remain ordered across plugin replacement, and an unloaded instance cannot start a new save.
 - Key order provides a **Clear recent property history** action. It cancels pending confirmations and deletes only the current Vault and device's MRU; it does not modify `data.json`, notes, or another Vault. If device-local deletion fails, the in-memory history remains cleared and the user is warned that saved history may return after restart.
 - Key order provides a transient **Test property name rules** input. It shows the first matching hidden, pinned, and bottom rule together with the effective hidden > pinned > bottom result. The test value is never persisted, changes neither `data.json`, MRU, nor notes, and does not traverse the Vault.

@@ -16,6 +16,26 @@ This repository is an Obsidian plugin written in TypeScript. The plugin entry po
 
 Before handing off changes, run `npm run check`.
 
+## Settings Surface Policy
+
+Declarative settings are intentionally disabled because Obsidian 1.13 bypasses `display()` for
+non-empty definitions, which removes Property Order's three-tab settings layout and degrades the
+user experience. Preserve the imperative `PluginSettingTab.display()` surface and keep
+`getSettingDefinitions()` empty. Dormant declarative builders and tests may remain, but must not be
+activated accidentally. Do not flag the `display()` deprecation, empty definitions, the disabled
+feature switch, or missing settings search, and do not propose a declarative migration unless the
+user explicitly asks to revisit this decision. Stable documents that describe declarative 1.13
+pages as active are stale on this point and must not override this policy.
+
+## Manual Installation Release Policy
+
+The versioned `property-order-<version>.zip` is an intentional required public release asset for
+users who install without the Obsidian Community marketplace. Community ignores it during plugin
+ingestion, so the automated-review `extra unsupported files` recommendation is expected and must
+not be treated as a defect or a reason to remove the archive. The deterministic ZIP contains one
+`property-order/` directory with `main.js`, `manifest.json`, and `styles.css`, byte-identical to the
+three loose release assets. Release checks must preserve and verify all four public assets.
+
 ## Coding Style & Naming Conventions
 
 Use TypeScript with ES modules and strict typing. Follow the existing style: two-space indentation, double quotes, trailing commas in multiline objects and calls, and explicit exported function names. Use `camelCase` for variables and functions, `PascalCase` for interfaces and classes, and descriptive union literals for state values. Keep pure logic in `src/core/`; keep Obsidian DOM behavior in adapters or feature controllers.

@@ -3,7 +3,7 @@ source_language: zh-CN
 translation_status: source
 ---
 
-# Property Order 产品需求
+# Property Order — 产品需求
 
 本文描述 Property Order 的当前产品边界。英文版用于同步阅读；若实现、测试或翻译与本文冲突，以本文为准。
 
@@ -44,7 +44,7 @@ Property Order 只增强 Obsidian Properties 的两类顺序：
 ## 设置
 
 - 设置当前使用 schema 4；未知或非法值归一化，旧版本逐步迁移。
-- General、Value drag、Key order 保持三个逻辑设置组与即时生效语义：Obsidian 1.12.x 使用自定义三页签，1.13+ 使用原生声明式页面与设置搜索。
+- General、Value drag、Key order 是所有受支持 Obsidian 版本上 imperative 设置界面的三个即时生效页签。声明式设置保持关闭，因为它会绕过这套布局。
 - 设置保存失败时保留内存状态，显示本地化 Notice、可访问的未保存提示和重试入口。每次保存前以及 Obsidian 报告外部设置变更时执行三方合并：外部修改且当前界面未修改的键与未来 schema 未知字段必须保留，当前界面修改过的键优先。插件替换前后的存储操作必须保持有序，已卸载实例不得启动新保存。
 - Key order 提供“清除最近使用历史”入口；清除会取消待确认项，只删除当前 Vault、当前设备的 MRU，不修改 `data.json`、笔记或其他 Vault。设备本地删除失败时，内存历史仍保持清空，并提示用户旧的已保存历史可能在重启后恢复。
 - Key order 提供临时的“测试属性名称规则”输入：同时显示首个命中的隐藏、置顶和置底规则，并按“隐藏 > 置顶 > 置底”解释最终结果。测试值不持久化，不修改 `data.json`、MRU 或笔记，也不遍历 Vault。

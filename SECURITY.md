@@ -2,7 +2,7 @@
 
 ## Supported versions
 
-Security fixes target the latest stable 0.5.x code line, which requires Obsidian 1.12.7 or later.
+Security fixes target the latest verified stable release, which requires Obsidian 1.12.7 or later.
 `manifest.json` and Git tags identify versioned source; they do not prove GitHub Release publication
 or hosted-asset state, which must be verified separately. Older code lines do not receive separate
 security updates; users should move to the latest verified stable release.

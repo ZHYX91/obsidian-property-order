@@ -4,7 +4,7 @@ translation_of: release.zh-CN.md
 translation_status: synced
 ---
 
-# Property Order Release Guide
+# Property Order — Release procedure
 
 This is the canonical process for a public Property Order GitHub Release. It does not authorize
 creating a tag, publishing a Release, deploying to a Vault, or resetting plugin data; every run

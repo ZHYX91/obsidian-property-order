@@ -3,7 +3,7 @@ source_language: zh-CN
 translation_status: source
 ---
 
-# Property Order 发布规范
+# Property Order — 发布流程
 
 本文是 Property Order 公共 GitHub Release 的规范流程。它不授权创建标签、发布 Release、部署到
 Vault 或重置插件数据；每次执行仍需针对确切版本取得明确授权。自动化门禁、候选包、托管附件、真实

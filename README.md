@@ -69,7 +69,7 @@ instead of repeating that title.
 
 ## Privacy and security
 
-Property Order reads and updates the current note through Obsidian's editor and Vault APIs. It does not require an account, upload note content, or call a remote service. Unsupported YAML is rejected before writeback, and supported changes are committed through one verified editor transaction. While property-name suggestion enhancement is enabled, the plugin keeps only an ordered, timestamp-free list of up to 100 confirmed property names in Obsidian's per-Vault, device-local storage so recent order is ready when selected; the settings page provides a clear action.
+Property Order reads and updates the current note through Obsidian's editor and Vault APIs. It does not require an account, upload note content, or call a remote service. Unsupported YAML is rejected before writeback, and supported changes are committed through one verified editor transaction. When Markdown note-count ordering is selected for property-name suggestions, the plugin enumerates Markdown files and reads cached frontmatter metadata to calculate counts; it does not read every note body. While property-name suggestion enhancement is enabled, the plugin keeps only an ordered, timestamp-free list of up to 100 confirmed property names in Obsidian's per-Vault, device-local storage so recent order is ready when selected; the settings page provides a clear action.
 
 ## Development
 
@@ -87,7 +87,7 @@ npm run check
 - [UX specification](https://github.com/ZHYX91/obsidian-property-order/blob/main/docs/ux-spec.en.md)
 - [Architecture](https://github.com/ZHYX91/obsidian-property-order/blob/main/docs/architecture.en.md)
 - [Testing strategy](https://github.com/ZHYX91/obsidian-property-order/blob/main/docs/testing-strategy.en.md)
-- [Release guide](https://github.com/ZHYX91/obsidian-property-order/blob/main/docs/release.en.md)
+- [Release procedure](https://github.com/ZHYX91/obsidian-property-order/blob/main/docs/release.en.md)
 - [Changelog](https://github.com/ZHYX91/obsidian-property-order/blob/main/CHANGELOG.md)
 - [Contributing guide](https://github.com/ZHYX91/obsidian-property-order/blob/main/CONTRIBUTING.md)
 - [Security policy](https://github.com/ZHYX91/obsidian-property-order/blob/main/SECURITY.md)

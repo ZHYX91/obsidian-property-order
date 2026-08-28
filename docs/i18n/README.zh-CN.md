@@ -68,7 +68,7 @@ Property Order 用于安全地重排 Obsidian Properties 中的列表值，并�
 
 ## 隐私与安全
 
-Property Order 通过 Obsidian 的编辑器和 Vault API 读取并更新当前笔记，不要求账号，不上传笔记内容，也不调用远程服务。不支持的 YAML 会在写回前被拒绝；受支持的修改通过一次经核对的编辑器事务提交。启用属性名称候选增强期间，插件只在 Obsidian 的当前 Vault、当前设备本地存储中保留最多 100 个已确认属性名称的无时间戳顺序列表，使切换到最近使用排序时已有历史可用，并在设置页提供清除入口。
+Property Order 通过 Obsidian 的编辑器和 Vault API 读取并更新当前笔记，不要求账号，不上传笔记内容，也不调用远程服务。不支持的 YAML 会在写回前被拒绝；受支持的修改通过一次经核对的编辑器事务提交。属性名称候选选择“按 Markdown 笔记数量”排序时，插件会枚举 Markdown 文件并读取缓存的 frontmatter 元数据以计算数量，不会读取每篇笔记的正文。启用属性名称候选增强期间，插件只在 Obsidian 的当前 Vault、当前设备本地存储中保留最多 100 个已确认属性名称的无时间戳顺序列表，使切换到最近使用排序时已有历史可用，并在设置页提供清除入口。
 
 ## 开发
 
@@ -85,7 +85,7 @@ npm run check
 - [UX 规范](../ux-spec.zh-CN.md)
 - [架构](../architecture.zh-CN.md)
 - [测试策略](../testing-strategy.zh-CN.md)
-- [发布规范](../release.zh-CN.md)
+- [发布流程](../release.zh-CN.md)
 - [变更日志](../../CHANGELOG.md)
 - [贡献指南](../../CONTRIBUTING.md)
 - [安全策略](../../SECURITY.md)
