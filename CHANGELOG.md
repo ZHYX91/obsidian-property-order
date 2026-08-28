@@ -5,6 +5,21 @@ follow the repository's Git tags; entries summarize the corresponding commit his
 
 ## [Unreleased]
 
+## [0.5.2] - 2026-08-28
+
+### Added
+
+- Added current Community Directory desktop screenshots and refreshed the settings image.
+
+### Changed
+
+- Clarified the privacy disclosure for Markdown note-count ordering and aligned public
+  documentation with the current settings, release, and acceptance contracts.
+- Defined the desktop-plus-Android-emulator matrix as the shared mobile release gate while keeping
+  physical Android as optional enhanced evidence.
+- Reduced routine dependency-update noise and strengthened version checks for untagged release
+  candidates.
+
 ## [0.5.1] - 2026-08-25
 
 ### Fixed
@@ -106,7 +121,8 @@ follow the repository's Git tags; entries summarize the corresponding commit his
 
 - Established the initial Property Order release baseline.
 
-[Unreleased]: https://github.com/ZHYX91/obsidian-property-order/compare/0.5.1...HEAD
+[Unreleased]: https://github.com/ZHYX91/obsidian-property-order/compare/0.5.2...HEAD
+[0.5.2]: https://github.com/ZHYX91/obsidian-property-order/releases/tag/0.5.2
 [0.5.1]: https://github.com/ZHYX91/obsidian-property-order/releases/tag/0.5.1
 [0.5.0]: https://github.com/ZHYX91/obsidian-property-order/releases/tag/0.5.0
 [0.4.1]: https://github.com/ZHYX91/obsidian-property-order/releases/tag/0.4.1
