@@ -1,369 +1,207 @@
+import { spawnSync } from "node:child_process";
 import { readFileSync } from "node:fs";
-import path from "node:path";
-import { fileURLToPath } from "node:url";
 
 import { describe, expect, it } from "vitest";
-import { parse as parseYaml } from "yaml";
 
-const projectRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../..");
-const workflow = readFileSync(
-  path.join(projectRoot, ".github", "workflows", "release.yml"),
-  "utf8",
-);
-const ciWorkflow = readFileSync(
-  path.join(projectRoot, ".github", "workflows", "ci.yml"),
-  "utf8",
-);
-const verifyJob = getJobSource("verify", "publish");
-const publishJob = getJobSource("publish");
-
-interface WorkflowJob {
-  if?: string;
-  needs?: string;
-  outputs?: Record<string, string>;
-  permissions?: Record<string, string>;
-  steps?: Array<{ if?: string; name?: string }>;
-}
-
-const parsedWorkflow = parseYaml(workflow) as {
-  jobs?: Record<string, WorkflowJob>;
+const workflow = readFileSync(".github/workflows/release.yml", "utf8");
+const packageJson = JSON.parse(readFileSync("package.json", "utf8")) as {
+  scripts: Record<string, string>;
 };
+const verify = workflow.split("\n  verify:\n", 2)[1]?.split("\n  publish:\n", 1)[0] ?? "";
+const publish = workflow.split("\n  publish:\n", 2)[1]?.split("\n  post_verify:\n", 1)[0] ?? "";
+const postVerify = workflow.split("\n  post_verify:\n", 2)[1] ?? "";
 
-describe("release workflow contract", () => {
-  it("runs the canonical release gate including the quick benchmark", () => {
-    expect(verifyJob).toContain("run: npm run release:check");
-  });
+describe("release workflow boundary", () => {
+  it("is manual-only and exposes the exact ten orchestrator inputs", () => {
+    const inputs = workflow.match(/ {4}inputs:\n([\s\S]*?)\n\npermissions:/u)?.[1] ?? "";
+    const names = [...inputs.matchAll(/^ {6}([a-z][a-z0-9_]+):$/gmu)]
+      .map((match) => match[1]);
 
-  it("uploads the three standard build files from the top level of dist", () => {
-    expect(ciWorkflow).toContain("dist/main.js");
-    expect(ciWorkflow).toContain("dist/manifest.json");
-    expect(ciWorkflow).toContain("dist/styles.css");
-    expect(ciWorkflow).not.toContain("dist/property-order/");
-  });
-
-  it("keeps the loose Obsidian assets and adds one install-ready archive", () => {
-    expect(workflow).toContain("expected_assets=(main.js manifest.json styles.css");
-    expect(workflow).toContain('"dist/$asset_name"');
-    expect(workflow).toContain("property-order-${RELEASE_VERSION}.zip");
-    expect(workflow).toContain("node scripts/release-assets.mjs archive");
-  });
-
-  it("isolates read-only verification from tag-only publication credentials", () => {
-    expect(verifyJob).toContain("attestations: read");
-    expect(verifyJob).toContain("contents: read");
-    expect(verifyJob).not.toContain("attestations: write");
-    expect(verifyJob).not.toContain("contents: write");
-    expect(verifyJob).not.toContain("id-token: write");
-
-    expect(publishJob).toContain(
-      "if: github.event_name == 'push' && needs.verify.outputs.release_exists == 'false'",
-    );
-    expect(publishJob).toContain("needs: verify");
-    expect(publishJob).toContain("actions: read");
-    expect(publishJob).toContain("attestations: write");
-    expect(publishJob).toContain("contents: write");
-    expect(publishJob).toContain("id-token: write");
-    expect(publishJob).not.toContain("workflow_dispatch");
-  });
-
-  it("fails closed on missing release-state outputs before every publication path", () => {
-    const jobs = parsedWorkflow.jobs ?? {};
-    const writeJobs = Object.entries(jobs)
-      .filter(([, job]) => Object.values(job.permissions ?? {}).includes("write"))
-      .map(([name]) => name);
-
-    expect(writeJobs).toEqual(["publish"]);
-    expect(jobs.verify?.outputs?.release_exists).toBe(
-      "${{ steps.release_state.outputs.exists }}",
-    );
-    expect(jobs.publish).toMatchObject({
-      if: "github.event_name == 'push' && needs.verify.outputs.release_exists == 'false'",
-      needs: "verify",
-    });
-    expect(jobs.verify?.steps
-      ?.filter((step) => step.if?.includes("release_state"))
-      .map(({ if: condition, name }) => ({ if: condition, name }))).toEqual([
-      {
-        if: "steps.release_state.outputs.exists == 'false'",
-        name: "Select previous published Release for generated notes",
-      },
-      {
-        if: "github.event_name == 'push' && steps.release_state.outputs.exists == 'false'",
-        name: "Prepare exact verified release candidate",
-      },
-      {
-        if: "github.event_name == 'push' && steps.release_state.outputs.exists == 'false'",
-        name: "Upload exact verified release candidate",
-      },
+    expect(names).toEqual([
+      "release_run_id",
+      "mode",
+      "candidate_commit",
+      "candidate_digest",
+      "candidate_envelope_digest",
+      "acceptance_closure_digest",
+      "acceptance_closure_b64",
+      "release_authorization",
+      "authorization_b64",
+      "authorization_digest",
     ]);
-    expect(workflow).not.toMatch(/!=\s*["']true["']/u);
+    expect(workflow).toContain("run-name: release ${{ inputs.release_run_id }}");
+    expect(workflow).toContain("default: verify");
+    expect(workflow).toContain("          - verify\n          - publish");
+    expect(workflow).not.toMatch(/^ {2}(?:push|pull_request|schedule):/mu);
   });
 
-  it("verifies source identity before repository code or write operations", () => {
-    expect(verifyJob.indexOf("Verify read-only release source identity")).toBeGreaterThan(-1);
-    expect(verifyJob.indexOf("Verify read-only release source identity")).toBeLessThan(
-      verifyJob.indexOf("Set up Node.js"),
+  it("keeps verification read-only and every write behind explicit publish mode", () => {
+    expect(verify).toContain("if: github.event_name == 'workflow_dispatch'");
+    expect(verify).not.toContain("contents: write");
+    expect(publish).toContain(
+      "if: github.event_name == 'workflow_dispatch' && github.event.inputs.mode == 'publish'",
     );
-    expect(verifyJob.indexOf("Verify read-only release source identity")).toBeLessThan(
-      verifyJob.indexOf("node scripts/check-release-version.mjs"),
+    expect(postVerify).toContain(
+      "if: always() && github.event_name == 'workflow_dispatch' && github.event.inputs.mode == 'publish'",
     );
-
-    expect(publishJob.indexOf("Reverify trusted tag source before write operations"))
-      .toBeGreaterThan(-1);
-    expect(publishJob.indexOf("Reverify trusted tag source before write operations"))
-      .toBeLessThan(publishJob.indexOf("Download and verify exact release candidate handoff"));
-    expect(publishJob).not.toContain("actions/checkout");
-    expect(publishJob).not.toContain("npm ");
-    expect(publishJob).not.toContain("node scripts/");
+    expect(publish).toContain("environment: release");
+    expect(publish).toContain("actions: read");
+    expect(publish).toContain("attestations: write");
+    expect(publish).toContain("contents: write");
+    expect(publish).toContain("id-token: write");
+    expect(postVerify).toContain("attestations: read");
+    expect(postVerify).not.toContain("contents: write");
   });
 
-  it("runs all read-only publication-admissibility checks before tag creation", () => {
-    expect(workflow).toContain("workflow_dispatch:");
-    expect(verifyJob).toContain("Release preflight must run from the repository default branch.");
-    expect(verifyJob).toContain(
-      "Release preflight must run at the current remote default-branch HEAD.",
+  it("binds one fixed candidate artifact and the three independent evidence digests", () => {
+    expect(verify).toContain("candidate_artifact_id: ${{ steps.handoff.outputs.artifact-id }}");
+    expect(verify).toContain(
+      "candidate_artifact_digest: ${{ steps.handoff.outputs.artifact-digest }}",
     );
-    expect(verifyJob).toContain(
-      "Release preflight requires a version whose remote tag does not exist.",
+    expect(verify).toContain("name: release-candidate-${{ inputs.release_run_id }}");
+    expect(verify).toContain('test "$(sha256sum "$RUNNER_TEMP/release-candidate/candidate.json"');
+    expect(publish).toContain(
+      "artifact-ids: ${{ needs.verify.outputs.candidate_artifact_id }}",
     );
-    expect(verifyJob).toContain(
-      "Release preflight requires a version whose published Release does not exist.",
-    );
-    expect(verifyJob).toContain("Check tagged Release state and existing provenance");
-    expect(verifyJob).toContain("Select previous published Release for generated notes");
-    expect(verifyJob).toContain("scripts/release-notes-baseline.mjs");
-    expect(verifyJob).toContain("The previous published Release is not an ancestor");
-    expect(verifyJob).toContain("Report successful preflight");
+    expect(publish).toContain("digest-mismatch: error");
+    expect(publish).toContain("candidateEnvelopeSha256");
+    expect(publish).toContain("closure.releaseCandidate.candidateJsonSha256, candidateDigest");
+    expect(publish).toContain("closure.releaseCandidate.candidateJsonSize, candidateBytes.length");
+    expect(publish).toContain("assert.notEqual(closure.receipt.sha256, candidateDigest)");
+    expect(publish).not.toContain("assert.equal(closure.receipt.sha256, candidateDigest)");
+    expect(publish).toContain("authorization.bindings.candidateSha256");
+    expect(publish).toContain("authorization.bindings.closureSha256");
+    expect(publish).toContain("authorization.bindings.planSha256");
+    expect(publish).toContain("closure.gatePassed, true");
+    expect(publish).toContain("closure.authorizesPublication, false");
+    expect(publish).toContain("authorization.authorizesPublication, true");
+    expect(publish).toContain("60_000");
+    expect(publish).toContain("16_000");
+    expect(publish).not.toContain("console.log");
   });
 
-  it("serializes all release versions for the repository", () => {
-    expect(workflow).toContain("group: release-${{ github.repository }}");
-    expect(workflow).toContain("cancel-in-progress: false");
-    expect(workflow).not.toContain("group: release-${{ github.ref }}");
+  it("orders the offline boundary, read-only preflight, writes, and post-verification", () => {
+    const boundaryIndex = publish.indexOf("node scripts/release.mjs publication-boundary");
+    const preflightIndex = publish.indexOf("node scripts/release.mjs publication-preflight");
+    const stagingIndex = publish.indexOf("Stage exact public asset inventory for attestation");
+    const attestIndex = publish.indexOf("uses: actions/attest@");
+    const publicationIndex = publish.indexOf("node scripts/release.mjs publish-github");
+
+    expect(boundaryIndex).toBeGreaterThan(0);
+    expect(preflightIndex).toBeGreaterThan(boundaryIndex);
+    expect(stagingIndex).toBeGreaterThan(preflightIndex);
+    expect(attestIndex).toBeGreaterThan(stagingIndex);
+    expect(publicationIndex).toBeGreaterThan(attestIndex);
+    expect(publish.match(/RELEASE_PUBLISH_AUTHORIZATION:/gu)).toHaveLength(3);
+    expect(postVerify).toContain("node scripts/release.mjs post-verify");
+    expect(workflow).not.toMatch(/git (?:tag|push)/u);
+    expect(workflow).not.toContain("gh release create");
   });
 
-  it("pins one exact runtime contract wherever repository code executes", () => {
-    expect(ciWorkflow).toContain("node-version-file: .node-version");
-    expect(verifyJob).toContain("node-version-file: .node-version");
-    expect(ciWorkflow).toMatch(/Verify runtime contract[\s\S]*npm ci/u);
-    expect(verifyJob).toMatch(/Verify runtime contract[\s\S]*npm ci/u);
-    expect(publishJob).not.toContain("node-version-file: .node-version");
-    expect(publishJob).not.toContain("npm ci");
-    expect(workflow.match(/fetch-depth: 0/gu)).toHaveLength(1);
+  it("emits a validated preflight status and makes the exact branch write-free", () => {
+    const preflightStep = workflowStep(publish, "Preflight immutable GitHub Release");
+    const stageStep = workflowStep(publish, "Stage exact public asset inventory for attestation");
+    const attestStep = workflowStep(publish, "Attest public release assets");
+    const publishStep = workflowStep(publish, "Create or prove the exact GitHub Release");
+    const missingOnly = "if: steps.publication_preflight.outputs.status == 'missing'";
+
+    expect(preflightStep).toContain("id: publication_preflight");
+    expect(preflightStep).toContain("node scripts/release.mjs publication-preflight");
+    expect(preflightStep).toContain(
+      'assert.ok(result.status === "missing" || result.status === "exact")',
+    );
+    expect(preflightStep).toContain("printf 'status=%s\\n' \"$status\" >> \"$GITHUB_OUTPUT\"");
+    expect(preflightStep).not.toContain("release create");
+    expect(stageStep).toContain(missingOnly);
+    expect(attestStep).toContain(missingOnly);
+    expect(publishStep).toContain(missingOnly);
+    expect(postVerify).toContain(
+      "if: always() && github.event_name == 'workflow_dispatch' && github.event.inputs.mode == 'publish'",
+    );
+    expect(postVerify).not.toContain("publication_preflight.outputs.status");
   });
 
-  it("requires the candidate commit to remain reachable from the remote default branch", () => {
-    expect(verifyJob).toContain(
-      'git merge-base --is-ancestor "$expected_commit" "$remote_default_commit"',
-    );
-    expect(publishJob).toContain('git -C "$identity_repository" merge-base --is-ancestor');
-    expect(workflow.match(
-      /The release commit is not reachable from the current remote default branch\./gu,
-    )).toHaveLength(2);
+  it("derives the attested public set from candidate inventory and supports optional styles", () => {
+    const subjects = publish.match(
+      /Attest public release assets[\s\S]*?subject-path:\s*([^\n]+)/u,
+    )?.[1] ?? "";
+
+    expect(publish).toContain("candidate.productionAssets.map((record) => record.name)");
+    expect(publish).toContain("candidate.archive?.name");
+    expect(subjects).toBe("${{ runner.temp }}/release-public-assets/*");
+    expect(subjects).not.toContain("styles.css");
+    expect(subjects).not.toContain("SHA256SUMS");
+    expect(subjects).not.toContain("candidate.json");
+    expect(subjects).not.toContain("authorization.json");
   });
 
-  it("does not require a repository administration credential", () => {
-    expect(workflow).not.toContain("secrets.RELEASE_IMMUTABILITY_TOKEN");
-    expect(workflow).not.toContain(
-      "${GITHUB_API_URL}/repos/${GITHUB_REPOSITORY}/immutable-releases",
-    );
-    expect(workflow).not.toContain("--request PUT");
-    expect(workflow).not.toContain("-X PUT");
-    expect(workflow).not.toContain("gh api --method PUT");
+  it("pins actions, runner, Node/npm, and disables checkout credentials", () => {
+    const actionReferences = [...workflow.matchAll(/uses:\s+[^@\s]+@([^\s#]+)/gu)]
+      .map((match) => match[1] ?? "");
+
+    expect(actionReferences.length).toBeGreaterThan(0);
+    expect(actionReferences.every((reference) => /^[0-9a-f]{40}$/u.test(reference)))
+      .toBe(true);
+    expect(workflow).toContain("runs-on: ubuntu-24.04");
+    expect(workflow).toContain("node-version-file: .node-version");
+    expect(workflow).toContain("npm@11.17.0");
+    expect(workflow.match(/persist-credentials: false/gu)).toHaveLength(3);
   });
 
-  it("fails closed when the pushed version tag no longer identifies the event commit", () => {
-    expect(workflow).toContain('git rev-parse "${GITHUB_SHA}^{commit}"');
-    expect(workflow).toContain('git rev-parse "HEAD^{commit}"');
-    expect(workflow).toContain(
-      'git ls-remote --exit-code origin "$tag_ref" "${tag_ref}^{}"',
-    );
-    expect(workflow).toContain('awk -v ref="${tag_ref}^{}"');
-    expect(workflow).toContain(
-      '"The remote release tag no longer points to the pushed event commit."',
-    );
-    expect(workflow.match(/^\s+verify_release_tag_identity$/gmu)?.length ?? 0)
-      .toBeGreaterThanOrEqual(4);
+  it("keeps common validation in check and tag state only in the release gate", () => {
+    const checkGraph = expandScript("check");
+    const releaseGraph = expandScript("release:check");
+    expect(checkGraph).toContain("node scripts/release.mjs validate");
+    expect(checkGraph).not.toContain("node scripts/release.mjs validate-tag");
+    expect(releaseGraph).toContain("node scripts/release.mjs validate-tag");
   });
 
-  it("treats only an explicit read-only REST 404 as a missing tagged Release", () => {
-    expect(verifyJob).toContain('--write-out "%{http_code}"');
-    expect(verifyJob).toContain('case "$release_status" in');
-    expect(verifyJob).toContain('"404")');
-    expect(verifyJob).toContain(
-      '"Could not query the tagged Release (HTTP ${release_status})."',
-    );
-    expect(workflow).not.toContain('gh release view "$RELEASE_VERSION"');
-  });
+  it("keeps every multiline shell block syntactically valid", () => {
+    const result = spawnSync("bash", ["-n"], {
+      encoding: "utf8",
+      input: extractRunBlocks(workflow).join("\n"),
+      windowsHide: true,
+    });
 
-  it("accepts an existing tagged Release only with immutable matching attested assets", () => {
-    expect(verifyJob).toContain(
-      "'.immutable == true and .draft == false and .prerelease == false'",
-    );
-    expect(verifyJob).toContain('gh release download "$RELEASE_VERSION"');
-    expect(verifyJob).toContain("node scripts/release-assets.mjs compare");
-    expect(verifyJob).toContain('gh attestation verify "$existing_assets/$asset_name"');
-    expect(verifyJob).toContain(
-      '--signer-workflow "${GITHUB_REPOSITORY}/.github/workflows/release.yml"',
-    );
-    expect(verifyJob).toContain('--source-digest "$expected_commit"');
-    expect(verifyJob).toContain('--source-ref "$GITHUB_REF"');
-    expect(verifyJob).toContain("--deny-self-hosted-runners");
-    expect(verifyJob).toMatch(
-      /gh attestation verify[\s\S]*verify_release_tag_identity[\s\S]*echo "exists=true"/u,
-    );
-    expect(workflow).not.toContain("gh release upload");
-    expect(workflow).not.toContain("--clobber");
-  });
-
-  it("hands off one exact verified candidate without executing repository code in publish", () => {
-    expect(verifyJob).toContain("Prepare exact verified release candidate");
-    expect(verifyJob).toContain("actual_assets");
-    expect(verifyJob).toContain("sha256sum");
-    expect(verifyJob).toContain(
-      "uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7",
-    );
-    expect(verifyJob).toContain(
-      "property-order-release-candidate-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}",
-    );
-    expect(workflow).toContain(
-      "candidate_artifact_id: ${{ steps.upload_candidate.outputs.artifact-id }}",
-    );
-    expect(workflow).toContain(
-      "candidate_artifact_digest: ${{ steps.upload_candidate.outputs.artifact-digest }}",
-    );
-
-    expect(publishJob).toContain("Download and verify exact release candidate handoff");
-    expect(publishJob).toContain("/actions/artifacts/${CANDIDATE_ARTIFACT_ID}/zip");
-    expect(publishJob).toContain(
-      '(.digest == $artifact_digest or .digest == ("sha256:" + $artifact_digest))',
-    );
-    expect(publishJob).toContain(".workflow_run.head_sha == $head_sha");
-    expect(publishJob).toContain("actual_artifact_digest");
-    expect(publishJob).toContain(
-      '[[ ! "$CANDIDATE_ARTIFACT_DIGEST" =~ ^[0-9a-f]{64}$ ]]',
-    );
-    expect(publishJob).toContain(
-      'actual_artifact_digest="$(sha256sum "$artifact_archive"',
-    );
-    expect(publishJob).not.toContain("actual_artifact_digest=\"sha256:");
-    expect(publishJob.match(/# RELEASE_ZIP_VALIDATOR_BEGIN/gmu)).toHaveLength(1);
-    expect(publishJob.match(/# RELEASE_ZIP_VALIDATOR_END/gmu)).toHaveLength(1);
-    expect(publishJob).toContain("target.open(\"xb\")");
-    expect(publishJob).not.toContain("extractall(");
-    expect(publishJob).not.toContain("unzip -q");
-    expect(publishJob).not.toContain("actions/checkout");
-    expect(publishJob).not.toContain("npm ci");
-    expect(publishJob).not.toContain("scripts/release-assets.mjs");
-  });
-
-  it.each([
-    ["a".repeat(64), true],
-    [`sha256:${"a".repeat(64)}`, false],
-    ["a".repeat(63), false],
-    ["a".repeat(65), false],
-  ])("requires the upload-artifact digest output %s to be raw SHA-256: %s", (digest, valid) => {
-    expect(/^[0-9a-f]{64}$/u.test(digest)).toBe(valid);
-  });
-
-  it("requires every remote asset inventory to be exactly four unique files", () => {
-    expect(workflow).toContain('archive_name="property-order-${RELEASE_VERSION}.zip"');
-    expect(workflow).toContain('(.assets | type == "array")');
-    expect(workflow).toContain(
-      '([.assets[].name] | unique | length) == 4',
-    );
-    expect(verifyJob).toContain(
-      '"The tagged Release asset inventory is not exactly the four expected files; publish a new version."',
-    );
-  });
-
-  it("retries only transport failures, 404, 5xx, and incomplete successful state", () => {
-    expect(publishJob).toContain('if ! release_status="$(');
-    expect(publishJob).toContain(
-      'if [[ "$release_status" == "404" || "$release_status" =~ ^5[0-9][0-9]$ ]]',
-    );
-    expect(publishJob).toContain(
-      "tagged Release query returned non-retryable HTTP ${release_status}",
-    );
-    expect(publishJob).toContain("for attempt in {1..10}");
-    expect(publishJob).toContain("sleep 3");
-  });
-
-  it("publishes directly and verifies exact immutable remote bytes", () => {
-    expect(publishJob).toContain('gh release create "$RELEASE_VERSION" "${assets[@]}"');
-    expect(publishJob).not.toContain("--draft");
-    expect(publishJob).not.toContain("gh release edit");
-    expect(publishJob).toContain("verify_release_assets() {");
-    expect(publishJob).toContain(".prerelease == false and");
-    expect(publishJob).toContain(".draft == $expected_draft");
-    expect(publishJob).toContain(".immutable == $expected_immutable");
-    expect(publishJob).toContain("Release supply-chain verification failed");
-    expect(publishJob).toContain('gh attestation verify "$assets_directory/$asset_name"');
-    expect(publishJob).toContain('--repo "$GITHUB_REPOSITORY"');
-    expect(publishJob).toContain(
-      '--signer-workflow "${GITHUB_REPOSITORY}/.github/workflows/release.yml"',
-    );
-    expect(publishJob).toContain('--source-digest "$GITHUB_SHA"');
-    expect(publishJob).toContain('--source-ref "$GITHUB_REF"');
-    expect(publishJob).toContain("--deny-self-hosted-runners");
-    expect(publishJob).toMatch(
-      /gh release create[\s\S]*?verify_release_assets[\s\S]*?verify_release_tag_identity/u,
-    );
-    expect(workflow.match(/gh attestation verify/gu)).toHaveLength(2);
-    expect(workflow.match(/--deny-self-hosted-runners/gu)).toHaveLength(2);
-  });
-
-  it("generates notes from the highest older real stable Release", () => {
-    expect(verifyJob).toContain("gh api --paginate --slurp");
-    expect(verifyJob).toContain("scripts/release-notes-baseline.mjs");
-    expect(verifyJob).toContain('--current-version "$RELEASE_VERSION"');
-    expect(publishJob).toContain("${{ needs.verify.outputs.previous_tag }}");
-    expect(publishJob).toContain(
-      'notes_arguments+=(--notes-start-tag "$PREVIOUS_RELEASE_TAG")',
-    );
-  });
-
-  it("attests every newly published release asset", () => {
-    expect(publishJob).toContain("attestations: write");
-    expect(publishJob).toContain("id-token: write");
-    expect(publishJob).toContain(
-      "uses: actions/attest@36051bcae73b7c2a8a6945a48cbf80953c6baa35 # v4",
-    );
-    expect(publishJob).toContain("${{ runner.temp }}/release-candidate/main.js");
-    expect(publishJob).toContain("${{ runner.temp }}/release-candidate/manifest.json");
-    expect(publishJob).toContain("${{ runner.temp }}/release-candidate/styles.css");
-    expect(publishJob).toContain(
-      "${{ runner.temp }}/release-candidate/property-order-${{ env.RELEASE_VERSION }}.zip",
-    );
-  });
-
-  it("pins every third-party Action to a full commit SHA", () => {
-    for (const source of [ciWorkflow, workflow]) {
-      const actionUses = [...source.matchAll(/^\s*uses:\s*([^\s#]+)(?:\s+#.*)?$/gmu)].map(
-        (match) => match[1],
-      );
-      expect(actionUses.length).toBeGreaterThan(0);
-      expect(
-        actionUses.every((value) => /@[a-f\d]{40}$/u.test(value ?? "")),
-      ).toBe(true);
-    }
-  });
+    expect(result.status, result.stderr).toBe(0);
+  }, 30_000);
 });
 
-function getJobSource(jobName: string, nextJobName?: string): string {
-  const startMarker = `\n  ${jobName}:\n`;
-  const start = workflow.indexOf(startMarker);
-  if (start === -1) {
-    throw new Error(`Missing workflow job: ${jobName}`);
-  }
+function expandScript(name: string, seen = new Set<string>()): string {
+  if (seen.has(name)) return "";
+  seen.add(name);
+  const command = packageJson.scripts[name] ?? "";
+  const nested = [...command.matchAll(/\bnpm run ([A-Za-z0-9:_-]+)/gu)]
+    .map((match) => expandScript(match[1] ?? "", seen));
+  return [command, ...nested].join("\n");
+}
 
-  if (nextJobName == null) {
-    return workflow.slice(start);
+function extractRunBlocks(source: string): string[] {
+  const lines = source.split(/\r?\n/u);
+  const blocks: string[] = [];
+  for (let index = 0; index < lines.length; index += 1) {
+    const match = /^(\s*)run:\s*\|\s*$/u.exec(lines[index] ?? "");
+    if (!match) continue;
+    const contentIndent = (match[1]?.length ?? 0) + 2;
+    const block: string[] = [];
+    for (index += 1; index < lines.length; index += 1) {
+      const line = lines[index] ?? "";
+      if (line.length === 0) {
+        block.push("");
+        continue;
+      }
+      const indentation = /^\s*/u.exec(line)?.[0].length ?? 0;
+      if (indentation < contentIndent) {
+        index -= 1;
+        break;
+      }
+      block.push(line.slice(contentIndent));
+    }
+    blocks.push(`${block.join("\n")}\n`);
   }
+  return blocks;
+}
 
-  const end = workflow.indexOf(`\n  ${nextJobName}:\n`, start + startMarker.length);
-  if (end === -1) {
-    throw new Error(`Missing workflow job after ${jobName}: ${nextJobName}`);
-  }
-  return workflow.slice(start, end);
+function workflowStep(job: string, name: string): string {
+  return job.split(`      - name: ${name}\n`, 2)[1]?.split("\n      - name:", 1)[0] ?? "";
 }

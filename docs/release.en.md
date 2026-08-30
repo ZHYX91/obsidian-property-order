@@ -6,93 +6,91 @@ translation_status: synced
 
 # Property Order — Release procedure
 
-This is the canonical process for a public Property Order GitHub Release. It does not authorize
-creating a tag, publishing a Release, deploying to a Vault, or resetting plugin data; every run
-still requires explicit approval for the exact version. Automated gates, the candidate, hosted
-assets, real Obsidian hosts, and an actual Vault deployment are separate evidence layers and cannot
-substitute for one another. See the [testing strategy](testing-strategy.en.md) for the full
-verification boundary and the [security policy](../SECURITY.md) for security incidents.
+This document defines the repeatable process for a public Property Order GitHub Release. Source
+gates, the fixed candidate, real Obsidian acceptance, GitHub publication, and production-Vault
+deployment are separate evidence. No step implicitly authorizes another; tags, Releases, and a
+production Vault may change only after separate approval for the exact target.
 
 ## Version decision
 
-- Select a strictly advancing `x.y.z` version without a `v` prefix or leading zeroes, and confirm
-  that neither the remote tag nor a same-version Release exists.
-- Synchronize `manifest.json`, `package.json`, `package-lock.json`, and `versions.json`; change the
-  minimum Obsidian version only when compatibility evidence supports it.
-- Move user-facing changes from the Unreleased section of the [changelog](../CHANGELOG.md) into the
-  new version, and confirm that release notes do not claim more than the available evidence.
+- Use a strictly advancing `x.y.z` without a `v` prefix or leading zeroes, and synchronize
+  `manifest.json`, `package.json`, `package-lock.json`, and `versions.json`.
+- Release tooling is pinned in `scripts/vendor/obsidian-release-core.mjs`. Its adjacent lock records
+  the exact release-core `1.0.0` version and SHA-256; `scripts/release.mjs` declares only plugin
+  identity, asset policy, and the public repository.
+- Upgrade the core by regenerating both runtime and lock from the canonical release-core, then
+  commit adapter tests and the complete gate together. Never edit only a version, hash, or one copy.
 
 ## Candidate construction
 
-- The candidate must come from a clean commit at the current remote default-branch HEAD. Uncommitted
-  files, local patches, and other branches must not enter the release.
-- Use the repository-pinned Node.js 24.19.0 and npm 11.17.0 to run `npm ci`, followed by
-  `npm run release:check`. The release gate validates the manifest, package, lockfile root, and
-  `versions.json`, defaulting to the manifest version. A missing local same-version tag is allowed;
-  an existing tag must resolve exactly to `HEAD`, so a tag from another commit cannot be reused. Its
-  `npm run check`, coverage, build, release contract, and deterministic benchmark must all pass.
-- Build output comprises `main.js`, `manifest.json`, `styles.css`, and the deterministic
-  `property-order-x.y.z.zip`. The installation ZIP may contain only the first three files, with
-  bytes identical to the loose assets.
+- At the exact clean committed candidate, use the pinned Node.js 24.19.0 and npm 11.17.0 to run
+  `npm ci` and `npm run release:check`. Ordinary `npm run check` proves task quality; the tag-aware
+  release gate reports an existing published-version collision separately.
+- `node scripts/release.mjs candidate --output-dir <empty-directory>` creates a deterministic
+  handoff: three loose assets, `property-order-x.y.z.zip`, `SHA256SUMS`, and `candidate.json`.
+  `candidate.json` binds commit, tree, target tag name/commit, core version/hash, and every asset
+  hash without a timestamp or machine path. The tag appearing at that same commit does not change
+  candidate bytes; the tag-aware gate separately verifies the live absent-or-exact state.
+- This plugin declares `styles.css` required, so its public Release has exactly four assets. The
+  core also supports a future plugin that explicitly makes styles optional. The ZIP always has one
+  plugin-ID top directory and byte-identical loose assets.
 
 ## Read-only preflight
 
-- Confirm green CI for the candidate commit and complete the real-host checks required by the
-  current product scope. Automated success cannot replace desktop, mobile, or popout evidence.
-- Run the Release workflow through `workflow_dispatch` at the current remote default-branch HEAD,
-  supplying the candidate version. This read-only preflight requires the candidate tag and
-  same-version Release to be absent, every published stable version to be older, and the selected
-  release-notes baseline to be reachable.
-- Before creating the tag, manually verify and record that the numeric-version tag ruleset blocks
-  updates and deletion with no release-identity bypass, and that repository-level immutable
-  Releases are enabled. The workflow has no administration permission and cannot replace this
-  external evidence.
+- The workspace builds `plan.json` from the live active inventory and rebuilds the candidate in an
+  isolated clone through repository-owned commands. The public repository does not depend on that
+  private workspace: an independent clone can still install, test, build, and verify its handoff.
+- The candidate enters a one-use isolated Vault. Desktop and the Android surfaces required by the
+  current manifest must produce product evidence bound to the same commit, tree, and asset hashes.
+  Automation, emulator, physical-device, and screenshot evidence remain distinct.
+- `acceptance-closure.json` says only that the gate passed and fixes
+  `authorizesPublication: false`; it cannot create a tag, dispatch a workflow, or publish a Release.
 
 ## Publication authorization and trigger
 
-- Request publication approval for the exact version only after checking the candidate commit,
-  version, CI, real-host evidence, read-only preflight, and external settings.
-- After approval, create the exact `x.y.z` tag at the verified commit and push it. The tag push is
-  the only write trigger that creates a Release; manual preflight, pull requests, and local commands
-  do not publish.
-- The workflow's read-only job reruns the complete gate and creates the candidate. Its write-capable
-  job does not check out source, install npm dependencies, or execute repository code; it consumes
-  only the one-use handoff artifact from the current run.
+- After closure, create a separate `authorization.json` bound to the exact repository, version,
+  commit, tree, candidate digest, and closure digest. Recording authorization performs no remote
+  action.
+- Tag creation and push are separate actions. Publication requires the exact `x.y.z` tag to point
+  at the candidate commit. Never move, delete, or recreate an existing tag to clear a conflict.
+- Only a second explicit publish confirmation lets the workspace orchestrator dispatch
+  `workflow_dispatch` at that version tag, carrying the portable closure, candidate digest, and
+  authorization binding. The workflow defaults to read-only `verify`; only explicit `publish` can
+  enter the downstream write-scoped job. An ordinary tag push never publishes.
 
 ## Hash and hosted-byte verification
 
-- The one-use handoff must contain exactly the four release assets plus `SHA256SUMS`. The manifest
-  uses ASCII, LF, fixed ordering, and one SHA-256 for each asset; the Actions artifact digest must
-  also match the recomputed downloaded bytes.
-- The Release asset inventory must be exactly `main.js`, `manifest.json`, `styles.css`, and
-  `property-order-x.y.z.zip`, with no missing, duplicate, or extra file.
-- After creation, download the GitHub hosted bytes again, compare them byte-for-byte and by SHA-256
-  with the handed-off candidate, and verify that each provenance record is bound exactly to this
-  repository, the Release workflow, tag ref, event commit, and a non-self-hosted runner.
-- Publication succeeds only after a stable, non-draft, non-prerelease, immutable Release passes
-  those checks and remote tag identity is verified again.
-- A failed tag workflow is safely rerunnable. An existing same-tag Release is accepted as a
-  successful no-op only when its exact four public assets match the current candidate byte for
-  byte and every provenance record binds the same tag and commit. Otherwise the run fails and a
-  higher version is required. The checksum manifest always stays inside the handoff and is never
-  uploaded to the public Release.
+- The read-only job reruns `release:check` at the exact commit, builds the deterministic handoff,
+  and uploads it by current-run artifact ID and digest. The write job reverifies the handoff,
+  closure, authorization, tag, commit, and tree, then runs a read-only GitHub preflight. An existing
+  Release is a zero-write no-op only when immutable state, exact bytes, and provenance already
+  match; every conflict fails before the first attestation. Only an explicit missing result permits
+  attestation and creation, and creation repeats the complete boundary to protect against races.
+- Public assets are exactly `main.js`, `manifest.json`, `styles.css`, and the versioned ZIP.
+  `SHA256SUMS` and `candidate.json` remain private handoff files. Every published asset requires
+  provenance bound to the exact workflow, ref, and commit.
+- Post-publication verification reads GitHub again and requires a stable, non-draft,
+  non-prerelease, immutable Release with the exact inventory, metadata digests, downloaded bytes,
+  and remote tag target. A same-tag Release is a safe no-op only when every check matches.
 
 ## Rollback and failure handling
 
-- If a problem appears before tag creation, stop publication, fix it in a new commit, and rerun all
-  gates and preflight checks.
-- After tag creation, do not move, delete, or recreate the tag, and do not overwrite an immutable
-  Release. Preserve the failed run, responses, and hashes; if public assets already exist, assess
-  the impact under the security policy and fix it with a strictly newer patch version.
-- When a user must restore an older version, install only the three plugin files from a previously
-  verified Release and preserve the existing `data.json`. That is a separate deployment operation;
-  source or publication results cannot prove its success.
+- Before dispatch, fix source or evidence and restart plan, candidate, and acceptance from the new
+  commit. Never replay the old authorization.
+- When dispatch status is uncertain, recover by stable release run ID instead of triggering again
+  blindly. If post-verification fails, retain evidence, do not move the tag or replace the immutable
+  Release, and recover with a higher patch version.
+- User rollback installs only production assets from a previously verified Release and preserves
+  `data.json`. Production-Vault deployment still needs separate exact-Vault authorization, backup,
+  and installed-hash verification.
 
 ## Evidence record and boundary
 
-- Record the version, commit, tag object, CI and preflight runs, approval, external rule settings,
-  four asset SHA-256 values, hosted-byte comparison, and provenance results.
-- Label source checks, candidate construction, GitHub hosting state, real-host acceptance, and Vault
-  deployment separately; mark any layer not obtained as unverified.
-- Release notes may state only changes and compatibility actually verified. Do not infer real-device,
-  performance, accessibility, or production-Vault results from automated gates.
+- Retain the plan, candidate, closure, authorization, trigger, and post-verify digests, plus CI,
+  desktop/Android acceptance, external tag-ruleset/immutable-Release settings, and four hosted asset
+  hashes.
+- To add a plugin, first give its independent repository a pinned toolchain, thin adapter, core lock,
+  production-asset policy, and complete gate. Then register its expected remote and acceptance
+  adapter in the workspace inventory; never create a runtime dependency on the private workspace.
+- This task does not change a version, create or move a tag, create a GitHub Release, publish a
+  plugin, or deploy a production Vault.
