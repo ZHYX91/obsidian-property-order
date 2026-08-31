@@ -22,12 +22,13 @@
       "steps": [
         "Reorder alpha and beta and move one value between po_source and po_target",
         "Use Undo and Redo without first focusing the note body",
-        "Wait for persistence and compare the final YAML while preserving the body"
+        "Wait for persistence and compare the final YAML while preserving the body",
+        "Repeat one guarded move while the acceptance controller changes the disposable fixture after the operation begins"
       ],
       "expected": [
         "The editor, visible Properties view, and disk YAML converge after one host turn",
         "Unrelated properties, comments, quoting, newline semantics, and body text remain intact",
-        "Touch and desktop interaction retain native actions and fail closed on injected conflicts"
+        "Touch and desktop interaction retain native actions, and the externally changed fixture fails closed without overwriting either version"
       ]
     }
   ]

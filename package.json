@@ -28,9 +28,7 @@
     "release:publish-github": "node scripts/release.mjs publish-github",
     "release:post-verify": "node scripts/release.mjs post-verify",
     "bench:usage": "vitest run --config vitest.performance.config.mts --mode quick --reporter=verbose",
-    "bench:usage:large": "vitest run --config vitest.performance.config.mts --mode large --reporter=verbose",
-    "acceptance:fixtures": "node scripts/create-acceptance-fixtures.mjs",
-    "acceptance:conflict": "node scripts/inject-acceptance-conflict.mjs"
+    "bench:usage:large": "vitest run --config vitest.performance.config.mts --mode large --reporter=verbose"
   },
   "keywords": [
     "obsidian",

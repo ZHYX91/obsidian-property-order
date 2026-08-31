@@ -40,15 +40,9 @@ Lint 使用当前 Obsidian API typings，兼容性仍以 `manifest.json` 为契�
 
 ## 隔离 Vault
 
-真实验收只使用隔离 Vault，不修改生产笔记。夹具命令：
+真实验收只使用由精确 Candidate Bundle v3 物化出的临时 Vault。公共仓库拥有静态 `acceptance/fixtures/Property Order.md` 资源和产品场景契约；工作区自有的通用物化器验证二者与 Bundle 绑定的哈希，安装精确候选，只启用 Property Order，并写出宿主专用清单。共享 acceptance kit 负责 marker、输入/输出清单、生命周期转换、重置和归档。普通或生产 Vault 永远不是合法目标。
 
-```powershell
-npm run acceptance:fixtures -- --vault <isolated-vault> --initialize-types
-npm run acceptance:fixtures -- --vault <isolated-vault> --force
-npm run acceptance:conflict -- --vault <isolated-vault> --file <fixture> --mode <source|target|unrelated|body> --expected-sha256 <sha256> --delay-ms 55
-```
-
-脚本必须验证目标位于允许的临时验收根目录，并具有由初始化流程生成的专用 marker、run ID 与夹具哈希清单；普通或生产 Vault 即使包含 `.obsidian` 也必须拒绝。夹具重置与冲突注入先暂存唯一锁文件，再以 exclusive hard-link 取得 canonical per-Vault 锁，并让它覆盖完整的 marker＋夹具事务；已有锁或旧锁一律 fail closed，必须人工核查后移除。canonical 锁、marker、新建的 `types.json` 和夹具都不得在独立核对后直接删除或覆盖：必须先把当前路径移入同卷私有目录，复核 held 文件的身份与 SHA-256，再用 exclusive hard-link 安装或恢复；夹具回滚也先隔离当前目标再 exclusive 恢复。因此在受守卫的替换或清理边界到达的 pathname writer，只能留在 canonical 目标或错误中报告的保留路径。成功路径清理 staging 时必须再次逐个核对 held inode、禁止递归删除，并保留与报告通过已打开句柄改写的旧夹具；该保证无法阻止非协作进程在最后一次核对之后继续通过旧句柄写入。无法证明回滚或清理安全时，全部唯一备份必须留在 Vault，错误信息必须列出精确路径；marker 已核对提交后的 cleanup 失败只报告保留路径，不得把提交反向解释成未完成。fixtures 与 conflict CLI 都必须在访问 Vault 前拒绝未知、重复或缺值 flag；冲突延迟还只接受 `0` 至 `0x7fffffff` 的 safe integer。七份夹具覆盖 LF/CRLF/CR、普通与空列表、已确认非列表、标量和混合类型不匹配行、注释、引号、重复值、无关内容、所有冲突模式，以及精确保留 alias 空白和 Unicode 组合/分解 target 与 alias 的 wiki link。类型初始化必须显式且独占；已有兼容 `.obsidian/types.json` 保持字节不变，缺键、类型冲突、JSON 损坏、链接或非普通文件都必须在写入笔记前失败。真实 editor 场景从磁盘核对最终 YAML、正文保持、单步撤销/重做，以及部署产物和夹具 SHA-256，并单独记录宿主的换行序列化。
+这个仓库刻意不提供夹具安装、Vault 重置或冲突注入 CLI。对于场景契约中的受守卫写入冲突步骤，验收控制器先记录临时夹具身份，启动产品操作，执行指定的外部编辑，再记录两个结果字节流及可见的拒绝行为。自动化单元测试仍是注入竞态边界的主要证据；真实宿主证据覆盖 Obsidian DOM、交互、持久化、撤销/重做和可见的 fail-closed 结果，不复制共享生命周期机制。
 
 ## 真实宿主发布矩阵
 
