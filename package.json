@@ -1,6 +1,6 @@
 {
   "name": "obsidian-property-order",
-  "version": "0.5.2",
+  "version": "0.5.3",
   "description": "Reorder property values and customize native property name suggestions.",
   "main": "main.js",
   "scripts": {

@@ -5,6 +5,16 @@ follow the repository's Git tags; entries summarize the corresponding commit his
 
 ## [Unreleased]
 
+## [0.5.3] - 2026-09-01
+
+### Changed
+
+- Migrated release handoff to the single Candidate Bundle v3 contract backed by release-core 2.0,
+  with source-candidate and transport-candidate verification kept as separate claims.
+- Replaced repository-specific Vault setup and acceptance commands with declarative fixtures and
+  scenario declarations consumed by the shared materializer on desktop and Android emulators.
+- Aligned CI bootstrap ordering with the repository-owned Node and npm runtime contract.
+
 ## [0.5.2] - 2026-08-28
 
 ### Added
@@ -121,7 +131,8 @@ follow the repository's Git tags; entries summarize the corresponding commit his
 
 - Established the initial Property Order release baseline.
 
-[Unreleased]: https://github.com/ZHYX91/obsidian-property-order/compare/0.5.2...HEAD
+[Unreleased]: https://github.com/ZHYX91/obsidian-property-order/compare/0.5.3...HEAD
+[0.5.3]: https://github.com/ZHYX91/obsidian-property-order/releases/tag/0.5.3
 [0.5.2]: https://github.com/ZHYX91/obsidian-property-order/releases/tag/0.5.2
 [0.5.1]: https://github.com/ZHYX91/obsidian-property-order/releases/tag/0.5.1
 [0.5.0]: https://github.com/ZHYX91/obsidian-property-order/releases/tag/0.5.0
