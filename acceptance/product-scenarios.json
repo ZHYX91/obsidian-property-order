@@ -1,0 +1,34 @@
+{
+  "schemaVersion": 1,
+  "kind": "obsidian-plugin/product-scenarios-v1",
+  "pluginId": "property-order",
+  "materializer": {
+    "kind": "copy-v1",
+    "roots": [
+      {
+        "source": "acceptance/fixtures",
+        "target": ""
+      }
+    ]
+  },
+  "scenarios": [
+    {
+      "id": "value-order-commit-and-undo",
+      "title": "Same-property reorder, cross-property move, persistence, and one-step undo",
+      "surfaces": [
+        "desktop",
+        "android-emulator"
+      ],
+      "steps": [
+        "Reorder alpha and beta and move one value between po_source and po_target",
+        "Use Undo and Redo without first focusing the note body",
+        "Wait for persistence and compare the final YAML while preserving the body"
+      ],
+      "expected": [
+        "The editor, visible Properties view, and disk YAML converge after one host turn",
+        "Unrelated properties, comments, quoting, newline semantics, and body text remain intact",
+        "Touch and desktop interaction retain native actions and fail closed on injected conflicts"
+      ]
+    }
+  ]
+}
