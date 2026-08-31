@@ -5,74 +5,73 @@ translation_status: source
 
 # Property Order — 发布流程
 
-本文是 Property Order 公共 GitHub Release 的规范流程。它不授权创建标签、发布 Release、部署到
-Vault 或重置插件数据；每次执行仍需针对确切版本取得明确授权。自动化门禁、候选包、托管附件、真实
-Obsidian 宿主与实际 Vault 部署是彼此独立的证据层，不能相互替代。完整验证边界见
-[测试策略](testing-strategy.zh-CN.md)，安全事件另见 [安全策略](../SECURITY.md)。
+本文定义 Property Order 公共 GitHub Release 的可重复流程。源码门禁、固定候选、真实 Obsidian
+验收、GitHub 发布和正式 Vault 部署是独立证据；任何一个步骤都不会隐含授权另一个步骤。标签、
+Release 与正式 Vault 只有在精确目标得到单独授权时才可变更。
 
 ## 版本决策
 
-- 选择严格递增的 `x.y.z` 版本，不加 `v` 前缀，不使用前导零，并确认远端尚无同名标签或 Release。
-- 同步 `manifest.json`、`package.json`、`package-lock.json` 与 `versions.json`；最低 Obsidian 版本只在
-  兼容性证据支持时变更。
-- 把面向用户的变化从 [变更日志](../CHANGELOG.md) 的 Unreleased 部分归入新版本，并复核发布说明不
-  超出已有证据。
+- 使用无 `v` 前缀、无前导零的严格递增 `x.y.z`，并同步 `manifest.json`、`package.json`、
+  `package-lock.json` 与 `versions.json`。
+- 发布工具固定为仓库内 `scripts/vendor/obsidian-release-core.mjs`。相邻 lock 记录精确
+  release-core `1.0.0` 版本和 SHA-256；`scripts/release.mjs` 只声明插件身份、资产策略和远端仓库。
+- 升级核心时必须从规范 release-core 重新生成 runtime 与 lock，同时提交适配器测试和完整门禁；
+  禁止手工只改版本、哈希或其中一个副本。
 
 ## 候选构建
 
-- 候选必须来自远端默认分支当前 HEAD 的干净提交；未提交文件、本地补丁和其他分支不能混入发布。
-- 使用仓库固定的 Node.js 24.19.0 与 npm 11.17.0 执行 `npm ci`，然后运行
-  `npm run release:check`。发布门会核验 manifest、package、lockfile root 与 `versions.json`，默认使用
-  manifest 版本；本地同版本标签不存在时允许继续，若已存在则必须精确解析到 `HEAD`，不能复用其他提交上的标签。
-  其中的 `npm run check`、coverage、构建、发布契约和确定性基准都必须通过。
-- 构建结果包括 `main.js`、`manifest.json`、`styles.css` 和确定性的
-  `property-order-x.y.z.zip`。安装 ZIP 只能包含前三个文件，并且其字节必须与 loose assets 一致。
+- 在干净、已提交的精确候选上执行固定 Node.js 24.19.0、npm 11.17.0 的 `npm ci` 和
+  `npm run release:check`。普通 `npm run check` 验证任务内质量；tag-aware 发布门另行报告复用已发布
+  版本的既有冲突。
+- `node scripts/release.mjs candidate --output-dir <空目录>` 生成确定性交接：三个 loose assets、
+  `property-order-x.y.z.zip`、`SHA256SUMS` 与 `candidate.json`。`candidate.json` 绑定 commit、tree、
+  目标 tag 名称/提交、核心版本/哈希和全部资产哈希；不包含时间戳或本机路径。tag 从不存在到指向
+  同一提交不会改变候选字节，实际 absent-or-exact 状态由 tag-aware 门禁另行验证。
+- 当前插件声明 `styles.css` 为必需，因此公共 Release 恰有四个附件。核心也支持未来插件明确声明
+  可选样式；ZIP 始终只有一个插件 ID 顶层目录，内部字节与 loose assets 一致。
 
 ## 只读预检
 
-- 确认候选提交的 CI 全绿，并完成当前产品范围要求的真实宿主检查；自动化成功不能替代桌面、移动端
-  或弹出窗口证据。
-- 在远端默认分支当前 HEAD 通过 `workflow_dispatch` 输入候选版本运行 Release workflow。预检只读，
-  要求候选标签和同版本 Release 不存在、所有已发布稳定版本都更旧，并验证发布说明基线的可达性。
-- 创建标签前人工确认并留证：数字版本标签 ruleset 禁止 update/delete 且发布身份无 bypass；仓库级
-  immutable Releases 已启用。workflow 没有管理权限，不能替代这两项外部证据。
+- workspace 从实时活跃清单生成 `plan.json`，在隔离 clone 中用仓库自身命令重建并核对候选；公开仓库
+  不依赖该私有 workspace，独立 clone 仍可安装、测试、构建和验证交接。
+- 候选进入一次性隔离 Vault 后，桌面及当前 manifest 要求的 Android 场景必须形成与同一
+  commit/tree/资产哈希绑定的产品证据。自动化、模拟器、实机与截图仍分别记录。
+- `acceptance-closure.json` 只表示门禁通过，并固定 `authorizesPublication: false`；它不能创建标签、
+  dispatch workflow 或发布 Release。
 
 ## 发布授权与触发
 
-- 只有在候选 commit、版本、CI、真实宿主证据、只读预检和外部设置全部核对后，才请求确切版本的
-  发布授权。
-- 授权后在已验证 commit 上创建精确 `x.y.z` 标签并推送。标签 push 是创建 Release 的唯一写入触发；
-  手工预检、pull request 与本地命令都不发布。
-- workflow 的只读 job 重新执行完整门禁并生成候选；写权限 job 不 checkout、不安装 npm 依赖，也不
-  执行仓库代码，只消费当前 run 的一次性交接 artifact。
+- closure 之后必须另建绑定确切仓库、版本、commit、tree、candidate digest 与 closure digest 的
+  `authorization.json`。授权记录本身不执行远端操作。
+- 标签创建和推送是独立动作。发布要求精确 `x.y.z` 标签已指向候选 commit；不得移动、删除或重打
+  既有标签来消除冲突。
+- 只有再次给出显式 publish 确认后，workspace 编排器才以该版本标签为 ref 调用
+  `workflow_dispatch`，传递便携 closure、候选摘要和授权绑定。workflow 默认 `verify` 模式只读；
+  只有明确 `publish` 模式可进入下游写权限 job。普通 tag push 不发布。
 
 ## 哈希与托管字节核对
 
-- 一次性交接必须恰含四个发布附件和 `SHA256SUMS`。哈希清单使用 ASCII、LF、固定顺序，并记录每个
-  附件的 SHA-256；Actions artifact 自身的 digest 也必须与下载字节重算结果一致。
-- Release 附件清单必须恰为 `main.js`、`manifest.json`、`styles.css` 和
-  `property-order-x.y.z.zip`，不得缺失、重复或出现额外文件。
-- 创建后必须重新下载 GitHub hosted bytes，与已交接候选逐字节及 SHA-256 比较，并验证每项 provenance
-  精确绑定本仓库、Release workflow、标签 ref、事件 commit 和非 self-hosted runner。
-- 只有稳定、非 draft、非 prerelease、immutable 的 Release 通过上述核对并再次确认远端标签身份后，
-  发布才算成功。
-- 失败的 tag workflow 可以安全重跑：既有同 tag Release 只有在四项公共资产与当前候选逐字节一致、
-  资产清单精确且每项 provenance 均绑定同一 tag 与 commit 时，才作为成功 no-op 接受；否则失败并
-  要求提升版本。校验清单始终只属于交接，不上传到公共 Release。
+- 只读 job 从精确 commit 重跑 `release:check`，生成确定性交接，并按当前 run 的 artifact ID 与 digest
+  固定上传。写权限 job 先重新验证交接、closure、授权、标签和 commit/tree，再执行只读 GitHub 预检：
+  已有 Release 必须预先满足 immutable、精确字节与 provenance 后才以零写入 no-op 继续；任何冲突在首次
+  attestation 前失败。只有明确不存在时才证明资产并创建 Release，创建命令仍重复全部边界以防竞态。
+- 公共附件恰为 `main.js`、`manifest.json`、`styles.css` 与版本 ZIP；`SHA256SUMS` 和
+  `candidate.json` 只留在私有交接。发布附件都需要与精确 workflow/ref/commit 绑定的 provenance。
+- 发布后必须从 GitHub 重新读取稳定、非 draft、非 prerelease、immutable 的 Release，核对精确附件
+  清单、metadata digest、下载字节和远端标签目标。既有同 tag Release 只有全部一致时才是安全 no-op。
 
 ## 回滚与失败处理
 
-- 创建标签前发现问题时停止发布，修复后以新提交重新执行全部门禁和预检。
-- 标签创建后不得移动、删除或重建同名标签，也不得覆盖 immutable Release。保留失败 run、响应和哈希
-  证据；若已有公开附件，先按安全策略判断影响，再用递增的新补丁版本修复。
-- 用户需要恢复旧版时，只能安装先前已验证 Release 的三个插件文件，并保留现有 `data.json`；这属于
-  单独的部署操作，不能由源码或发布流水线结果推定成功。
+- 触发前失败：修复源码或证据后，从新 commit 重新执行 plan、candidate 与 acceptance；旧授权不得复用。
+- dispatch 状态不确定：按稳定 release run ID 查询恢复，禁止盲目重复触发。发布后核验失败时保留证据，
+  不移动标签、不替换 immutable Release，以递增补丁版本恢复。
+- 用户回退只可安装先前已验证 Release 的生产资产，并保留 `data.json`；正式 Vault 部署仍需对精确
+  Vault 另行授权、备份和安装后哈希核对。
 
 ## 证据记录与边界
 
-- 记录版本、commit、标签对象、CI 与预检 run、授权、外部规则设置、四附件 SHA-256、托管字节比较和
-  provenance 结果。
-- 分别标注源码检查、候选构建、GitHub 托管状态、真实宿主验收与 Vault 部署；没有取得的层级明确写为
-  未验证。
-- Release notes 只陈述实际验证过的变化和兼容性。真实设备、性能、可访问性或生产 Vault 结果不得由
-  自动化门禁推断。
+- 保存 plan、candidate、closure、authorization、trigger 与 post-verify 的摘要和 SHA-256，记录 CI、
+  桌面/Android 验收、外部 tag ruleset/immutable Release 设置及四项托管附件哈希。
+- 新增插件时，先在其独立仓库提供固定工具链、薄适配器、核心 lock、生产资产策略和完整门禁，再由
+  workspace 清单登记预期 remote 与验收适配器；不能从私有 workspace 建立运行时依赖。
+- 本任务不会更改版本、创建或移动标签、创建 GitHub Release、发布插件或部署正式 Vault。

@@ -1,13 +1,51 @@
 name: Release
+run-name: release ${{ inputs.release_run_id }}
 
 on:
-  push:
-    tags:
-      - "[0-9]*.[0-9]*.[0-9]*"
   workflow_dispatch:
     inputs:
-      version:
-        description: Exact x.y.z version to preflight before creating a tag
+      release_run_id:
+        description: Stable workspace release-run UUID
+        required: true
+        type: string
+      mode:
+        description: Explicit release operation
+        required: true
+        default: verify
+        type: choice
+        options:
+          - verify
+          - publish
+      candidate_commit:
+        description: Exact accepted candidate commit
+        required: true
+        type: string
+      candidate_digest:
+        description: SHA-256 of the exact core candidate.json
+        required: true
+        type: string
+      candidate_envelope_digest:
+        description: SHA-256 of the workspace candidate envelope
+        required: true
+        type: string
+      acceptance_closure_digest:
+        description: SHA-256 of the decoded acceptance-closure bytes
+        required: true
+        type: string
+      acceptance_closure_b64:
+        description: Base64 of the portable acceptance-closure JSON bytes
+        required: true
+        type: string
+      release_authorization:
+        description: Exact core publication authorization phrase
+        required: true
+        type: string
+      authorization_b64:
+        description: Base64 of the exact publication-authorization JSON bytes
+        required: true
+        type: string
+      authorization_digest:
+        description: SHA-256 of the decoded publication-authorization bytes
         required: true
         type: string
 
@@ -20,347 +58,96 @@ concurrency:
 
 jobs:
   verify:
-    runs-on: ubuntu-latest
-    timeout-minutes: 20
+    name: Verify exact candidate
+    if: github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
     permissions:
-      attestations: read
       contents: read
     outputs:
-      candidate_artifact_digest: ${{ steps.upload_candidate.outputs.artifact-digest }}
-      candidate_artifact_id: ${{ steps.upload_candidate.outputs.artifact-id }}
-      candidate_artifact_name: ${{ steps.candidate.outputs.artifact_name }}
-      previous_tag: ${{ steps.release_notes.outputs.previous_tag }}
-      release_exists: ${{ steps.release_state.outputs.exists }}
-    env:
-      RELEASE_VERSION: ${{ github.event_name == 'workflow_dispatch' && inputs.version || github.ref_name }}
+      candidate_artifact_id: ${{ steps.handoff.outputs.artifact-id }}
+      candidate_artifact_digest: ${{ steps.handoff.outputs.artifact-digest }}
     steps:
-      - name: Check out repository
+      - name: Validate dispatch identifiers
+        shell: bash
+        env:
+          MODE: ${{ github.event.inputs.mode }}
+          RELEASE_RUN_ID: ${{ inputs.release_run_id }}
+          CANDIDATE_COMMIT: ${{ inputs.candidate_commit }}
+          CANDIDATE_DIGEST: ${{ inputs.candidate_digest }}
+          CANDIDATE_ENVELOPE_DIGEST: ${{ inputs.candidate_envelope_digest }}
+          ACCEPTANCE_CLOSURE_DIGEST: ${{ inputs.acceptance_closure_digest }}
+          AUTHORIZATION_DIGEST: ${{ inputs.authorization_digest }}
+        run: |
+          set -euo pipefail
+          [[ "$MODE" == "verify" || "$MODE" == "publish" ]]
+          [[ "$RELEASE_RUN_ID" =~ ^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-5][0-9a-fA-F]{3}-[89aAbB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}$ ]]
+          [[ "$CANDIDATE_COMMIT" =~ ^[0-9a-f]{40}$|^[0-9a-f]{64}$ ]]
+          [[ "$CANDIDATE_DIGEST" =~ ^[0-9a-f]{64}$ ]]
+          [[ "$CANDIDATE_ENVELOPE_DIGEST" =~ ^[0-9a-f]{64}$ ]]
+          [[ "$ACCEPTANCE_CLOSURE_DIGEST" =~ ^[0-9a-f]{64}$ ]]
+          [[ "$AUTHORIZATION_DIGEST" =~ ^[0-9a-f]{64}$ ]]
+          test "$CANDIDATE_COMMIT" = "$GITHUB_SHA"
+          [[ "$GITHUB_REF_TYPE" == "tag" ]]
+          [[ "$GITHUB_REF_NAME" =~ ^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$ ]]
+
+      - name: Check out the exact candidate without persisted credentials
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
+          ref: ${{ inputs.candidate_commit }}
           fetch-depth: 0
+          persist-credentials: false
 
-      - name: Verify read-only release source identity
+      - name: Verify tagged source identity
+        shell: bash
         env:
           DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
-          EVENT_NAME: ${{ github.event_name }}
-          EVENT_REF: ${{ github.ref }}
-        shell: bash
         run: |
-          if [[ ! "$RELEASE_VERSION" =~ ^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$ ]]; then
-            echo "Release version must use x.y.z without a v prefix or leading zeroes." >&2
-            exit 1
-          fi
+          set -euo pipefail
+          test "$(git rev-parse --verify HEAD)" = "$GITHUB_SHA"
+          test "$(git rev-parse --verify "refs/tags/$GITHUB_REF_NAME^{commit}")" = "$GITHUB_SHA"
+          git merge-base --is-ancestor "$GITHUB_SHA" "origin/$DEFAULT_BRANCH"
+          test -z "$(git status --porcelain=v1 --untracked-files=all)"
 
-          expected_commit="$(git rev-parse "${GITHUB_SHA}^{commit}")"
-          checkout_commit="$(git rev-parse "HEAD^{commit}")"
-          remote_default_ref="refs/heads/${DEFAULT_BRANCH}"
-
-          if [[ -z "$DEFAULT_BRANCH" ]] || ! git check-ref-format --branch "$DEFAULT_BRANCH" >/dev/null; then
-            echo "The repository default branch is missing or invalid." >&2
-            exit 1
-          fi
-          if [[ "$checkout_commit" != "$expected_commit" ]]; then
-            echo "The checked-out commit no longer matches the workflow event commit." >&2
-            exit 1
-          fi
-          if ! remote_default_refs="$(
-            git ls-remote --exit-code origin "$remote_default_ref"
-          )"; then
-            echo "Could not resolve the repository default branch from origin." >&2
-            exit 1
-          fi
-          mapfile -t default_commits < <(
-            awk -v ref="$remote_default_ref" '$2 == ref { print $1 }' <<< "$remote_default_refs"
-          )
-          if [[ "${#default_commits[@]}" -ne 1 ]]; then
-            echo "The repository default branch did not resolve to one commit." >&2
-            exit 1
-          fi
-          remote_default_commit="${default_commits[0]}"
-          git fetch --quiet --no-tags origin "$remote_default_ref"
-
-          tag_ref="refs/tags/${RELEASE_VERSION}"
-          if [[ "$EVENT_NAME" == "workflow_dispatch" ]]; then
-            if [[ "$EVENT_REF" != "$remote_default_ref" ]]; then
-              echo "Release preflight must run from the repository default branch." >&2
-              exit 1
-            fi
-            if [[ "$expected_commit" != "$remote_default_commit" ]]; then
-              echo "Release preflight must run at the current remote default-branch HEAD." >&2
-              exit 1
-            fi
-            if ! remote_tag_refs="$(git ls-remote origin "$tag_ref" "${tag_ref}^{}")"; then
-              echo "Could not check whether the candidate release tag already exists." >&2
-              exit 1
-            fi
-            if [[ -n "$remote_tag_refs" ]]; then
-              echo "Release preflight requires a version whose remote tag does not exist." >&2
-              exit 1
-            fi
-            exit 0
-          fi
-
-          if [[ "$EVENT_NAME" != "push" || "$EVENT_REF" != "$tag_ref" ]]; then
-            echo "Release publication requires the exact version-tag push event." >&2
-            exit 1
-          fi
-          if ! remote_refs="$(
-            git ls-remote --exit-code origin "$tag_ref" "${tag_ref}^{}"
-          )"; then
-            echo "Could not resolve the pushed release tag from origin." >&2
-            exit 1
-          fi
-          mapfile -t tag_objects < <(
-            awk -v ref="$tag_ref" '$2 == ref { print $1 }' <<< "$remote_refs"
-          )
-          mapfile -t peeled_commits < <(
-            awk -v ref="${tag_ref}^{}" '$2 == ref { print $1 }' <<< "$remote_refs"
-          )
-          if [[ "${#tag_objects[@]}" -ne 1 || "${#peeled_commits[@]}" -gt 1 ]]; then
-            echo "The remote release tag did not resolve to one unambiguous object." >&2
-            exit 1
-          fi
-          remote_commit="${tag_objects[0]}"
-          if [[ "${#peeled_commits[@]}" -eq 1 ]]; then
-            remote_commit="${peeled_commits[0]}"
-          fi
-          if [[ "$remote_commit" != "$expected_commit" ]]; then
-            echo "The remote release tag no longer points to the pushed event commit." >&2
-            exit 1
-          fi
-          if ! git merge-base --is-ancestor "$expected_commit" "$remote_default_commit"; then
-            echo "The release commit is not reachable from the current remote default branch." >&2
-            exit 1
-          fi
-
-      - name: Set up Node.js
+      - name: Set up exact Node.js
         uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
         with:
           node-version-file: .node-version
           cache: npm
 
-      - name: Verify release version
-        run: node scripts/check-release-version.mjs "$RELEASE_VERSION"
+      - name: Install exact npm
+        shell: bash
+        run: |
+          set -euo pipefail
+          npm install --global npm@11.17.0 --no-audit --no-fund
+          test "$(npm --version)" = "11.17.0"
 
-      - name: Verify runtime contract
-        run: npm run check:runtime
+      - name: Install locked dependencies
+        run: npm ci --no-audit --no-fund
 
-      - name: Install dependencies
-        run: npm ci
-
-      - name: Run release gates
+      - name: Run complete repository release gates
         run: npm run release:check
 
-      - name: Build manual installation archive
-        run: node scripts/release-assets.mjs archive --version "$RELEASE_VERSION"
+      - name: Build deterministic candidate handoff
+        run: >-
+          node scripts/release.mjs candidate
+          --version "$GITHUB_REF_NAME"
+          --output "$RUNNER_TEMP/release-candidate"
 
-      - name: Check tagged Release state and existing provenance
-        id: release_state
+      - name: Verify candidate identity and handoff
+        shell: bash
         env:
-          EVENT_NAME: ${{ github.event_name }}
-          GH_TOKEN: ${{ github.token }}
-        shell: bash
+          CANDIDATE_DIGEST: ${{ inputs.candidate_digest }}
         run: |
-          verify_release_tag_identity() {
-            local expected_commit checkout_commit tag_ref remote_refs remote_commit
-            local -a tag_objects peeled_commits
+          set -euo pipefail
+          test "$(sha256sum "$RUNNER_TEMP/release-candidate/candidate.json" | cut -d ' ' -f 1)" = "$CANDIDATE_DIGEST"
+          node scripts/release.mjs verify-handoff --candidate-dir "$RUNNER_TEMP/release-candidate"
 
-            expected_commit="$(git rev-parse "${GITHUB_SHA}^{commit}")"
-            checkout_commit="$(git rev-parse "HEAD^{commit}")"
-            tag_ref="refs/tags/${RELEASE_VERSION}"
-            if [[ "$checkout_commit" != "$expected_commit" ]]; then
-              echo "The checked-out commit no longer matches the release event commit." >&2
-              return 1
-            fi
-            if ! remote_refs="$(
-              git ls-remote --exit-code origin "$tag_ref" "${tag_ref}^{}"
-            )"; then
-              echo "Could not resolve the pushed release tag from origin." >&2
-              return 1
-            fi
-            mapfile -t tag_objects < <(
-              awk -v ref="$tag_ref" '$2 == ref { print $1 }' <<< "$remote_refs"
-            )
-            mapfile -t peeled_commits < <(
-              awk -v ref="${tag_ref}^{}" '$2 == ref { print $1 }' <<< "$remote_refs"
-            )
-            if [[ "${#tag_objects[@]}" -ne 1 || "${#peeled_commits[@]}" -gt 1 ]]; then
-              echo "The remote release tag did not resolve to one unambiguous object." >&2
-              return 1
-            fi
-            remote_commit="${tag_objects[0]}"
-            if [[ "${#peeled_commits[@]}" -eq 1 ]]; then
-              remote_commit="${peeled_commits[0]}"
-            fi
-            if [[ "$remote_commit" != "$expected_commit" ]]; then
-              echo "The remote release tag no longer points to the pushed event commit." >&2
-              return 1
-            fi
-          }
-
-          release_response="$RUNNER_TEMP/tagged-release.json"
-          release_status="$(
-            curl --silent --show-error \
-              --output "$release_response" \
-              --write-out "%{http_code}" \
-              --header "Accept: application/vnd.github+json" \
-              --header "Authorization: Bearer ${GH_TOKEN}" \
-              --header "X-GitHub-Api-Version: 2026-03-10" \
-              "${GITHUB_API_URL}/repos/${GITHUB_REPOSITORY}/releases/tags/${RELEASE_VERSION}"
-          )"
-
-          case "$release_status" in
-            "200")
-              if [[ "$EVENT_NAME" == "workflow_dispatch" ]]; then
-                echo "Release preflight requires a version whose published Release does not exist." >&2
-                exit 1
-              fi
-              if ! jq --exit-status '.immutable == true and .draft == false and .prerelease == false' "$release_response" >/dev/null; then
-                echo "The tagged Release exists but is not an immutable stable Release; publish a new version." >&2
-                exit 1
-              fi
-
-              archive_name="property-order-${RELEASE_VERSION}.zip"
-              if ! jq --exit-status --arg archive_name "$archive_name" '
-                (.assets | type == "array") and
-                ([.assets[].name] | sort) ==
-                  (["main.js", "manifest.json", "styles.css", $archive_name] | sort) and
-                ([.assets[].name] | unique | length) == 4
-              ' "$release_response" >/dev/null; then
-                echo "The tagged Release asset inventory is not exactly the four expected files; publish a new version." >&2
-                exit 1
-              fi
-
-              existing_assets="$RUNNER_TEMP/existing-release-assets"
-              mkdir "$existing_assets"
-              gh release download "$RELEASE_VERSION" \
-                --repo "$GITHUB_REPOSITORY" \
-                --dir "$existing_assets" \
-                --pattern main.js \
-                --pattern manifest.json \
-                --pattern styles.css \
-                --pattern "$archive_name"
-              node scripts/release-assets.mjs compare \
-                --version "$RELEASE_VERSION" \
-                --local-dir dist \
-                --existing-dir "$existing_assets"
-
-              expected_commit="$(git rev-parse "${GITHUB_SHA}^{commit}")"
-              for asset_name in main.js manifest.json styles.css "$archive_name"; do
-                gh attestation verify "$existing_assets/$asset_name" \
-                  --repo "$GITHUB_REPOSITORY" \
-                  --signer-workflow "${GITHUB_REPOSITORY}/.github/workflows/release.yml" \
-                  --source-digest "$expected_commit" \
-                  --source-ref "$GITHUB_REF" \
-                  --deny-self-hosted-runners
-              done
-              verify_release_tag_identity
-              echo "exists=true" >> "$GITHUB_OUTPUT"
-              ;;
-            "404")
-              echo "exists=false" >> "$GITHUB_OUTPUT"
-              ;;
-            *)
-              echo "Could not query the tagged Release (HTTP ${release_status})." >&2
-              exit 1
-              ;;
-          esac
-
-      - name: Select previous published Release for generated notes
-        if: steps.release_state.outputs.exists == 'false'
-        id: release_notes
-        env:
-          GH_TOKEN: ${{ github.token }}
-        shell: bash
-        run: |
-          releases_response="$RUNNER_TEMP/published-releases.json"
-          gh api --paginate --slurp \
-            --header "X-GitHub-Api-Version: 2026-03-10" \
-            "/repos/${GITHUB_REPOSITORY}/releases?per_page=100" \
-            > "$releases_response"
-          previous_tag="$(
-            node scripts/release-notes-baseline.mjs \
-              --current-version "$RELEASE_VERSION" \
-              < "$releases_response"
-          )"
-
-          if [[ -n "$previous_tag" ]]; then
-            previous_ref="refs/tags/${previous_tag}"
-            if ! previous_refs="$(
-              git ls-remote --exit-code origin "$previous_ref" "${previous_ref}^{}"
-            )"; then
-              echo "Could not resolve the previous published Release tag from origin." >&2
-              exit 1
-            fi
-            mapfile -t previous_objects < <(
-              awk -v ref="$previous_ref" '$2 == ref { print $1 }' <<< "$previous_refs"
-            )
-            mapfile -t previous_peeled < <(
-              awk -v ref="${previous_ref}^{}" '$2 == ref { print $1 }' <<< "$previous_refs"
-            )
-            if [[ "${#previous_objects[@]}" -ne 1 || "${#previous_peeled[@]}" -gt 1 ]]; then
-              echo "The previous published Release tag is ambiguous." >&2
-              exit 1
-            fi
-            previous_commit="${previous_objects[0]}"
-            if [[ "${#previous_peeled[@]}" -eq 1 ]]; then
-              previous_commit="${previous_peeled[0]}"
-            fi
-            git fetch --quiet --no-tags origin "$previous_ref"
-            candidate_commit="$(git rev-parse "${GITHUB_SHA}^{commit}")"
-            if ! git merge-base --is-ancestor "$previous_commit" "$candidate_commit"; then
-              echo "The previous published Release is not an ancestor of this release." >&2
-              exit 1
-            fi
-          fi
-
-          echo "previous_tag=${previous_tag}" >> "$GITHUB_OUTPUT"
-
-      - name: Report successful preflight
-        if: github.event_name == 'workflow_dispatch'
-        run: echo "Preflight passed for ${RELEASE_VERSION} at ${GITHUB_SHA}."
-
-      - name: Prepare exact verified release candidate
-        if: github.event_name == 'push' && steps.release_state.outputs.exists == 'false'
-        id: candidate
-        shell: bash
-        run: |
-          archive_name="property-order-${RELEASE_VERSION}.zip"
-          artifact_name="property-order-release-candidate-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
-          candidate_directory="$RUNNER_TEMP/release-candidate"
-          expected_assets=(main.js manifest.json styles.css "$archive_name")
-
-          mapfile -t actual_assets < <(
-            find dist -mindepth 1 -maxdepth 1 -printf '%f\n' | LC_ALL=C sort
-          )
-          mapfile -t expected_sorted < <(printf '%s\n' "${expected_assets[@]}" | LC_ALL=C sort)
-          if [[ "${#actual_assets[@]}" -ne 4 ]] ||
-            [[ "$(printf '%s\n' "${actual_assets[@]}")" != "$(printf '%s\n' "${expected_sorted[@]}")" ]]; then
-            echo "The verified candidate must contain exactly the four release assets." >&2
-            exit 1
-          fi
-
-          mkdir "$candidate_directory"
-          for asset_name in "${expected_assets[@]}"; do
-            if [[ ! -f "dist/$asset_name" || -L "dist/$asset_name" || ! -s "dist/$asset_name" ]]; then
-              echo "Verified candidate asset is not a non-empty regular file: ${asset_name}" >&2
-              exit 1
-            fi
-            install -m 0644 "dist/$asset_name" "$candidate_directory/$asset_name"
-          done
-          (
-            cd "$candidate_directory"
-            sha256sum "${expected_assets[@]}" > SHA256SUMS
-          )
-
-          echo "artifact_name=${artifact_name}" >> "$GITHUB_OUTPUT"
-
-      - name: Upload exact verified release candidate
-        if: github.event_name == 'push' && steps.release_state.outputs.exists == 'false'
-        id: upload_candidate
+      - name: Upload fixed candidate handoff
+        id: handoff
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
         with:
-          name: ${{ steps.candidate.outputs.artifact_name }}
+          name: release-candidate-${{ inputs.release_run_id }}
           path: ${{ runner.temp }}/release-candidate/
           if-no-files-found: error
           compression-level: 0
@@ -368,560 +155,361 @@ jobs:
           retention-days: 1
 
   publish:
-    if: github.event_name == 'push' && needs.verify.outputs.release_exists == 'false'
+    name: Publish explicitly authorized candidate
+    if: github.event_name == 'workflow_dispatch' && github.event.inputs.mode == 'publish'
     needs: verify
-    runs-on: ubuntu-latest
-    timeout-minutes: 20
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    environment: release
     permissions:
       actions: read
       attestations: write
       contents: write
       id-token: write
-    env:
-      CANDIDATE_ARTIFACT_DIGEST: ${{ needs.verify.outputs.candidate_artifact_digest }}
-      CANDIDATE_ARTIFACT_ID: ${{ needs.verify.outputs.candidate_artifact_id }}
-      CANDIDATE_ARTIFACT_NAME: ${{ needs.verify.outputs.candidate_artifact_name }}
-      RELEASE_VERSION: ${{ github.ref_name }}
     steps:
-      - name: Reverify trusted tag source before write operations
-        env:
-          DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
-          EVENT_REF: ${{ github.ref }}
-        shell: bash
-        run: |
-          if [[ ! "$RELEASE_VERSION" =~ ^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$ ]]; then
-            echo "Release version must use x.y.z without a v prefix or leading zeroes." >&2
-            exit 1
-          fi
-
-          if [[ ! "$GITHUB_SHA" =~ ^[0-9a-f]{40}$ ]]; then
-            echo "The release event commit is invalid." >&2
-            exit 1
-          fi
-          expected_commit="$GITHUB_SHA"
-          tag_ref="refs/tags/${RELEASE_VERSION}"
-          remote_default_ref="refs/heads/${DEFAULT_BRANCH}"
-          remote_url="${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}.git"
-          if [[ -z "$DEFAULT_BRANCH" ]] || ! git check-ref-format --branch "$DEFAULT_BRANCH" >/dev/null; then
-            echo "The repository default branch is missing or invalid." >&2
-            exit 1
-          fi
-          if [[ "$EVENT_REF" != "$tag_ref" ]]; then
-            echo "Publication requires the exact version-tag event." >&2
-            exit 1
-          fi
-          if ! remote_default_refs="$(
-            git ls-remote --exit-code "$remote_url" "$remote_default_ref"
-          )"; then
-            echo "Could not resolve the repository default branch from origin." >&2
-            exit 1
-          fi
-          mapfile -t default_commits < <(
-            awk -v ref="$remote_default_ref" '$2 == ref { print $1 }' <<< "$remote_default_refs"
-          )
-          if [[ "${#default_commits[@]}" -ne 1 ]]; then
-            echo "The repository default branch did not resolve to one commit." >&2
-            exit 1
-          fi
-          remote_default_commit="${default_commits[0]}"
-
-          if ! remote_refs="$(
-            git ls-remote --exit-code "$remote_url" "$tag_ref" "${tag_ref}^{}"
-          )"; then
-            echo "Could not resolve the pushed release tag from origin." >&2
-            exit 1
-          fi
-          mapfile -t tag_objects < <(
-            awk -v ref="$tag_ref" '$2 == ref { print $1 }' <<< "$remote_refs"
-          )
-          mapfile -t peeled_commits < <(
-            awk -v ref="${tag_ref}^{}" '$2 == ref { print $1 }' <<< "$remote_refs"
-          )
-          if [[ "${#tag_objects[@]}" -ne 1 || "${#peeled_commits[@]}" -gt 1 ]]; then
-            echo "The remote release tag did not resolve to one unambiguous object." >&2
-            exit 1
-          fi
-          remote_commit="${tag_objects[0]}"
-          if [[ "${#peeled_commits[@]}" -eq 1 ]]; then
-            remote_commit="${peeled_commits[0]}"
-          fi
-          if [[ "$remote_commit" != "$expected_commit" ]]; then
-            echo "The remote release tag no longer points to the pushed event commit." >&2
-            exit 1
-          fi
-
-          identity_repository="$RUNNER_TEMP/release-source-identity.git"
-          git init --quiet --bare "$identity_repository"
-          git -C "$identity_repository" fetch --quiet --no-tags \
-            "$remote_url" "$remote_default_ref" "$tag_ref"
-          if ! git -C "$identity_repository" merge-base --is-ancestor \
-            "$expected_commit" "$remote_default_commit"; then
-            echo "The release commit is not reachable from the current remote default branch." >&2
-            exit 1
-          fi
-
-      - name: Download and verify exact release candidate handoff
-        env:
-          GH_TOKEN: ${{ github.token }}
-        shell: bash
-        run: |
-          expected_artifact_name="property-order-release-candidate-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
-          if [[ ! "$CANDIDATE_ARTIFACT_ID" =~ ^[1-9][0-9]*$ ]] ||
-            [[ "$CANDIDATE_ARTIFACT_NAME" != "$expected_artifact_name" ]] ||
-            [[ ! "$CANDIDATE_ARTIFACT_DIGEST" =~ ^[0-9a-f]{64}$ ]]; then
-            echo "The verified candidate handoff metadata is missing or invalid." >&2
-            exit 1
-          fi
-
-          artifact_response="$RUNNER_TEMP/release-candidate-artifact.json"
-          artifact_status="$(
-            curl --silent --show-error \
-              --output "$artifact_response" \
-              --write-out "%{http_code}" \
-              --header "Accept: application/vnd.github+json" \
-              --header "Authorization: Bearer ${GH_TOKEN}" \
-              --header "X-GitHub-Api-Version: 2026-03-10" \
-              "${GITHUB_API_URL}/repos/${GITHUB_REPOSITORY}/actions/artifacts/${CANDIDATE_ARTIFACT_ID}"
-          )"
-          if [[ "$artifact_status" != "200" ]] || ! jq --exit-status \
-            --arg artifact_id "$CANDIDATE_ARTIFACT_ID" \
-            --arg artifact_digest "$CANDIDATE_ARTIFACT_DIGEST" \
-            --arg artifact_name "$CANDIDATE_ARTIFACT_NAME" \
-            --arg head_sha "$GITHUB_SHA" \
-            --arg run_id "$GITHUB_RUN_ID" '
-              (.id | tostring) == $artifact_id and
-              (.digest == $artifact_digest or .digest == ("sha256:" + $artifact_digest)) and
-              .name == $artifact_name and
-              .expired == false and
-              (.workflow_run.id | tostring) == $run_id and
-              .workflow_run.head_sha == $head_sha
-            ' "$artifact_response" >/dev/null; then
-            echo "The candidate artifact does not belong to this workflow run (HTTP ${artifact_status})." >&2
-            exit 1
-          fi
-
-          artifact_archive="$RUNNER_TEMP/release-candidate.zip"
-          download_status="$(
-            curl --silent --show-error --location \
-              --output "$artifact_archive" \
-              --write-out "%{http_code}" \
-              --header "Accept: application/vnd.github+json" \
-              --header "Authorization: Bearer ${GH_TOKEN}" \
-              --header "X-GitHub-Api-Version: 2026-03-10" \
-              "${GITHUB_API_URL}/repos/${GITHUB_REPOSITORY}/actions/artifacts/${CANDIDATE_ARTIFACT_ID}/zip"
-          )"
-          if [[ "$download_status" != "200" ]]; then
-            echo "Could not download the verified candidate artifact (HTTP ${download_status})." >&2
-            exit 1
-          fi
-          actual_artifact_digest="$(sha256sum "$artifact_archive" | awk '{ print $1 }')"
-          if [[ "$actual_artifact_digest" != "$CANDIDATE_ARTIFACT_DIGEST" ]]; then
-            echo "The downloaded candidate artifact digest does not match the verify job output." >&2
-            exit 1
-          fi
-
-          archive_name="property-order-${RELEASE_VERSION}.zip"
-          candidate_directory="$RUNNER_TEMP/release-candidate"
-          python3 - "$artifact_archive" "$candidate_directory" "$RELEASE_VERSION" <<'PY'
-          # RELEASE_ZIP_VALIDATOR_BEGIN
-          import hashlib
-          import re
-          import shutil
-          import stat
-          import sys
-          import zipfile
-          from pathlib import Path
-
-
-          if sys.version_info < (3, 9):
-              raise SystemExit("Release ZIP validation requires Python 3.9 or newer")
-
-
-          class ValidationError(Exception):
-              pass
-
-
-          MAX_ZIP_ENTRY_BYTES = 8 * 1024 * 1024
-          MAX_ZIP_TOTAL_BYTES = 24 * 1024 * 1024
-
-
-          def validate_path(info):
-              original = info.orig_filename
-              name = info.filename
-              if "\0" in original:
-                  raise ValidationError("archive path contains a NUL byte")
-              if "\\" in original:
-                  raise ValidationError(f"archive path contains a backslash: {original!r}")
-              if any(ord(character) < 32 or ord(character) == 127 for character in original):
-                  raise ValidationError(f"archive path contains a control character: {original!r}")
-              if original != name:
-                  raise ValidationError(f"archive path was normalized ambiguously: {original!r}")
-              if name.startswith("/") or re.match(r"^[A-Za-z]:", name):
-                  raise ValidationError(f"archive path is absolute: {name!r}")
-              parts = name.split("/")
-              if not parts or any(part in {"", ".", ".."} for part in parts):
-                  raise ValidationError(f"archive path is not canonical: {name!r}")
-              if "/".join(parts) != name:
-                  raise ValidationError(f"archive path is not canonical: {name!r}")
-              return name
-
-
-          def validate_regular_file(info, *, fixed_mode=None):
-              if info.flag_bits & 0x1:
-                  raise ValidationError(f"encrypted archive entry is forbidden: {info.filename!r}")
-              if info.is_dir() or info.external_attr & 0x10:
-                  raise ValidationError(f"directory archive entry is forbidden: {info.filename!r}")
-              unix_mode = (info.external_attr >> 16) & 0xFFFF
-              if info.create_system == 3:
-                  if stat.S_IFMT(unix_mode) != stat.S_IFREG:
-                      raise ValidationError(
-                          f"non-regular archive entry is forbidden: {info.filename!r}"
-                      )
-                  if fixed_mode is not None and unix_mode != fixed_mode:
-                      raise ValidationError(
-                          f"archive entry mode is not fixed at {oct(fixed_mode)}: {info.filename!r}"
-                      )
-              elif fixed_mode is not None:
-                  raise ValidationError(
-                      f"archive entry lacks the required Unix file mode: {info.filename!r}"
-                  )
-              # GitHub's artifact ZIP may use DOS metadata. With the exact ASCII
-              # inventory already pinned, a DOS non-directory is copied only to
-              # its known regular-file target rather than trusting its path.
-
-
-          def validate_inventory(archive, expected_names, *, fixed_mode=None, exact_order=False):
-              infos = archive.infolist()
-              names = []
-              by_name = {}
-              total_size = 0
-              for info in infos:
-                  name = validate_path(info)
-                  validate_regular_file(info, fixed_mode=fixed_mode)
-                  if info.file_size < 0 or info.file_size > MAX_ZIP_ENTRY_BYTES:
-                      raise ValidationError(
-                          f"archive entry exceeds the {MAX_ZIP_ENTRY_BYTES}-byte limit: {name!r}"
-                      )
-                  total_size += info.file_size
-                  if total_size > MAX_ZIP_TOTAL_BYTES:
-                      raise ValidationError(
-                          f"archive exceeds the {MAX_ZIP_TOTAL_BYTES}-byte total limit"
-                      )
-                  if name in by_name:
-                      raise ValidationError(f"duplicate archive entry is forbidden: {name!r}")
-                  names.append(name)
-                  by_name[name] = info
-              if len(names) != len(expected_names) or set(names) != set(expected_names):
-                  raise ValidationError(
-                      f"archive inventory mismatch: expected {expected_names!r}, found {names!r}"
-                  )
-              if exact_order and names != expected_names:
-                  raise ValidationError(
-                      f"archive entry order mismatch: expected {expected_names!r}, found {names!r}"
-                  )
-              return by_name
-
-
-          def validate_checksums(candidate, archive_name):
-              expected_names = ["main.js", "manifest.json", "styles.css", archive_name]
-              manifest_path = candidate / "SHA256SUMS"
-              try:
-                  manifest_bytes = manifest_path.read_bytes()
-                  manifest = manifest_bytes.decode("ascii")
-              except (OSError, UnicodeDecodeError) as error:
-                  raise ValidationError("SHA256SUMS must be readable ASCII") from error
-              if not manifest.endswith("\n") or "\r" in manifest:
-                  raise ValidationError("SHA256SUMS must use canonical LF-terminated lines")
-              lines = manifest.splitlines()
-              if len(lines) != len(expected_names):
-                  raise ValidationError("SHA256SUMS does not contain the exact four checksums")
-              records = []
-              for line in lines:
-                  match = re.fullmatch(r"([0-9a-f]{64})  ([A-Za-z0-9.-]+)", line)
-                  if match is None:
-                      raise ValidationError(f"SHA256SUMS entry is non-canonical: {line!r}")
-                  records.append((match.group(1), match.group(2)))
-              names = [name for _, name in records]
-              if len(set(names)) != len(names):
-                  raise ValidationError("SHA256SUMS contains a duplicate file entry")
-              if set(names) != set(expected_names):
-                  raise ValidationError("SHA256SUMS file inventory is incomplete or contains extras")
-              if names != expected_names:
-                  raise ValidationError("SHA256SUMS entries are not in canonical order")
-              for (expected_digest, expected_name) in records:
-                  actual_digest = hashlib.sha256((candidate / expected_name).read_bytes()).hexdigest()
-                  if actual_digest != expected_digest:
-                      raise ValidationError(f"SHA256SUMS mismatch for {expected_name}")
-
-
-          def validate_install_archive(candidate, archive_name):
-              expected_names = [
-                  "property-order/main.js",
-                  "property-order/manifest.json",
-                  "property-order/styles.css",
-              ]
-              try:
-                  with zipfile.ZipFile(candidate / archive_name, "r") as archive:
-                      entries = validate_inventory(
-                          archive,
-                          expected_names,
-                          fixed_mode=stat.S_IFREG | 0o644,
-                          exact_order=True,
-                      )
-                      for name in expected_names:
-                          loose_name = name.removeprefix("property-order/")
-                          if archive.read(entries[name]) != (candidate / loose_name).read_bytes():
-                              raise ValidationError(
-                                  f"manual installation archive differs from loose asset {loose_name}"
-                              )
-              except zipfile.BadZipFile as error:
-                  raise ValidationError("manual installation archive is not a valid ZIP") from error
-
-
-          def main():
-              if len(sys.argv) != 4:
-                  raise ValidationError("expected artifact ZIP, candidate directory, and release version")
-              artifact_path = Path(sys.argv[1])
-              candidate = Path(sys.argv[2])
-              version = sys.argv[3]
-              if re.fullmatch(r"(?:0|[1-9][0-9]*)\.(?:0|[1-9][0-9]*)\.(?:0|[1-9][0-9]*)", version) is None:
-                  raise ValidationError("release version is not canonical")
-              archive_name = f"property-order-{version}.zip"
-              expected_outer_names = [
-                  "SHA256SUMS",
-                  archive_name,
-                  "main.js",
-                  "manifest.json",
-                  "styles.css",
-              ]
-              try:
-                  with zipfile.ZipFile(artifact_path, "r") as archive:
-                      entries = validate_inventory(archive, expected_outer_names)
-                      candidate.mkdir(mode=0o700)
-                      for name in expected_outer_names:
-                          target = candidate / name
-                          with archive.open(entries[name], "r") as source, target.open("xb") as output:
-                              shutil.copyfileobj(source, output)
-              except zipfile.BadZipFile as error:
-                  raise ValidationError("Actions artifact is not a valid ZIP") from error
-              validate_checksums(candidate, archive_name)
-              validate_install_archive(candidate, archive_name)
-
-
-          try:
-              main()
-          except (OSError, ValidationError, zipfile.BadZipFile) as error:
-              raise SystemExit(f"Release ZIP validation failed: {error}") from error
-          # RELEASE_ZIP_VALIDATOR_END
-          PY
-
-          if ! jq --exit-status --arg version "$RELEASE_VERSION" \
-            '.id == "property-order" and .version == $version' \
-            "$candidate_directory/manifest.json" >/dev/null; then
-            echo "The candidate manifest identity or version is invalid." >&2
-            exit 1
-          fi
-          for asset_name in main.js manifest.json styles.css "$archive_name"; do
-            if [[ ! -s "$candidate_directory/$asset_name" ]]; then
-              echo "Candidate release asset is empty: ${asset_name}" >&2
-              exit 1
-            fi
-          done
-
-
-      - name: Require the tagged Release to remain absent
-        env:
-          GH_TOKEN: ${{ github.token }}
-        shell: bash
-        run: |
-          release_response="$RUNNER_TEMP/pre-publish-release.json"
-          release_status="$(
-            curl --silent --show-error \
-              --output "$release_response" \
-              --write-out "%{http_code}" \
-              --header "Accept: application/vnd.github+json" \
-              --header "Authorization: Bearer ${GH_TOKEN}" \
-              --header "X-GitHub-Api-Version: 2026-03-10" \
-              "${GITHUB_API_URL}/repos/${GITHUB_REPOSITORY}/releases/tags/${RELEASE_VERSION}"
-          )"
-          if [[ "$release_status" != "404" ]]; then
-            echo "The tagged Release changed after read-only verification (HTTP ${release_status}); rerun the workflow." >&2
-            exit 1
-          fi
-
-      - name: Attest Obsidian release assets
-        uses: actions/attest@36051bcae73b7c2a8a6945a48cbf80953c6baa35 # v4
+      - name: Check out the exact candidate without persisted credentials
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
-          subject-path: |
-            ${{ runner.temp }}/release-candidate/main.js
-            ${{ runner.temp }}/release-candidate/manifest.json
-            ${{ runner.temp }}/release-candidate/styles.css
-            ${{ runner.temp }}/release-candidate/property-order-${{ env.RELEASE_VERSION }}.zip
+          ref: ${{ inputs.candidate_commit }}
+          fetch-depth: 0
+          persist-credentials: false
 
-      - name: Publish immutable GitHub release
+      - name: Set up exact Node.js
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
+        with:
+          node-version-file: .node-version
+
+      - name: Download fixed candidate handoff by artifact ID
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          artifact-ids: ${{ needs.verify.outputs.candidate_artifact_id }}
+          path: ${{ runner.temp }}/release-candidate
+          digest-mismatch: error
+
+      - name: Verify transported acceptance and authorization evidence
+        shell: bash
+        env:
+          RELEASE_RUN_ID: ${{ inputs.release_run_id }}
+          CANDIDATE_COMMIT: ${{ inputs.candidate_commit }}
+          CANDIDATE_DIGEST: ${{ inputs.candidate_digest }}
+          CANDIDATE_ENVELOPE_DIGEST: ${{ inputs.candidate_envelope_digest }}
+          ACCEPTANCE_CLOSURE_B64: ${{ inputs.acceptance_closure_b64 }}
+          ACCEPTANCE_CLOSURE_DIGEST: ${{ inputs.acceptance_closure_digest }}
+          AUTHORIZATION_B64: ${{ inputs.authorization_b64 }}
+          RELEASE_AUTHORIZATION: ${{ inputs.release_authorization }}
+          AUTHORIZATION_DIGEST: ${{ inputs.authorization_digest }}
+          CANDIDATE_DIRECTORY: ${{ runner.temp }}/release-candidate
+          EVIDENCE_DIRECTORY: ${{ runner.temp }}/release-evidence
+        run: |
+          set -euo pipefail
+          node --input-type=module <<'NODE'
+          import assert from "node:assert/strict";
+          import { createHash } from "node:crypto";
+          import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
+          import path from "node:path";
+
+          const SHA256 = /^[0-9a-f]{64}$/u;
+          const GIT_ID = /^(?:[0-9a-f]{40}|[0-9a-f]{64})$/u;
+          const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/iu;
+          const exactKeys = (value, keys, label) => {
+            assert.ok(value !== null && typeof value === "object" && !Array.isArray(value), label);
+            assert.deepEqual(Object.keys(value).sort(), [...keys].sort(), `${label} fields`);
+          };
+          const digest = (bytes) => createHash("sha256").update(bytes).digest("hex");
+          const decode = (encoded, maximumCharacters, maximumBytes, label) => {
+            assert.ok(typeof encoded === "string" && encoded.length > 0, `${label} missing`);
+            assert.ok(encoded.length <= maximumCharacters, `${label} exceeds input limit`);
+            assert.match(encoded, /^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$/u);
+            const bytes = Buffer.from(encoded, "base64");
+            assert.ok(bytes.length > 0 && bytes.length <= maximumBytes, `${label} decoded size`);
+            assert.equal(bytes.toString("base64"), encoded, `${label} must be canonical base64`);
+            return bytes;
+          };
+          const assertPortable = (value) => {
+            if (typeof value === "string") {
+              assert.ok(!/^(?:[A-Za-z]:[\\/]|\\\\|\/)/u.test(value), "portable evidence contains an absolute path");
+              return;
+            }
+            if (Array.isArray(value)) {
+              for (const item of value) assertPortable(item);
+              return;
+            }
+            if (value !== null && typeof value === "object") {
+              for (const item of Object.values(value)) assertPortable(item);
+            }
+          };
+
+          const runId = process.env.RELEASE_RUN_ID ?? "";
+          const candidateCommit = process.env.CANDIDATE_COMMIT ?? "";
+          const candidateDigest = process.env.CANDIDATE_DIGEST ?? "";
+          const candidateEnvelopeDigest = process.env.CANDIDATE_ENVELOPE_DIGEST ?? "";
+          const closureDigest = process.env.ACCEPTANCE_CLOSURE_DIGEST ?? "";
+          const authorizationDigest = process.env.AUTHORIZATION_DIGEST ?? "";
+          assert.match(runId, UUID);
+          assert.match(candidateCommit, GIT_ID);
+          assert.match(candidateDigest, SHA256);
+          assert.match(candidateEnvelopeDigest, SHA256);
+          assert.match(closureDigest, SHA256);
+          assert.match(authorizationDigest, SHA256);
+
+          const closureBytes = decode(
+            process.env.ACCEPTANCE_CLOSURE_B64,
+            60_000,
+            45_000,
+            "acceptance closure",
+          );
+          const authorizationBytes = decode(
+            process.env.AUTHORIZATION_B64,
+            16_000,
+            12_000,
+            "publication authorization",
+          );
+          assert.equal(digest(closureBytes), closureDigest, "acceptance closure digest");
+          assert.equal(digest(authorizationBytes), authorizationDigest, "authorization digest");
+
+          const candidateBytes = readFileSync(
+            path.join(process.env.CANDIDATE_DIRECTORY, "candidate.json"),
+          );
+          assert.equal(digest(candidateBytes), candidateDigest, "candidate digest");
+          const manifest = JSON.parse(readFileSync("manifest.json", "utf8"));
+
+          const closure = JSON.parse(closureBytes.toString("utf8"));
+          exactKeys(closure, [
+            "authorizesPublication",
+            "candidate",
+            "candidateEnvelopeSha256",
+            "closedAt",
+            "evidence",
+            "gatePassed",
+            "kind",
+            "policy",
+            "receipt",
+            "releaseCandidate",
+            "runId",
+            "schemaVersion",
+            "status",
+            "surfaces",
+          ], "acceptance closure");
+          assert.equal(closure.schemaVersion, 1);
+          assert.equal(closure.kind, "obsidian-plugin-workspace/release-acceptance-closure-v1");
+          assert.equal(closure.runId, runId);
+          assert.equal(closure.status, "passed");
+          assert.equal(closure.gatePassed, true);
+          assert.equal(closure.authorizesPublication, false);
+          assert.equal(closure.candidateEnvelopeSha256, candidateEnvelopeDigest);
+          exactKeys(closure.receipt, ["sha256", "size"], "acceptance closure receipt");
+          assert.match(closure.receipt.sha256, SHA256);
+          assert.notEqual(closure.receipt.sha256, candidateDigest);
+          assert.ok(Number.isSafeInteger(closure.receipt.size) && closure.receipt.size > 0);
+          exactKeys(
+            closure.releaseCandidate,
+            ["candidateJsonSha256", "candidateJsonSize"],
+            "acceptance closure release candidate",
+          );
+          assert.equal(closure.releaseCandidate.candidateJsonSha256, candidateDigest);
+          assert.equal(closure.releaseCandidate.candidateJsonSize, candidateBytes.length);
+          assert.ok(Array.isArray(closure.evidence) && closure.evidence.length > 0);
+          exactKeys(closure.candidate, [
+            "assets",
+            "commit",
+            "identitySha256",
+            "pluginId",
+            "projectId",
+            "tree",
+            "version",
+          ], "acceptance closure candidate");
+          assert.equal(closure.candidate.pluginId, manifest.id);
+          assert.equal(closure.candidate.version, manifest.version);
+          assert.equal(closure.candidate.version, process.env.GITHUB_REF_NAME);
+          assert.equal(closure.candidate.commit, candidateCommit);
+          assert.match(closure.candidate.tree, GIT_ID);
+          assert.match(closure.candidate.identitySha256, SHA256);
+          assertPortable(closure);
+
+          const authorization = JSON.parse(authorizationBytes.toString("utf8"));
+          exactKeys(authorization, [
+            "authorizedAt",
+            "authorizesPublication",
+            "bindings",
+            "confirmation",
+            "kind",
+            "runId",
+            "schemaVersion",
+            "singleCandidate",
+          ], "publication authorization");
+          exactKeys(authorization.bindings, [
+            "candidateEnvelopeSha256",
+            "candidateSha256",
+            "closureSha256",
+            "planSha256",
+          ], "publication authorization bindings");
+          assert.equal(authorization.schemaVersion, 1);
+          assert.equal(authorization.kind, "obsidian-plugin-workspace/release-authorization-v1");
+          assert.equal(authorization.runId, runId);
+          assert.equal(authorization.singleCandidate, true);
+          assert.equal(authorization.authorizesPublication, true);
+          assert.match(authorization.bindings.planSha256, SHA256);
+          assert.equal(authorization.bindings.candidateEnvelopeSha256, candidateEnvelopeDigest);
+          assert.equal(authorization.bindings.candidateSha256, candidateDigest);
+          assert.equal(authorization.bindings.closureSha256, closureDigest);
+
+          const expectedPhrase = `publish ${process.env.GITHUB_REPOSITORY}@${process.env.GITHUB_REF_NAME} commit=${candidateCommit} candidate=${candidateDigest} acceptance=${closureDigest}`;
+          assert.equal(process.env.RELEASE_AUTHORIZATION, expectedPhrase);
+          assert.equal(authorization.confirmation, expectedPhrase);
+          assertPortable(authorization);
+
+          mkdirSync(process.env.EVIDENCE_DIRECTORY, { recursive: false });
+          writeFileSync(path.join(process.env.EVIDENCE_DIRECTORY, "acceptance-closure.json"), closureBytes, { flag: "wx", mode: 0o600 });
+          writeFileSync(path.join(process.env.EVIDENCE_DIRECTORY, "authorization.json"), authorizationBytes, { flag: "wx", mode: 0o600 });
+          NODE
+
+      - name: Verify fixed handoff before publication
+        shell: bash
+        env:
+          ARTIFACT_DIGEST: ${{ needs.verify.outputs.candidate_artifact_digest }}
+        run: |
+          set -euo pipefail
+          [[ "$ARTIFACT_DIGEST" =~ ^[0-9a-f]{64}$ ]]
+          node scripts/release.mjs verify-handoff --candidate-dir "$RUNNER_TEMP/release-candidate"
+
+      - name: Verify publication boundary before attestation
+        env:
+          RELEASE_PUBLISH_AUTHORIZATION: ${{ inputs.release_authorization }}
+        run: >-
+          node scripts/release.mjs publication-boundary
+          --candidate-dir "$RUNNER_TEMP/release-candidate"
+          --candidate-digest "${{ inputs.candidate_digest }}"
+          --acceptance-closure "$RUNNER_TEMP/release-evidence/acceptance-closure.json"
+          --acceptance-closure-digest "${{ inputs.acceptance_closure_digest }}"
+
+      - name: Preflight immutable GitHub Release
+        id: publication_preflight
+        shell: bash
         env:
           GH_TOKEN: ${{ github.token }}
-          PREVIOUS_RELEASE_TAG: ${{ needs.verify.outputs.previous_tag }}
-        shell: bash
+          RELEASE_PUBLISH_AUTHORIZATION: ${{ inputs.release_authorization }}
         run: |
-          verify_release_tag_identity() {
-            local expected_commit remote_url tag_ref remote_refs remote_commit
-            local -a tag_objects peeled_commits
+          set -euo pipefail
+          result_path="$RUNNER_TEMP/publication-preflight.json"
+          test ! -e "$result_path"
+          node scripts/release.mjs publication-preflight \
+            --candidate-dir "$RUNNER_TEMP/release-candidate" \
+            --candidate-digest "${{ inputs.candidate_digest }}" \
+            --acceptance-closure "$RUNNER_TEMP/release-evidence/acceptance-closure.json" \
+            --acceptance-closure-digest "${{ inputs.acceptance_closure_digest }}" \
+            > "$result_path"
+          status="$(
+            node --input-type=module - "$result_path" <<'NODE'
+          import assert from "node:assert/strict";
+          import { readFileSync } from "node:fs";
 
-            expected_commit="$GITHUB_SHA"
-            remote_url="${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}.git"
-            tag_ref="refs/tags/${RELEASE_VERSION}"
-            if ! remote_refs="$(
-              git ls-remote --exit-code "$remote_url" "$tag_ref" "${tag_ref}^{}"
-            )"; then
-              echo "Could not resolve the pushed release tag from origin." >&2
-              return 1
-            fi
-            mapfile -t tag_objects < <(
-              awk -v ref="$tag_ref" '$2 == ref { print $1 }' <<< "$remote_refs"
-            )
-            mapfile -t peeled_commits < <(
-              awk -v ref="${tag_ref}^{}" '$2 == ref { print $1 }' <<< "$remote_refs"
-            )
-            if [[ "${#tag_objects[@]}" -ne 1 || "${#peeled_commits[@]}" -gt 1 ]]; then
-              echo "The remote release tag did not resolve to one unambiguous object." >&2
-              return 1
-            fi
-            remote_commit="${tag_objects[0]}"
-            if [[ "${#peeled_commits[@]}" -eq 1 ]]; then
-              remote_commit="${peeled_commits[0]}"
-            fi
-            if [[ "$remote_commit" != "$expected_commit" ]]; then
-              echo "The remote release tag no longer points to the pushed event commit." >&2
-              return 1
-            fi
+          const result = JSON.parse(readFileSync(process.argv[2], "utf8"));
+          assert.ok(result !== null && typeof result === "object" && !Array.isArray(result));
+          assert.ok(result.status === "missing" || result.status === "exact");
+          process.stdout.write(result.status);
+          NODE
+          )"
+          printf 'status=%s\n' "$status" >> "$GITHUB_OUTPUT"
+
+      - name: Stage exact public asset inventory for attestation
+        if: steps.publication_preflight.outputs.status == 'missing'
+        env:
+          CANDIDATE_DIRECTORY: ${{ runner.temp }}/release-candidate
+          PUBLIC_ASSET_DIRECTORY: ${{ runner.temp }}/release-public-assets
+        run: |
+          node --input-type=module <<'NODE'
+          import assert from "node:assert/strict";
+          import { constants, copyFileSync, lstatSync, mkdirSync, readFileSync } from "node:fs";
+          import path from "node:path";
+
+          const candidate = JSON.parse(readFileSync(
+            path.join(process.env.CANDIDATE_DIRECTORY, "candidate.json"),
+            "utf8",
+          ));
+          assert.ok(Array.isArray(candidate.productionAssets));
+          const names = [
+            ...candidate.productionAssets.map((record) => record.name),
+            candidate.archive?.name,
+          ];
+          assert.ok(names.length >= 3);
+          assert.equal(new Set(names).size, names.length);
+          mkdirSync(process.env.PUBLIC_ASSET_DIRECTORY, { recursive: false });
+          for (const name of names) {
+            assert.ok(
+              typeof name === "string" &&
+              name.length > 0 &&
+              path.posix.basename(name) === name &&
+              !name.includes("\\"),
+            );
+            const source = path.join(process.env.CANDIDATE_DIRECTORY, name);
+            const status = lstatSync(source);
+            assert.ok(status.isFile() && !status.isSymbolicLink());
+            copyFileSync(
+              source,
+              path.join(process.env.PUBLIC_ASSET_DIRECTORY, name),
+              constants.COPYFILE_EXCL,
+            );
           }
+          NODE
 
-          verify_release_assets() {
-            local expected_draft="$1" expected_immutable="$2" stage="$3" assets_directory="$4"
-            local archive_name asset_name release_response release_status attempt
+      - name: Attest public release assets
+        if: steps.publication_preflight.outputs.status == 'missing'
+        uses: actions/attest@1e69f48acb82d1966a394da916b4c1698aa569d6 # v4.2.2
+        with:
+          subject-path: ${{ runner.temp }}/release-public-assets/*
 
-            archive_name="property-order-${RELEASE_VERSION}.zip"
-            release_response="$RUNNER_TEMP/${stage}-release.json"
-            for attempt in {1..10}; do
-              if ! release_status="$(
-                curl --silent --show-error \
-                  --output "$release_response" \
-                  --write-out "%{http_code}" \
-                  --header "Accept: application/vnd.github+json" \
-                  --header "Authorization: Bearer ${GH_TOKEN}" \
-                  --header "X-GitHub-Api-Version: 2026-03-10" \
-                  "${GITHUB_API_URL}/repos/${GITHUB_REPOSITORY}/releases/tags/${RELEASE_VERSION}"
-              )"; then
-                if [[ "$attempt" -eq 10 ]]; then
-                  echo "::error title=Release supply-chain verification failed::${stage}: tagged Release query failed after ${attempt} attempts." >&2
-                  return 1
-                fi
-                sleep 3
-                continue
-              fi
+      - name: Create or prove the exact GitHub Release
+        if: steps.publication_preflight.outputs.status == 'missing'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_PUBLISH_AUTHORIZATION: ${{ inputs.release_authorization }}
+        run: >-
+          node scripts/release.mjs publish-github
+          --candidate-dir "$RUNNER_TEMP/release-candidate"
+          --candidate-digest "${{ inputs.candidate_digest }}"
+          --acceptance-closure "$RUNNER_TEMP/release-evidence/acceptance-closure.json"
+          --acceptance-closure-digest "${{ inputs.acceptance_closure_digest }}"
 
-              if [[ "$release_status" == "404" || "$release_status" =~ ^5[0-9][0-9]$ ]]; then
-                if [[ "$attempt" -eq 10 ]]; then
-                  echo "::error title=Release supply-chain verification failed::${stage}: tagged Release query remained HTTP ${release_status} after ${attempt} attempts." >&2
-                  return 1
-                fi
-                sleep 3
-                continue
-              fi
-              if [[ "$release_status" != "200" ]]; then
-                echo "::error title=Release supply-chain verification failed::${stage}: tagged Release query returned non-retryable HTTP ${release_status}." >&2
-                return 1
-              fi
+  post_verify:
+    name: Verify hosted release state
+    if: always() && github.event_name == 'workflow_dispatch' && github.event.inputs.mode == 'publish'
+    needs:
+      - verify
+      - publish
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      actions: read
+      attestations: read
+      contents: read
+    steps:
+      - name: Check out the exact candidate without persisted credentials
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          ref: ${{ inputs.candidate_commit }}
+          fetch-depth: 0
+          persist-credentials: false
 
-              if jq --exit-status \
-                --arg archive_name "$archive_name" \
-                --argjson expected_draft "$expected_draft" \
-                --argjson expected_immutable "$expected_immutable" '
-                  .draft == $expected_draft and
-                  .prerelease == false and
-                  .immutable == $expected_immutable and
-                  (.assets | type == "array") and
-                  ([.assets[].name] | sort) ==
-                    (["main.js", "manifest.json", "styles.css", $archive_name] | sort) and
-                  ([.assets[].name] | unique | length) == 4
-                ' "$release_response" >/dev/null; then
-                break
-              fi
+      - name: Set up exact Node.js
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
+        with:
+          node-version-file: .node-version
 
-              if [[ "$attempt" -eq 10 ]]; then
-                echo "::error title=Release supply-chain verification failed::${stage}: Release state or asset inventory did not reach the exact expected immutable contract." >&2
-                return 1
-              fi
-              sleep 3
-            done
+      - name: Download the same fixed candidate handoff
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          artifact-ids: ${{ needs.verify.outputs.candidate_artifact_id }}
+          path: ${{ runner.temp }}/release-candidate
+          digest-mismatch: error
 
-            mkdir "$assets_directory"
-            if ! gh release download "$RELEASE_VERSION" \
-              --repo "$GITHUB_REPOSITORY" \
-              --dir "$assets_directory" \
-              --pattern main.js \
-              --pattern manifest.json \
-              --pattern styles.css \
-              --pattern "$archive_name"; then
-              echo "::error title=Release supply-chain verification failed::${stage}: could not download the exact remote asset set." >&2
-              return 1
-            fi
-            mapfile -t downloaded_assets < <(
-              find "$assets_directory" -mindepth 1 -maxdepth 1 -printf '%f\n' | LC_ALL=C sort
-            )
-            mapfile -t expected_assets < <(
-              printf '%s\n' main.js manifest.json styles.css "$archive_name" | LC_ALL=C sort
-            )
-            if [[ "${#downloaded_assets[@]}" -ne 4 ]] ||
-              [[ "$(printf '%s\n' "${downloaded_assets[@]}")" != "$(printf '%s\n' "${expected_assets[@]}")" ]]; then
-              echo "::error title=Release supply-chain verification failed::${stage}: downloaded asset inventory is not exact." >&2
-              return 1
-            fi
-            for asset_name in main.js manifest.json styles.css "$archive_name"; do
-              if [[ ! -f "$assets_directory/$asset_name" || -L "$assets_directory/$asset_name" ]] ||
-                ! cmp --silent \
-                  "$RUNNER_TEMP/release-candidate/$asset_name" \
-                  "$assets_directory/$asset_name"; then
-                echo "::error title=Release supply-chain verification failed::${stage}: remote asset ${asset_name} differs from the verified candidate." >&2
-                return 1
-              fi
-              if ! gh attestation verify "$assets_directory/$asset_name" \
-                --repo "$GITHUB_REPOSITORY" \
-                --signer-workflow "${GITHUB_REPOSITORY}/.github/workflows/release.yml" \
-                --source-digest "$GITHUB_SHA" \
-                --source-ref "$GITHUB_REF" \
-                --deny-self-hosted-runners; then
-                echo "::error title=Release supply-chain verification failed::${stage}: remote asset ${asset_name} provenance does not match the exact release workflow, ref, and commit." >&2
-                return 1
-              fi
-            done
-          }
+      - name: Reverify fixed handoff
+        run: >-
+          node scripts/release.mjs verify-handoff
+          --candidate-dir "$RUNNER_TEMP/release-candidate"
 
-          assets=(
-            "$RUNNER_TEMP/release-candidate/main.js"
-            "$RUNNER_TEMP/release-candidate/manifest.json"
-            "$RUNNER_TEMP/release-candidate/styles.css"
-            "$RUNNER_TEMP/release-candidate/property-order-${RELEASE_VERSION}.zip"
-          )
-          notes_arguments=(--generate-notes)
-          if [[ -n "$PREVIOUS_RELEASE_TAG" ]]; then
-            if [[ ! "$PREVIOUS_RELEASE_TAG" =~ ^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$ ]]; then
-              echo "The verified previous Release tag is invalid." >&2
-              exit 1
-            fi
-            notes_arguments+=(--notes-start-tag "$PREVIOUS_RELEASE_TAG")
-          fi
-
-          verify_release_tag_identity
-          gh release create "$RELEASE_VERSION" "${assets[@]}" \
-            --repo "$GITHUB_REPOSITORY" \
-            --verify-tag \
-            --title "$RELEASE_VERSION" \
-            "${notes_arguments[@]}"
-          verify_release_tag_identity
-          verify_release_assets \
-            false true \
-            "published" \
-            "$RUNNER_TEMP/published-release-assets"
-          verify_release_tag_identity
+      - name: Verify immutable hosted bytes and provenance
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: >-
+          node scripts/release.mjs post-verify
+          --candidate-dir "$RUNNER_TEMP/release-candidate"
