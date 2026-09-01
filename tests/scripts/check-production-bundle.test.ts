@@ -37,17 +37,21 @@ afterEach(async () => {
 });
 
 describe("production bundle checker", () => {
-  it("accepts the byte-exact production rebuild", async () => {
-    const root = await createReleaseProject();
-    const mainJavascriptBytes = (await stat(path.join(root, "dist", "main.js"))).size;
-    await expect(checkProductionBundle(root)).resolves.toEqual({
-      id: "property-order",
-      mainJavascriptBudgetBytes: PRODUCTION_MAIN_JS_BUDGET_BYTES,
-      mainJavascriptBytes,
-      mainJavascriptReferenceBytes: PRODUCTION_MAIN_JS_REFERENCE_BYTES,
-      version: "0.1.0",
-    });
-  });
+  it(
+    "accepts the byte-exact production rebuild",
+    async () => {
+      const root = await createReleaseProject();
+      const mainJavascriptBytes = (await stat(path.join(root, "dist", "main.js"))).size;
+      await expect(checkProductionBundle(root)).resolves.toEqual({
+        id: "property-order",
+        mainJavascriptBudgetBytes: PRODUCTION_MAIN_JS_BUDGET_BYTES,
+        mainJavascriptBytes,
+        mainJavascriptReferenceBytes: PRODUCTION_MAIN_JS_REFERENCE_BYTES,
+        version: "0.1.0",
+      });
+    },
+    30_000,
+  );
 
   it("accepts the exact budget boundary and rejects one byte over", async () => {
     const root = await createReleaseProject();

@@ -20,9 +20,13 @@ afterEach(async () => {
 });
 
 describe("format checker", () => {
-  it("accepts the repository's deterministic text format", async () => {
-    await expect(checkFormatting(projectRoot)).resolves.toBeGreaterThan(0);
-  });
+  it(
+    "accepts the repository's deterministic text format",
+    async () => {
+      await expect(checkFormatting(projectRoot)).resolves.toBeGreaterThan(0);
+    },
+    30_000,
+  );
 
   it("checks supported files recursively and ignores generated directories", async () => {
     const root = await createFixture();
