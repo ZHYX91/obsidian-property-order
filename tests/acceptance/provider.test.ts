@@ -7,7 +7,8 @@ import vm from "node:vm";
 import { describe, expect, it, vi } from "vitest";
 
 interface ProviderCommand {
-  checkCallback: (checking: boolean) => boolean;
+  callback?: () => void;
+  checkCallback?: (checking: boolean) => boolean;
   id: string;
   name: string;
 }
@@ -73,32 +74,24 @@ function createFixture() {
     "---",
     "Acceptance body marker.",
   ].join("\n");
-  const offsetToPos = (offset: number) => {
-    const before = content.slice(0, offset).split("\n");
-    return { line: before.length - 1, ch: before.at(-1)?.length ?? 0 };
-  };
-  const posToOffset = ({ line, ch }: { ch: number; line: number }) => {
-    const lines = content.split("\n");
-    return lines.slice(0, line).reduce((total, item) => total + item.length + 1, 0) + ch;
-  };
   const editor = {
     getValue: () => content,
-    offsetToPos,
-    replaceRange: vi.fn((
-      replacement: string,
-      from: { ch: number; line: number },
-      to: { ch: number; line: number },
-    ) => {
-      content = content.slice(0, posToOffset(from)) + replacement + content.slice(posToOffset(to));
-    }),
   };
+  const setViewData = vi.fn((nextContent: string, _clear: boolean) => {
+    content = nextContent;
+  });
+  const requestSave = vi.fn();
   return {
     editor,
     getContent: () => content,
+    requestSave,
+    setViewData,
     view: {
       containerEl: document.querySelector<HTMLElement>(".view"),
       editor,
       file: { path: "Property Order.md" },
+      requestSave,
+      setViewData,
     },
   };
 }
@@ -115,14 +108,14 @@ describe("Property Order acceptance provider", () => {
     document.addEventListener("contextmenu", observed);
 
     expect(observed).not.toHaveBeenCalled();
-    expect(command?.checkCallback(true)).toBe(true);
+    expect(command?.checkCallback?.(true)).toBe(true);
     expect(observed).not.toHaveBeenCalled();
-    expect(command?.checkCallback(false)).toBe(true);
+    expect(command?.checkCallback?.(false)).toBe(true);
     expect(observed).toHaveBeenCalledOnce();
     expect(observed.mock.calls[0]?.[0]).toMatchObject({ bubbles: true, cancelable: true });
   });
 
-  it("injects exactly one target edit after the first move starts the next drag", async () => {
+  it("injects and saves exactly one target edit after the first move starts the next drag", () => {
     const fixture = createFixture();
     const Provider = loadProvider();
     const provider = new Provider();
@@ -130,22 +123,27 @@ describe("Property Order acceptance provider", () => {
     provider.onload();
     const command = provider.commands.find(({ id }) => id === "arm-next-drag-conflict");
 
-    expect(command?.checkCallback(false)).toBe(true);
-    document.dispatchEvent(new MouseEvent("pointermove", { bubbles: true }));
-    await Promise.resolve();
-    expect(fixture.editor.replaceRange).not.toHaveBeenCalled();
-
+    expect(command?.callback).toBeTypeOf("function");
+    command?.callback?.();
     document.addEventListener("pointermove", () => {
       document.querySelector(".multi-select-pill")?.classList.add("property-order-dragging");
-    }, { once: true });
+    }, { capture: true, once: true });
     document.dispatchEvent(new MouseEvent("pointermove", { bubbles: true }));
-    await Promise.resolve();
-    document.dispatchEvent(new MouseEvent("pointermove", { bubbles: true }));
-    await Promise.resolve();
+    expect(fixture.setViewData).not.toHaveBeenCalled();
 
-    expect(fixture.editor.replaceRange).toHaveBeenCalledOnce();
-    expect(fixture.getContent()).toContain("po_target: [blocked]");
-    expect(fixture.getContent()).toContain("po_source: [alpha, beta]");
-    expect(fixture.getContent()).toContain("Acceptance body marker.");
+    document.dispatchEvent(new MouseEvent("pointermove", { bubbles: true }));
+    document.dispatchEvent(new MouseEvent("pointermove", { bubbles: true }));
+
+    expect(fixture.setViewData).toHaveBeenCalledOnce();
+    expect(fixture.setViewData).toHaveBeenCalledWith(fixture.getContent(), false);
+    expect(fixture.requestSave).toHaveBeenCalledOnce();
+    expect(fixture.getContent()).toBe([
+      "---",
+      "po_source: [alpha, beta]",
+      "po_target: [blocked]",
+      "po_unrelated: unchanged",
+      "---",
+      "Acceptance body marker.",
+    ].join("\n"));
   });
 });

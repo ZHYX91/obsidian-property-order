@@ -26,11 +26,13 @@ module.exports = class PropertyOrderAcceptanceProvider extends Plugin {
     this.addCommand({
       id: "arm-next-drag-conflict",
       name: "Acceptance: change target during next drag",
-      checkCallback: (checking) => {
+      callback: () => {
         const fixture = this.resolveFixture();
-        if (fixture == null) return false;
-        if (!checking) this.armNextDragConflict(fixture);
-        return true;
+        if (fixture == null) {
+          new Notice("Acceptance provider: Property Order fixture is unavailable.");
+          return;
+        }
+        this.armNextDragConflict(fixture);
       },
     });
 
@@ -86,10 +88,8 @@ module.exports = class PropertyOrderAcceptanceProvider extends Plugin {
   armNextDragConflict(fixture) {
     this.clearConflictArm();
     let active = true;
-    let dragCheckQueued = false;
     let timeoutId = null;
-    const injectConflictIfDragging = () => {
-      dragCheckQueued = false;
+    const handlePointerMove = () => {
       if (!active) return;
       if (fixture.view.containerEl.querySelector(".property-order-dragging") == null) return;
       this.clearConflictArm();
@@ -100,21 +100,12 @@ module.exports = class PropertyOrderAcceptanceProvider extends Plugin {
         return;
       }
       const match = matches[0][0];
-      const from = fixture.editor.offsetToPos(matches[0].index);
-      const to = fixture.editor.offsetToPos(matches[0].index + match.length);
-      fixture.editor.replaceRange(CONFLICT_VALUE, from, to,
-        "property-order-acceptance-provider");
+      const start = matches[0].index;
+      const nextContent = content.slice(0, start) + CONFLICT_VALUE +
+        content.slice(start + match.length);
+      fixture.view.setViewData(nextContent, false);
+      fixture.view.requestSave();
       new Notice("Acceptance provider: concurrent target change injected.");
-    };
-    const handlePointerMove = () => {
-      if (!active || dragCheckQueued) return;
-      dragCheckQueued = true;
-      const targetWindow = fixture.document.defaultView;
-      if (typeof targetWindow?.queueMicrotask === "function") {
-        targetWindow.queueMicrotask(injectConflictIfDragging);
-      } else {
-        Promise.resolve().then(injectConflictIfDragging);
-      }
     };
     fixture.document.addEventListener("pointermove", handlePointerMove, true);
     timeoutId = fixture.document.defaultView?.setTimeout(() => {
