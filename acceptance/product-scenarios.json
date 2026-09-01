@@ -1,6 +1,6 @@
 {
-  "schemaVersion": 1,
-  "kind": "obsidian-plugin/product-scenarios-v1",
+  "schemaVersion": 2,
+  "kind": "obsidian-plugin/product-scenarios-v2",
   "pluginId": "property-order",
   "materializer": {
     "kind": "copy-v1",
@@ -19,6 +19,13 @@
         "desktop",
         "android-emulator"
       ],
+      "requiredCapabilities": {
+        "desktop": [],
+        "android-emulator": [
+          "touch.drag",
+          "touch.longPress"
+        ]
+      },
       "steps": [
         "Reorder alpha and beta and move one value between po_source and po_target",
         "Use Undo and Redo without first focusing the note body",
