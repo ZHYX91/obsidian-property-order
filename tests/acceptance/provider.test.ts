@@ -122,7 +122,7 @@ describe("Property Order acceptance provider", () => {
     expect(observed.mock.calls[0]?.[0]).toMatchObject({ bubbles: true, cancelable: true });
   });
 
-  it("injects exactly one target edit only after the next drag has started", () => {
+  it("injects exactly one target edit after the first move starts the next drag", async () => {
     const fixture = createFixture();
     const Provider = loadProvider();
     const provider = new Provider();
@@ -132,11 +132,16 @@ describe("Property Order acceptance provider", () => {
 
     expect(command?.checkCallback(false)).toBe(true);
     document.dispatchEvent(new MouseEvent("pointermove", { bubbles: true }));
+    await Promise.resolve();
     expect(fixture.editor.replaceRange).not.toHaveBeenCalled();
 
-    document.querySelector(".multi-select-pill")?.classList.add("property-order-dragging");
+    document.addEventListener("pointermove", () => {
+      document.querySelector(".multi-select-pill")?.classList.add("property-order-dragging");
+    }, { once: true });
     document.dispatchEvent(new MouseEvent("pointermove", { bubbles: true }));
+    await Promise.resolve();
     document.dispatchEvent(new MouseEvent("pointermove", { bubbles: true }));
+    await Promise.resolve();
 
     expect(fixture.editor.replaceRange).toHaveBeenCalledOnce();
     expect(fixture.getContent()).toContain("po_target: [blocked]");

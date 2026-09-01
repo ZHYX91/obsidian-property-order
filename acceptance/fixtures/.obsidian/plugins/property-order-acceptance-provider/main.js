@@ -85,8 +85,12 @@ module.exports = class PropertyOrderAcceptanceProvider extends Plugin {
 
   armNextDragConflict(fixture) {
     this.clearConflictArm();
+    let active = true;
+    let dragCheckQueued = false;
     let timeoutId = null;
-    const handlePointerMove = () => {
+    const injectConflictIfDragging = () => {
+      dragCheckQueued = false;
+      if (!active) return;
       if (fixture.view.containerEl.querySelector(".property-order-dragging") == null) return;
       this.clearConflictArm();
       const content = fixture.editor.getValue();
@@ -102,12 +106,23 @@ module.exports = class PropertyOrderAcceptanceProvider extends Plugin {
         "property-order-acceptance-provider");
       new Notice("Acceptance provider: concurrent target change injected.");
     };
+    const handlePointerMove = () => {
+      if (!active || dragCheckQueued) return;
+      dragCheckQueued = true;
+      const targetWindow = fixture.document.defaultView;
+      if (typeof targetWindow?.queueMicrotask === "function") {
+        targetWindow.queueMicrotask(injectConflictIfDragging);
+      } else {
+        Promise.resolve().then(injectConflictIfDragging);
+      }
+    };
     fixture.document.addEventListener("pointermove", handlePointerMove, true);
     timeoutId = fixture.document.defaultView?.setTimeout(() => {
       this.clearConflictArm();
       new Notice("Acceptance provider: concurrent change arm expired.");
     }, ARM_TIMEOUT_MS) ?? null;
     this.conflictCleanup = () => {
+      active = false;
       fixture.document.removeEventListener("pointermove", handlePointerMove, true);
       if (timeoutId != null) fixture.document.defaultView?.clearTimeout(timeoutId);
     };
