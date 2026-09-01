@@ -13,6 +13,12 @@ interface ProviderCommand {
   name: string;
 }
 
+interface ProviderRibbon {
+  callback: () => void;
+  icon: string;
+  title: string;
+}
+
 class PluginHarness {
   app!: {
     workspace: {
@@ -21,9 +27,15 @@ class PluginHarness {
   };
   commands: ProviderCommand[] = [];
   cleanups: Array<() => void> = [];
+  ribbons: ProviderRibbon[] = [];
 
   addCommand(command: ProviderCommand): void {
     this.commands.push(command);
+  }
+
+  addRibbonIcon(icon: string, title: string, callback: () => void): HTMLElement {
+    this.ribbons.push({ callback, icon, title });
+    return document.createElement("div");
   }
 
   register(cleanup: () => void): void {
@@ -115,16 +127,23 @@ describe("Property Order acceptance provider", () => {
     expect(observed.mock.calls[0]?.[0]).toMatchObject({ bubbles: true, cancelable: true });
   });
 
-  it("injects and saves exactly one target edit after the first move starts the next drag", () => {
+  it.each(["command", "ribbon"] as const)(
+    "injects and saves exactly one target edit through the %s entry point",
+    (entryPoint) => {
     const fixture = createFixture();
     const Provider = loadProvider();
     const provider = new Provider();
     provider.app = { workspace: { getActiveViewOfType: () => fixture.view } };
     provider.onload();
     const command = provider.commands.find(({ id }) => id === "arm-next-drag-conflict");
+    const ribbon = provider.ribbons.find(
+      ({ title }) => title === "Acceptance: change target during next drag",
+    );
 
     expect(command?.callback).toBeTypeOf("function");
-    command?.callback?.();
+    expect(ribbon).toMatchObject({ icon: "shield-alert" });
+    if (entryPoint === "command") command?.callback?.();
+    else ribbon?.callback();
     document.addEventListener("pointermove", () => {
       document.querySelector(".multi-select-pill")?.classList.add("property-order-dragging");
     }, { capture: true, once: true });
@@ -145,5 +164,6 @@ describe("Property Order acceptance provider", () => {
       "---",
       "Acceptance body marker.",
     ].join("\n"));
-  });
+    },
+  );
 });

@@ -26,15 +26,14 @@ module.exports = class PropertyOrderAcceptanceProvider extends Plugin {
     this.addCommand({
       id: "arm-next-drag-conflict",
       name: "Acceptance: change target during next drag",
-      callback: () => {
-        const fixture = this.resolveFixture();
-        if (fixture == null) {
-          new Notice("Acceptance provider: Property Order fixture is unavailable.");
-          return;
-        }
-        this.armNextDragConflict(fixture);
-      },
+      callback: () => this.armActiveFixtureConflict(),
     });
+
+    this.addRibbonIcon(
+      "shield-alert",
+      "Acceptance: change target during next drag",
+      () => this.armActiveFixtureConflict(),
+    );
 
     this.register(() => this.clearConflictArm());
   }
@@ -83,6 +82,15 @@ module.exports = class PropertyOrderAcceptanceProvider extends Plugin {
       composed: true,
       view: targetWindow,
     }));
+  }
+
+  armActiveFixtureConflict() {
+    const fixture = this.resolveFixture();
+    if (fixture == null) {
+      new Notice("Acceptance provider: Property Order fixture is unavailable.");
+      return;
+    }
+    this.armNextDragConflict(fixture);
   }
 
   armNextDragConflict(fixture) {
