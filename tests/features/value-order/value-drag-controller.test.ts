@@ -569,7 +569,7 @@ function renderEmptyListTypeMismatchProperty(
 
 function dispatchPointer(
   target: EventTarget,
-  type: "pointerdown" | "pointermove" | "pointerup",
+  type: "pointerdown" | "pointermove" | "pointerup" | "pointercancel",
   clientX: number,
   pointerType: "mouse" | "touch" | "pen" = "mouse",
 ): void {
@@ -891,6 +891,36 @@ describe("PropertyValueOrderController", () => {
 
     expect(document.querySelector(".property-order-drag-preview")).toBeNull();
 
+    harness.cleanup();
+  });
+
+  it("keeps the armed mobile gesture out of host touch navigation", () => {
+    Platform.isMobileApp = true;
+    installRafHarness();
+    const harness = createHarness();
+    const hostTouch = vi.fn();
+    document.body.addEventListener("touchstart", hostTouch);
+    document.body.addEventListener("touchmove", hostTouch);
+    const touch = (type: string) => {
+      const event = new Event(type, { bubbles: true, cancelable: true });
+      harness.pill.dispatchEvent(event);
+      return event;
+    };
+    expect(touch("touchstart").defaultPrevented).toBe(false);
+    expect(hostTouch).toHaveBeenCalledOnce();
+    hostTouch.mockClear();
+    harness.pill.dispatchEvent(new MouseEvent("contextmenu", { bubbles: true, cancelable: true }));
+    menuHarness.items[0]?.click();
+    dispatchPointer(harness.pill, "pointerdown", 10, "touch");
+    expect(touch("touchstart").defaultPrevented).toBe(true);
+    dispatchPointer(document, "pointermove", 16, "touch");
+    expect(touch("touchmove").defaultPrevented).toBe(true);
+    expect(hostTouch).not.toHaveBeenCalled();
+    dispatchPointer(document, "pointercancel", 16, "touch");
+    expect(touch("touchstart").defaultPrevented).toBe(false);
+    expect(hostTouch).toHaveBeenCalledOnce();
+    document.body.removeEventListener("touchstart", hostTouch);
+    document.body.removeEventListener("touchmove", hostTouch);
     harness.cleanup();
   });
 

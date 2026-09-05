@@ -534,6 +534,16 @@ export class PropertyValueOrderController {
         this.dragState?.pointerType === "touch")
     ) {
       event.preventDefault();
+      if (this.mobileDirectPointerId != null) {
+        event.stopPropagation();
+      }
+    }
+  };
+
+  private readonly handleTouchStart = (event: TouchEvent): void => {
+    if (this.mobileDirectPointerId != null) {
+      event.preventDefault();
+      event.stopPropagation();
     }
   };
 
@@ -663,6 +673,11 @@ export class PropertyValueOrderController {
     this.clearTouchMoveCapture();
     this.touchMoveDocument = targetDocument;
     targetDocument.addEventListener(
+      "touchstart",
+      this.handleTouchStart,
+      TOUCH_MOVE_LISTENER_OPTIONS,
+    );
+    targetDocument.addEventListener(
       "touchmove",
       this.handleTouchMove,
       TOUCH_MOVE_LISTENER_OPTIONS,
@@ -674,6 +689,13 @@ export class PropertyValueOrderController {
     this.touchMoveDocument = null;
 
     if (targetDocument != null) {
+      this.runInteractionCleanup(() => {
+        targetDocument.removeEventListener(
+          "touchstart",
+          this.handleTouchStart,
+          TOUCH_MOVE_LISTENER_OPTIONS,
+        );
+      });
       this.runInteractionCleanup(() => {
         targetDocument.removeEventListener(
           "touchmove",

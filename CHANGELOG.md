@@ -5,7 +5,12 @@ follow the repository's Git tags; entries summarize the corresponding commit his
 
 ## [Unreleased]
 
-## [0.5.3] - 2026-09-01
+## [0.5.3] - 2026-09-05
+
+### Fixed
+
+- Kept touch events inside an explicitly armed value reorder gesture so mobile host navigation
+  cannot take over the drag, while preserving ordinary scrolling and native value menus.
 
 ### Changed
 
