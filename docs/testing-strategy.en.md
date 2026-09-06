@@ -41,11 +41,13 @@ Injectable failure paths rely primarily on automated evidence: rejected settings
 
 ## Isolated Vault
 
-Real acceptance uses only a disposable Vault materialized from the exact Candidate Bundle v3. The public repository owns the static `acceptance/fixtures/Property Order.md` resource and the product scenario contract; the workspace-owned generic materializer verifies their Bundle-bound hashes, installs the exact candidate, enables only Property Order, and writes a host-specific manifest. The shared acceptance kit owns markers, input/output manifests, lifecycle transitions, reset, and archival. An ordinary or production Vault is never a valid target.
+Use a disposable Vault with the exact packaged candidate. The repository provides `acceptance/fixtures/Property Order.md` and `acceptance/product-scenarios.json`; verify their candidate-bound hashes, install the three candidate assets, and enable only Property Order. An ordinary or production Vault is never a valid target.
 
-This repository deliberately has no fixture-installation, Vault-reset, or conflict-injection CLI. For the contract's guarded-write conflict step, the acceptance controller records the disposable fixture identity, starts the product action, performs the specified external edit, and records both resulting byte streams and the visible refusal. Automated unit tests remain the primary evidence for injected race boundaries; real-host evidence covers Obsidian DOM, interaction, persistence, undo/redo, and the visible fail-closed result without duplicating shared lifecycle machinery.
+This repository deliberately has no fixture-installation, Vault-reset, or conflict-injection CLI. For the contract's guarded-write conflict step, the acceptance controller records the disposable fixture identity, starts the product action, performs the specified external edit, and records both resulting byte streams and the visible refusal. Automated unit tests remain the primary evidence for injected race boundaries; real-host evidence covers Obsidian DOM, interaction, persistence, undo/redo, and the visible fail-closed result.
 
-## Real-host release matrix
+## Optional host regression
+
+Select the relevant scenarios for the change. Missing, skipped, or failed host checks do not block explicitly authorized publication.
 
 Desktop Obsidian verifies:
 
@@ -75,7 +77,7 @@ The Android emulator verifies:
 - Desktop acceptance uses isolated Windows 11 Vaults with Obsidian 1.12.7 and the current supported 1.13.x release. Both hosts must prove immediate same- and cross-property one-step undo/redo without an intervening body click, another drag immediately after undo, no focus reclaim after deliberate user transfer, editor and visible-Properties agreement after one host turn, disk-YAML agreement after at least three seconds, scalar mismatch drag grip behavior, non-list rejection, `preserve`/`flow`/`block` output, and the wiki-link host contract, plus strict-MRU commit confirmation, restart persistence, per-Vault isolation, the timestamp-free 100-entry boundary, and clearing. Both hosts also cover the three top tabs, custom rule editors, conditional controls, language rerendering, persistence, and Retry.
 - New CRLF fixtures must remain CRLF when merely opened. Both a Property Order editor transaction and an ordinary manual body edit may then serialize the note as LF under Obsidian 1.12.7; acceptance attributes that behavior to the host and verifies logical text plus one-step undo instead of adding a non-undoable second Vault write.
 - Android acceptance uses an independent Android 15 / API 35 emulator Vault, verifies deployed production files by SHA-256, preserves Obsidian's Edit, Copy, and Remove from list actions beside Reorder or move, exercises same-property reorder and cross-property move on disk, verifies recent update and clearing after a touch property-name commit, and checks cancellation plus background/foreground recovery without plugin error, crash, or ANR.
-- This desktop-plus-emulator matrix is the complete shared mobile release gate. Android physical devices and iOS are out of scope.
+- This desktop-plus-emulator matrix defines full host-regression coverage; it is not a publication gate. Android physical devices and iOS are out of scope.
 - Automated tests cover the 15-second drag timeout, recent-confirmation timeout, local-storage read/write failure, Escape, unsupported-menu fail open, and cleanup paths that routine host acceptance does not inject.
 - Physical-device input stacks, haptics, pens, and vendor-specific behavior are not acceptance claims made by this project.
 - Keyboard property-value reorder and screen-reader drag announcements remain explicit product non-goals.

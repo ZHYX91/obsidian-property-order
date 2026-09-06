@@ -56,7 +56,7 @@ sync; `npm run check:docs-i18n` enforces those rules.
 Release preparation and publication are separate actions. Contributors may prepare version and
 documentation changes, but a pull request or local `npm run release:check` does not authorize a tag,
 GitHub Release, or Vault deployment. Maintainers follow the canonical
-[release guide](docs/release.en.md) only after explicit publication approval.
+repository-owned release commands only after explicit publication approval.
 
 ## Reporting problems
 

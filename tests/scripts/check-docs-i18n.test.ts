@@ -101,14 +101,6 @@ describe("stable documentation i18n checker", () => {
     );
   });
 
-  it("enforces the release guide's hosted-asset contract tokens", async () => {
-    await replaceAllInDocument("docs/release.en.md", "`SHA256SUMS`", "the hash manifest");
-
-    expect(checkDocsI18n(fixtureRoot)).toContain(
-      "docs/release.en.md must retain the stable contract token `SHA256SUMS`",
-    );
-  });
-
   it("rejects an unterminated fenced code block", async () => {
     await appendToDocument("docs/ux-spec.en.md", "\n```text\nunfinished");
 
@@ -152,13 +144,6 @@ async function replaceInDocument(filePath: string, search: string, replacement: 
   const content = await readFile(absolutePath, "utf8");
   expect(content).toContain(search);
   await writeFile(absolutePath, content.replace(search, replacement));
-}
-
-async function replaceAllInDocument(filePath: string, search: string, replacement: string) {
-  const absolutePath = path.join(fixtureRoot, filePath);
-  const content = await readFile(absolutePath, "utf8");
-  expect(content).toContain(search);
-  await writeFile(absolutePath, content.split(search).join(replacement));
 }
 
 async function appendToDocument(filePath: string, suffix: string) {

@@ -36,4 +36,4 @@ release assets or provenance.
 
 A local test pass, source review, packaged-candidate hash, hosted GitHub asset, and real-host result
 are distinct evidence layers. Security reports and advisories must state which layer was actually
-verified. Publication and rollback follow the canonical [release guide](docs/release.en.md).
+verified. Published fixes use a new immutable version whose hosted assets and provenance are verified by the repository release workflow.
