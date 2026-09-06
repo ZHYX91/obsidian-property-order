@@ -22,7 +22,7 @@ benchmark and tag-identity gate.
 
 ## Candidate Bundle v3
 
-The vendored release-core `3.0.0` and thin adapter create the sole Candidate Bundle v3 containing
+The vendored release-core `3.0.1` and thin adapter create the sole Candidate Bundle v3 containing
 `main.js`, `manifest.json`, `styles.css`, `property-order-x.y.z.zip`, `SHA256SUMS`, and
 `candidate-bundle.json`. It binds the toolchain, core/config/workflow, product payload, scenario
 contract, and fixture hashes; no second candidate object or transition stack exists.
