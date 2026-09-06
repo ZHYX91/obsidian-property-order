@@ -10,8 +10,7 @@ GitHub 发布与正式 Vault 部署是独立证据和授权边界。
 
 ## 边界
 
-普通 tag push 不触发发布。commit、push、tag、workflow dispatch、GitHub Release 与正式 Vault
-部署分别授权；任何本地门禁都不隐含远端写入。
+获授权的稳定版本 tag push 触发发布。也可在同一 tag 上手动派发，选择只验证或发布，两种入口共用工作流。宿主验收可选；发布不会部署到 Vault。
 
 ## 版本与源码
 
@@ -21,29 +20,24 @@ commit/tree。干净工作树必须通过 `npm run release:check`，包括 usage
 
 ## Candidate Bundle v3
 
-vendored release-core `2.0.0` 与薄 adapter 创建唯一 Candidate Bundle v3，包含 `main.js`、
+vendored release-core `3.0.0` 与薄 adapter 创建唯一 Candidate Bundle v3，包含 `main.js`、
 `manifest.json`、`styles.css`、`property-order-x.y.z.zip`、`SHA256SUMS` 与
 `candidate-bundle.json`。Bundle 绑定工具链、core/config/workflow、产品 payload、场景合同及
 fixture 哈希，不存在第二候选对象或过渡双栈。
 
-## 产品验收
+## 可选产品验收
 
-同一 Bundle 必须通过桌面与 Android 模拟器验收，覆盖同属性重排、跨属性移动、持久化、一步
+使用同一 Bundle 开展桌面与 Android 模拟器验收，覆盖同属性重排、跨属性移动、持久化、一步
 Undo/Redo、touch 输入、冲突 fail-closed，以及 YAML 注释、flow/block 风格、`[]`、换行与正文
 保持。Android 真机和 iOS 不在范围内。
 
 ## 独立工作流
 
-生成并签入的 standalone workflow 只接受显式 `workflow_dispatch`。只读 verify job 在精确
-commit 上执行一次独立安装与一次完整 `release:check`，重建并 source-verify Bundle；publish
-job 下载固定 artifact 后只做 transport verification，不恢复 `dist`。
+tag push 与手动派发共用构建、发布和发布后验证任务。只读构建任务生成并验证 Bundle；发布任务下载同一固定资产，不重复构建，在写入前验证事件、tag、提交和 Bundle 摘要。手动 verify 模式不执行发布。
 
 ## 发布与核验
 
-acceptance closure 不授权发布；单独 authorization 绑定同一 Bundle 与 closure。首次 mutation
-前 workflow 深度验证记录、标签和只读 preflight。公共 Release 恰好包含三个 loose assets 与
-版本 ZIP；`SHA256SUMS` 和 `candidate-bundle.json` 仅属于私有 Bundle。发布后回读托管字节与
-provenance。
+Actions 为四个公开资产生成 SLSA 构建证明。发布器核对其源码、tag 和工作流，创建草稿，下载并检查全部草稿资产，然后正式发布 immutable Release。独立任务再检查已发布资产。公开附件仅为三个松散文件和版本 ZIP；Bundle 元数据保留在 CI artifact 中。GitHub 发布结果与 Community Directory 审核结果分别记录。
 
 ## 失败、回退与部署
 

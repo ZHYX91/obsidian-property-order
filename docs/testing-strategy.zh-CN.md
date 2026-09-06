@@ -92,10 +92,10 @@ CI 与 Release workflow 都从 `.node-version` 使用 Node.js 24.19.0，并通�
 
 安装 ZIP 必须固定条目顺序、时间、权限和无关 metadata，使相同输入得到相同字节。仓库内精确锁定的 release-core 测试执行相同 ZIP 解析与候选校验代码，覆盖必需/可选样式、缺失/额外/非普通项、篡改字节、错误 checksum、越界路径和同版本历史标签冲突。普通 `npm run check` 运行非 tag-aware 校验；`npm run release:check` 才要求干净提交并执行 absent-or-exact 标签门。
 
-一个仓库级固定 concurrency group 串行化所有版本且不取消在途运行。Release workflow 只响应显式 `workflow_dispatch`，`mode` 默认 `verify`；普通标签 push 不发布。只读 job 在精确版本标签上执行一次独立安装和一次完整 `release:check`，生成含 loose assets、版本 ZIP、`SHA256SUMS` 与 `candidate-bundle.json` 的 Candidate Bundle v3，source-verify 后固定上传当前 run 的 artifact ID 与 server digest。写权限 job 仅在明确 `publish` 时运行，下载后只做 transport verification，并在首次 mutation 前验证标签/commit/tree、便携 acceptance closure、独立 authorization 以及相互绑定的 SHA-256；任何交换、重放、私有路径、字段漂移或候选摘要替代都 fail closed。
+仓库内 release-core 3.0 runtime 与薄适配器统一管理确定性的 Candidate Bundle 和生成的独立工作流。获授权的稳定版本 tag push 或该 tag 上的手动 publish 派发共用流水线；手动 verify 模式保持只读。CI 安装锁定依赖，执行一次 release:check，验证 Bundle 源码，并固定 artifact ID/digest。发布核对精确事件、源码、tag、传输字节和 SLSA 构建证明；先下载验证草稿，再发布 immutable Release，最后下载回验。产品验收可选且单独报告，独立克隆无需外部编排。
 
 发布成功后必须从 GitHub 再次读取 immutable 稳定 Release，核对精确四附件、metadata digest、下载字节、ZIP 内外一致性、远端标签和逐项 provenance。同标签仅在全部身份一致时允许 no-op，否则使用更高版本。标签 ruleset 与 immutable Releases 仍需维护者在 workflow 外留证；自动门禁不修改管理员设置。
 
 Actions artifact 的 step output 只接受裸 64 位小写十六进制 SHA-256；REST record 可返回同一裸值或规范 `sha256:` 前缀。下载字节必须重新计算并与固定 output 相同，错误前缀、长度或字节均 fail closed。
 
-workflow 不再复制发布实现；Bundle 生成、ZIP 解析、source/transport verification、发布边界和发布后核验都调用同一锁定 core。workflow 合同测试另外固定触发条件、精确九个 inputs、权限分层、action commit pin、artifact ID/digest 传输和 publish-only 写 job，防止 YAML 绕过核心边界。
+工作流合同测试将完整 YAML 与锁定生成器比较，并验证 tag/手动触发、唯一 mode 输入、只读检查、发布权限、固定 Actions、资产传输、构建证明及发布后下载核验。
