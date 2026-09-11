@@ -3,6 +3,12 @@ export interface SuggestionItem {
   key: string;
 }
 
+export interface PropertyValueSuggestionContext {
+  editor: HTMLElement;
+  propertyKey: string;
+  row: HTMLElement;
+}
+
 const SUGGESTION_CONTAINER_SELECTORS = [
   ".suggestion-container",
   ".suggestion",
@@ -15,6 +21,8 @@ const SUGGESTION_ITEM_SELECTORS = [
 ];
 
 const PROPERTY_KEY_EDITOR_SELECTOR = ".metadata-property-key";
+const PROPERTY_VALUE_EDITOR_SELECTOR = ".metadata-property-value";
+const PROPERTY_ROW_SELECTOR = ".metadata-property[data-property-key]";
 const PROPERTY_KEY_SUGGESTION_SELECTOR =
   ".suggestion-container.mod-property-key, .suggestion.mod-property-key, .menu.mod-property-key";
 
@@ -75,6 +83,38 @@ export function isPropertyKeySuggestionContainer(
     container.matches(PROPERTY_KEY_SUGGESTION_SELECTOR) ||
     isLikelyPropertyKeySuggestionContainer(container, items)
   );
+}
+
+export function getPropertyValueSuggestionContext(
+  container: HTMLElement,
+): PropertyValueSuggestionContext | null {
+  const activeElement = asHtmlElement(container.ownerDocument.activeElement);
+  const editor = activeElement?.closest<HTMLElement>(PROPERTY_VALUE_EDITOR_SELECTOR) ?? null;
+  const row = editor?.closest<HTMLElement>(PROPERTY_ROW_SELECTOR) ?? null;
+  const propertyKey = row?.getAttribute("data-property-key")?.trim() ?? "";
+
+  if (editor == null || row == null || propertyKey.length === 0) {
+    return null;
+  }
+
+  return { editor, propertyKey, row };
+}
+
+export function isPropertyValueSuggestionContainer(
+  container: HTMLElement,
+  items = getSuggestionItems(container),
+): boolean {
+  return (
+    items.length > 0 &&
+    !isPropertyKeySuggestionContainer(container, items) &&
+    getPropertyValueSuggestionContext(container) != null
+  );
+}
+
+export function hasActivePropertyValueSuggestionContext(
+  container: HTMLElement,
+): boolean {
+  return getPropertyValueSuggestionContext(container) != null;
 }
 
 export function resolveSuggestionContainer(
