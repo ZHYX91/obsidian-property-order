@@ -127,7 +127,7 @@ export function prepareSettingsForStorage(
   const preparedValue =
     hasFutureSettingsSchema(storedValue) && isRecord(storedValue)
       ? { ...storedValue }
-      : cloneSettings(storedSettings);
+      : { ...cloneSettings(storedSettings) };
 
   for (const key of getPersistedSettingKeys()) {
     if (!areSettingValuesEqual(settingsSnapshot[key], persistedSettingsBaseline[key])) {
