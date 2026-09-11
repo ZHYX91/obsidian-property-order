@@ -5,6 +5,17 @@ follow the repository's Git tags; entries summarize the corresponding commit his
 
 ## [Unreleased]
 
+### Added
+
+- Added opt-in ordering and filtering for Obsidian's native property-value suggestions, including
+  native, name, confirmed-recent-use, and note-count modes plus per-property pinned, bottom, hidden,
+  and sort-override rules.
+
+### Changed
+
+- Renamed the visible Value drag and property-name suggestion tabs to Value order and Key
+  suggestions, and added a separate Value suggestions tab to distinguish the three ordering scopes.
+
 ## [0.5.3] - 2026-09-05
 
 ### Fixed
