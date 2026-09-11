@@ -21,6 +21,12 @@ describe("normalizeSettings", () => {
         pinnedPropertyKeys: [" tags ", "", 42, "aliases"],
         bottomPropertyKeys: "tags",
         hiddenPropertyKeyPatterns: ["TQ_*"],
+        enableNativeValueSuggestionOrder: true,
+        valueSuggestionSortMode: "smart",
+        valueSuggestionSortOverrides: [" status = recent ", 42],
+        pinnedPropertyValues: [" status = draft ", ""],
+        bottomPropertyValues: "status = done",
+        hiddenPropertyValuePatterns: ["status = archived"],
         showDiagnostics: true,
       }),
     ).toEqual({
@@ -34,6 +40,12 @@ describe("normalizeSettings", () => {
       pinnedPropertyKeys: ["tags", "aliases"],
       bottomPropertyKeys: [],
       hiddenPropertyKeyPatterns: ["TQ_*"],
+      enableNativeValueSuggestionOrder: true,
+      valueSuggestionSortMode: "native",
+      valueSuggestionSortOverrides: ["status = recent"],
+      pinnedPropertyValues: ["status = draft"],
+      bottomPropertyValues: [],
+      hiddenPropertyValuePatterns: ["status = archived"],
       showDiagnostics: true,
     });
   });
@@ -43,13 +55,17 @@ describe("normalizeSettings", () => {
     const second = createDefaultSettings();
 
     first.pinnedPropertyKeys.push("tags");
+    first.pinnedPropertyValues.push("status = draft");
 
     expect(second.pinnedPropertyKeys).toEqual([]);
+    expect(second.pinnedPropertyValues).toEqual([]);
   });
 
-  it("enables cross-property drag by default", () => {
+  it("enables cross-property drag by default and keeps value suggestions opt-in", () => {
     expect(createDefaultSettings().enableCrossPropertyDrag).toBe(true);
     expect(normalizeSettings({}).enableCrossPropertyDrag).toBe(true);
+    expect(createDefaultSettings().enableNativeValueSuggestionOrder).toBe(false);
+    expect(createDefaultSettings().valueSuggestionSortMode).toBe("native");
   });
 
   it("preserves an explicit cross-property drag opt-out", () => {
@@ -76,6 +92,8 @@ describe("normalizeSettings", () => {
       enableNativeKeySuggestionOrder: false,
       keySuggestionSortMode: "usage",
       pinnedPropertyKeys: ["tags", "aliases"],
+      enableNativeValueSuggestionOrder: false,
+      valueSuggestionSortMode: "native",
     });
   });
 
@@ -97,6 +115,15 @@ describe("normalizeSettings", () => {
     ).toMatchObject({
       schemaVersion: CURRENT_SETTINGS_SCHEMA_VERSION,
       keySuggestionSortMode: "recent",
+    });
+  });
+
+  it("migrates schema 4 with disabled native value suggestion ordering", () => {
+    expect(normalizeSettings({ schemaVersion: 4 })).toMatchObject({
+      schemaVersion: CURRENT_SETTINGS_SCHEMA_VERSION,
+      enableNativeValueSuggestionOrder: false,
+      valueSuggestionSortMode: "native",
+      valueSuggestionSortOverrides: [],
     });
   });
 
@@ -136,6 +163,7 @@ describe("normalizeSettings", () => {
     const stored = {
       schemaVersion: 999,
       keySuggestionSortMode: "future-sort",
+      valueSuggestionSortMode: "future-value-sort",
       futureOption: { mode: "future" },
     };
     const baseline = normalizeSettings(stored);
@@ -156,7 +184,8 @@ describe("normalizeSettings", () => {
     const externallyChanged = {
       ...createDefaultSettings(),
       enablePropertyValueDrag: false,
-      keySuggestionSortMode: "usage",
+      keySuggestionSortMode: "usage" as const,
+      valueSuggestionSortMode: "recent" as const,
       showDiagnostics: true,
     };
 
@@ -175,14 +204,20 @@ describe("normalizeSettings", () => {
   });
 
   it("isolates list arrays across normalized setting objects and their input", () => {
-    const input = { pinnedPropertyKeys: ["tags"] };
+    const input = {
+      pinnedPropertyKeys: ["tags"],
+      pinnedPropertyValues: ["status = draft"],
+    };
     const first = normalizeSettings(input);
     const second = normalizeSettings(input);
 
     first.pinnedPropertyKeys.push("aliases");
+    first.pinnedPropertyValues.push("priority = high");
     input.pinnedPropertyKeys.push("source-only");
+    input.pinnedPropertyValues.push("source = only");
 
     expect(second.pinnedPropertyKeys).toEqual(["tags"]);
+    expect(second.pinnedPropertyValues).toEqual(["status = draft"]);
   });
 
   it("preserves the cross-property preference while value drag is disabled", () => {
