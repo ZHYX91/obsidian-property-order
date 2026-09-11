@@ -9,6 +9,9 @@ const EN_TRANSLATIONS = {
   "settings.tab.general": "General",
   "settings.tab.valueDrag": "Value drag",
   "settings.tab.keyOrder": "Property name suggestions",
+  "settings.tab.valueOrder": "Value order",
+  "settings.tab.keySuggestions": "Key suggestions",
+  "settings.tab.valueSuggestions": "Value suggestions",
   "settings.general.heading": "General",
   "settings.language.name": "Interface language",
   "settings.language.desc": "Choose Follow Obsidian to use Obsidian's interface language.",
@@ -71,6 +74,35 @@ const EN_TRANSLATIONS = {
   "settings.keyOrder.ruleDiagnostic.bottomMatch": "Bottom rule",
   "settings.keyOrder.ruleDiagnostic.priority": "Priority: hidden > pinned > bottom",
   "settings.keyOrder.addExisting.placeholder": "Add existing property name...",
+  "settings.valueSuggestions.enable.name": "Enhance native property value suggestions",
+  "settings.valueSuggestions.enable.desc":
+    "Reorders and filters values already suggested by Obsidian in the Properties UI. Property Order does not create suggestion values.",
+  "settings.valueSuggestions.disabledHint":
+    "Property value suggestions are currently disabled. Rules below will take effect when enabled.",
+  "settings.valueSuggestions.sortMode.name": "Default suggestion sort",
+  "settings.valueSuggestions.sortMode.desc":
+    "Native preserves Obsidian's order. Name uses the same mixed-language ordering as key suggestions. Recently used is device-local and advances only after a selected value is confirmed in metadata. Note count ranks values by the number of Markdown notes containing them for the active property.",
+  "settings.valueSuggestions.sortMode.native": "Native",
+  "settings.valueSuggestions.sortMode.nameOption": "Name",
+  "settings.valueSuggestions.sortMode.recent": "Recently used",
+  "settings.valueSuggestions.sortMode.usage": "Notes containing the value",
+  "settings.valueSuggestions.recentHistory.name": "Recently used value history",
+  "settings.valueSuggestions.recentHistory.desc":
+    "Clears device-local recent value history for every property in this vault. New confirmed selections will build the history again.",
+  "settings.valueSuggestions.recentHistory.clear": "Clear history",
+  "settings.valueSuggestions.sortOverrides.name": "Per-property sort overrides",
+  "settings.valueSuggestions.sortOverrides.desc":
+    "One rule per line as property-pattern = native|name|recent|usage. Use * as a wildcard in the property pattern. The first matching rule wins.",
+  "settings.valueSuggestions.pinned.name": "Pinned property values",
+  "settings.valueSuggestions.pinned.desc":
+    "One rule per line as property-pattern = value-pattern. Use * as a wildcard on either side. Matching values are shown first, in rule order.",
+  "settings.valueSuggestions.bottom.name": "Bottom property values",
+  "settings.valueSuggestions.bottom.desc":
+    "One rule per line as property-pattern = value-pattern. Matching values are shown last, in rule order.",
+  "settings.valueSuggestions.hidden.name": "Hidden property value patterns",
+  "settings.valueSuggestions.hidden.desc":
+    "One rule per line as property-pattern = value-pattern. Hidden rules take priority over pinned and bottom rules.",
+  "settings.valueSuggestions.rulePlaceholder": "status = draft",
   "menu.reorder": "Reorder",
   "menu.reorderOrMove": "Reorder or move",
   "settings.diagnostics.name": "Show diagnostics",
@@ -104,6 +136,9 @@ const EN_TRANSLATIONS = {
   "notice.recentHistoryCleared": "Property Order: recent property history cleared.",
   "notice.recentHistoryClearFailed":
     "Property Order: saved recent history could not be cleared. It is cleared for this session but may return after restart.",
+  "notice.recentValueHistoryCleared": "Property Order: recent property value history cleared.",
+  "notice.recentValueHistoryClearFailed":
+    "Property Order: saved recent property value history could not be cleared. It is cleared for this session but may return after restart.",
   "notice.mobileReorderArmed":
     "Property Order: drag the selected value now. Tap elsewhere or wait to cancel.",
 } as const;
@@ -119,6 +154,9 @@ export const TRANSLATIONS = {
     "settings.tab.general": "常规",
     "settings.tab.valueDrag": "属性值拖拽",
     "settings.tab.keyOrder": "属性名称候选",
+    "settings.tab.valueOrder": "属性值排序",
+    "settings.tab.keySuggestions": "属性名候选",
+    "settings.tab.valueSuggestions": "属性值候选",
     "settings.general.heading": "常规",
     "settings.language.name": "界面语言",
     "settings.language.desc": "选择“跟随 Obsidian”可使用 Obsidian 的界面语言。",
@@ -178,6 +216,34 @@ export const TRANSLATIONS = {
     "settings.keyOrder.ruleDiagnostic.bottomMatch": "置底规则",
     "settings.keyOrder.ruleDiagnostic.priority": "优先级：隐藏 > 置顶 > 置底",
     "settings.keyOrder.addExisting.placeholder": "添加已有属性名称...",
+    "settings.valueSuggestions.enable.name": "增强原生属性值候选",
+    "settings.valueSuggestions.enable.desc":
+      "对 Obsidian 属性面板中已经提供的属性值候选进行排序和过滤；Property Order 不会自行创建候选值。",
+    "settings.valueSuggestions.disabledHint": "属性值候选当前未启用。下方规则仍可编辑，启用后生效。",
+    "settings.valueSuggestions.sortMode.name": "默认候选排序",
+    "settings.valueSuggestions.sortMode.desc":
+      "原生会保留 Obsidian 的顺序；名称使用与属性名候选相同的混合语言排序；最近使用仅保存在本设备，并且只有候选值真正写入并经元数据确认后才会前移；笔记数按当前属性中包含该值的 Markdown 笔记数量排序。",
+    "settings.valueSuggestions.sortMode.native": "原生顺序",
+    "settings.valueSuggestions.sortMode.nameOption": "按名称排序",
+    "settings.valueSuggestions.sortMode.recent": "按最近使用排序",
+    "settings.valueSuggestions.sortMode.usage": "按包含该值的笔记数排序",
+    "settings.valueSuggestions.recentHistory.name": "最近使用的属性值记录",
+    "settings.valueSuggestions.recentHistory.desc":
+      "清除当前 Vault 中所有属性仅保存在本设备的最近值记录。之后会从新的已确认选择重新积累。",
+    "settings.valueSuggestions.recentHistory.clear": "清除记录",
+    "settings.valueSuggestions.sortOverrides.name": "按属性覆盖排序方式",
+    "settings.valueSuggestions.sortOverrides.desc":
+      "每行一个规则，格式为 属性规则 = native|name|recent|usage。属性规则可使用 * 通配符；首个匹配规则生效。",
+    "settings.valueSuggestions.pinned.name": "置顶属性值",
+    "settings.valueSuggestions.pinned.desc":
+      "每行一个规则，格式为 属性规则 = 值规则。两侧均可使用 * 通配符；匹配的值按规则顺序显示在最上方。",
+    "settings.valueSuggestions.bottom.name": "置底属性值",
+    "settings.valueSuggestions.bottom.desc":
+      "每行一个规则，格式为 属性规则 = 值规则。匹配的值按规则顺序显示在最下方。",
+    "settings.valueSuggestions.hidden.name": "隐藏属性值规则",
+    "settings.valueSuggestions.hidden.desc":
+      "每行一个规则，格式为 属性规则 = 值规则。隐藏规则的优先级高于置顶和置底规则。",
+    "settings.valueSuggestions.rulePlaceholder": "status = draft",
     "menu.reorder": "重排",
     "menu.reorderOrMove": "重排或移动",
     "settings.diagnostics.name": "显示诊断提示",
@@ -189,8 +255,7 @@ export const TRANSLATIONS = {
       "Property Order：编辑器返回了非预期结果，请先在源码模式检查笔记再继续操作。",
     "notice.persistenceFailed":
       "Property Order：属性值已在编辑器中更新，但无法安排保存。继续操作前请手动保存笔记。",
-    "notice.propertiesRefreshNeeded":
-      "Property Order：值已写入，但属性面板尚未刷新。",
+    "notice.propertiesRefreshNeeded": "Property Order：值已写入，但属性面板尚未刷新。",
     "notice.propertiesRefreshAction": "刷新属性面板",
     "notice.propertiesRefreshSucceeded": "Property Order：属性面板已刷新。",
     "notice.propertiesRefreshFailed":
@@ -208,14 +273,19 @@ export const TRANSLATIONS = {
     "notice.recentHistoryCleared": "Property Order：最近使用记录已清除。",
     "notice.recentHistoryClearFailed":
       "Property Order：无法清除已保存的最近使用记录。本次会话中已清除，但重启后可能恢复。",
-    "notice.mobileReorderArmed":
-      "Property Order：现在拖动已选中的值；点击其他位置或等待即可取消。",
+    "notice.recentValueHistoryCleared": "Property Order：最近使用的属性值记录已清除。",
+    "notice.recentValueHistoryClearFailed":
+      "Property Order：无法清除已保存的最近属性值记录。本次会话中已清除，但重启后可能恢复。",
+    "notice.mobileReorderArmed": "Property Order：现在拖动已选中的值；点击其他位置或等待即可取消。",
   },
   "zh-TW": {
     "settings.tabsLabel": "Property Order 設定分類",
     "settings.tab.general": "一般",
     "settings.tab.valueDrag": "屬性值拖曳",
     "settings.tab.keyOrder": "屬性名稱候選",
+    "settings.tab.valueOrder": "屬性值排序",
+    "settings.tab.keySuggestions": "屬性名稱候選",
+    "settings.tab.valueSuggestions": "屬性值候選",
     "settings.general.heading": "一般",
     "settings.language.name": "介面語言",
     "settings.language.desc": "選擇「跟隨 Obsidian」可使用 Obsidian 的介面語言。",
@@ -275,6 +345,34 @@ export const TRANSLATIONS = {
     "settings.keyOrder.ruleDiagnostic.bottomMatch": "置底規則",
     "settings.keyOrder.ruleDiagnostic.priority": "優先順序：隱藏 > 置頂 > 置底",
     "settings.keyOrder.addExisting.placeholder": "新增既有屬性名稱...",
+    "settings.valueSuggestions.enable.name": "增強原生屬性值候選",
+    "settings.valueSuggestions.enable.desc":
+      "對 Obsidian 屬性面板中既有的屬性值候選進行排序和過濾；Property Order 不會自行建立候選值。",
+    "settings.valueSuggestions.disabledHint": "屬性值候選目前未啟用。下方規則仍可編輯，啟用後生效。",
+    "settings.valueSuggestions.sortMode.name": "預設候選排序",
+    "settings.valueSuggestions.sortMode.desc":
+      "原生會保留 Obsidian 的順序；名稱使用與屬性名稱候選相同的混合語言排序；最近使用僅儲存在本裝置，並且只有候選值真正寫入且經中繼資料確認後才會前移；筆記數按目前屬性中包含該值的 Markdown 筆記數量排序。",
+    "settings.valueSuggestions.sortMode.native": "原生順序",
+    "settings.valueSuggestions.sortMode.nameOption": "按名稱排序",
+    "settings.valueSuggestions.sortMode.recent": "按最近使用排序",
+    "settings.valueSuggestions.sortMode.usage": "按包含該值的筆記數排序",
+    "settings.valueSuggestions.recentHistory.name": "最近使用的屬性值記錄",
+    "settings.valueSuggestions.recentHistory.desc":
+      "清除目前 Vault 中所有屬性僅儲存在本裝置的最近值記錄。之後會從新的已確認選擇重新累積。",
+    "settings.valueSuggestions.recentHistory.clear": "清除記錄",
+    "settings.valueSuggestions.sortOverrides.name": "按屬性覆蓋排序方式",
+    "settings.valueSuggestions.sortOverrides.desc":
+      "每行一個規則，格式為 屬性規則 = native|name|recent|usage。屬性規則可使用 * 萬用字元；首個匹配規則生效。",
+    "settings.valueSuggestions.pinned.name": "置頂屬性值",
+    "settings.valueSuggestions.pinned.desc":
+      "每行一個規則，格式為 屬性規則 = 值規則。兩側均可使用 * 萬用字元；匹配的值按規則順序顯示在最上方。",
+    "settings.valueSuggestions.bottom.name": "置底屬性值",
+    "settings.valueSuggestions.bottom.desc":
+      "每行一個規則，格式為 屬性規則 = 值規則。匹配的值按規則順序顯示在最下方。",
+    "settings.valueSuggestions.hidden.name": "隱藏屬性值規則",
+    "settings.valueSuggestions.hidden.desc":
+      "每行一個規則，格式為 屬性規則 = 值規則。隱藏規則的優先順序高於置頂和置底規則。",
+    "settings.valueSuggestions.rulePlaceholder": "status = draft",
     "menu.reorder": "重排",
     "menu.reorderOrMove": "重排或移動",
     "settings.diagnostics.name": "顯示診斷提示",
@@ -286,8 +384,7 @@ export const TRANSLATIONS = {
       "Property Order：編輯器傳回非預期結果，請先在原始碼模式檢查筆記再繼續操作。",
     "notice.persistenceFailed":
       "Property Order：屬性值已在編輯器中更新，但無法安排儲存。繼續操作前請手動儲存筆記。",
-    "notice.propertiesRefreshNeeded":
-      "Property Order：值已寫入，但屬性面板尚未重新整理。",
+    "notice.propertiesRefreshNeeded": "Property Order：值已寫入，但屬性面板尚未重新整理。",
     "notice.propertiesRefreshAction": "重新整理屬性面板",
     "notice.propertiesRefreshSucceeded": "Property Order：屬性面板已重新整理。",
     "notice.propertiesRefreshFailed":
@@ -305,6 +402,9 @@ export const TRANSLATIONS = {
     "notice.recentHistoryCleared": "Property Order：最近使用記錄已清除。",
     "notice.recentHistoryClearFailed":
       "Property Order：無法清除已儲存的最近使用記錄。本次工作階段中已清除，但重新啟動後可能恢復。",
+    "notice.recentValueHistoryCleared": "Property Order：最近使用的屬性值記錄已清除。",
+    "notice.recentValueHistoryClearFailed":
+      "Property Order：無法清除已儲存的最近屬性值記錄。本次工作階段中已清除，但重新啟動後可能恢復。",
     "notice.mobileReorderArmed":
       "Property Order：現在拖曳已選取的值；點擊其他位置或等待即可取消。",
   },
