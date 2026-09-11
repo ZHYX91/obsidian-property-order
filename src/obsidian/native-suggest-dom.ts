@@ -128,6 +128,20 @@ export function resolveSuggestionContainer(
     return dedicatedContainer;
   }
 
+  const suggestionContainer = candidate.closest<HTMLElement>(
+    ".suggestion-container",
+  );
+
+  if (suggestionContainer != null) {
+    return suggestionContainer;
+  }
+
+  return candidate.matches(".suggestion") ? candidate : null;
+}
+
+export function resolvePropertyValueSuggestionContainer(
+  candidate: HTMLElement,
+): HTMLElement | null {
   return candidate.closest<HTMLElement>(SUGGESTION_CONTAINER_SELECTOR);
 }
 
