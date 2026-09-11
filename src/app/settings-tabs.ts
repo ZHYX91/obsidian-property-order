@@ -1,4 +1,4 @@
-export type SettingsTabId = "general" | "valueDrag" | "keyOrder";
+export type SettingsTabId = "general" | "valueDrag" | "keyOrder" | "valueSuggestions";
 
 export interface SettingsTabDefinition {
   id: SettingsTabId;
@@ -7,198 +7,195 @@ export interface SettingsTabDefinition {
 
 export interface SettingsTabLayout {
   activeTabEl: HTMLButtonElement;
-  readonly cleanup: () => void;
+  cleanup(): void;
   panelEl: HTMLElement;
-}
-
-export interface SettingsTabScrollLayout {
-  readonly clientWidth: number;
-  readonly scrollWidth: number;
-  readonly scrollLeft: number;
-  readonly tabOffsetLeft: number;
-  readonly tabOffsetWidth: number;
 }
 
 export function createSettingsTabLayout(
   containerEl: HTMLElement,
-  tabs: SettingsTabDefinition[],
+  tabs: readonly SettingsTabDefinition[],
   activeTab: SettingsTabId,
   ariaLabel: string,
   onSelect: (tabId: SettingsTabId) => void,
 ): SettingsTabLayout {
-  const tabBarEl = containerEl.createDiv();
-  tabBarEl.className = "property-order-settings-tabs";
-  tabBarEl.setAttribute("role", "tablist");
-  tabBarEl.setAttribute("aria-label", ariaLabel);
-  tabBarEl.setAttribute("aria-orientation", "horizontal");
-  containerEl.appendChild(tabBarEl);
+  const targetDocument = containerEl.ownerDocument;
+  const targetWindow = targetDocument.defaultView ?? window;
+  const tabListEl = containerEl.createDiv({ cls: "property-order-settings-tabs" });
+  tabListEl.setAttribute("role", "tablist");
+  tabListEl.setAttribute("aria-label", ariaLabel);
+  tabListEl.setAttribute("aria-orientation", "horizontal");
+  const panelEl = containerEl.createDiv({ cls: "property-order-settings-panel" });
+  panelEl.setAttribute("role", "tabpanel");
+  panelEl.tabIndex = 0;
+  const instanceId = createSettingsTabInstanceId();
+  panelEl.id = `property-order-settings-panel-${instanceId}`;
+  const tabElements = new Map<SettingsTabId, HTMLButtonElement>();
 
-  const activeIndex = Math.max(
-    tabs.findIndex((tab) => tab.id === activeTab),
-    0,
-  );
-  const buttons = tabs.map((tab, index) => {
-    const buttonEl = tabBarEl.createEl("button");
-    const isActive = index === activeIndex;
-    buttonEl.className = isActive
-      ? "property-order-settings-tab is-active"
-      : "property-order-settings-tab";
-    buttonEl.type = "button";
-    buttonEl.textContent = tab.label;
-    buttonEl.id = getTabElementId(tab.id);
+  for (const tab of tabs) {
+    const buttonEl = tabListEl.createEl("button", {
+      cls: "property-order-settings-tab",
+      text: tab.label,
+      type: "button",
+    });
+    const selected = tab.id === activeTab;
+    buttonEl.id = `property-order-settings-tab-${instanceId}-${tab.id}`;
     buttonEl.setAttribute("role", "tab");
-    buttonEl.setAttribute("aria-selected", String(isActive));
-    buttonEl.setAttribute("aria-controls", getPanelElementId(tab.id));
-    buttonEl.tabIndex = isActive ? 0 : -1;
-    buttonEl.addEventListener("click", () => selectTab(tab.id, activeTab, buttonEl, onSelect));
+    buttonEl.setAttribute("aria-controls", panelEl.id);
+    buttonEl.setAttribute("aria-selected", String(selected));
+    buttonEl.tabIndex = selected ? 0 : -1;
+    buttonEl.addEventListener("click", () => {
+      if (tab.id !== activeTab) {
+        onSelect(tab.id);
+      }
+    });
     buttonEl.addEventListener("keydown", (event) => {
-      const targetIndex = getKeyboardTargetIndex(
-        event.key,
-        index,
-        tabs.length,
-        isRightToLeft(buttonEl),
+      const targetTabId = getKeyboardTargetTab(
+        event,
+        tabs,
+        tab.id,
+        getComputedDirection(tabListEl),
       );
 
-      if (targetIndex == null) {
+      if (targetTabId == null) {
         return;
       }
 
       event.preventDefault();
-      const targetTab = tabs[targetIndex];
-      const targetButton = buttons[targetIndex];
-      selectTab(targetTab.id, activeTab, targetButton, onSelect);
+      onSelect(targetTabId);
     });
-    return buttonEl;
-  });
+    tabElements.set(tab.id, buttonEl);
+  }
 
-  const activeDefinition = tabs[activeIndex];
-  const panelEl = containerEl.createDiv();
-  panelEl.className = "property-order-settings-panel";
-  panelEl.id = getPanelElementId(activeDefinition.id);
-  panelEl.setAttribute("role", "tabpanel");
-  panelEl.setAttribute("aria-labelledby", getTabElementId(activeDefinition.id));
-  panelEl.tabIndex = 0;
+  const activeTabEl = tabElements.get(activeTab) ?? tabElements.values().next().value;
 
-  const activeTabEl = buttons[activeIndex];
-  const targetWindow = containerEl.ownerDocument.defaultView;
-  const revealActiveTab = (): void => {
-    if (!tabBarEl.isConnected || !activeTabEl.isConnected) {
-      return;
-    }
+  if (activeTabEl == null) {
+    throw new Error("Property Order settings require at least one tab.");
+  }
 
-    const tabBarRect = tabBarEl.getBoundingClientRect();
-    const activeTabRect = activeTabEl.getBoundingClientRect();
-    tabBarEl.scrollLeft = getSettingsTabScrollLeft({
-      clientWidth: tabBarEl.clientWidth,
-      scrollWidth: tabBarEl.scrollWidth,
-      scrollLeft: tabBarEl.scrollLeft,
-      tabOffsetLeft: activeTabRect.left - tabBarRect.left + tabBarEl.scrollLeft,
-      tabOffsetWidth: activeTabRect.width,
-    });
+  panelEl.setAttribute("aria-labelledby", activeTabEl.id);
+  activeTabEl.setAttribute("aria-selected", "true");
+  activeTabEl.tabIndex = 0;
+
+  const ensureActiveTabVisible = (): void => {
+    scrollTabIntoView(tabListEl, activeTabEl);
   };
-  revealActiveTab();
-  const animationFrameId = targetWindow?.requestAnimationFrame(revealActiveTab) ?? null;
-  targetWindow?.addEventListener("resize", revealActiveTab);
+  const animationFrameId = targetWindow.requestAnimationFrame(ensureActiveTabVisible);
+  targetWindow.addEventListener("resize", ensureActiveTabVisible);
 
   return {
     activeTabEl,
     cleanup: () => {
-      if (animationFrameId != null) {
-        targetWindow?.cancelAnimationFrame(animationFrameId);
-      }
-      targetWindow?.removeEventListener("resize", revealActiveTab);
+      targetWindow.cancelAnimationFrame(animationFrameId);
+      targetWindow.removeEventListener("resize", ensureActiveTabVisible);
     },
     panelEl,
   };
 }
 
-export function getSettingsTabScrollLeft(layout: SettingsTabScrollLayout): number {
-  const clientWidth = finiteNonNegative(layout.clientWidth);
-  const scrollWidth = finiteNonNegative(layout.scrollWidth);
-  const maxScrollLeft = Math.max(0, scrollWidth - clientWidth);
-  const current = clamp(finiteNonNegative(layout.scrollLeft), 0, maxScrollLeft);
-  const tabStart = Number.isFinite(layout.tabOffsetLeft) ? layout.tabOffsetLeft : 0;
-  const tabEnd = tabStart + finiteNonNegative(layout.tabOffsetWidth);
+export function focusSettingsTab(tabEl: HTMLElement): void {
+  tabEl.focus({ preventScroll: true });
+}
 
-  if (tabStart < current) {
+function getKeyboardTargetTab(
+  event: KeyboardEvent,
+  tabs: readonly SettingsTabDefinition[],
+  currentTab: SettingsTabId,
+  direction: "ltr" | "rtl",
+): SettingsTabId | null {
+  const currentIndex = tabs.findIndex((tab) => tab.id === currentTab);
+
+  if (currentIndex < 0 || tabs.length === 0) {
+    return null;
+  }
+
+  if (event.key === "Home") {
+    return tabs[0]?.id ?? null;
+  }
+
+  if (event.key === "End") {
+    return tabs.at(-1)?.id ?? null;
+  }
+
+  const normalizedKey = event.key === "Left"
+    ? "ArrowLeft"
+    : event.key === "Right"
+      ? "ArrowRight"
+      : event.key;
+
+  if (normalizedKey !== "ArrowLeft" && normalizedKey !== "ArrowRight") {
+    return null;
+  }
+
+  const forward = direction === "rtl"
+    ? normalizedKey === "ArrowLeft"
+    : normalizedKey === "ArrowRight";
+  const delta = forward ? 1 : -1;
+  return tabs[(currentIndex + delta + tabs.length) % tabs.length]?.id ?? null;
+}
+
+function getComputedDirection(element: HTMLElement): "ltr" | "rtl" {
+  const targetWindow = element.ownerDocument.defaultView ?? window;
+  return targetWindow.getComputedStyle(element).direction === "rtl" ? "rtl" : "ltr";
+}
+
+function scrollTabIntoView(
+  tabListEl: HTMLElement,
+  activeTabEl: HTMLElement,
+): void {
+  const nextScrollLeft = getSettingsTabScrollLeft({
+    clientWidth: tabListEl.clientWidth,
+    scrollLeft: tabListEl.scrollLeft,
+    scrollWidth: tabListEl.scrollWidth,
+    tabOffsetLeft: activeTabEl.offsetLeft,
+    tabOffsetWidth: activeTabEl.offsetWidth,
+  });
+
+  if (Math.abs(nextScrollLeft - tabListEl.scrollLeft) > 0.5) {
+    tabListEl.scrollLeft = nextScrollLeft;
+  }
+}
+
+export function getSettingsTabScrollLeft(layout: {
+  clientWidth: number;
+  scrollLeft: number;
+  scrollWidth: number;
+  tabOffsetLeft: number;
+  tabOffsetWidth: number;
+}): number {
+  const clientWidth = Math.max(0, finiteOrZero(layout.clientWidth));
+  const scrollWidth = Math.max(clientWidth, finiteOrZero(layout.scrollWidth));
+  const maxScrollLeft = Math.max(0, scrollWidth - clientWidth);
+  const currentScrollLeft = clamp(finiteOrZero(layout.scrollLeft), 0, maxScrollLeft);
+  const tabStart = clamp(finiteOrZero(layout.tabOffsetLeft), 0, scrollWidth);
+  const tabEnd = clamp(
+    tabStart + Math.max(0, finiteOrZero(layout.tabOffsetWidth)),
+    0,
+    scrollWidth,
+  );
+  const viewportStart = currentScrollLeft;
+  const viewportEnd = currentScrollLeft + clientWidth;
+
+  if (tabStart < viewportStart) {
     return clamp(tabStart, 0, maxScrollLeft);
   }
 
-  if (tabEnd > current + clientWidth) {
+  if (tabEnd > viewportEnd) {
     return clamp(tabEnd - clientWidth, 0, maxScrollLeft);
   }
 
-  return current;
+  return currentScrollLeft;
 }
 
-function selectTab(
-  tabId: SettingsTabId,
-  activeTab: SettingsTabId,
-  buttonEl: HTMLButtonElement,
-  onSelect: (tabId: SettingsTabId) => void,
-): void {
-  if (tabId === activeTab) {
-    focusSettingsTab(buttonEl);
-    return;
-  }
+let nextSettingsTabInstanceId = 1;
 
-  onSelect(tabId);
+function createSettingsTabInstanceId(): number {
+  const instanceId = nextSettingsTabInstanceId;
+  nextSettingsTabInstanceId += 1;
+  return instanceId;
 }
 
-export function focusSettingsTab(buttonEl: HTMLButtonElement): void {
-  buttonEl.focus({ preventScroll: true });
-}
-
-function getKeyboardTargetIndex(
-  key: string,
-  index: number,
-  length: number,
-  rightToLeft: boolean,
-): number | null {
-  const inlineDirection = rightToLeft ? -1 : 1;
-  if (key === "ArrowRight") {
-    return (index + inlineDirection + length) % length;
-  }
-
-  if (key === "ArrowLeft") {
-    return (index - inlineDirection + length) % length;
-  }
-
-  if (key === "Home") {
-    return 0;
-  }
-
-  if (key === "End") {
-    return length - 1;
-  }
-
-  return null;
-}
-
-function isRightToLeft(element: HTMLElement): boolean {
-  const explicitDirection = element.closest<HTMLElement>("[dir]")?.dir;
-  if (explicitDirection === "rtl") {
-    return true;
-  }
-  if (explicitDirection === "ltr") {
-    return false;
-  }
-  if (element.ownerDocument.documentElement.dir === "rtl") {
-    return true;
-  }
-  return element.ownerDocument.defaultView?.getComputedStyle(element).direction === "rtl";
-}
-
-function getTabElementId(tabId: SettingsTabId): string {
-  return `property-order-settings-tab-${tabId}`;
-}
-
-function getPanelElementId(tabId: SettingsTabId): string {
-  return `property-order-settings-panel-${tabId}`;
-}
-
-function finiteNonNegative(value: number): number {
-  return Number.isFinite(value) ? Math.max(0, value) : 0;
+function finiteOrZero(value: number): number {
+  return Number.isFinite(value) ? value : 0;
 }
 
 function clamp(value: number, minimum: number, maximum: number): number {
