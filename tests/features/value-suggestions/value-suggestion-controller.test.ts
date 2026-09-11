@@ -499,10 +499,13 @@ describe("ValueSuggestionOrderController", () => {
     settings.enableNativeValueSuggestionOrder = true;
     const callbacks = new Map<string, (...args: never[]) => void>();
     const app = createApp();
-    vi.mocked(app.workspace.on).mockImplementation((name: string, callback: never) => {
-      callbacks.set(name, callback as (...args: never[]) => void);
-      return {} as never;
-    });
+    const workspaceOn = vi.fn(
+      (name: string, callback: (...args: never[]) => void) => {
+        callbacks.set(name, callback);
+        return {} as never;
+      },
+    );
+    Reflect.set(app.workspace, "on", workspaceOn);
     const controller = createController(settings, app);
     const testable = asTestable(controller);
     controller.initialize();
