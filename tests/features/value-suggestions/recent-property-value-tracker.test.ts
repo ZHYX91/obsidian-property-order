@@ -40,7 +40,7 @@ function createPlugin(
   file: TFile,
   getCache: () => CachedMetadata | null,
 ): Plugin {
-  const view = new MarkdownView();
+  const view = Object.create(MarkdownView.prototype) as MarkdownView;
   Object.assign(view, {
     containerEl: paneElement,
     contentEl: paneElement,
