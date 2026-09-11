@@ -1,5 +1,6 @@
 export type ListWritebackFormat = "preserve" | "flow" | "block";
 export type KeySuggestionSortMode = "name" | "recent" | "usage";
+export type ValueSuggestionSortMode = "native" | "name" | "recent" | "usage";
 export type PluginLanguage = "auto" | "en" | "zh-CN" | "zh-TW";
 
 export interface PropertyOrderSettings {
@@ -13,6 +14,12 @@ export interface PropertyOrderSettings {
   pinnedPropertyKeys: string[];
   bottomPropertyKeys: string[];
   hiddenPropertyKeyPatterns: string[];
+  enableNativeValueSuggestionOrder: boolean;
+  valueSuggestionSortMode: ValueSuggestionSortMode;
+  valueSuggestionSortOverrides: string[];
+  pinnedPropertyValues: string[];
+  bottomPropertyValues: string[];
+  hiddenPropertyValuePatterns: string[];
   showDiagnostics: boolean;
 }
 
@@ -45,4 +52,18 @@ export interface PropertyKeyOrderOptions {
   recentKeys: string[];
   sortMode: KeySuggestionSortMode;
   usage: PropertyKeyUsage[];
+}
+
+export interface PropertyValueUsage {
+  value: string;
+  count: number;
+}
+
+export interface PropertyValueOrderOptions {
+  bottomValues: string[];
+  hiddenPatterns: string[];
+  pinnedValues: string[];
+  recentValues: string[];
+  sortMode: ValueSuggestionSortMode;
+  usage: PropertyValueUsage[];
 }
