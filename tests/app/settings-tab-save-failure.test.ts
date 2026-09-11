@@ -8,7 +8,11 @@ import { createDefaultSettings } from "../../src/shared/settings";
 
 interface TestableSettingTab {
   mountSaveStatus(parentEl: HTMLElement): HTMLElement;
-  persistSettings(refreshKeySuggestions?: boolean): Promise<boolean>;
+  persistSettings(
+    refreshKeySuggestions?: boolean,
+    surfaceGeneration?: number,
+    refreshValueSuggestions?: boolean,
+  ): Promise<boolean>;
 }
 
 const MockNotice = Notice as typeof Notice & { messages: string[] };
@@ -20,7 +24,10 @@ describe("PropertyOrderSettingTab save failures", () => {
 
   it("shows an unsaved state and retries the complete settings snapshot", async () => {
     const saveSettings = vi
-      .fn<(refreshKeySuggestions?: boolean) => Promise<void>>()
+      .fn<(
+        refreshKeySuggestions?: boolean,
+        refreshValueSuggestions?: boolean,
+      ) => Promise<void>>()
       .mockRejectedValueOnce(new Error("disk unavailable"))
       .mockResolvedValueOnce();
     vi.spyOn(console, "error").mockImplementation(() => undefined);
@@ -48,8 +55,8 @@ describe("PropertyOrderSettingTab save failures", () => {
     statusEl?.querySelector<HTMLButtonElement>("button")?.click();
     await vi.waitFor(() => expect(saveSettings).toHaveBeenCalledTimes(2));
     await vi.waitFor(() => expect(statusEl?.hidden).toBe(true));
-    expect(saveSettings).toHaveBeenNthCalledWith(1, true);
-    expect(saveSettings).toHaveBeenNthCalledWith(2, true);
+    expect(saveSettings).toHaveBeenNthCalledWith(1, true, false);
+    expect(saveSettings).toHaveBeenNthCalledWith(2, true, false);
   });
 
   it("shows the retry state when startup migration persistence is pending", () => {
