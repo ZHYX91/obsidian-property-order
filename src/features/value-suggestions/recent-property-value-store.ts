@@ -62,7 +62,7 @@ export class RecentPropertyValueStore {
     });
 
     while (this.entries.size > RECENT_PROPERTY_VALUE_MAX_PROPERTIES) {
-      const oldestKey = this.entries.keys().next().value as string | undefined;
+      const oldestKey = this.entries.keys().next().value;
 
       if (oldestKey == null) {
         break;
