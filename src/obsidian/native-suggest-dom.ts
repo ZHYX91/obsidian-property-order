@@ -128,15 +128,7 @@ export function resolveSuggestionContainer(
     return dedicatedContainer;
   }
 
-  const suggestionContainer = candidate.closest<HTMLElement>(
-    ".suggestion-container",
-  );
-
-  if (suggestionContainer != null) {
-    return suggestionContainer;
-  }
-
-  return candidate.matches(".suggestion") ? candidate : null;
+  return candidate.closest<HTMLElement>(SUGGESTION_CONTAINER_SELECTOR);
 }
 
 export function hasPropertyKeySuggestionContext(
