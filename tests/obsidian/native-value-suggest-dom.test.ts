@@ -7,7 +7,7 @@ import {
   getSuggestionItems,
   hasActivePropertyValueSuggestionContext,
   isPropertyValueSuggestionContainer,
-  resolveSuggestionContainer,
+  resolvePropertyValueSuggestionContainer,
 } from "../../src/obsidian/native-suggest-dom";
 
 describe("native property value suggestion DOM", () => {
@@ -70,6 +70,6 @@ describe("native property value suggestion DOM", () => {
     menu.appendChild(item);
     document.body.appendChild(menu);
 
-    expect(resolveSuggestionContainer(item)).toBe(menu);
+    expect(resolvePropertyValueSuggestionContainer(item)).toBe(menu);
   });
 });
