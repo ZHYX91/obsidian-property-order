@@ -4,7 +4,7 @@ import {
   getPropertyValueSuggestionContext,
   getSuggestionItems,
   isPropertyValueSuggestionContainer,
-  resolveSuggestionContainer,
+  resolvePropertyValueSuggestionContainer,
 } from "../../obsidian/native-suggest-dom";
 import { resolvePaneFileContext } from "../../obsidian/pane-context";
 import { isSuggestionElementVisible } from "../key-order/suggestion-visibility";
@@ -119,7 +119,8 @@ export class RecentPropertyValueTracker {
     }
 
     const itemElement = target?.closest<HTMLElement>(".suggestion-item, .menu-item") ?? null;
-    const container = itemElement == null ? null : resolveSuggestionContainer(itemElement);
+    const container =
+      itemElement == null ? null : resolvePropertyValueSuggestionContainer(itemElement);
 
     if (
       itemElement == null ||
