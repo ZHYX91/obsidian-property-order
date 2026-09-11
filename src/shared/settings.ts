@@ -3,9 +3,10 @@ import type {
   ListWritebackFormat,
   PluginLanguage,
   PropertyOrderSettings,
+  ValueSuggestionSortMode,
 } from "./types";
 
-export const CURRENT_SETTINGS_SCHEMA_VERSION = 4;
+export const CURRENT_SETTINGS_SCHEMA_VERSION = 5;
 
 export const DEFAULT_SETTINGS: PropertyOrderSettings = {
   schemaVersion: CURRENT_SETTINGS_SCHEMA_VERSION,
@@ -18,6 +19,12 @@ export const DEFAULT_SETTINGS: PropertyOrderSettings = {
   pinnedPropertyKeys: [],
   bottomPropertyKeys: [],
   hiddenPropertyKeyPatterns: [],
+  enableNativeValueSuggestionOrder: false,
+  valueSuggestionSortMode: "native",
+  valueSuggestionSortOverrides: [],
+  pinnedPropertyValues: [],
+  bottomPropertyValues: [],
+  hiddenPropertyValuePatterns: [],
   showDiagnostics: false,
 };
 
@@ -27,6 +34,10 @@ export function createDefaultSettings(): PropertyOrderSettings {
     pinnedPropertyKeys: [],
     bottomPropertyKeys: [],
     hiddenPropertyKeyPatterns: [],
+    valueSuggestionSortOverrides: [],
+    pinnedPropertyValues: [],
+    bottomPropertyValues: [],
+    hiddenPropertyValuePatterns: [],
   };
 }
 
@@ -68,6 +79,23 @@ export function normalizeSettings(value: unknown): PropertyOrderSettings {
     pinnedPropertyKeys: normalizeStringList(migratedValue.pinnedPropertyKeys),
     bottomPropertyKeys: normalizeStringList(migratedValue.bottomPropertyKeys),
     hiddenPropertyKeyPatterns: normalizeStringList(migratedValue.hiddenPropertyKeyPatterns),
+    enableNativeValueSuggestionOrder:
+      typeof migratedValue.enableNativeValueSuggestionOrder === "boolean"
+        ? migratedValue.enableNativeValueSuggestionOrder
+        : defaults.enableNativeValueSuggestionOrder,
+    valueSuggestionSortMode: isValueSuggestionSortMode(
+      migratedValue.valueSuggestionSortMode,
+    )
+      ? migratedValue.valueSuggestionSortMode
+      : defaults.valueSuggestionSortMode,
+    valueSuggestionSortOverrides: normalizeStringList(
+      migratedValue.valueSuggestionSortOverrides,
+    ),
+    pinnedPropertyValues: normalizeStringList(migratedValue.pinnedPropertyValues),
+    bottomPropertyValues: normalizeStringList(migratedValue.bottomPropertyValues),
+    hiddenPropertyValuePatterns: normalizeStringList(
+      migratedValue.hiddenPropertyValuePatterns,
+    ),
     showDiagnostics:
       typeof migratedValue.showDiagnostics === "boolean"
         ? migratedValue.showDiagnostics
@@ -93,23 +121,13 @@ export function prepareSettingsForStorage(
   storedValue: unknown,
   persistedSettingsBaseline: PropertyOrderSettings = settings,
 ): Record<string, unknown> {
-  const settingsSnapshot = {
-    ...settings,
-    pinnedPropertyKeys: [...settings.pinnedPropertyKeys],
-    bottomPropertyKeys: [...settings.bottomPropertyKeys],
-    hiddenPropertyKeyPatterns: [...settings.hiddenPropertyKeyPatterns],
-  };
+  const settingsSnapshot = cloneSettings(settings);
 
   const storedSettings = normalizeSettings(storedValue);
   const preparedValue =
     hasFutureSettingsSchema(storedValue) && isRecord(storedValue)
       ? { ...storedValue }
-      : {
-          ...storedSettings,
-          pinnedPropertyKeys: [...storedSettings.pinnedPropertyKeys],
-          bottomPropertyKeys: [...storedSettings.bottomPropertyKeys],
-          hiddenPropertyKeyPatterns: [...storedSettings.hiddenPropertyKeyPatterns],
-        };
+      : cloneSettings(storedSettings);
 
   for (const key of getPersistedSettingKeys()) {
     if (!areSettingValuesEqual(settingsSnapshot[key], persistedSettingsBaseline[key])) {
@@ -144,6 +162,12 @@ export function isKeySuggestionSortMode(value: unknown): value is KeySuggestionS
   return value === "name" || value === "recent" || value === "usage";
 }
 
+export function isValueSuggestionSortMode(
+  value: unknown,
+): value is ValueSuggestionSortMode {
+  return value === "native" || value === "name" || value === "recent" || value === "usage";
+}
+
 export function isPluginLanguage(value: unknown): value is PluginLanguage {
   return value === "auto" || value === "en" || value === "zh-CN" || value === "zh-TW";
 }
@@ -167,6 +191,19 @@ function normalizeStringList(value: unknown): string[] {
   );
 }
 
+function cloneSettings(settings: PropertyOrderSettings): PropertyOrderSettings {
+  return {
+    ...settings,
+    pinnedPropertyKeys: [...settings.pinnedPropertyKeys],
+    bottomPropertyKeys: [...settings.bottomPropertyKeys],
+    hiddenPropertyKeyPatterns: [...settings.hiddenPropertyKeyPatterns],
+    valueSuggestionSortOverrides: [...settings.valueSuggestionSortOverrides],
+    pinnedPropertyValues: [...settings.pinnedPropertyValues],
+    bottomPropertyValues: [...settings.bottomPropertyValues],
+    hiddenPropertyValuePatterns: [...settings.hiddenPropertyValuePatterns],
+  };
+}
+
 function getPersistedSettingKeys(): Array<Exclude<keyof PropertyOrderSettings, "schemaVersion">> {
   return [
     "language",
@@ -178,6 +215,12 @@ function getPersistedSettingKeys(): Array<Exclude<keyof PropertyOrderSettings, "
     "pinnedPropertyKeys",
     "bottomPropertyKeys",
     "hiddenPropertyKeyPatterns",
+    "enableNativeValueSuggestionOrder",
+    "valueSuggestionSortMode",
+    "valueSuggestionSortOverrides",
+    "pinnedPropertyValues",
+    "bottomPropertyValues",
+    "hiddenPropertyValuePatterns",
     "showDiagnostics",
   ];
 }
@@ -241,6 +284,13 @@ function migrateSettingsVersion(
     return {
       ...value,
       schemaVersion: 4,
+    };
+  }
+
+  if (version === 4) {
+    return {
+      ...value,
+      schemaVersion: 5,
     };
   }
 
