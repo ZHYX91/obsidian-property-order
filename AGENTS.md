@@ -19,7 +19,7 @@ Before handing off changes, run `npm run check`.
 ## Settings Surface Policy
 
 Declarative settings are intentionally disabled because Obsidian 1.13 bypasses `display()` for
-non-empty definitions, which removes Property Order's three-tab settings layout and degrades the
+non-empty definitions, which removes Property Order's four-tab settings layout and degrades the
 user experience. Preserve the imperative `PluginSettingTab.display()` surface and keep
 `getSettingDefinitions()` empty. Dormant declarative builders and tests may remain, but must not be
 activated accidentally. Do not flag the `display()` deprecation, empty definitions, the disabled

@@ -9,6 +9,7 @@ type SuggestionActivation = "enter" | "tab";
 
 interface SuggestionKeyboardBridgeOptions {
   getActiveContainer: () => HTMLElement | null;
+  hasActiveContext?: (container: HTMLElement) => boolean;
   onActivationIntent?: (
     element: HTMLElement,
     activation: SuggestionActivation,
@@ -22,6 +23,8 @@ interface SuggestionKeyboardBridgeOptions {
 export function registerSuggestionKeyboardBridge(
   options: SuggestionKeyboardBridgeOptions,
 ): () => void {
+  const hasActiveContext =
+    options.hasActiveContext ?? hasActivePropertyKeySuggestionContext;
   const handleKeyDown = (event: KeyboardEvent): void => {
     if (event.isComposing) {
       return;
@@ -29,7 +32,7 @@ export function registerSuggestionKeyboardBridge(
 
     const container = options.getActiveContainer();
 
-    if (container == null || !hasActivePropertyKeySuggestionContext(container)) {
+    if (container == null || !hasActiveContext(container)) {
       return;
     }
 
@@ -163,7 +166,7 @@ function notifyActivationIntent(
   try {
     onActivationIntent?.(element, activation, event);
   } catch (error) {
-    console.error("Property Order: failed to capture a property key activation", error);
+    console.error("Property Order: failed to capture a suggestion activation", error);
   }
 }
 

@@ -2,6 +2,7 @@ import { Notice, Plugin } from "obsidian";
 
 import { KeySuggestionOrderController } from "../features/key-order/key-suggestion-controller";
 import { PropertyValueOrderController } from "../features/value-order/value-drag-controller";
+import { ValueSuggestionOrderController } from "../features/value-suggestions/value-suggestion-controller";
 import { t } from "../shared/i18n";
 import {
   createDefaultSettings,
@@ -26,8 +27,10 @@ interface SettingsSaveWaiter {
 export default class PropertyOrderPlugin extends Plugin {
   private cleanupCallbacks: Array<() => void> = [];
   private keySuggestionOrderController: KeySuggestionOrderController | null = null;
+  private valueSuggestionOrderController: ValueSuggestionOrderController | null = null;
   private lifecycleEpoch = 0;
   private pendingKeySuggestionRefresh = false;
+  private pendingValueSuggestionRefresh = false;
   private pendingSettingsSave = false;
   private readonly pendingSettingsSaveWaiters: SettingsSaveWaiter[] = [];
   private settingsSaveRequested = false;
@@ -55,6 +58,7 @@ export default class PropertyOrderPlugin extends Plugin {
 
     this.clearTrackedDocumentState();
     this.keySuggestionOrderController = null;
+    this.valueSuggestionOrderController = null;
     this.settingTab = null;
   }
 
@@ -90,12 +94,24 @@ export default class PropertyOrderPlugin extends Plugin {
         this.persistedSettingsBaseline,
       ),
     );
+    const keySuggestionsChanged = !areKeySuggestionSettingsEqual(
+      previousSettings,
+      mergedSettings,
+    );
+    const valueSuggestionsChanged = !areValueSuggestionSettingsEqual(
+      previousSettings,
+      mergedSettings,
+    );
     this.propertyOrderSettings = mergedSettings;
     this.persistedSettingsBaseline = externalBaseline;
     this.syncValueDragState();
 
-    if (!areSuggestionSettingsEqual(previousSettings, mergedSettings)) {
+    if (keySuggestionsChanged) {
       this.refreshKeySuggestionsSafely();
+    }
+
+    if (valueSuggestionsChanged) {
+      this.refreshValueSuggestionsSafely();
     }
 
     this.settingTab?.refreshAfterExternalSettingsChange();
@@ -156,6 +172,10 @@ export default class PropertyOrderPlugin extends Plugin {
     return this.keySuggestionOrderController?.clearRecentPropertyKeys() ?? false;
   }
 
+  clearRecentPropertyValues(): boolean {
+    return this.valueSuggestionOrderController?.clearRecentPropertyValues() ?? false;
+  }
+
   private async initialize(lifecycleEpoch: number): Promise<void> {
     const settingsLoaded = await this.loadSettings(lifecycleEpoch);
 
@@ -204,9 +224,17 @@ export default class PropertyOrderPlugin extends Plugin {
       this.registerController(this.keySuggestionOrderController.dispose);
       this.keySuggestionOrderController.initialize();
 
+      this.valueSuggestionOrderController = new ValueSuggestionOrderController(
+        this,
+        () => this.propertyOrderSettings,
+      );
+      this.registerController(this.valueSuggestionOrderController.dispose);
+      this.valueSuggestionOrderController.initialize();
+
       if (!this.isLifecycleCurrent(lifecycleEpoch)) {
         this.releaseCleanupCallbacks(cleanupCheckpoint);
         this.keySuggestionOrderController = null;
+        this.valueSuggestionOrderController = null;
         return;
       }
 
@@ -215,6 +243,7 @@ export default class PropertyOrderPlugin extends Plugin {
     } catch (error) {
       this.releaseCleanupCallbacks(cleanupCheckpoint);
       this.keySuggestionOrderController = null;
+      this.valueSuggestionOrderController = null;
       this.settingTab = null;
       this.clearTrackedDocumentState();
       throw error;
@@ -226,13 +255,17 @@ export default class PropertyOrderPlugin extends Plugin {
    * received while a batch is in flight are coalesced into the following batch;
    * a failed batch rejects only its own callers and does not strand later work.
    */
-  saveSettings(refreshKeySuggestions = false): Promise<void> {
+  saveSettings(
+    refreshKeySuggestions = false,
+    refreshValueSuggestions = false,
+  ): Promise<void> {
     if (this.unloaded) {
       return Promise.reject(new Error(STALE_SETTINGS_INSTANCE_ERROR));
     }
 
     this.settingsSaveRequested = true;
     this.pendingKeySuggestionRefresh ||= refreshKeySuggestions;
+    this.pendingValueSuggestionRefresh ||= refreshValueSuggestions;
     this.syncValueDragState();
     const result = new Promise<void>((resolve, reject) => {
       this.pendingSettingsSaveWaiters.push({ reject, resolve });
@@ -298,7 +331,9 @@ export default class PropertyOrderPlugin extends Plugin {
     while (this.settingsSaveRequested) {
       this.settingsSaveRequested = false;
       const shouldRefreshKeySuggestions = this.pendingKeySuggestionRefresh;
+      const shouldRefreshValueSuggestions = this.pendingValueSuggestionRefresh;
       this.pendingKeySuggestionRefresh = false;
+      this.pendingValueSuggestionRefresh = false;
       const saveWaiters = this.pendingSettingsSaveWaiters.splice(0);
 
       try {
@@ -327,7 +362,11 @@ export default class PropertyOrderPlugin extends Plugin {
             settingsSnapshot,
           ),
         );
-        const settingsChangedExternally = !areSuggestionSettingsEqual(
+        const keySettingsChangedExternally = !areKeySuggestionSettingsEqual(
+          settingsSnapshot,
+          runtimeSettings,
+        );
+        const valueSettingsChangedExternally = !areValueSuggestionSettingsEqual(
           settingsSnapshot,
           runtimeSettings,
         );
@@ -336,8 +375,12 @@ export default class PropertyOrderPlugin extends Plugin {
         this.pendingSettingsSave = false;
         this.syncValueDragState();
 
-        if (shouldRefreshKeySuggestions || settingsChangedExternally) {
+        if (shouldRefreshKeySuggestions || keySettingsChangedExternally) {
           this.refreshKeySuggestionsSafely();
+        }
+
+        if (shouldRefreshValueSuggestions || valueSettingsChangedExternally) {
+          this.refreshValueSuggestionsSafely();
         }
 
         for (const waiter of saveWaiters) {
@@ -348,6 +391,10 @@ export default class PropertyOrderPlugin extends Plugin {
 
         if (shouldRefreshKeySuggestions) {
           this.refreshKeySuggestionsSafely();
+        }
+
+        if (shouldRefreshValueSuggestions) {
+          this.refreshValueSuggestionsSafely();
         }
 
         for (const waiter of saveWaiters) {
@@ -362,6 +409,14 @@ export default class PropertyOrderPlugin extends Plugin {
       this.keySuggestionOrderController?.refresh();
     } catch (error) {
       console.error("Property Order: failed to refresh property name suggestions", error);
+    }
+  }
+
+  private refreshValueSuggestionsSafely(): void {
+    try {
+      this.valueSuggestionOrderController?.refresh();
+    } catch (error) {
+      console.error("Property Order: failed to refresh property value suggestions", error);
     }
   }
 
@@ -400,7 +455,7 @@ export default class PropertyOrderPlugin extends Plugin {
   }
 }
 
-function areSuggestionSettingsEqual(
+function areKeySuggestionSettingsEqual(
   left: PropertyOrderSettings,
   right: PropertyOrderSettings,
 ): boolean {
@@ -410,6 +465,26 @@ function areSuggestionSettingsEqual(
     areStringListsEqual(left.pinnedPropertyKeys, right.pinnedPropertyKeys) &&
     areStringListsEqual(left.bottomPropertyKeys, right.bottomPropertyKeys) &&
     areStringListsEqual(left.hiddenPropertyKeyPatterns, right.hiddenPropertyKeyPatterns)
+  );
+}
+
+function areValueSuggestionSettingsEqual(
+  left: PropertyOrderSettings,
+  right: PropertyOrderSettings,
+): boolean {
+  return (
+    left.enableNativeValueSuggestionOrder === right.enableNativeValueSuggestionOrder &&
+    left.valueSuggestionSortMode === right.valueSuggestionSortMode &&
+    areStringListsEqual(
+      left.valueSuggestionSortOverrides,
+      right.valueSuggestionSortOverrides,
+    ) &&
+    areStringListsEqual(left.pinnedPropertyValues, right.pinnedPropertyValues) &&
+    areStringListsEqual(left.bottomPropertyValues, right.bottomPropertyValues) &&
+    areStringListsEqual(
+      left.hiddenPropertyValuePatterns,
+      right.hiddenPropertyValuePatterns,
+    )
   );
 }
 

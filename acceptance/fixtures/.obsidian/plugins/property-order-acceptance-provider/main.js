@@ -12,6 +12,24 @@ module.exports = class PropertyOrderAcceptanceProvider extends Plugin {
   onload() {
     this.conflictCleanup = null;
 
+    const prepareValueRules = async () => {
+      const plugin = this.app.plugins.getPlugin("property-order");
+      if (plugin == null) return;
+      Object.assign(plugin.propertyOrderSettings, {
+        pinnedPropertyValues: ["status = draft", "priority = high"],
+        bottomPropertyValues: ["status = archived"],
+        hiddenPropertyValuePatterns: ["status = cancelled"],
+      });
+      await plugin.saveSettings(false, true);
+      new Notice("Acceptance provider: per-property value rules prepared.");
+    };
+    this.addCommand({
+      id: "prepare-value-rules",
+      name: "Acceptance: prepare per-property value rules",
+      callback: prepareValueRules,
+    });
+    this.addRibbonIcon("list-filter", "Acceptance: prepare value rules", prepareValueRules);
+
     this.addCommand({
       id: "open-first-source-value-menu",
       name: "Acceptance: open first source value menu",

@@ -1,4 +1,4 @@
-export type SettingsTabId = "general" | "valueDrag" | "keyOrder";
+export type SettingsTabId = "general" | "valueDrag" | "keyOrder" | "valueSuggestions";
 
 export interface SettingsTabDefinition {
   id: SettingsTabId;

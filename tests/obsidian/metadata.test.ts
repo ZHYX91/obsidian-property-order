@@ -4,8 +4,11 @@ import { describe, expect, it, vi } from "vitest";
 import {
   getCachedFrontmatterStorageKinds,
   getCachedPropertyKeyUsage,
+  getCachedPropertyValueUsage,
   getPropertyKeyUsage,
+  getPropertyValueUsage,
   invalidatePropertyKeyUsage,
+  invalidatePropertyValueUsage,
 } from "../../src/obsidian/metadata";
 
 describe("getPropertyKeyUsage", () => {
@@ -82,6 +85,83 @@ describe("getPropertyKeyUsage", () => {
     invalidatePropertyKeyUsage(app);
     expect(getCachedPropertyKeyUsage(app)).toEqual([
       { key: "beta", count: 1 },
+    ]);
+    expect(getMarkdownFiles).toHaveBeenCalledTimes(2);
+  });
+});
+
+describe("getPropertyValueUsage", () => {
+  it("counts primitive values once per note for one property", () => {
+    const files = [
+      { path: "one.md" },
+      { path: "two.md" },
+      { path: "three.md" },
+      { path: "uncached.md" },
+    ] as TFile[];
+    const caches = new Map<TFile, object | null>([
+      [
+        files[0],
+        {
+          frontmatter: {
+            status: ["draft", "draft", "done", 2, true, null, { nested: true }],
+            position: { start: { line: 0 }, end: { line: 3 } },
+          },
+        },
+      ],
+      [files[1], { frontmatter: { Status: "done" } }],
+      [files[2], { frontmatter: { other: "done" } }],
+      [files[3], null],
+    ]);
+    const app = {
+      metadataCache: {
+        getFileCache: vi.fn((file: TFile) => caches.get(file) ?? null),
+      },
+      vault: {
+        getMarkdownFiles: vi.fn(() => files),
+      },
+    } as unknown as App;
+
+    expect(getPropertyValueUsage(app, " STATUS ")).toEqual([
+      { value: "draft", count: 1 },
+      { value: "done", count: 2 },
+      { value: "2", count: 1 },
+      { value: "true", count: 1 },
+    ]);
+  });
+
+  it("returns no values for an empty property key", () => {
+    const app = {
+      metadataCache: { getFileCache: vi.fn() },
+      vault: { getMarkdownFiles: vi.fn(() => []) },
+    } as unknown as App;
+
+    expect(getPropertyValueUsage(app, "   ")).toEqual([]);
+    expect(app.vault.getMarkdownFiles).not.toHaveBeenCalled();
+  });
+
+  it("caches each property's value usage until value usage is invalidated", () => {
+    const file = { path: "note.md" } as TFile;
+    let frontmatter: Record<string, unknown> = { status: "draft" };
+    const getMarkdownFiles = vi.fn(() => [file]);
+    const app = {
+      metadataCache: {
+        getFileCache: vi.fn(() => ({ frontmatter })),
+      },
+      vault: { getMarkdownFiles },
+    } as unknown as App;
+
+    expect(getCachedPropertyValueUsage(app, "status")).toEqual([
+      { value: "draft", count: 1 },
+    ]);
+    frontmatter = { status: "done" };
+    expect(getCachedPropertyValueUsage(app, "STATUS")).toEqual([
+      { value: "draft", count: 1 },
+    ]);
+    expect(getMarkdownFiles).toHaveBeenCalledTimes(1);
+
+    invalidatePropertyValueUsage(app);
+    expect(getCachedPropertyValueUsage(app, "status")).toEqual([
+      { value: "done", count: 1 },
     ]);
     expect(getMarkdownFiles).toHaveBeenCalledTimes(2);
   });

@@ -71,7 +71,10 @@ describe("PropertyOrderSettingTab declarative definitions", () => {
   });
 
   it("binds custom storage, preserves invariants, and requests required refreshes", async () => {
-    const saveSettings = vi.fn<(refreshKeySuggestions?: boolean) => Promise<void>>();
+    const saveSettings = vi.fn<(
+      refreshKeySuggestions?: boolean,
+      refreshValueSuggestions?: boolean,
+    ) => Promise<void>>();
     const settings = createDefaultSettings();
     const settingTab = createSettingTab({ saveSettings, settings });
     const update = vi.spyOn(settingTab, "update");
@@ -82,26 +85,26 @@ describe("PropertyOrderSettingTab declarative definitions", () => {
 
     await settingTab.setControlValue("language", "zh-CN");
     expect(settings.language).toBe("zh-CN");
-    expect(saveSettings).toHaveBeenLastCalledWith(false);
+    expect(saveSettings).toHaveBeenLastCalledWith(false, false);
     expect(update).toHaveBeenCalledTimes(1);
     expect(refreshDomState).not.toHaveBeenCalled();
 
     await settingTab.setControlValue("keySuggestionSortMode", "recent");
     expect(settings.keySuggestionSortMode).toBe("recent");
-    expect(saveSettings).toHaveBeenLastCalledWith(true);
+    expect(saveSettings).toHaveBeenLastCalledWith(true, false);
     expect(update).toHaveBeenCalledTimes(1);
     expect(refreshDomState).not.toHaveBeenCalled();
 
     await settingTab.setControlValue("enablePropertyValueDrag", false);
     expect(settings.enablePropertyValueDrag).toBe(false);
     expect(settings.enableCrossPropertyDrag).toBe(true);
-    expect(saveSettings).toHaveBeenLastCalledWith(false);
+    expect(saveSettings).toHaveBeenLastCalledWith(false, false);
     expect(update).toHaveBeenCalledTimes(1);
     expect(refreshDomState).toHaveBeenCalledTimes(1);
 
     await settingTab.setControlValue("enableNativeKeySuggestionOrder", false);
     expect(settings.enableNativeKeySuggestionOrder).toBe(false);
-    expect(saveSettings).toHaveBeenLastCalledWith(true);
+    expect(saveSettings).toHaveBeenLastCalledWith(true, false);
     expect(update).toHaveBeenCalledTimes(1);
     expect(refreshDomState).toHaveBeenCalledTimes(2);
 
@@ -168,7 +171,10 @@ describe("PropertyOrderSettingTab declarative definitions", () => {
 
   it("explains rule matches without traversing the Vault or persisting test input", () => {
     const getMarkdownFiles = vi.fn(() => []);
-    const saveSettings = vi.fn<(refreshKeySuggestions?: boolean) => Promise<void>>();
+    const saveSettings = vi.fn<(
+      refreshKeySuggestions?: boolean,
+      refreshValueSuggestions?: boolean,
+    ) => Promise<void>>();
     const settings = createDefaultSettings();
     settings.hiddenPropertyKeyPatterns = ["TQ_*"];
     settings.pinnedPropertyKeys = ["TQ_status"];
@@ -294,7 +300,10 @@ describe("PropertyOrderSettingTab declarative definitions", () => {
   it("renders custom rule editors lazily and flushes their lifecycle on cleanup", async () => {
     vi.useFakeTimers();
     const getMarkdownFiles = vi.fn(() => []);
-    const saveSettings = vi.fn<(refreshKeySuggestions?: boolean) => Promise<void>>();
+    const saveSettings = vi.fn<(
+      refreshKeySuggestions?: boolean,
+      refreshValueSuggestions?: boolean,
+    ) => Promise<void>>();
     const settings = createDefaultSettings();
     settings.pinnedPropertyKeys = ["project"];
     const settingTab = createSettingTab({ getMarkdownFiles, saveSettings, settings });
@@ -325,7 +334,7 @@ describe("PropertyOrderSettingTab declarative definitions", () => {
     cleanup?.();
     await vi.waitFor(() => {
       expect(settings.pinnedPropertyKeys).toEqual(["project", "status"]);
-      expect(saveSettings).toHaveBeenCalledWith(true);
+      expect(saveSettings).toHaveBeenCalledWith(true, false);
     });
     expect(close).toHaveBeenCalledTimes(1);
 
@@ -504,7 +513,10 @@ function getRenderDefinition(
 function createSettingTab(options: {
   clearRecentPropertyKeys?: () => boolean;
   getMarkdownFiles?: () => unknown[];
-  saveSettings?: (refreshKeySuggestions?: boolean) => Promise<void>;
+  saveSettings?: (
+    refreshKeySuggestions?: boolean,
+    refreshValueSuggestions?: boolean,
+  ) => Promise<void>;
   settings?: ReturnType<typeof createDefaultSettings>;
 }): PropertyOrderSettingTab {
   const app = {
@@ -517,6 +529,7 @@ function createSettingTab(options: {
   };
   const plugin = {
     clearRecentPropertyKeys: options.clearRecentPropertyKeys ?? vi.fn(() => true),
+    clearRecentPropertyValues: vi.fn(() => true),
     hasPendingSettingsSave: vi.fn(() => false),
     propertyOrderSettings: options.settings ?? createDefaultSettings(),
     saveSettings: options.saveSettings ?? vi.fn(() => Promise.resolve()),
