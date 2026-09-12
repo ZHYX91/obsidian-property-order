@@ -587,4 +587,109 @@ describe("ValueSuggestionOrderController", () => {
 
     expect(testable.originalSuggestions.size).toBe(0);
   });
+
+  it("leaves action menus untouched even while a property value has focus", () => {
+    const settings = createDefaultSettings();
+    settings.enableNativeValueSuggestionOrder = true;
+    settings.valueSuggestionSortMode = "name";
+    const controller = createController(settings);
+    createValueMenu(["b", "a"]);
+    const menu = document.createElement("div");
+    menu.className = "menu";
+    menu.innerHTML = '<div class="menu-item">Cut</div><div class="menu-item">Copy</div>';
+    document.body.appendChild(menu);
+
+    asTestable(controller).enhanceContainer(menu);
+
+    expect(menu.textContent).toBe("CutCopy");
+    expect(menu.dataset.propertyOrderValueEnhanced).toBeUndefined();
+  });
+
+  it("preserves keyboard selection on an unchanged enhancement", () => {
+    installRafHarness();
+    const settings = createDefaultSettings();
+    settings.enableNativeValueSuggestionOrder = true;
+    settings.valueSuggestionSortMode = "name";
+    const controller = createController(settings);
+    const { container } = createValueMenu(["b", "a"]);
+    controller.initialize();
+    asTestable(controller).enhanceContainer(container);
+    window.dispatchEvent(new KeyboardEvent("keydown", {
+      key: "ArrowDown", bubbles: true, cancelable: true,
+    }));
+    expect(container.querySelector(".is-selected")?.textContent).toBe("b");
+
+    asTestable(controller).enhanceContainer(container);
+
+    expect(container.querySelector(".is-selected")?.textContent).toBe("b");
+    controller.dispose();
+  });
+
+  it("recomputes usage ordering after metadata changes without new candidate labels", () => {
+    installRafHarness();
+    const files = ["one.md", "two.md", "three.md"].map((path) => ({ path }) as TFile);
+    const frontmatterByFile = new Map(files.map((file, index) => [
+      file, { status: index < 2 ? "a" : "b" },
+    ]));
+    const app = createApp({ files, frontmatterByFile });
+    const settings = createDefaultSettings();
+    settings.enableNativeValueSuggestionOrder = true;
+    settings.valueSuggestionSortMode = "usage";
+    const controller = createController(settings, app);
+    const { container } = createValueMenu(["a", "b"]);
+    controller.initialize();
+    asTestable(controller).enhanceContainer(container);
+    expect(visibleValues(container)).toEqual(["a", "b"]);
+
+    frontmatterByFile.set(files[0], { status: "b" });
+    asTestable(controller).invalidateUsage();
+    asTestable(controller).enhanceContainer(container);
+
+    expect(visibleValues(container)).toEqual(["b", "a"]);
+    controller.dispose();
+  });
+
+  it("restores native ordering after removing a pin or changing sort mode", () => {
+    const settings = createDefaultSettings();
+    settings.enableNativeValueSuggestionOrder = true;
+    settings.valueSuggestionSortMode = "name";
+    const controller = createController(settings);
+    const { container } = createValueMenu(["b", "a"]);
+    asTestable(controller).enhanceContainer(container);
+    expect(visibleValues(container)).toEqual(["a", "b"]);
+
+    settings.valueSuggestionSortMode = "native";
+    asTestable(controller).enhanceContainer(container);
+    expect(visibleValues(container)).toEqual(["b", "a"]);
+    settings.pinnedPropertyValues = ["status = a"];
+    asTestable(controller).enhanceContainer(container);
+    expect(visibleValues(container)).toEqual(["a", "b"]);
+    settings.pinnedPropertyValues = [];
+    asTestable(controller).enhanceContainer(container);
+    expect(visibleValues(container)).toEqual(["b", "a"]);
+    controller.dispose();
+  });
+
+  it("owns a nested suggestion popup once and restores it when disabled", () => {
+    const raf = installRafHarness();
+    const settings = createDefaultSettings();
+    settings.enableNativeValueSuggestionOrder = true;
+    settings.valueSuggestionSortMode = "name";
+    const controller = createController(settings);
+    const { container } = createValueMenu(["b", "a"]);
+    const list = document.createElement("div");
+    list.className = "suggestion";
+    list.append(...container.childNodes);
+    container.appendChild(list);
+    controller.initialize();
+    raf.flush();
+    expect(visibleValues(container)).toEqual(["a", "b"]);
+    expect(asTestable(controller).originalSuggestions.size).toBe(1);
+
+    settings.enableNativeValueSuggestionOrder = false;
+    controller.refresh();
+
+    expect(visibleValues(container)).toEqual(["b", "a"]);
+    controller.dispose();
+  });
 });

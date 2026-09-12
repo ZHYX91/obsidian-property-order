@@ -105,6 +105,7 @@ export function isPropertyValueSuggestionContainer(
   items = getSuggestionItems(container),
 ): boolean {
   return (
+    resolvePropertyValueSuggestionContainer(container) === container &&
     items.length > 0 &&
     !isPropertyKeySuggestionContainer(container, items) &&
     getPropertyValueSuggestionContext(container) != null
@@ -142,7 +143,13 @@ export function resolveSuggestionContainer(
 export function resolvePropertyValueSuggestionContainer(
   candidate: HTMLElement,
 ): HTMLElement | null {
-  return candidate.closest<HTMLElement>(SUGGESTION_CONTAINER_SELECTOR);
+  // Context menus contain actions, not property values. Always use the outer
+  // popup so its nested .suggestion list has only one lifecycle owner.
+  if (candidate.closest(".menu") != null) {
+    return null;
+  }
+
+  return candidate.closest<HTMLElement>(".suggestion-container");
 }
 
 export function hasPropertyKeySuggestionContext(

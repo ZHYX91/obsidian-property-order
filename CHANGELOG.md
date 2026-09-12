@@ -5,6 +5,8 @@ follow the repository's Git tags; entries summarize the corresponding commit his
 
 ## [Unreleased]
 
+## [0.6.0] - 2026-09-12
+
 ### Added
 
 - Added opt-in ordering and filtering for Obsidian's native property-value suggestions, including
@@ -15,6 +17,13 @@ follow the repository's Git tags; entries summarize the corresponding commit his
 
 - Renamed the visible Value drag and property-name suggestion tabs to Value order and Key
   suggestions, and added a separate Value suggestions tab to distinguish the three ordering scopes.
+
+### Fixed
+
+- Preserved native value suggestion order and keyboard selection across refreshes,
+  refreshed note-count ordering after metadata changes, and kept context menus untouched.
+- Shared native menu snapshots between key and value suggestions and restored nested popups once.
+- Updated release-core to 3.0.2 for bounded GitHub read retries and verified draft resumption.
 
 ## [0.5.3] - 2026-09-05
 

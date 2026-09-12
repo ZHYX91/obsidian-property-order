@@ -62,7 +62,7 @@ describe("native property value suggestion DOM", () => {
     expect(isPropertyValueSuggestionContainer(container)).toBe(false);
   });
 
-  it("resolves generic native menu containers from their items", () => {
+  it("rejects generic context menus", () => {
     const menu = document.createElement("div");
     menu.className = "menu";
     const item = document.createElement("div");
@@ -70,6 +70,6 @@ describe("native property value suggestion DOM", () => {
     menu.appendChild(item);
     document.body.appendChild(menu);
 
-    expect(resolvePropertyValueSuggestionContainer(item)).toBe(menu);
+    expect(resolvePropertyValueSuggestionContainer(item)).toBeNull();
   });
 });

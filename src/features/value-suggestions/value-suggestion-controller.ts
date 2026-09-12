@@ -1,3 +1,15 @@
+import {
+  applyNativeChildMutation,
+  createAppliedState,
+  createElementSnapshot,
+  matchesAppliedState,
+  restoreElementState,
+  restoreSnapshot,
+  synchronizeSnapshotElements,
+  updateNativeAttributeSnapshot,
+  type OriginalSuggestionSnapshot,
+  type SuggestionElementSnapshot,
+} from "../key-order/suggestion-snapshot";
 import { Platform, type EventRef, type Plugin } from "obsidian";
 
 import {
@@ -15,6 +27,7 @@ import {
   getSuggestionItems,
   hasActivePropertyValueSuggestionContext,
   isPropertyValueSuggestionContainer,
+  resolvePropertyValueSuggestionContainer,
   type SuggestionItem,
 } from "../../obsidian/native-suggest-dom";
 import type { PropertyOrderSettings } from "../../shared/types";
@@ -37,20 +50,6 @@ const OBSERVER_OPTIONS: MutationObserverInit = {
   subtree: true,
 };
 
-interface SuggestionElementSnapshot {
-  ariaHiddenAttribute: string | null;
-  element: HTMLElement;
-  hadPluginHiddenClass: boolean;
-  hadSelectedClass: boolean;
-  hiddenAttribute: string | null;
-}
-
-interface OriginalSuggestionSnapshot {
-  childOrder: ChildNode[];
-  elements: SuggestionElementSnapshot[];
-  parent: HTMLElement;
-}
-
 interface DocumentEnhancementState {
   keyboardCleanup: () => void;
   observer: MutationObserver;
@@ -70,6 +69,7 @@ export class ValueSuggestionOrderController {
   private readonly recentValueStore: RecentPropertyValueStore;
   private readonly recentValueTracker: RecentPropertyValueTracker;
   private recentValueRevision = 0;
+  private usageRevision = 0;
   private readonly registeredEventCleanups: Array<() => void> = [];
 
   constructor(
@@ -187,6 +187,7 @@ export class ValueSuggestionOrderController {
         this.startDocumentObservation(targetDocument, state);
         this.scheduleEnhancement(targetDocument);
       } else {
+        this.updateNativeSnapshots(targetDocument, state.observer.takeRecords());
         state.observer.disconnect();
         state.observing = false;
         this.cancelScheduledEnhancement(state);
@@ -220,7 +221,8 @@ export class ValueSuggestionOrderController {
       return;
     }
 
-    const observer = new targetWindow.MutationObserver(() => {
+    const observer = new targetWindow.MutationObserver((mutations) => {
+      this.updateNativeSnapshots(targetDocument, mutations);
       this.scheduleEnhancement(targetDocument);
     });
     const state: DocumentEnhancementState = {
@@ -268,6 +270,7 @@ export class ValueSuggestionOrderController {
 
     this.documentStates.delete(targetDocument);
     this.activeContainers.delete(targetDocument);
+    this.updateNativeSnapshots(targetDocument, state.observer.takeRecords());
     state.observer.disconnect();
     state.observing = false;
     this.cancelScheduledEnhancement(state);
@@ -316,6 +319,7 @@ export class ValueSuggestionOrderController {
         return;
       }
 
+      this.updateNativeSnapshots(targetDocument, state.observer.takeRecords());
       state.observer.disconnect();
       state.observing = false;
 
@@ -337,8 +341,43 @@ export class ValueSuggestionOrderController {
     state.view.cancelAnimationFrame(rafId);
   }
 
+  private updateNativeSnapshots(
+    targetDocument: Document,
+    mutations: readonly MutationRecord[],
+  ): void {
+    if (mutations.length === 0 || this.originalSuggestions.size === 0) {
+      return;
+    }
+
+    const snapshots = Array.from(this.originalSuggestions.entries()).filter(
+      ([container]) => container.ownerDocument === targetDocument,
+    );
+    const touchedContainers = new Set<HTMLElement>();
+
+    for (const mutation of mutations) {
+      for (const [container, snapshot] of snapshots) {
+        if (mutation.type === "childList" && mutation.target === snapshot.parent) {
+          applyNativeChildMutation(snapshot, mutation);
+          touchedContainers.add(container);
+        } else if (mutation.type === "attributes") {
+          updateNativeAttributeSnapshot(snapshot, mutation);
+        }
+      }
+    }
+
+    for (const container of touchedContainers) {
+      const snapshot = this.originalSuggestions.get(container);
+
+      if (snapshot != null) {
+        synchronizeSnapshotElements(container, snapshot);
+      }
+    }
+  }
+
   private enhanceDocument(targetDocument: Document): void {
-    const candidates = findSuggestionContainers(targetDocument);
+    const candidates = [...new Set(findSuggestionContainers(targetDocument)
+      .map(resolvePropertyValueSuggestionContainer)
+      .filter((container): container is HTMLElement => container != null))];
     const candidateSet = new Set(candidates);
 
     for (const container of Array.from(this.originalSuggestions.keys())) {
@@ -384,6 +423,10 @@ export class ValueSuggestionOrderController {
       pinnedRules: settings.pinnedPropertyValues,
       sortOverrides: settings.valueSuggestionSortOverrides,
     });
+    const itemsByElement = new Map(items.map((item) => [item.element, item]));
+    const nativeItems = snapshot.childOrder
+      .map((node) => itemsByElement.get(node as HTMLElement))
+      .filter((item): item is SuggestionItem => item != null);
     const signature = JSON.stringify({
       bottom: rules.bottomValues,
       hidden: rules.hiddenPatterns,
@@ -391,15 +434,17 @@ export class ValueSuggestionOrderController {
       propertyKey: context.propertyKey,
       recentRevision: rules.sortMode === "recent" ? this.recentValueRevision : 0,
       sortMode: rules.sortMode,
-      values: items.map((item) => item.key),
+      usageRevision: rules.sortMode === "usage" ? this.usageRevision : 0,
+      values: nativeItems.map((item) => item.key),
     });
 
-    if (container.dataset.propertyOrderValueSignature === signature) {
+    if (container.dataset.propertyOrderValueSignature === signature &&
+      matchesAppliedState(snapshot.appliedState, items)) {
       return;
     }
 
     const orderedValues = orderPropertyValues(
-      items.map((item) => item.key),
+      nativeItems.map((item) => item.key),
       {
         bottomValues: rules.bottomValues,
         hiddenPatterns: rules.hiddenPatterns,
@@ -457,11 +502,12 @@ export class ValueSuggestionOrderController {
       itemParent.appendChild(element);
     }
 
-    if (!synchronizeSuggestionSelection(container, true)) {
+    if (!synchronizeSuggestionSelection(container, snapshot.appliedState == null)) {
       this.restoreContainer(container);
       return;
     }
 
+    snapshot.appliedState = createAppliedState(getSuggestionItems(container));
     container.dataset.propertyOrderValueEnhanced = "true";
     container.dataset.propertyOrderValueSignature = signature;
     this.activeContainers.set(container.ownerDocument, container);
@@ -484,13 +530,16 @@ export class ValueSuggestionOrderController {
     }
 
     if (existing != null) {
-      restoreConnectedElementStates(existing);
+      for (const item of existing.elements) {
+        if (item.element.isConnected) restoreElementState(item);
+      }
       this.originalSuggestions.delete(container);
       delete container.dataset.propertyOrderValueEnhanced;
       delete container.dataset.propertyOrderValueSignature;
     }
 
     const snapshot: OriginalSuggestionSnapshot = {
+      appliedState: null,
       childOrder: Array.from(itemParent.childNodes),
       elements: currentElements.map((element) => createElementSnapshot(element)),
       parent: itemParent,
@@ -521,6 +570,7 @@ export class ValueSuggestionOrderController {
     }
 
     invalidatePropertyValueUsage(this.plugin.app);
+    this.usageRevision += 1;
 
     if (!this.getSettings().enableNativeValueSuggestionOrder) {
       return;
@@ -599,57 +649,3 @@ function haveSameElementSet(
   return snapshots.every(({ element }) => currentElements.has(element));
 }
 
-function createElementSnapshot(element: HTMLElement): SuggestionElementSnapshot {
-  return {
-    ariaHiddenAttribute: element.getAttribute("aria-hidden"),
-    element,
-    hadPluginHiddenClass: element.classList.contains(PLUGIN_HIDDEN_SUGGESTION_CLASS),
-    hadSelectedClass: element.classList.contains("is-selected"),
-    hiddenAttribute: element.getAttribute("hidden"),
-  };
-}
-
-function restoreConnectedElementStates(snapshot: OriginalSuggestionSnapshot): void {
-  for (const elementSnapshot of snapshot.elements) {
-    if (elementSnapshot.element.isConnected) {
-      restoreElementState(elementSnapshot);
-    }
-  }
-}
-
-function restoreSnapshot(snapshot: OriginalSuggestionSnapshot): void {
-  for (const elementSnapshot of snapshot.elements) {
-    restoreElementState(elementSnapshot);
-    elementSnapshot.element.classList.toggle(
-      "is-selected",
-      elementSnapshot.hadSelectedClass,
-    );
-  }
-
-  for (const child of snapshot.childOrder) {
-    if (child.parentNode === snapshot.parent) {
-      snapshot.parent.appendChild(child);
-    }
-  }
-}
-
-function restoreElementState(snapshot: SuggestionElementSnapshot): void {
-  restoreAttribute(snapshot.element, "hidden", snapshot.hiddenAttribute);
-  restoreAttribute(snapshot.element, "aria-hidden", snapshot.ariaHiddenAttribute);
-  snapshot.element.classList.toggle(
-    PLUGIN_HIDDEN_SUGGESTION_CLASS,
-    snapshot.hadPluginHiddenClass,
-  );
-}
-
-function restoreAttribute(
-  element: HTMLElement,
-  name: string,
-  value: string | null,
-): void {
-  if (value == null) {
-    element.removeAttribute(name);
-  } else {
-    element.setAttribute(name, value);
-  }
-}

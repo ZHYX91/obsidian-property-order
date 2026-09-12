@@ -37,6 +37,29 @@
         "Unrelated properties, comments, quoting, newline semantics, and body text remain intact",
         "Touch and desktop interaction retain native actions, and the externally changed fixture fails closed without overwriting either version"
       ]
+    },
+    {
+      "id": "value-suggestions-settings-and-commit",
+      "title": "Value suggestion settings, ordering, native actions, and confirmed commits",
+      "surfaces": [
+        "desktop",
+        "android-emulator"
+      ],
+      "requiredCapabilities": {
+        "desktop": [],
+        "android-emulator": []
+      },
+      "steps": [
+        "Open Value Suggestions.md and enable value suggestion ordering in the four-tab settings surface",
+        "Compare Native and Name ordering and apply the fixture per-property pinned, bottom and hidden rules",
+        "Choose a visible candidate, verify the committed YAML, then compare Recently used and Note count modes",
+        "Check that ordinary context menus retain their actions and disable enhancement to restore native behavior"
+      ],
+      "expected": [
+        "General, Value order, Key suggestions and Value suggestions are accessible at desktop and mobile widths",
+        "Only native property-value suggestions change; selected values persist to YAML and cancelled interactions do not enter recent history",
+        "Per-property rules remain separate from key rules; native actions and existing value dragging remain usable"
+      ]
     }
   ]
 }

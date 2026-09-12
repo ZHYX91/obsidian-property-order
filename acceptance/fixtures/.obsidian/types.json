@@ -1,6 +1,8 @@
 {
   "types": {
     "po_source": "multitext",
-    "po_target": "multitext"
+    "po_target": "multitext",
+    "status": "multitext",
+    "priority": "multitext"
   }
 }
