@@ -10,10 +10,11 @@ This document defines the current Property Order product boundary. It mirrors th
 
 ## Product goal
 
-Property Order enhances only two kinds of order in Obsidian Properties:
+Property Order enhances three kinds of order in Obsidian Properties:
 
 1. value order in top-level YAML list properties of the current note;
-2. ordering and filtering of the native property-key suggestion menu.
+2. ordering and filtering of the native property-key suggestion menu;
+3. ordering and filtering of native property-value suggestions with per-property rules.
 
 The enhancement must remain local, reversible, and fail-safe. Unrecognized host DOM keeps native Obsidian behavior; frontmatter that cannot be parsed and validated safely is never written.
 
@@ -42,9 +43,16 @@ The enhancement must remain local, reversible, and fail-safe. Unrecognized host 
 - An all-hidden menu cannot submit a hidden item; keyboard interception stops when focus leaves the property-name editor.
 - Unrecognized Properties menus or failed host-selection synchronization restore native order, visibility, and interaction.
 
+## Property-value suggestions
+
+- Disabled by default; reorder or filter values already suggested by Obsidian without generating candidates or reordering YAML property keys.
+- Support native, name, recently used, and Markdown-note-count ordering, per-property sort overrides, and separate pinned, bottom, and hidden rules.
+- Recent history advances only after Metadata Cache confirms a selected value in the target property; cancelled and unconfirmed selections do not count. History is local to the device and Vault and separate from property-name history.
+- Reused native popups preserve a still-visible selection; metadata changes refresh note-count ordering. Ordinary context menus do not participate, and disabling enhancement or unloading restores host state.
+
 ## Settings
 
-- Settings currently use schema 4, with sequential migration and normalization of invalid values.
+- Settings currently use schema 5, with sequential migration and normalization of invalid values.
 - General, Value order, Key suggestions, and Value suggestions remain four immediate-application tabs on the imperative settings surface used by every supported Obsidian version. Declarative settings remain disabled because they bypass this layout.
 - Persistence failure keeps the in-memory state and presents a localized Notice, accessible unsaved status, and Retry action. Before each save and when Obsidian reports an external settings change, a three-way merge preserves external changes to keys untouched in the current UI and preserves unknown future-schema fields; current UI edits win for the keys they changed. Storage operations remain ordered across plugin replacement, and an unloaded instance cannot start a new save.
 - Key suggestions provides a **Clear recent property history** action. It cancels pending confirmations and deletes only the current Vault and device's MRU; it does not modify `data.json`, notes, or another Vault. If device-local deletion fails, the in-memory history remains cleared and the user is warned that saved history may return after restart.

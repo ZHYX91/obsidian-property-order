@@ -34,12 +34,18 @@ This document mirrors the authoritative current interaction and presentation con
 - Escape, focus departure, menu closure, disabled enhancement, and plugin unload preserve or restore native close and input behavior.
 - DOM mismatch, unreadable text, or failed host-selection synchronization leaves no partial hiding or reordering behind.
 
+## Property-value suggestions
+
+- Value suggestions has its own opt-in switch, default sort, per-property sort overrides, and pinned, bottom, and hidden editors. Rules use `property-pattern = value`; sort overrides use `property-pattern = native|name|recent|usage`.
+- The native popup retains host styling and value commit behavior. Selection survives refresh while the selected value remains visible; context-menu actions remain unchanged.
+- Recent history records confirmed values separately for each property. Clearing value history affects only this device and Vault. Disabling enhancement restores native candidate order and visibility.
+
 ## Settings UI
 
 - General, Value order, Key suggestions, and Value suggestions remain the same four logical settings groups across host versions. Control values, conditional visibility, immediate application, persistence failure, and Retry semantics do not vary by renderer.
 - Obsidian 1.12.x uses the custom four-tab UI with `tablist`, `tab`, `tabpanel`, `aria-selected`, and roving `tabindex`. Left/Right and Home/End switch tabs; rerender, rotation, and viewport resize keep the active tab visible with sensible focus.
 - On 1.12.x, tab minimum height is 34px for fine pointers and 44px for coarse pointers. The active tab combines an accent underline with a semibold label, and stable space separates the baseline from the content panel. Narrow layouts keep one horizontally scrollable row without vertical clipping.
-- Every supported Obsidian version uses the same three imperative top tabs. Declarative settings remain disabled because they bypass this layout. Custom property-rule editors retain suggestion, persistence, and cleanup lifecycles.
+- Every supported Obsidian version uses the same four imperative top tabs. Declarative settings remain disabled because they bypass this layout. Custom property-rule editors retain suggestion, persistence, and cleanup lifecycles.
 - Key suggestions provides **Clear recent property history** in both render paths. It cancels pending confirmations, removes only the current Vault and device's in-memory timestamp-free MRU of at most 100 entries, and immediately refreshes open enhanced menus; it changes neither `data.json` nor notes. Success shows confirmation. A local-storage deletion failure shows that history is cleared for this session but may return after restart.
 - Key suggestions provides a non-persisted rule-test field in both render paths. After a property name is entered, its result region lists the first matching hidden, pinned, and bottom rules, states the effective hidden > pinned > bottom priority, and announces updates with `aria-live="polite"`; clearing the input restores the prompt. Existing results refresh immediately after a rule edit, and testing never scans the Vault.
 - At widths up to 480px, both render paths stack rule textareas, existing-property inputs, and the rule-test input to fill their card or control area.

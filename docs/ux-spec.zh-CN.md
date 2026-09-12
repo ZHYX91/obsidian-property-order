@@ -33,6 +33,12 @@ translation_status: source
 - Escape、焦点离开、菜单关闭、设置禁用和插件卸载保留或恢复原生关闭与输入行为。
 - DOM 结构不匹配、候选文本不可读或宿主选择无法同步时，不留下部分隐藏或部分重排状态。
 
+## 属性值候选
+
+- Value suggestions 提供独立启用开关、默认排序、按属性排序覆盖，以及置顶、置底和隐藏编辑器。规则使用 `property-pattern = value`；排序覆盖使用 `property-pattern = native|name|recent|usage`。
+- 原生弹窗保留宿主样式和值提交行为。刷新时仍可见的选中值保持选中，上下文菜单操作不变。
+- 最近使用按属性分别记录已确认的值。清除值历史只影响当前设备和 Vault。关闭增强后恢复原生候选顺序和可见性。
+
 ## 设置页
 
 - General、Value order、Key suggestions、Value suggestions 是跨宿主版本保持一致的四个逻辑设置组；控件值、条件显隐、即时生效、保存失败和重试语义不得因渲染路径而变化。
