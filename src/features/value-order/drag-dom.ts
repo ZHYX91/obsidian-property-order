@@ -175,7 +175,8 @@ export function autoScrollDragContainer(
   const targetDocument = root.ownerDocument;
   const hit = targetDocument.elementFromPoint?.(clientX, clientY);
   const candidates: HTMLElement[] = [];
-  let current = hit instanceof HTMLElement ? hit : null;
+  let current =
+    hit != null && hit.nodeType === 1 ? (hit as HTMLElement) : null;
 
   while (current != null && root.contains(current)) {
     candidates.push(current);
