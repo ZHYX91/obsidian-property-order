@@ -3,6 +3,7 @@ import type {
   ValueSuggestionSortMode,
 } from "../../shared/types";
 import { comparePropertyNames } from "./property-names";
+import { createWildcardMatcher } from "./wildcard";
 
 export interface OrderedPropertyValue {
   value: string;
@@ -206,11 +207,3 @@ function expandPatterns(patterns: readonly string[], values: string[]): string[]
   return result;
 }
 
-function createWildcardMatcher(pattern: string): (value: string) => boolean {
-  const escapedPattern = pattern
-    .replace(/[|\\{}()[\]^$+?.]/g, "\\$&")
-    .replace(/\*/g, ".*");
-  const matcher = new RegExp(`^${escapedPattern}$`, "i");
-
-  return (value: string) => matcher.test(value);
-}
