@@ -23,6 +23,10 @@ interface TestableValueController {
   originalSuggestions: Map<HTMLElement, unknown>;
   recordRecentPropertyValue(propertyKey: string, value: string): void;
   restoreContainer(container: HTMLElement): void;
+  shouldScheduleEnhancement(
+    targetDocument: Document,
+    mutations: readonly MutationRecord[],
+  ): boolean;
 }
 
 function installRafHarness(targetWindow: Window = window): RafHarness {
@@ -158,6 +162,54 @@ describe("ValueSuggestionOrderController", () => {
     Platform.isMacOS = false;
     Platform.isMobileApp = false;
     vi.restoreAllMocks();
+  });
+
+  it("ignores unrelated body mutations while still detecting suggestion popups", () => {
+    const settings = createDefaultSettings();
+    settings.enableNativeValueSuggestionOrder = true;
+    const controller = createController(settings);
+    const testable = asTestable(controller);
+    const unrelated = document.createElement("div");
+    const unrelatedMutation = {
+      addedNodes: [unrelated],
+      removedNodes: [],
+      target: document.body,
+      type: "childList",
+    } as unknown as MutationRecord;
+
+    expect(testable.shouldScheduleEnhancement(document, [unrelatedMutation])).toBe(false);
+
+    const { container } = createValueMenu(["a", "b"]);
+    const suggestionMutation = {
+      addedNodes: [container],
+      removedNodes: [],
+      target: document.body,
+      type: "childList",
+    } as unknown as MutationRecord;
+
+    expect(testable.shouldScheduleEnhancement(document, [suggestionMutation])).toBe(true);
+  });
+
+  it("refreshes usage ordering only when an active popup actually uses usage mode", () => {
+    const raf = installRafHarness();
+    const settings = createDefaultSettings();
+    settings.enableNativeValueSuggestionOrder = true;
+    settings.valueSuggestionSortMode = "name";
+    const controller = createController(settings);
+    const testable = asTestable(controller);
+    const { container } = createValueMenu(["b", "a"]);
+    controller.initialize();
+    raf.flush();
+    testable.enhanceContainer(container);
+
+    testable.invalidateUsage();
+    expect(raf.pending()).toBe(0);
+
+    settings.valueSuggestionSortMode = "usage";
+    testable.enhanceContainer(container);
+    testable.invalidateUsage();
+    expect(raf.pending()).toBe(1);
+    controller.dispose();
   });
 
   it("orders, hides, and restores native value suggestions", () => {
