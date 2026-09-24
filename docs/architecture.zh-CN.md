@@ -9,7 +9,7 @@ translation_status: source
 
 ## 目标与非目标
 
-插件只增强 Obsidian Properties 的两类顺序：顶层 YAML 列表属性中的值顺序，以及原生属性键候选顺序。它提供跨平台同属性拖拽、同笔记跨属性移动、三种 YAML 写回格式和原生键候选排序。
+插件增强 Obsidian Properties 的三个 surface：顶层 YAML 列表属性中的值顺序、原生属性键候选以及原生属性值候选。它提供跨平台同属性拖拽、同笔记跨属性移动、三种 YAML 写回格式和原生键/值候选排序。
 
 不支持嵌套列表、对象列表、多行 flow sequence、源码模式拖拽或跨文件移动；这些结构必须 fail closed，不得修改笔记。模块化重构的目标是隔离解析、交互、DOM 和 Vault 边界，不是扩大产品范围或重写整个插件。
 
@@ -19,14 +19,15 @@ translation_status: source
 
 1. `src/core/`：纯 TypeScript 规则，不导入 Obsidian，也不访问浏览器 DOM。
    - `frontmatter/`：定位 frontmatter、解析顶层 flow/block 列表、诊断和局部重写。
-   - `suggestions/`：对候选键进行隐藏、去重、置顶、置底和排序；名称比较器是设置页与原生候选菜单共享的唯一排序实现。
+   - `suggestions/`：对候选键和值进行隐藏、去重、置顶、置底和排序；名称比较器是设置页与原生候选菜单共享的唯一排序实现。
    - `interaction/`：指针拖拽状态转换和文档身份守卫。
 2. `src/features/`：功能编排。
    - `value-order/`：把状态机动作、drop 几何、DOM 呈现、pane 上下文和写回组合成一次拖拽事务。
    - `key-order/`：监听候选菜单、应用纯排序规则，把键盘选择桥接到可见候选顺序，并由 recent tracker 与 device-local store 管理已确认属性名称的严格 MRU。
+   - `value-suggestions/`：把属性值专用规则应用到可识别的原生弹窗，跟踪已确认值的 MRU，并在增强不再适用时精确恢复宿主状态。
 3. `src/obsidian/`：Obsidian 和 DOM 适配边界。
    - `properties-dom.ts`：Properties 容器、pill 和属性名识别。
-   - `native-suggest-dom.ts`：原生属性键候选菜单识别。
+   - `native-suggest-dom.ts`：原生属性键和属性值候选菜单识别。
    - `pane-context.ts`：workspace leaf 与文件解析。
    - `editor-transaction.ts`：公开 editor transaction 的宿主兼容、精确核对、Properties 公开重载和持久化边界。
    - `metadata.ts`：通过公开的 Vault 文件枚举与 Metadata Cache 文件缓存，把 top-level frontmatter 转换为候选键/包含该属性的 Markdown 笔记数；设置页和候选控制器共享同一份可失效缓存。拖拽目标判定中，缓存存储形态只能佐证原生类型证据，不得单独定义属性类型。
@@ -80,7 +81,7 @@ translation_status: source
 
 桌面应用中的触屏 Windows 设备保留直接两阶段触摸路径：pill 使用 `touch-action: manipulation`，进入 dragging 后才由临时 capture、non-passive `touchmove` listener 阻止默认动作；capture `contextmenu` listener 只抑制活动桌面触摸拖拽产生的原生菜单，普通鼠标右键不受影响。
 
-浮动预览锁定 source pill 的实际渲染宽高，并以单行省略方式显示；定位使用预览自身 document 的 visual viewport，缺失时回退到该 window 的 layout viewport。过大的预览会缩小，每次移动都限制在 viewport 边距内，因此窄桌面窗口和次级窗口不会把预览挤成屏外竖条。
+浮动预览锁定 source pill 的实际渲染宽高，并以单行省略方式显示；定位使用预览自身 document 的 visual viewport，缺失时回退到该 window 的 layout viewport。过大的预览会缩小，每次移动都限制在 viewport 边距内，因此窄桌面窗口和次级窗口不会把预览挤成屏外竖条。`drag-dom.ts` 按计算后的 inline direction 处理插入几何，包括 RTL 换行；它只滚动命中点下可滚动祖先或 pane root，每帧步长最多 20 像素。document 所有的 polite live status 播报拖拽开始与目标变化，每条取消路径都与预览、指示器和 cursor 状态一起清除该 status。
 
 两个多窗口 controller 都以 document 为资源所有者；插件必须在 controller 首次初始化前把幂等 disposer 登记到运行时回滚栈，controller 也必须在首次挂载 observer 或事件 listener 前登记对应 document owner。初始化中途失败、窗口关闭或插件卸载时，资源按逆序释放，单项 cleanup 异常不得阻断其余 document 的恢复。
 
@@ -119,9 +120,9 @@ controller 不缓存会影响后续交互的旧设置：value drag 在下一次�
 - 发布前必须通过 `npm run check`；该命令依次执行 Obsidian 官方 ESLint、确定性文本格式、README 与稳定双语文档门禁、`npm run typecheck`、`npm run test:coverage`、`npm run build` 和 `npm run check:release`。最终检查要求可重现 bundle，并把生产 `main.js` 限制在 320,000 B 以内。
 - 插件语言设为“自动”时，通过 `getLanguage()` 跟随 Obsidian 当前界面语言；用户显式选择的插件语言始终优先。最低支持的 Obsidian 版本为 1.12.7，所有已发布版本的兼容关系继续以 `versions.json` 为准。
 - 生产构建把 `main.js`、`manifest.json` 和 `styles.css` 直接生成到 `dist/` 顶层，使源码构建审查与本地发布检查使用同一套标准路径。`.node-version`、`package.json` 的 `engines.node`/`packageManager` 与运行时门禁共同固定 Node.js 24.19.0 和 npm 11.17.0。仓库内 release-core runtime 与相邻 lock 精确绑定共同实现；薄适配器只声明插件身份、样式策略和远端，独立 clone 不依赖私有 workspace。
-- 仓库内 release-core 3.0 runtime 与薄适配器统一管理确定性的 Candidate Bundle 和生成的独立工作流。获授权的稳定版本 tag push 或该 tag 上的手动 publish 派发共用流水线；手动 verify 模式保持只读。CI 安装锁定依赖，执行一次 release:check，验证 Bundle 源码，并固定 artifact ID/digest。发布核对精确事件、源码、tag、传输字节和 SLSA 构建证明；先下载验证草稿，再发布 immutable Release，最后下载回验。产品验收可选且单独报告，独立克隆无需外部编排。
+- 仓库内 release-core 3.1 runtime 与薄适配器统一管理确定性的 Candidate Bundle 和生成的独立工作流。获授权的稳定版本 tag push 或该 tag 上的手动 publish 派发共用流水线；手动 verify 模式保持只读。CI 安装锁定依赖，执行一次 release:check，验证 Bundle 源码，并固定 artifact ID/digest。发布核对精确事件、源码、tag、传输字节和 SLSA 构建证明；先下载验证草稿，再发布 immutable Release，最后下载回验。产品验收可选且单独报告，独立克隆无需外部编排。
 - 首次 attestation 前的只读 GitHub 预检与发布后核验都读取 immutable 稳定 Release、托管字节、附件 metadata digest、provenance 与远端标签。既有同标签 Release 只有全部身份已经精确一致时才是零写入 no-op；任何冲突必须在远端写入前失败并提升版本。数字版本标签 ruleset 与仓库级 immutable Releases 仍是管理员控制的外部前置，workflow 只记录并依赖，不读取或修改管理设置。
 
 声称 DOM 交互与视觉宿主验收完成时，必须具备测试策略规定的证据；宿主验收对发布保持可选。明确列入产品非目标的能力不作为未完成发布项。
 
-属性值候选复用属性名称候选的原生快照生命周期。一个外层弹窗只拥有一份快照，宿主变更会更新原生顺序，刷新时保留仍可见的键盘选中项。笔记数量缓存失效拥有独立修订号。属性值规则和本设备最近使用历史与属性名称设置相互独立。
+属性值候选复用属性名称候选的原生快照生命周期。一个外层弹窗只拥有一份快照，宿主变更会更新原生顺序，刷新时保留仍可见的键盘选中项。命中 `none` 时先恢复原生快照，再把全部候选设为不可见并清除候选选中状态，同时保留属性值编辑器。笔记数量缓存失效只为当前存在、可见且使用 `usage` 排序的已跟踪弹窗所在 document 安排刷新。Mutation observer 只把目标局部候选变化以及新增/移除的候选子树视为相关；无关的 `body` child-list 变化不会触发 document 重扫。属性值规则和本设备最近使用历史与属性名称设置相互独立。

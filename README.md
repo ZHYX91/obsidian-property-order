@@ -15,6 +15,7 @@ Cross-property drag is enabled by default and can be disabled in the Value order
 ## Features
 
 - Drag to reorder values inside a top-level YAML list property.
+- Follow logical insertion order in RTL and wrapped layouts, edge-scroll supported Properties regions, and announce pointer-drag state through a polite live status.
 - Move values between supported properties in the same note, with an option to disable it.
 - Treat empty or scalar YAML storage as a text list when Obsidian's native Properties UI assigns the list type, allowing safe moves in or out and normalizing every affected non-string item from its original token text.
 - Preserve the current list format by default, or write every affected property as bracket or bullet lists. Same-property reorders and cross-property moves each commit through one verified editor transaction.
@@ -67,7 +68,7 @@ Every supported Obsidian version uses the same accessible General, Value order, 
 - Object lists, nested lists, multiline flow sequences, source-mode line dragging, and cross-file moves are not supported.
 - Value suggestions do not create a vocabulary or new candidates. They act only while Obsidian exposes a recognizable native property-value suggestion menu in the Properties UI; otherwise Property Order leaves the native menu unchanged.
 - Converting bullet lists to bracket lists may discard item comments and blank lines that bracket syntax cannot represent.
-- Direct keyboard value reordering and screen-reader drag announcements are not currently provided.
+- Direct keyboard value reordering is not provided. Pointer dragging provides polite screen-reader status announcements for drag start and target changes.
 
 ## Privacy and security
 

@@ -5,6 +5,29 @@ follow the repository's Git tags; entries summarize the corresponding commit his
 
 ## [Unreleased]
 
+## [0.7.0] - 2026-09-25
+
+### Added
+
+- Added per-property `none` behavior for native property-value suggestions while retaining manual
+  value input.
+- Added RTL-aware drag targeting and wrapped-row indicators, bounded edge auto-scroll, reduced-motion
+  drag presentation, and polite drag-status announcements.
+
+### Changed
+
+- Bounded suggestion wildcard matching and confirmed recent-value tracking so wildcard work stays
+  limited and recent history advances only after Metadata Cache confirms the selected value.
+- Limited property-value suggestion refreshes to related popup mutations and active usage-sorted
+  popups instead of rescanning for unrelated DOM or metadata changes.
+
+### Fixed
+
+- Preserved YAML-significant spaces and tabs without stripping unrelated Unicode whitespace during
+  supported frontmatter rewrites.
+- Cleared candidate selection state when a per-property rule suppresses value suggestions and
+  strengthened drag presentation cleanup on cancellation.
+
 ## [0.6.0] - 2026-09-12
 
 ### Added
@@ -156,7 +179,9 @@ follow the repository's Git tags; entries summarize the corresponding commit his
 
 - Established the initial Property Order release baseline.
 
-[Unreleased]: https://github.com/ZHYX91/obsidian-property-order/compare/0.5.3...HEAD
+[Unreleased]: https://github.com/ZHYX91/obsidian-property-order/compare/0.7.0...HEAD
+[0.7.0]: https://github.com/ZHYX91/obsidian-property-order/releases/tag/0.7.0
+[0.6.0]: https://github.com/ZHYX91/obsidian-property-order/releases/tag/0.6.0
 [0.5.3]: https://github.com/ZHYX91/obsidian-property-order/releases/tag/0.5.3
 [0.5.2]: https://github.com/ZHYX91/obsidian-property-order/releases/tag/0.5.2
 [0.5.1]: https://github.com/ZHYX91/obsidian-property-order/releases/tag/0.5.1

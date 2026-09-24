@@ -78,9 +78,10 @@ The Android emulator verifies:
 - New CRLF fixtures must remain CRLF when merely opened. Both a Property Order editor transaction and an ordinary manual body edit may then serialize the note as LF under Obsidian 1.12.7; acceptance attributes that behavior to the host and verifies logical text plus one-step undo instead of adding a non-undoable second Vault write.
 - Android acceptance uses an independent Android 15 / API 35 emulator Vault, verifies deployed production files by SHA-256, preserves Obsidian's Edit, Copy, and Remove from list actions beside Reorder or move, exercises same-property reorder and cross-property move on disk, verifies recent update and clearing after a touch property-name commit, and checks cancellation plus background/foreground recovery without plugin error, crash, or ANR.
 - This desktop-plus-emulator matrix defines full host-regression coverage; it is not a publication gate. Android physical devices and iOS are out of scope.
-- Automated tests cover the 15-second drag timeout, recent-confirmation timeout, local-storage read/write failure, Escape, unsupported-menu fail open, and cleanup paths that routine host acceptance does not inject.
+- Automated tests cover the 15-second drag timeout, recent-confirmation timeout, local-storage read/write failure, Escape, unsupported-menu fail open, RTL wrapped targeting, bounded edge scrolling, drag-status cleanup, and cleanup paths that routine host acceptance does not inject.
+- Desktop host acceptance for a Value suggestions `none` rule verifies that manual typing remains available and unmodified Enter/Tab does not commit a suppressed native candidate.
 - Physical-device input stacks, haptics, pens, and vendor-specific behavior are not acceptance claims made by this project.
-- Keyboard property-value reorder and screen-reader drag announcements remain explicit product non-goals.
+- Keyboard property-value reorder remains an explicit product non-goal. Automated DOM coverage verifies polite drag-status creation and cleanup; real assistive-technology announcement quality is claimed only when host acceptance records it.
 - The language contract proves that Auto uses Obsidian's configured interface language through the public `getLanguage()` API. The minimum supported Obsidian version is 1.12.7, and `versions.json` remains the compatibility contract for published versions.
 - CR-only byte preservation is automated; Obsidian 1.12.7 exposes no matching Properties UI, so a nonexistent host path is not required.
 
