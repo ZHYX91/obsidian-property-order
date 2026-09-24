@@ -401,8 +401,7 @@ export class ValueSuggestionOrderController {
     if (
       !settings.enableNativeValueSuggestionOrder ||
       !isSuggestionElementVisible(container) ||
-      !isPropertyValueSuggestionContainer(container, items) ||
-      hasDuplicateSuggestionKeys(items)
+      !isPropertyValueSuggestionContainer(container, items)
     ) {
       this.restoreContainer(container);
       return;
@@ -650,17 +649,3 @@ function haveSameElementSet(
   return snapshots.every(({ element }) => currentElements.has(element));
 }
 
-
-function hasDuplicateSuggestionKeys(items: readonly SuggestionItem[]): boolean {
-  const seen = new Set<string>();
-
-  for (const item of items) {
-    if (seen.has(item.key)) {
-      return true;
-    }
-
-    seen.add(item.key);
-  }
-
-  return false;
-}
