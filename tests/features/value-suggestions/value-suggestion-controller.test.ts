@@ -447,16 +447,19 @@ describe("ValueSuggestionOrderController", () => {
     expect(testable.documentStates.size).toBe(0);
   });
 
-  it("reschedules after metadata usage invalidation only while enabled", () => {
+  it("reschedules active usage ordering after metadata invalidation only while enabled", () => {
     const raf = installRafHarness();
     const settings = createDefaultSettings();
     settings.enableNativeValueSuggestionOrder = true;
+    settings.valueSuggestionSortMode = "usage";
     const app = createApp();
     const controller = createController(settings, app);
     const testable = asTestable(controller);
+    const { container } = createValueMenu(["a", "b"]);
 
     controller.initialize();
     raf.flush();
+    testable.enhanceContainer(container);
     testable.invalidateUsage();
     expect(raf.pending()).toBe(1);
     raf.flush();
