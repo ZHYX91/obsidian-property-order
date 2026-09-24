@@ -13,6 +13,7 @@ export function createEsbuildOptions({
     target: "es2020",
     logLevel: "info",
     minifySyntax: production,
+    minifyWhitespace: production,
     sourcemap: production ? false : "inline",
     treeShaking: true,
     outfile: path.join(projectRoot, "dist", "main.js"),
