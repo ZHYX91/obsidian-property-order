@@ -44,12 +44,24 @@ const YAML_CORE_EXPONENTIAL_PATTERN =
   /^[-+]?(?:\.[0-9]+|[0-9]+(?:\.[0-9]*)?)[eE][-+]?[0-9]+$/;
 const YAML_CORE_DECIMAL_FLOAT_PATTERN = /^[-+]?(?:\.[0-9]+|[0-9]+\.[0-9]*)$/;
 
+export function trimYamlSeparationWhitespace(raw: string): string {
+  return raw.replace(/^[ \t]+|[ \t]+$/g, "");
+}
+
+export function trimStartYamlSeparationWhitespace(raw: string): string {
+  return raw.replace(/^[ \t]+/g, "");
+}
+
+export function trimEndYamlSeparationWhitespace(raw: string): string {
+  return raw.replace(/[ \t]+$/g, "");
+}
+
 export function parseScalarValue(raw: string): string {
   return parseScalar(raw).value;
 }
 
 export function parseScalar(raw: string): FrontmatterScalar {
-  const trimmed = raw.trim();
+  const trimmed = trimYamlSeparationWhitespace(raw);
 
   if (trimmed.startsWith("'") && trimmed.endsWith("'") && trimmed.length >= 2) {
     return {
@@ -245,7 +257,7 @@ export function splitInlineComment(raw: string, context: "flow" | "scalar" = "sc
     }
 
     return {
-      rawValue: raw.slice(0, commentStart).trimEnd(),
+      rawValue: trimEndYamlSeparationWhitespace(raw.slice(0, commentStart)),
       inlineComment: raw.slice(commentStart),
     };
   }
@@ -254,7 +266,7 @@ export function splitInlineComment(raw: string, context: "flow" | "scalar" = "sc
 }
 
 function canStartQuotedScalar(raw: string, index: number, context: "flow" | "scalar"): boolean {
-  const prefix = raw.slice(0, index).trimEnd();
+  const prefix = trimEndYamlSeparationWhitespace(raw.slice(0, index));
   return prefix.length === 0 || (context === "flow" && /[[,{]$/.test(prefix));
 }
 
