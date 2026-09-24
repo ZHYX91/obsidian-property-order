@@ -168,6 +168,10 @@ body.property-order-value-drag-enabled .metadata-property .multi-select-pill {
   display: none !important;
 }
 
+.property-order-value-suggestions-suppressed {
+  display: none !important;
+}
+
 .property-order-settings-tabs {
   align-items: stretch;
   display: flex;
