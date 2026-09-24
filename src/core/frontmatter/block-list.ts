@@ -4,6 +4,9 @@ import {
   parseScalar,
   serializeNormalizedScalar,
   splitInlineComment,
+  trimEndYamlSeparationWhitespace,
+  trimStartYamlSeparationWhitespace,
+  trimYamlSeparationWhitespace,
 } from "./scalar";
 import type {
   BlockItemToken,
@@ -24,8 +27,8 @@ export function parseBlockSequence(lines: string[]): {
   let sequenceIndent: string | null = null;
 
   for (const line of lines) {
-    const trimmed = line.trim();
-    const itemMatch = /^(\s*)-(\s*)(.*)$/.exec(line);
+    const trimmed = trimYamlSeparationWhitespace(line);
+    const itemMatch = /^([ \t]*)-([ \t]*)(.*)$/.exec(line);
 
     if (itemMatch == null && (trimmed.length === 0 || trimmed.startsWith("#"))) {
       if (hasSeenItem) {
@@ -103,7 +106,7 @@ export function toBlockItemToken(
       return item;
     }
 
-    const rawValue = item.rawValue.trim();
+    const rawValue = trimYamlSeparationWhitespace(item.rawValue);
 
     return {
       ...item,
@@ -114,7 +117,7 @@ export function toBlockItemToken(
     };
   }
 
-  const rawValue = item.raw.trim();
+  const rawValue = trimYamlSeparationWhitespace(item.raw);
   return {
     leadingLines: [],
     lineIndent,
@@ -128,7 +131,7 @@ export function toBlockItemToken(
 }
 
 export function isSupportedBlockScalar(raw: string): boolean {
-  const trimmed = raw.trim();
+  const trimmed = trimYamlSeparationWhitespace(raw);
 
   if (trimmed.length === 0) {
     return true;
@@ -138,14 +141,14 @@ export function isSupportedBlockScalar(raw: string): boolean {
     return isValidQuotedScalar(trimmed);
   }
 
-  if (/^(?:[[\]{?}&*!|>]|-(?:\s|$))/.test(trimmed) || /[[\]{}]/.test(trimmed)) {
+  if (/^(?:[[\]{?}&*!|>]|-(?:[ \t]|$))/.test(trimmed) || /[[\]{}]/.test(trimmed)) {
     return false;
   }
 
   for (let index = 0; index < trimmed.length; index += 1) {
     const nextCharacter = trimmed[index + 1] ?? "";
 
-    if (trimmed[index] === ":" && (nextCharacter.length === 0 || /\s/.test(nextCharacter))) {
+    if (trimmed[index] === ":" && (nextCharacter.length === 0 || /[ \t]/.test(nextCharacter))) {
       return false;
     }
   }
@@ -160,7 +163,11 @@ export function renderBlockProperty(
   writebackFormat: ListWritebackFormat,
 ): string {
   const renderedLines: string[] = [];
-  renderedLines.push(`${property.keyText}: ${property.inlineComment.trimStart()}`.trimEnd());
+  renderedLines.push(
+    trimEndYamlSeparationWhitespace(
+      `${property.keyText}: ${trimStartYamlSeparationWhitespace(property.inlineComment)}`,
+    ),
+  );
   renderedLines.push(...property.preambleLines);
 
   for (const item of items) {
