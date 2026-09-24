@@ -86,9 +86,10 @@ export class RecentPropertyValueTracker {
         }
 
         const currentValues = getFrontmatterValues(cache, pending.propertyKey);
-        const changed = !haveSameValues(pending.beforeValues, currentValues);
+        const beforeCount = countValue(pending.beforeValues, pending.value);
+        const currentCount = countValue(currentValues, pending.value);
 
-        if (!changed || !currentValues.includes(pending.value)) {
+        if (currentCount <= beforeCount) {
           remaining.push(pending);
           continue;
         }
@@ -236,8 +237,16 @@ function getFrontmatterValues(cache: CachedMetadata, propertyKey: string): strin
     .filter(Boolean);
 }
 
-function haveSameValues(left: readonly string[], right: readonly string[]): boolean {
-  return left.length === right.length && left.every((value, index) => value === right[index]);
+function countValue(values: readonly string[], target: string): number {
+  let count = 0;
+
+  for (const value of values) {
+    if (value === target) {
+      count += 1;
+    }
+  }
+
+  return count;
 }
 
 function asHtmlElement(value: unknown): HTMLElement | null {
