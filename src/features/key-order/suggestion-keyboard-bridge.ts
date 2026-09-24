@@ -39,6 +39,10 @@ export function registerSuggestionKeyboardBridge(
     const visibleElements = getVisibleSuggestionElements(container);
 
     if (event.key === "Tab") {
+      if (event.shiftKey || event.altKey || event.ctrlKey || event.metaKey) {
+        return;
+      }
+
       const selectedElement = getSelectedSuggestionElement(container);
 
       if (selectedElement != null && visibleElements.includes(selectedElement)) {
@@ -72,12 +76,12 @@ export function registerSuggestionKeyboardBridge(
       return;
     }
 
-    event.preventDefault();
-    event.stopImmediatePropagation();
-
     if (visibleElements.length === 0) {
       return;
     }
+
+    event.preventDefault();
+    event.stopImmediatePropagation();
 
     const currentIndex = getSelectedVisibleIndex(visibleElements);
     const targetIndex = getNavigationTargetIndex(
@@ -128,12 +132,12 @@ function handleEnter(
   ) => void) | undefined,
   onSynchronizationFailure: (container: HTMLElement) => void,
 ): void {
-  event.preventDefault();
-  event.stopImmediatePropagation();
-
   if (visibleElements.length === 0) {
     return;
   }
+
+  event.preventDefault();
+  event.stopImmediatePropagation();
 
   const selectedElement = getSelectedSuggestionElement(container);
   const targetElement =
