@@ -76,12 +76,12 @@ export function registerSuggestionKeyboardBridge(
       return;
     }
 
+    event.preventDefault();
+    event.stopImmediatePropagation();
+
     if (visibleElements.length === 0) {
       return;
     }
-
-    event.preventDefault();
-    event.stopImmediatePropagation();
 
     const currentIndex = getSelectedVisibleIndex(visibleElements);
     const targetIndex = getNavigationTargetIndex(
@@ -132,12 +132,12 @@ function handleEnter(
   ) => void) | undefined,
   onSynchronizationFailure: (container: HTMLElement) => void,
 ): void {
+  event.preventDefault();
+  event.stopImmediatePropagation();
+
   if (visibleElements.length === 0) {
     return;
   }
-
-  event.preventDefault();
-  event.stopImmediatePropagation();
 
   const selectedElement = getSelectedSuggestionElement(container);
   const targetElement =
