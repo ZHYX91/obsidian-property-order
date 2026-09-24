@@ -1,5 +1,6 @@
 import type { PropertyKeyOrderOptions } from "../../shared/types";
 import { comparePropertyNames } from "./property-names";
+import { createWildcardMatcher } from "./wildcard";
 
 export interface OrderedPropertyKey {
   key: string;
@@ -163,11 +164,3 @@ function findMatchingPattern(patterns: string[], key: string): string | null {
   return null;
 }
 
-function createWildcardMatcher(pattern: string): (value: string) => boolean {
-  const escapedPattern = pattern
-    .replace(/[|\\{}()[\]^$+?.]/g, "\\$&")
-    .replace(/\*/g, ".*");
-  const matcher = new RegExp(`^${escapedPattern}$`, "i");
-
-  return (value: string) => matcher.test(value);
-}
