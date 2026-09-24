@@ -18,6 +18,9 @@ import {
   renderInlineComment,
   serializeNormalizedScalar,
   splitInlineComment,
+  trimEndYamlSeparationWhitespace,
+  trimStartYamlSeparationWhitespace,
+  trimYamlSeparationWhitespace,
 } from "./scalar";
 import { normalizeTextListItems } from "./text-list";
 import type {
@@ -246,8 +249,8 @@ function findCoercibleScalarProperty(
       continue;
     }
 
-    const { rawValue, inlineComment } = splitInlineComment(propertyLine.restText.trim());
-    const rawScalar = rawValue.trim();
+    const { rawValue, inlineComment } = splitInlineComment(trimYamlSeparationWhitespace(propertyLine.restText));
+    const rawScalar = trimYamlSeparationWhitespace(rawValue);
 
     if (rawScalar.length === 0 || !isSupportedBlockScalar(rawScalar)) {
       return null;
@@ -303,12 +306,12 @@ export function findProperty(
     }
 
     const { keyText } = propertyLine;
-    const propertyRest = propertyLine.restText.trim();
+    const propertyRest = trimYamlSeparationWhitespace(propertyLine.restText);
     const { rawValue: rawRestValue, inlineComment } = splitInlineComment(
       propertyRest,
       propertyRest.startsWith("[") ? "flow" : "scalar",
     );
-    const rest = rawRestValue.trim();
+    const rest = trimYamlSeparationWhitespace(rawRestValue);
 
     if (rest.startsWith("[") && rest.endsWith("]")) {
       const items = parseFlowSequence(rest);
@@ -430,7 +433,9 @@ function renderEmptyProperty(
 ): string {
   if (writebackFormat === "block" || (writebackFormat === "preserve" && property.kind === "block")) {
     const renderedLines = [
-      `${property.keyText}: ${property.inlineComment.trimStart()}`.trimEnd(),
+      trimEndYamlSeparationWhitespace(
+        `${property.keyText}: ${trimStartYamlSeparationWhitespace(property.inlineComment)}`,
+      ),
     ];
 
     if (writebackFormat === "preserve" && property.kind === "block") {
