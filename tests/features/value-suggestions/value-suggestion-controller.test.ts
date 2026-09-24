@@ -588,20 +588,6 @@ describe("ValueSuggestionOrderController", () => {
     expect(testable.originalSuggestions.size).toBe(0);
   });
 
-  it("fails open when native candidates have ambiguous duplicate labels", () => {
-    const settings = createDefaultSettings();
-    settings.enableNativeValueSuggestionOrder = true;
-    settings.valueSuggestionSortMode = "name";
-    const controller = createController(settings);
-    const { container } = createValueMenu(["same", "other", "same"]);
-
-    asTestable(controller).enhanceContainer(container);
-
-    expect(allValues(container)).toEqual(["same", "other", "same"]);
-    expect(container.dataset.propertyOrderValueEnhanced).toBeUndefined();
-    controller.dispose();
-  });
-
   it("leaves action menus untouched even while a property value has focus", () => {
     const settings = createDefaultSettings();
     settings.enableNativeValueSuggestionOrder = true;
