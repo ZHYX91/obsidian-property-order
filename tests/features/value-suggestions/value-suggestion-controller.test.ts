@@ -272,6 +272,15 @@ describe("ValueSuggestionOrderController", () => {
 
     expect(container.classList.contains("property-order-value-suggestions-suppressed")).toBe(true);
     expect(asTestable(controller).getActiveContainer(document)).toBeNull();
+    expect(container.querySelector(".suggestion-item.is-selected")).toBeNull();
+    expect(
+      Array.from(container.querySelectorAll<HTMLElement>(".suggestion-item")).every(
+        (item) =>
+          item.hidden &&
+          item.getAttribute("aria-hidden") === "true" &&
+          item.classList.contains("property-order-suggestion-hidden"),
+      ),
+    ).toBe(true);
 
     settings.valueSuggestionSortOverrides = [];
     asTestable(controller).enhanceContainer(container);

@@ -434,6 +434,14 @@ export class ValueSuggestionOrderController {
     if (rules.sortMode === "none") {
       restoreSnapshot(snapshot);
       snapshot.appliedState = null;
+
+      for (const item of items) {
+        item.element.hidden = true;
+        item.element.classList.add(PLUGIN_HIDDEN_SUGGESTION_CLASS);
+        item.element.setAttribute("aria-hidden", "true");
+        item.element.classList.remove("is-selected");
+      }
+
       container.classList.add(VALUE_SUGGESTIONS_SUPPRESSED_CLASS);
       container.dataset.propertyOrderValueEnhanced = "true";
       container.dataset.propertyOrderValueSignature = JSON.stringify({

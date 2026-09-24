@@ -1061,6 +1061,40 @@ describe("PropertyValueOrderController", () => {
     harness.cleanup();
   });
 
+  it("removes drag preview, indicator, live status, and cursor on cancel or Escape", () => {
+    const raf = installRafHarness();
+    const harness = createHarness();
+    const startDrag = () => {
+      dispatchPointer(harness.pill, "pointerdown", 10);
+      dispatchPointer(document, "pointermove", 250);
+      raf.flush();
+
+      expect(document.querySelector(".property-order-drag-preview")).not.toBeNull();
+      expect(document.querySelector(".property-order-drop-indicator")).not.toBeNull();
+      expect(document.querySelector(".property-order-drag-status")).not.toBeNull();
+      expect(document.body.classList.contains("property-order-drag-cursor-active")).toBe(true);
+    };
+    const expectCleared = () => {
+      expect(document.querySelector(".property-order-drag-preview")).toBeNull();
+      expect(document.querySelector(".property-order-drop-indicator")).toBeNull();
+      expect(document.querySelector(".property-order-drag-status")).toBeNull();
+      expect(document.body.classList.contains("property-order-drag-cursor-active")).toBe(false);
+      expect(harness.pill.classList.contains("property-order-dragging")).toBe(false);
+    };
+
+    startDrag();
+    dispatchPointer(document, "pointercancel", 250);
+    expectCleared();
+
+    startDrag();
+    document.dispatchEvent(
+      new KeyboardEvent("keydown", { bubbles: true, cancelable: true, key: "Escape" }),
+    );
+    expectCleared();
+
+    harness.cleanup();
+  });
+
   it("uses a disabled value-drag setting on the next pointer event", () => {
     installRafHarness();
     const harness = createHarness();
