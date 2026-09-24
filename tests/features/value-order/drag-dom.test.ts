@@ -4,8 +4,10 @@ import { Window as HappyDomWindow } from "happy-dom";
 import { afterEach, describe, expect, it } from "vitest";
 
 import {
+  createDragStatusElement,
   createIndicatorElement,
   createPreviewElement,
+  getDragAutoScrollDelta,
   positionPreview,
 } from "../../../src/features/value-order/drag-dom";
 import { installObsidianDomFactories } from "../../setup/obsidian-dom";
@@ -94,6 +96,24 @@ describe("drag preview geometry", () => {
     expect(previewRect.right).toBeLessThanOrEqual(102.001);
     expect(previewRect.top).toBeGreaterThanOrEqual(27.999);
     expect(previewRect.bottom).toBeLessThanOrEqual(72.001);
+  });
+
+  it("computes bounded edge autoscroll steps", () => {
+    expect(getDragAutoScrollDelta(5, 0, 120)).toBeLessThan(0);
+    expect(getDragAutoScrollDelta(60, 0, 120)).toBe(0);
+    expect(getDragAutoScrollDelta(115, 0, 120)).toBeGreaterThan(0);
+    expect(Math.abs(getDragAutoScrollDelta(-100, 0, 120))).toBeLessThanOrEqual(20);
+  });
+
+  it("creates a polite live status in the requested owner window", () => {
+    const targetWindow = createWindow(200, 100);
+    const status = createDragStatusElement(
+      targetWindow.document.body as unknown as HTMLElement,
+    );
+
+    expect(status.ownerDocument).toBe(targetWindow.document);
+    expect(status.getAttribute("role")).toBe("status");
+    expect(status.getAttribute("aria-live")).toBe("polite");
   });
 
   it("creates the drop indicator in the requested owner window", () => {

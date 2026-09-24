@@ -144,10 +144,10 @@ export function resolveDropTarget(
       ? candidate
       : closest,
   );
-  const slot =
-    clientX < closestPill.rect.left + closestPill.rect.width / 2
-      ? closestPill.index
-      : closestPill.index + 1;
+  const midpoint = closestPill.rect.left + closestPill.rect.width / 2;
+  const isRtl = getInlineDirection(targetContext.container) === "rtl";
+  const isBefore = isRtl ? clientX > midpoint : clientX < midpoint;
+  const slot = isBefore ? closestPill.index : closestPill.index + 1;
 
   return buildDropTarget(targetContext, mode, slot, sourceIndex);
 }
@@ -257,4 +257,14 @@ function getAxisDistance(value: number, minValue: number, maxValue: number): num
 
 function isPointInsideRect(clientX: number, clientY: number, rect: DOMRect): boolean {
   return clientX >= rect.left && clientX <= rect.right && clientY >= rect.top && clientY <= rect.bottom;
+}
+
+function getInlineDirection(container: HTMLElement): "ltr" | "rtl" {
+  try {
+    return container.ownerDocument?.defaultView?.getComputedStyle(container).direction === "rtl"
+      ? "rtl"
+      : "ltr";
+  } catch {
+    return "ltr";
+  }
 }

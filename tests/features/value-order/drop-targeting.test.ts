@@ -63,6 +63,36 @@ describe("resolveDropTarget", () => {
     });
   });
 
+  it("uses logical before and after positions in RTL containers", () => {
+    const container = document.createElement("div");
+    container.style.direction = "rtl";
+    const pills = [0, 1, 2].map(() => document.createElement("div"));
+    const rects = [rect(200, 250), rect(140, 190), rect(80, 130)];
+    pills.forEach((pill, index) => {
+      pill.getBoundingClientRect = () => rects[index] as DOMRect;
+      container.appendChild(pill);
+    });
+    document.body.appendChild(container);
+    const source: PropertyPillContext = {
+      container,
+      editorKind: "multi-select",
+      pill: pills[2],
+      pills,
+      propertyElement: document.createElement("div"),
+      propertyKey: "tags",
+      sourceIndex: 2,
+    };
+
+    expect(resolveDropTarget(source, source, 185, 10)).toMatchObject({
+      kind: "drop",
+      slot: 1,
+    });
+    expect(resolveDropTarget(source, source, 145, 10)).toMatchObject({
+      kind: "noop",
+      slot: 2,
+    });
+  });
+
   it("creates a cross-property insertion target for an empty list", () => {
     const source = createSourceContext();
     const target: PropertyContainerContext = {

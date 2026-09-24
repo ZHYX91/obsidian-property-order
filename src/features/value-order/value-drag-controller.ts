@@ -45,6 +45,9 @@ import {
   resolvePaneFileContext,
 } from "../../obsidian/pane-context";
 import {
+  announceDragStatus,
+  autoScrollDragContainer,
+  createDragStatusElement,
   createIndicatorElement,
   createPreviewElement,
   positionPreview,
@@ -80,6 +83,7 @@ interface DragState {
   indicatorElement: HTMLElement;
   invalidTarget: InvalidDropTarget | null;
   previewElement: HTMLElement;
+  statusElement: HTMLElement;
   pointerId: number;
   pointerType: SupportedPointerType;
   target: DropTarget | null;
@@ -875,6 +879,8 @@ export class PropertyValueOrderController {
     this.clearMobileArmState();
     const previewElement = createPreviewElement(context.pill);
     const indicatorElement = createIndicatorElement(targetDocument.body);
+    const statusElement = createDragStatusElement(targetDocument.body);
+    announceDragStatus(statusElement, this.t("a11y.dragStarted"));
     targetDocument.body.append(previewElement);
     context.pill.classList.add("property-order-dragging");
     setDocumentDragCursorActive(targetDocument, true);
@@ -894,6 +900,7 @@ export class PropertyValueOrderController {
       indicatorElement,
       invalidTarget: null,
       previewElement,
+      statusElement,
       pointerId,
       pointerType: pressedPointerType,
       target: null,
@@ -980,6 +987,11 @@ export class PropertyValueOrderController {
       return;
     }
 
+    const didAutoScroll = autoScrollDragContainer(
+      dragState.paneContainer,
+      this.pendingDragX,
+      this.pendingDragY,
+    );
     positionPreview(dragState.previewElement, this.pendingDragX, this.pendingDragY);
 
     const dropPoint = resolveDropPoint(
@@ -1009,6 +1021,22 @@ export class PropertyValueOrderController {
     dragState.target = target;
     dragState.invalidTarget = invalidTarget;
     updateIndicator(dragState.indicatorElement, target);
+    announceDragStatus(
+      dragState.statusElement,
+      target?.kind === "drop"
+        ? this.t(
+            target.mode === "move"
+              ? "a11y.dragMoveTarget"
+              : "a11y.dragReorderTarget",
+          ).replace("{property}", () => target.context.propertyKey)
+        : invalidTarget != null
+          ? this.t("a11y.dragInvalidTarget")
+          : this.t("a11y.dragNoTarget"),
+    );
+
+    if (didAutoScroll) {
+      this.scheduleDragUpdate();
+    }
   }
 
   private async finishDrag(pointerId: number): Promise<void> {
@@ -1957,6 +1985,7 @@ export class PropertyValueOrderController {
       });
       this.runInteractionCleanup(() => dragState.previewElement.remove());
       this.runInteractionCleanup(() => dragState.indicatorElement.remove());
+      this.runInteractionCleanup(() => dragState.statusElement.remove());
       this.runInteractionCleanup(() => {
         setDocumentDragCursorActive(dragState.document, false);
       });
