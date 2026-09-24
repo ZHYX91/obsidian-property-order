@@ -1,4 +1,8 @@
-import { renderInlineComment, serializeNormalizedScalar } from "./scalar";
+import {
+  renderInlineComment,
+  serializeNormalizedScalar,
+  trimYamlSeparationWhitespace,
+} from "./scalar";
 import type { BlockItemToken, FrontmatterScalar, ListItemToken, PropertyItem } from "./types";
 
 export function normalizeTextListItems(items: PropertyItem[]): PropertyItem[] {
@@ -42,6 +46,6 @@ function normalizeBlockItem(item: BlockItemToken): void {
 function toRawTextScalar(raw: string): FrontmatterScalar {
   return {
     kind: "string",
-    value: raw.trim(),
+    value: trimYamlSeparationWhitespace(raw),
   };
 }
