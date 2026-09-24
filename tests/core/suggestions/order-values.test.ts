@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  explainPropertyValueBehavior,
   orderPropertyValues,
   resolvePropertyValueRules,
 } from "../../../src/core/suggestions/order-values";
@@ -23,6 +24,26 @@ describe("resolvePropertyValueRules", () => {
     });
   });
 
+  it("allows a property rule to disable candidate suggestions", () => {
+    expect(
+      resolvePropertyValueRules("secret_id", {
+        bottomRules: [],
+        defaultSortMode: "native",
+        hiddenRules: [],
+        pinnedRules: [],
+        sortOverrides: ["secret_* = none"],
+      }),
+    ).toMatchObject({ sortMode: "none" });
+
+    expect(
+      explainPropertyValueBehavior("secret_id", ["secret_* = none"], "name"),
+    ).toEqual({
+      behavior: "none",
+      matchedRule: "secret_* = none",
+      propertyKey: "secret_id",
+    });
+  });
+
   it("ignores malformed and unrelated rules", () => {
     expect(
       resolvePropertyValueRules("priority", {
@@ -42,6 +63,20 @@ describe("resolvePropertyValueRules", () => {
 });
 
 describe("orderPropertyValues", () => {
+  it("returns no candidates when suggestions are disabled for the property", () => {
+    expect(
+      orderPropertyValues(["alpha", "beta"], {
+        bottomValues: ["beta"],
+        hiddenPatterns: [],
+        pinnedValues: ["alpha"],
+        recentValues: [],
+        sortMode: "none",
+        usage: [],
+      }),
+    ).toEqual([]);
+  });
+
+
   it("preserves native middle order while applying hidden, pinned, and bottom rules", () => {
     expect(
       orderPropertyValues(["doing", "done", "draft", "archived", "cancelled"], {
