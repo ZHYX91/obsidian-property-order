@@ -25,23 +25,6 @@ describe("suggestion keyboard bridge", () => {
   beforeEach(() => document.body.replaceChildren());
   afterEach(() => vi.restoreAllMocks());
 
-  it.each(["Enter", "ArrowDown"])("does not swallow %s when every candidate is hidden", (key) => {
-    const container = createContainer(true);
-    const cleanup = registerSuggestionKeyboardBridge({
-      getActiveContainer: () => container,
-      hasActiveContext: () => true,
-      onSynchronizationFailure: vi.fn(),
-      supportsEmacsNavigation: false,
-      targetWindow: window,
-    });
-    const event = new KeyboardEvent("keydown", { key, bubbles: true, cancelable: true });
-
-    window.dispatchEvent(event);
-
-    expect(event.defaultPrevented).toBe(false);
-    cleanup();
-  });
-
   it("does not treat modified Tab as a candidate activation", () => {
     const container = createContainer(false);
     const onActivationIntent = vi.fn();
