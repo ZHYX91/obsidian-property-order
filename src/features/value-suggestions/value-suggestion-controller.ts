@@ -42,6 +42,9 @@ import {
 import { RecentPropertyValueStore } from "./recent-property-value-store";
 import { RecentPropertyValueTracker } from "./recent-property-value-tracker";
 
+const VALUE_SUGGESTIONS_SUPPRESSED_CLASS =
+  "property-order-value-suggestions-suppressed";
+
 const OBSERVER_OPTIONS: MutationObserverInit = {
   attributeFilter: ["aria-hidden", "hidden"],
   attributes: true,
@@ -396,6 +399,7 @@ export class ValueSuggestionOrderController {
 
   private enhanceContainer(container: HTMLElement): void {
     const settings = this.getSettings();
+    container.classList.remove(VALUE_SUGGESTIONS_SUPPRESSED_CLASS);
     const items = getSuggestionItems(container);
 
     if (
@@ -423,6 +427,20 @@ export class ValueSuggestionOrderController {
       pinnedRules: settings.pinnedPropertyValues,
       sortOverrides: settings.valueSuggestionSortOverrides,
     });
+
+    if (rules.sortMode === "none") {
+      restoreSnapshot(snapshot);
+      snapshot.appliedState = null;
+      container.classList.add(VALUE_SUGGESTIONS_SUPPRESSED_CLASS);
+      container.dataset.propertyOrderValueEnhanced = "true";
+      container.dataset.propertyOrderValueSignature = JSON.stringify({
+        propertyKey: context.propertyKey,
+        sortMode: rules.sortMode,
+      });
+      this.activeContainers.delete(container.ownerDocument);
+      return;
+    }
+
     const itemsByElement = new Map(items.map((item) => [item.element, item]));
     const nativeItems = snapshot.childOrder
       .map((node) => itemsByElement.get(node as HTMLElement))
@@ -612,9 +630,12 @@ export class ValueSuggestionOrderController {
   }
 
   private restoreContainer(container: HTMLElement): void {
+    container.classList.remove(VALUE_SUGGESTIONS_SUPPRESSED_CLASS);
     const snapshot = this.originalSuggestions.get(container);
 
     if (snapshot == null) {
+      delete container.dataset.propertyOrderValueEnhanced;
+      delete container.dataset.propertyOrderValueSignature;
       return;
     }
 

@@ -353,6 +353,7 @@ export class PropertyOrderSettingTab extends PluginSettingTab {
       name: this.t("settings.valueSuggestions.sortMode.nameOption"),
       recent: this.t("settings.valueSuggestions.sortMode.recent"),
       usage: this.t("settings.valueSuggestions.sortMode.usage"),
+      none: this.t("settings.valueSuggestions.sortMode.none"),
     };
   }
 
@@ -1152,7 +1153,13 @@ function parseLines(value: string): string[] {
 }
 
 function isValueSuggestionSortMode(value: string): value is ValueSuggestionSortMode {
-  return value === "native" || value === "name" || value === "recent" || value === "usage";
+  return (
+    value === "native" ||
+    value === "name" ||
+    value === "recent" ||
+    value === "usage" ||
+    value === "none"
+  );
 }
 
 function updateDeclarativeSettingTab(settingTab: object): void {

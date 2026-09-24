@@ -160,6 +160,25 @@ describe("ValueSuggestionOrderController", () => {
     vi.restoreAllMocks();
   });
 
+  it("suppresses the native value candidate popup for a matching property", () => {
+    const settings = createDefaultSettings();
+    settings.enableNativeValueSuggestionOrder = true;
+    settings.valueSuggestionSortOverrides = ["status = none"];
+    const controller = createController(settings);
+    const { container } = createValueMenu(["draft", "done"]);
+
+    asTestable(controller).enhanceContainer(container);
+
+    expect(container.classList.contains("property-order-value-suggestions-suppressed")).toBe(true);
+    expect(asTestable(controller).getActiveContainer(document)).toBeNull();
+
+    settings.valueSuggestionSortOverrides = [];
+    asTestable(controller).enhanceContainer(container);
+    expect(container.classList.contains("property-order-value-suggestions-suppressed")).toBe(false);
+    expect(visibleValues(container)).toEqual(["draft", "done"]);
+    controller.dispose();
+  });
+
   it("orders, hides, and restores native value suggestions", () => {
     const settings = createDefaultSettings();
     settings.enableNativeValueSuggestionOrder = true;

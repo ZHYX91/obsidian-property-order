@@ -165,7 +165,13 @@ export function isKeySuggestionSortMode(value: unknown): value is KeySuggestionS
 export function isValueSuggestionSortMode(
   value: unknown,
 ): value is ValueSuggestionSortMode {
-  return value === "native" || value === "name" || value === "recent" || value === "usage";
+  return (
+    value === "native" ||
+    value === "name" ||
+    value === "recent" ||
+    value === "usage" ||
+    value === "none"
+  );
 }
 
 export function isPluginLanguage(value: unknown): value is PluginLanguage {
