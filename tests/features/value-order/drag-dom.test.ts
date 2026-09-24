@@ -1,7 +1,7 @@
 // @vitest-environment happy-dom
 
 import { Window as HappyDomWindow } from "happy-dom";
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it } from "vitest";
 
 import {
   autoScrollDragContainer,
