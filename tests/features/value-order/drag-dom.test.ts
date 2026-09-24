@@ -112,7 +112,7 @@ describe("drag preview geometry", () => {
     const root = targetWindow.document.createElement("div") as unknown as HTMLElement;
     const scroller = targetWindow.document.createElement("div") as unknown as HTMLElement;
     root.appendChild(scroller);
-    targetWindow.document.body.appendChild(root);
+    (targetWindow.document.body as unknown as HTMLElement).appendChild(root);
     scroller.style.overflowY = "auto";
     Object.defineProperty(scroller, "clientHeight", { configurable: true, value: 100 });
     Object.defineProperty(scroller, "scrollHeight", { configurable: true, value: 300 });
@@ -145,7 +145,7 @@ describe("drag preview geometry", () => {
       container.appendChild(pill);
       return pill;
     });
-    targetWindow.document.body.appendChild(container);
+    (targetWindow.document.body as unknown as HTMLElement).appendChild(container);
     const indicator = createIndicatorElement(
       targetWindow.document.body as unknown as HTMLElement,
     );

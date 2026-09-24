@@ -665,11 +665,16 @@ export class ValueSuggestionOrderController {
       }
 
       for (const node of [...mutation.addedNodes, ...mutation.removedNodes]) {
-        const element = getElementAtOrAboveNode(node);
+        if (node.nodeType !== 1) {
+          continue;
+        }
 
         if (
-          element != null &&
-          this.isValueSuggestionRelatedElement(targetDocument, element, true)
+          this.isValueSuggestionRelatedElement(
+            targetDocument,
+            node as HTMLElement,
+            true,
+          )
         ) {
           return true;
         }

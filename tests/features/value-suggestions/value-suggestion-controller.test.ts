@@ -174,6 +174,20 @@ describe("ValueSuggestionOrderController", () => {
     testable.enhanceContainer(container);
     expect(testable.originalSuggestions.size).toBe(1);
 
+    const observer = new MutationObserver(() => undefined);
+    observer.observe(document.body, { childList: true });
+    const unrelatedText = document.createTextNode("unrelated");
+    document.body.appendChild(unrelatedText);
+    const unrelatedTextMutations = observer.takeRecords();
+    observer.disconnect();
+
+    expect(unrelatedTextMutations).toHaveLength(1);
+    expect(unrelatedTextMutations[0]?.target).toBe(document.body);
+    expect(
+      testable.shouldScheduleEnhancement(document, unrelatedTextMutations),
+    ).toBe(false);
+    unrelatedText.remove();
+
     const unrelated = document.createElement("div");
     document.body.appendChild(unrelated);
     expect(testable.shouldScheduleEnhancement(document, [{
