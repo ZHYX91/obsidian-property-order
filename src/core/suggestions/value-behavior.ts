@@ -18,6 +18,14 @@ export interface PropertyValueBehaviorMove {
   toBehavior: ValueSuggestionBehavior;
 }
 
+export function resolvePropertyValueBehavior(
+  assignments: readonly PropertyValueBehaviorAssignment[],
+  fallback: Exclude<ValueSuggestionBehavior, "custom">,
+  rawPropertyKey: string,
+): ValueSuggestionBehavior {
+  return getPropertyValueBehavior(assignments, rawPropertyKey) ?? fallback;
+}
+
 export function getPropertyValueBehavior(
   assignments: readonly PropertyValueBehaviorAssignment[],
   rawPropertyKey: string,
