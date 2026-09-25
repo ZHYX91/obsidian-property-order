@@ -83,10 +83,12 @@ export class ValueSuggestionOrderController {
     plugin: Plugin,
     getSettings: () => PropertyOrderSettings,
     recentValueStore = new RecentPropertyValueStore(plugin.app),
+    propertyValueFrequencyStore = new PropertyValueFrequencyStore(plugin.app),
   ) {
     this.plugin = plugin;
     this.getSettings = getSettings;
     this.recentValueStore = recentValueStore;
+    this.propertyValueFrequencyStore = propertyValueFrequencyStore;
     this.recentValueTracker = new RecentPropertyValueTracker({
       getEnabled: () =>
         this.initialized && this.getSettings().enableNativeValueSuggestionOrder,
