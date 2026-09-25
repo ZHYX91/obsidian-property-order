@@ -191,7 +191,7 @@ function readPropertyPillValueEvidence(pill: HTMLElement): PropertyPillValueEvid
   }
 
   const target = links[0]?.getAttribute("data-href");
-  const linkText = (links[0]?.textContent ?? "").trim();
+  const linkText = links[0]?.textContent ?? "";
 
   if (target == null || target.length === 0 || linkText.length === 0 || linkText !== pillText) {
     return { kind: "unsupported" };
