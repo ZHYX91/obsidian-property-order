@@ -298,6 +298,7 @@ export class ValueSuggestionOrderController {
     state.observer.disconnect();
     state.observing = false;
     this.cancelScheduledEnhancement(state);
+    this.runCleanup(state.contextCleanup);
     this.runCleanup(state.keyboardCleanup);
     this.runCleanup(state.recentTrackingCleanup);
     this.runCleanup(() => this.restoreContainersForDocument(targetDocument));
