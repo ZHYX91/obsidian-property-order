@@ -233,6 +233,7 @@ export class ValueSuggestionOrderController {
       }
     });
     const state: DocumentEnhancementState = {
+      contextCleanup: () => undefined,
       keyboardCleanup: () => undefined,
       observer,
       observing: false,
