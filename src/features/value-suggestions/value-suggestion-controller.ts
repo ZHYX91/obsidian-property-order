@@ -71,6 +71,7 @@ export class ValueSuggestionOrderController {
   private readonly getSettings: () => PropertyOrderSettings;
   private readonly originalSuggestions = new Map<HTMLElement, OriginalSuggestionSnapshot>();
   private readonly plugin: Plugin;
+  private readonly propertyValueFrequencyStore: PropertyValueFrequencyStore;
   private readonly recentValueStore: RecentPropertyValueStore;
   private readonly recentValueTracker: RecentPropertyValueTracker;
   private recentValueRevision = 0;
