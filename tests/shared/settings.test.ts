@@ -46,6 +46,11 @@ describe("normalizeSettings", () => {
       pinnedPropertyValues: ["status = draft"],
       bottomPropertyValues: [],
       hiddenPropertyValuePatterns: ["status = archived"],
+      valueSuggestionDefaultBehavior: "native",
+      valueSuggestionPropertyAssignments: [],
+      valueSuggestionCustomOrders: [],
+      valueSuggestionKeyDisplayOrder: "name",
+      valueSuggestionLegacyMigrationPending: true,
       showDiagnostics: true,
     });
   });
@@ -125,6 +130,92 @@ describe("normalizeSettings", () => {
       valueSuggestionSortMode: "native",
       valueSuggestionSortOverrides: [],
     });
+  });
+
+  it("migrates lossless schema-5 value behaviors into one-key assignments", () => {
+    expect(
+      normalizeSettings({
+        schemaVersion: 5,
+        valueSuggestionSortMode: "usage",
+        valueSuggestionSortOverrides: [
+          "status = name",
+          "priority = none",
+          "source = native",
+        ],
+      }),
+    ).toMatchObject({
+      schemaVersion: CURRENT_SETTINGS_SCHEMA_VERSION,
+      valueSuggestionDefaultBehavior: "note-count",
+      valueSuggestionPropertyAssignments: [
+        { behavior: "name", propertyKey: "status" },
+        { behavior: "none", propertyKey: "priority" },
+        { behavior: "native", propertyKey: "source" },
+      ],
+      valueSuggestionCustomOrders: [],
+      valueSuggestionKeyDisplayOrder: "name",
+      valueSuggestionLegacyMigrationPending: false,
+    });
+  });
+
+  it("flags legacy recent and wildcard value rules for explicit migration", () => {
+    expect(
+      normalizeSettings({
+        schemaVersion: 5,
+        valueSuggestionSortMode: "recent",
+        valueSuggestionSortOverrides: [
+          "status = recent",
+          "project_* = name",
+        ],
+        pinnedPropertyValues: ["status = draft"],
+      }),
+    ).toMatchObject({
+      valueSuggestionDefaultBehavior: "native",
+      valueSuggestionPropertyAssignments: [],
+      valueSuggestionLegacyMigrationPending: true,
+    });
+  });
+
+  it("normalizes one active assignment per property with the latest entry winning", () => {
+    expect(
+      normalizeSettings({
+        schemaVersion: CURRENT_SETTINGS_SCHEMA_VERSION,
+        valueSuggestionPropertyAssignments: [
+          { propertyKey: " Status ", behavior: "name" },
+          { propertyKey: "priority", behavior: "native" },
+          { propertyKey: "status", behavior: "none" },
+          { propertyKey: "", behavior: "custom" },
+          { propertyKey: "ignored", behavior: "future" },
+        ],
+      }).valueSuggestionPropertyAssignments,
+    ).toEqual([
+      { propertyKey: "priority", behavior: "native" },
+      { propertyKey: "status", behavior: "none" },
+    ]);
+  });
+
+  it("preserves exact custom candidate text while normalizing property ownership", () => {
+    expect(
+      normalizeSettings({
+        schemaVersion: CURRENT_SETTINGS_SCHEMA_VERSION,
+        valueSuggestionCustomOrders: [
+          {
+            propertyKey: " Status ",
+            pinnedValues: ["draft", "draft", " edge\u00a0"],
+            middleValues: ["manual"],
+            bottomValues: ["archived"],
+            middleSortMode: "frequency",
+          },
+        ],
+      }).valueSuggestionCustomOrders,
+    ).toEqual([
+      {
+        propertyKey: "Status",
+        pinnedValues: ["draft", " edge\u00a0"],
+        middleValues: ["manual"],
+        bottomValues: ["archived"],
+        middleSortMode: "frequency",
+      },
+    ]);
   });
 
   it("reads known fields from a future schema without treating it as legacy", () => {
