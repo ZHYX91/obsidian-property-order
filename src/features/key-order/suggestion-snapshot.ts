@@ -105,10 +105,15 @@ export function applyNativeChildMutation(
 export function synchronizeSnapshotElements(
   container: HTMLElement,
   snapshot: OriginalSuggestionSnapshot,
+  includeElement: (element: HTMLElement) => boolean = () => true,
 ): void {
   const currentElements = getSuggestionItems(container)
     .map((item) => item.element)
-    .filter((element) => element.parentElement === snapshot.parent);
+    .filter(
+      (element) =>
+        element.parentElement === snapshot.parent &&
+        includeElement(element),
+    );
   const currentElementSet = new Set(currentElements);
   const snapshotsByElement = new Map(
     snapshot.elements.map((elementSnapshot) => [
