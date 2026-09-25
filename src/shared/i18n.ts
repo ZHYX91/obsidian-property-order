@@ -384,7 +384,7 @@ export const TRANSLATIONS = {
     "settings.keyOrder.addExisting.placeholder": "新增既有屬性名稱...",
     "settings.valueSuggestions.enable.name": "管理原生屬性值候選",
     "settings.valueSuggestions.enable.desc":
-      "管理 Obsidian 屬性面板中既有候選值的排序、過濾或關閉；Property Order 不會自行建立候選值。",
+      "管理 Obsidian 屬性面板中的屬性值候選行為；自訂屬性還可以保留使用者明確設定的預設候選。",
     "settings.valueSuggestions.disabledHint":
       "屬性值候選管理目前已關閉，Obsidian 原生候選仍然保留；下方規則啟用管理後生效。",
     "settings.valueSuggestions.sortMode.name": "預設候選行為",
