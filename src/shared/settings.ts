@@ -207,6 +207,40 @@ export function isValueSuggestionSortMode(
   );
 }
 
+export function isValueSuggestionBehavior(value: unknown): value is ValueSuggestionBehavior {
+  return (
+    value === "native" ||
+    value === "name" ||
+    value === "frequency" ||
+    value === "note-count" ||
+    value === "none" ||
+    value === "custom"
+  );
+}
+
+export function isValueSuggestionDefaultBehavior(
+  value: unknown,
+): value is ValueSuggestionDefaultBehavior {
+  return isValueSuggestionBehavior(value) && value !== "custom";
+}
+
+export function isValueSuggestionMiddleSortMode(
+  value: unknown,
+): value is ValueSuggestionMiddleSortMode {
+  return (
+    value === "native" ||
+    value === "name" ||
+    value === "frequency" ||
+    value === "note-count"
+  );
+}
+
+export function isValueSuggestionKeyDisplayOrder(
+  value: unknown,
+): value is ValueSuggestionKeyDisplayOrder {
+  return value === "name" || value === "recent";
+}
+
 export function isPluginLanguage(value: unknown): value is PluginLanguage {
   return value === "auto" || value === "en" || value === "zh-CN" || value === "zh-TW";
 }
