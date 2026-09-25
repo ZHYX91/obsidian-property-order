@@ -76,7 +76,7 @@ const EN_TRANSLATIONS = {
   "settings.keyOrder.addExisting.placeholder": "Add existing property name...",
   "settings.valueSuggestions.enable.name": "Manage native property value suggestions",
   "settings.valueSuggestions.enable.desc":
-    "Controls the order, filtering, or suppression of values already suggested by Obsidian in the Properties UI. Property Order does not create suggestion values.",
+    "Controls property-value candidate behavior in Obsidian Properties. Custom properties can also keep explicitly configured preset candidates.",
   "settings.valueSuggestions.disabledHint":
     "Property value suggestion management is off. Obsidian's native suggestions remain available; the rules below take effect when management is enabled.",
   "settings.valueSuggestions.sortMode.name": "Default suggestion behavior",
