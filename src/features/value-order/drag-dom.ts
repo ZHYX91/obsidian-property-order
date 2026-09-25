@@ -322,20 +322,27 @@ function refreshHoverCursor(elements: HTMLElement[]): void {
     element.classList.add("property-order-cursor-refresh");
   }
 
-  const targetWindow = connectedElements[0].ownerDocument.defaultView;
-
-  if (targetWindow == null) {
+  try {
+    // Force the temporary cursor state through style calculation synchronously.
+    // Cleanup must not create a new animation-frame owner after the drag
+    // controller has already cancelled its document-owned RAF work.
+    for (const element of connectedElements) {
+      void element.ownerDocument.defaultView?.getComputedStyle(element).cursor;
+    }
+  } finally {
     for (const element of connectedElements) {
       element.classList.remove("property-order-cursor-refresh");
     }
-    return;
   }
+}
 
-  targetWindow.requestAnimationFrame(() => {
-    for (const element of connectedElements) {
-      element.classList.remove("property-order-cursor-refresh");
-    }
-  });
+function isPointInsideRect(clientX: number, clientY: number, rect: DOMRect): boolean {
+  return (
+    clientX >= rect.left &&
+    clientX <= rect.right &&
+    clientY >= rect.top &&
+    clientY <= rect.bottom
+  );
 }
 
 function getViewportFrame(targetWindow: Window | null): ViewportFrame | null {
