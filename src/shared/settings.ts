@@ -584,5 +584,13 @@ function migrateSettingsVersion(
     };
   }
 
+  if (version === 5) {
+    return {
+      ...value,
+      ...migrateLegacyValueSuggestionModel(value),
+      schemaVersion: 6,
+    };
+  }
+
   return { ...value, schemaVersion: CURRENT_SETTINGS_SCHEMA_VERSION };
 }
