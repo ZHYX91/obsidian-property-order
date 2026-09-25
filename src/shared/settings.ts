@@ -109,6 +109,26 @@ export function normalizeSettings(value: unknown): PropertyOrderSettings {
     hiddenPropertyValuePatterns: normalizeStringList(
       migratedValue.hiddenPropertyValuePatterns,
     ),
+    valueSuggestionDefaultBehavior: isValueSuggestionDefaultBehavior(
+      migratedValue.valueSuggestionDefaultBehavior,
+    )
+      ? migratedValue.valueSuggestionDefaultBehavior
+      : defaults.valueSuggestionDefaultBehavior,
+    valueSuggestionPropertyAssignments: normalizeValueSuggestionAssignments(
+      migratedValue.valueSuggestionPropertyAssignments,
+    ),
+    valueSuggestionCustomOrders: normalizeValueSuggestionCustomOrders(
+      migratedValue.valueSuggestionCustomOrders,
+    ),
+    valueSuggestionKeyDisplayOrder: isValueSuggestionKeyDisplayOrder(
+      migratedValue.valueSuggestionKeyDisplayOrder,
+    )
+      ? migratedValue.valueSuggestionKeyDisplayOrder
+      : defaults.valueSuggestionKeyDisplayOrder,
+    valueSuggestionLegacyMigrationPending:
+      typeof migratedValue.valueSuggestionLegacyMigrationPending === "boolean"
+        ? migratedValue.valueSuggestionLegacyMigrationPending
+        : defaults.valueSuggestionLegacyMigrationPending,
     showDiagnostics:
       typeof migratedValue.showDiagnostics === "boolean"
         ? migratedValue.showDiagnostics
