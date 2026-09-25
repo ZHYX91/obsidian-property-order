@@ -61,9 +61,22 @@ describe("normalizeSettings", () => {
 
     first.pinnedPropertyKeys.push("tags");
     first.pinnedPropertyValues.push("status = draft");
+    first.valueSuggestionPropertyAssignments.push({
+      behavior: "name",
+      propertyKey: "status",
+    });
+    first.valueSuggestionCustomOrders.push({
+      bottomValues: ["archived"],
+      middleSortMode: "native",
+      middleValues: [],
+      pinnedValues: ["draft"],
+      propertyKey: "status",
+    });
 
     expect(second.pinnedPropertyKeys).toEqual([]);
     expect(second.pinnedPropertyValues).toEqual([]);
+    expect(second.valueSuggestionPropertyAssignments).toEqual([]);
+    expect(second.valueSuggestionCustomOrders).toEqual([]);
   });
 
   it("enables cross-property drag by default and keeps value suggestions opt-in", () => {
