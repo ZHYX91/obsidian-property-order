@@ -412,6 +412,18 @@ export const TRANSLATIONS = {
     "settings.valueSuggestions.hidden.desc":
       "每行一個規則，格式為 屬性規則 = 值規則。隱藏規則的優先順序高於置頂和置底規則。",
     "settings.valueSuggestions.rulePlaceholder": "status = usage",
+    "settings.valueSuggestions.behavior.frequency": "按選擇次數排序",
+    "settings.valueSuggestions.behavior.custom": "自訂候選",
+    "settings.valueSuggestions.behavior.followDefault": "跟隨預設行為",
+    "settings.valueSuggestions.keyDisplayOrder.name": "屬性顯示順序",
+    "settings.valueSuggestions.keyDisplayOrder.byName": "按屬性名稱",
+    "settings.valueSuggestions.keyDisplayOrder.recent": "按最近加入",
+    "settings.valueSuggestions.addProperty.placeholder": "搜尋或輸入屬性名稱…",
+    "settings.valueSuggestions.addProperty.button": "新增屬性",
+    "settings.valueSuggestions.moveConfirm":
+      "將「{property}」從「{from}」移到「{to}」？只會改變該屬性的候選行為。",
+    "settings.valueSuggestions.legacyMigrationPending":
+      "部分舊版屬性值候選規則無法在不改變含義的情況下自動轉換；在你確認遷移前，這些舊設定會繼續保留。",
     "a11y.dragStarted": "正在重排屬性值。移動以選擇位置；按 Esc 可取消。",
     "a11y.dragReorderTarget": "在 {property} 內重排。",
     "a11y.dragMoveTarget": "移動到 {property}。",
