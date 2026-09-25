@@ -264,6 +264,18 @@ export const TRANSLATIONS = {
     "settings.valueSuggestions.hidden.desc":
       "每行一个规则，格式为 属性规则 = 值规则。隐藏规则的优先级高于置顶和置底规则。",
     "settings.valueSuggestions.rulePlaceholder": "status = usage",
+    "settings.valueSuggestions.behavior.frequency": "按选择次数排序",
+    "settings.valueSuggestions.behavior.custom": "自定义候选",
+    "settings.valueSuggestions.behavior.followDefault": "跟随默认行为",
+    "settings.valueSuggestions.keyDisplayOrder.name": "属性显示顺序",
+    "settings.valueSuggestions.keyDisplayOrder.byName": "按属性名称",
+    "settings.valueSuggestions.keyDisplayOrder.recent": "按最近加入",
+    "settings.valueSuggestions.addProperty.placeholder": "搜索或输入属性名…",
+    "settings.valueSuggestions.addProperty.button": "添加属性",
+    "settings.valueSuggestions.moveConfirm":
+      "将“{property}”从“{from}”移到“{to}”？只会改变该属性的候选行为。",
+    "settings.valueSuggestions.legacyMigrationPending":
+      "部分旧版属性值候选规则无法在不改变含义的情况下自动转换；在你确认迁移前，这些旧配置会继续保留。",
     "a11y.dragStarted": "正在重排属性值。移动以选择位置；按 Esc 可取消。",
     "a11y.dragReorderTarget": "在 {property} 内重排。",
     "a11y.dragMoveTarget": "移动到 {property}。",
