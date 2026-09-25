@@ -213,6 +213,13 @@ export class ValueSuggestionOrderController {
     return persisted;
   }
 
+  clearPropertyValueFrequency(): boolean {
+    const persisted = this.propertyValueFrequencyStore.clear();
+    this.frequencyRevision += 1;
+    this.refresh();
+    return persisted;
+  }
+
   private registerControllerEvent(eventRef: EventRef, release: () => void): void {
     this.registeredEventCleanups.push(release);
     this.plugin.registerEvent(eventRef);
