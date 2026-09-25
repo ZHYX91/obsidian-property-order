@@ -39,6 +39,7 @@ import {
   isSuggestionElementVisible,
   PLUGIN_HIDDEN_SUGGESTION_CLASS,
 } from "../key-order/suggestion-visibility";
+import { PropertyValueFrequencyStore } from "./property-value-frequency-store";
 import { RecentPropertyValueStore } from "./recent-property-value-store";
 import { RecentPropertyValueTracker } from "./recent-property-value-tracker";
 
