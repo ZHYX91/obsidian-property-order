@@ -192,6 +192,5 @@ function normalizePropertyKey(value: string): string | null {
 }
 
 function normalizeValue(value: string): string | null {
-  const normalizedValue = value.trim();
-  return normalizedValue.length === 0 ? null : normalizedValue;
+  return value.length === 0 ? null : value;
 }
