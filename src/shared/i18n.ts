@@ -268,6 +268,7 @@ export const TRANSLATIONS = {
     "settings.valueSuggestions.behavior.frequency": "按选择次数排序",
     "settings.valueSuggestions.behavior.custom": "自定义候选",
     "settings.valueSuggestions.behavior.followDefault": "跟随默认行为",
+    "settings.valueSuggestions.behavior.alreadyHere": "已在本组",
     "settings.valueSuggestions.keyDisplayOrder.name": "属性显示顺序",
     "settings.valueSuggestions.keyDisplayOrder.byName": "按属性名称",
     "settings.valueSuggestions.keyDisplayOrder.recent": "按最近加入",
