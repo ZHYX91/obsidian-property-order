@@ -175,8 +175,8 @@ export function getPropertyPillValueEvidence(
 }
 
 function readPropertyPillValueEvidence(pill: HTMLElement): PropertyPillValueEvidence {
-  const pillText = (pill.textContent ?? "").trim();
   const content = pill.querySelector<HTMLElement>(PROPERTY_PILL_CONTENT_SELECTOR) ?? pill;
+  const pillText = content.textContent ?? "";
   const links =
     content.matches(PROPERTY_PILL_INTERNAL_LINK_SELECTOR)
       ? [content]
