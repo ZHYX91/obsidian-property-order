@@ -235,8 +235,8 @@ function getFrontmatterValues(cache: CachedMetadata, propertyKey: string): strin
         typeof value === "number" ||
         typeof value === "boolean",
     )
-    .map((value) => String(value).trim())
-    .filter(Boolean);
+    .map((value) => String(value))
+    .filter((value) => value.length > 0);
 }
 
 function countValue(values: readonly string[], target: string): number {
