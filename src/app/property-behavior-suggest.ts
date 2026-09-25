@@ -64,9 +64,9 @@ export class PropertyBehaviorSuggest extends AbstractInputSuggest<string> {
     status.className = "property-order-behavior-suggest-status";
     status.textContent =
       currentBehavior === this.options.targetBehavior
-        ? this.options.getBehaviorLabel(currentBehavior)
+        ? this.options.getAlreadyHereLabel()
         : currentBehavior == null
-          ? this.options.getBehaviorLabel(null)
+          ? this.options.getFollowDefaultLabel()
           : this.options.getBehaviorLabel(currentBehavior);
 
     if (currentBehavior === this.options.targetBehavior) {
