@@ -46,6 +46,11 @@ export interface PropertyOrderSettings {
   pinnedPropertyValues: string[];
   bottomPropertyValues: string[];
   hiddenPropertyValuePatterns: string[];
+  valueSuggestionDefaultBehavior: ValueSuggestionDefaultBehavior;
+  valueSuggestionPropertyAssignments: PropertyValueBehaviorAssignment[];
+  valueSuggestionCustomOrders: PropertyValueCustomOrder[];
+  valueSuggestionKeyDisplayOrder: ValueSuggestionKeyDisplayOrder;
+  valueSuggestionLegacyMigrationPending: boolean;
   showDiagnostics: boolean;
 }
 
