@@ -5,6 +5,10 @@ follow the repository's Git tags; entries summarize the corresponding commit his
 
 ## [Unreleased]
 
+### Fixed
+
+- Preserved Unicode edge characters when validating property pills and when moving scalar text into flow lists.
+
 ## [0.7.0] - 2026-09-25
 
 ### Added
