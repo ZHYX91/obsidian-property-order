@@ -740,6 +740,16 @@ export class ValueSuggestionOrderController {
     );
   }
 
+  private recordConfirmedPropertyValue(propertyKey: string, value: string): void {
+    this.recordRecentPropertyValue(propertyKey, value);
+    this.propertyValueFrequencyStore.increment(propertyKey, value);
+    this.frequencyRevision += 1;
+  }
+
+  private getPropertyValueFrequency(propertyKey: string) {
+    return this.propertyValueFrequencyStore.getCounts(propertyKey);
+  }
+
   private recordRecentPropertyValue(propertyKey: string, value: string): void {
     const beforeValues = this.recentValueStore.getValues(propertyKey);
     const afterValues = this.recentValueStore.touch(propertyKey, value);
