@@ -49,6 +49,8 @@ export function createDefaultSettings(): PropertyOrderSettings {
     pinnedPropertyValues: [],
     bottomPropertyValues: [],
     hiddenPropertyValuePatterns: [],
+    valueSuggestionPropertyAssignments: [],
+    valueSuggestionCustomOrders: [],
   };
 }
 
