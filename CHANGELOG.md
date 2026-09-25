@@ -12,6 +12,7 @@ follow the repository's Git tags; entries summarize the corresponding commit his
 - Kept drag auto-scroll inside the active pane geometry and removed deferred cursor-cleanup frames.
 - Added a versioned, loss-aware settings model for per-property value-suggestion behaviors and custom candidate order.
 - Added device-local confirmed selection counts and pure frequency ordering for property-value candidates.
+- Added a pure custom-candidate planner that combines native and preset values across pinned, middle, and bottom sections without losing exact value identity.
 
 ## [0.7.0] - 2026-09-25
 
