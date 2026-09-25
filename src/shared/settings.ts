@@ -426,8 +426,11 @@ function areSettingValuesEqual(
   left: PropertyOrderSettings[keyof PropertyOrderSettings],
   right: PropertyOrderSettings[keyof PropertyOrderSettings],
 ): boolean {
-  if (Array.isArray(left) && Array.isArray(right)) {
-    return left.length === right.length && left.every((value, index) => value === right[index]);
+  if (
+    (Array.isArray(left) && Array.isArray(right)) ||
+    (isRecord(left) && isRecord(right))
+  ) {
+    return JSON.stringify(left) === JSON.stringify(right);
   }
 
   return left === right;
