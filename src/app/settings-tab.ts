@@ -12,12 +12,16 @@ import { explainPropertyKeyRules } from "../core/suggestions/order-keys";
 import { getPropertyNameSuggestions } from "../core/suggestions/property-names";
 import { t, type TranslationKey } from "../shared/i18n";
 import { getCachedPropertyKeyUsage } from "../obsidian/metadata";
+import { isValueSuggestionDefaultBehavior } from "../shared/settings";
 import type {
   KeySuggestionSortMode,
   PropertyOrderSettings,
-  ValueSuggestionSortMode,
+  PropertyValueUsage,
+  ValueSuggestionDefaultBehavior,
 } from "../shared/types";
 import { PropertyNameSuggest } from "./property-name-suggest";
+import { renderValueSuggestionBehaviorGroups } from "./value-suggestion-behavior-groups";
+import { renderCustomValueSuggestionEditor } from "./value-suggestion-custom-editor";
 import {
   applyPropertyOrderControlValue,
   isPropertyOrderControlKey,
@@ -39,6 +43,8 @@ const ENABLE_DECLARATIVE_SETTINGS = false;
 interface PropertyOrderSettingsHost extends Plugin {
   clearRecentPropertyKeys(): boolean;
   clearRecentPropertyValues(): boolean;
+  clearPropertyValueFrequency(): boolean;
+  getPropertyValueFrequency(propertyKey: string): PropertyValueUsage[];
   hasPendingSettingsSave(): boolean;
   saveSettings(
     refreshKeySuggestions?: boolean,
@@ -66,6 +72,8 @@ export class PropertyOrderSettingTab extends PluginSettingTab {
   private readonly plugin: PropertyOrderSettingsHost;
   private readonly ruleDiagnosticCleanups = new Set<SettingsCleanup>();
   private readonly ruleDiagnosticRefreshes = new Set<() => void>();
+  private selectedCustomValuePropertyKey: string | null = null;
+  private readonly valueSuggestionUiCleanups = new Set<SettingsCleanup>();
   private saveStatusEl: HTMLElement | null = null;
   private settingsSurfaceGeneration = 0;
   private settingsSurfaceVisible = true;
@@ -347,16 +355,6 @@ export class PropertyOrderSettingTab extends PluginSettingTab {
     };
   }
 
-  private getValueSuggestionSortOptions(): Record<ValueSuggestionSortMode, string> {
-    return {
-      native: this.t("settings.valueSuggestions.sortMode.native"),
-      name: this.t("settings.valueSuggestions.sortMode.nameOption"),
-      recent: this.t("settings.valueSuggestions.sortMode.recent"),
-      usage: this.t("settings.valueSuggestions.sortMode.usage"),
-      none: this.t("settings.valueSuggestions.sortMode.none"),
-    };
-  }
-
   private addClearRecentPropertyKeysButton(setting: Setting): void {
     setting.addButton((button) => {
       button
@@ -367,21 +365,6 @@ export class PropertyOrderSettingTab extends PluginSettingTab {
             persisted
               ? "notice.recentHistoryCleared"
               : "notice.recentHistoryClearFailed",
-          ));
-        });
-    });
-  }
-
-  private addClearRecentPropertyValuesButton(setting: Setting): void {
-    setting.addButton((button) => {
-      button
-        .setButtonText(this.t("settings.valueSuggestions.recentHistory.clear"))
-        .onClick(() => {
-          const persisted = this.plugin.clearRecentPropertyValues();
-          new Notice(this.t(
-            persisted
-              ? "notice.recentValueHistoryCleared"
-              : "notice.recentValueHistoryClearFailed",
           ));
         });
     });
@@ -619,15 +602,16 @@ export class PropertyOrderSettingTab extends PluginSettingTab {
 
   private displayValueSuggestionSettings(containerEl: HTMLElement): void {
     const surfaceGeneration = this.settingsSurfaceGeneration;
+    const settings = this.plugin.propertyOrderSettings;
 
     new Setting(containerEl)
       .setName(this.t("settings.valueSuggestions.enable.name"))
       .setDesc(this.t("settings.valueSuggestions.enable.desc"))
       .addToggle((toggle) => {
         toggle
-          .setValue(this.plugin.propertyOrderSettings.enableNativeValueSuggestionOrder)
+          .setValue(settings.enableNativeValueSuggestionOrder)
           .onChange(async (value) => {
-            this.plugin.propertyOrderSettings.enableNativeValueSuggestionOrder = value;
+            settings.enableNativeValueSuggestionOrder = value;
             await this.persistSettings(false, surfaceGeneration, true);
 
             if (this.isSettingsSurfaceCurrent(surfaceGeneration)) {
@@ -636,8 +620,53 @@ export class PropertyOrderSettingTab extends PluginSettingTab {
           });
       });
 
-    if (!this.plugin.propertyOrderSettings.enableNativeValueSuggestionOrder) {
+    if (!settings.enableNativeValueSuggestionOrder) {
       addInactiveHint(containerEl, this.t("settings.valueSuggestions.disabledHint"));
+    }
+
+    if (settings.valueSuggestionLegacyMigrationPending) {
+      const migrationEl = containerEl.createDiv({
+        cls: "property-order-value-suggestion-migration",
+      });
+      const message = migrationEl.createDiv({
+        cls: "property-order-settings-hint",
+      });
+      message.textContent = this.t("settings.valueSuggestions.legacyMigrationPending");
+
+      const details = migrationEl.createEl("details");
+      const summary = details.createEl("summary");
+      summary.textContent = this.t("settings.valueSuggestions.legacyMigrationDetails");
+      const legacyRules = details.createEl("pre");
+      legacyRules.className = "property-order-legacy-value-rules";
+      legacyRules.textContent = [
+        `default = ${settings.valueSuggestionSortMode}`,
+        ...settings.valueSuggestionSortOverrides.map((rule) => `behavior: ${rule}`),
+        ...settings.pinnedPropertyValues.map((rule) => `pinned: ${rule}`),
+        ...settings.bottomPropertyValues.map((rule) => `bottom: ${rule}`),
+        ...settings.hiddenPropertyValuePatterns.map((rule) => `hidden: ${rule}`),
+      ].join("\n");
+
+      const adoptButton = migrationEl.createEl("button");
+      adoptButton.type = "button";
+      adoptButton.textContent = this.t("settings.valueSuggestions.legacyMigrationAdopt");
+      adoptButton.addEventListener("click", () => {
+        const targetWindow = migrationEl.ownerDocument.defaultView;
+        if (
+          targetWindow?.confirm(
+            this.t("settings.valueSuggestions.legacyMigrationConfirm"),
+          ) !== true
+        ) {
+          return;
+        }
+
+        settings.valueSuggestionLegacyMigrationPending = false;
+        void this.persistSettings(false, surfaceGeneration, true).then(() => {
+          if (this.isSettingsSurfaceCurrent(surfaceGeneration)) {
+            this.render(null);
+          }
+        });
+      });
+      return;
     }
 
     new Setting(containerEl)
@@ -645,64 +674,101 @@ export class PropertyOrderSettingTab extends PluginSettingTab {
       .setDesc(this.t("settings.valueSuggestions.sortMode.desc"))
       .addDropdown((dropdown) => {
         for (const [value, label] of Object.entries(
-          this.getValueSuggestionSortOptions(),
+          this.getValueSuggestionDefaultBehaviorOptions(),
         )) {
           dropdown.addOption(value, label);
         }
 
         dropdown
-          .setValue(this.plugin.propertyOrderSettings.valueSuggestionSortMode)
+          .setValue(settings.valueSuggestionDefaultBehavior)
           .onChange(async (value) => {
-            if (!isValueSuggestionSortMode(value)) {
+            if (!isValueSuggestionDefaultBehavior(value)) {
               return;
             }
 
-            this.plugin.propertyOrderSettings.valueSuggestionSortMode = value;
+            settings.valueSuggestionDefaultBehavior = value;
             await this.persistSettings(false, surfaceGeneration, true);
           });
       });
 
-    const recentHistorySetting = new Setting(containerEl)
-      .setName(this.t("settings.valueSuggestions.recentHistory.name"))
-      .setDesc(this.t("settings.valueSuggestions.recentHistory.desc"));
-    this.addClearRecentPropertyValuesButton(recentHistorySetting);
+    const frequencySetting = new Setting(containerEl)
+      .setName(this.t("settings.valueSuggestions.frequencyHistory.name"))
+      .setDesc(this.t("settings.valueSuggestions.frequencyHistory.desc"));
+    frequencySetting.addButton((button) => {
+      button
+        .setButtonText(this.t("settings.valueSuggestions.frequencyHistory.clear"))
+        .onClick(() => {
+          this.plugin.clearPropertyValueFrequency();
+          if (this.isSettingsSurfaceCurrent(surfaceGeneration)) {
+            this.render(null);
+          }
+        });
+    });
 
-    for (const [key, nameKey, descKey] of [
-      [
-        "valueSuggestionSortOverrides",
-        "settings.valueSuggestions.sortOverrides.name",
-        "settings.valueSuggestions.sortOverrides.desc",
-      ],
-      [
-        "pinnedPropertyValues",
-        "settings.valueSuggestions.pinned.name",
-        "settings.valueSuggestions.pinned.desc",
-      ],
-      [
-        "bottomPropertyValues",
-        "settings.valueSuggestions.bottom.name",
-        "settings.valueSuggestions.bottom.desc",
-      ],
-      [
-        "hiddenPropertyValuePatterns",
-        "settings.valueSuggestions.hidden.name",
-        "settings.valueSuggestions.hidden.desc",
-      ],
-    ] as const) {
-      this.trackKeyListSetting(
-        addRuleListSetting(
-          containerEl,
-          this.t(nameKey),
-          this.t(descKey),
-          this.plugin.propertyOrderSettings[key],
-          async (values) => {
-            this.plugin.propertyOrderSettings[key] = values;
-            await this.persistSettings(false, surfaceGeneration, true);
-          },
-          this.t("settings.valueSuggestions.rulePlaceholder"),
-        ),
-      );
-    }
+    const behaviorLifecycle = renderValueSuggestionBehaviorGroups({
+      app: this.app,
+      containerEl,
+      customOrderKeys: settings.valueSuggestionCustomOrders.map(
+        (order) => order.propertyKey,
+      ),
+      displayOrder: settings.valueSuggestionKeyDisplayOrder,
+      getAssignments: () =>
+        this.plugin.propertyOrderSettings.valueSuggestionPropertyAssignments,
+      onAssignmentsChange: async (assignments) => {
+        this.plugin.propertyOrderSettings.valueSuggestionPropertyAssignments =
+          assignments;
+        await this.persistSettings(false, surfaceGeneration, true);
+      },
+      onDisplayOrderChange: async (displayOrder) => {
+        this.plugin.propertyOrderSettings.valueSuggestionKeyDisplayOrder =
+          displayOrder;
+        await this.persistSettings(false, surfaceGeneration, false);
+      },
+      rerender: () => {
+        if (this.isSettingsSurfaceCurrent(surfaceGeneration)) {
+          this.render(null);
+        }
+      },
+      t: (key) => this.t(key),
+    });
+    this.trackValueSuggestionUiCleanup(() => behaviorLifecycle.close());
+
+    const customLifecycle = renderCustomValueSuggestionEditor({
+      app: this.app,
+      assignments: settings.valueSuggestionPropertyAssignments,
+      containerEl,
+      customOrders: settings.valueSuggestionCustomOrders,
+      displayOrder: settings.valueSuggestionKeyDisplayOrder,
+      getFrequency: (propertyKey) =>
+        this.plugin.getPropertyValueFrequency(propertyKey),
+      onCustomOrdersChange: async (orders) => {
+        this.plugin.propertyOrderSettings.valueSuggestionCustomOrders = orders;
+        await this.persistSettings(false, surfaceGeneration, true);
+      },
+      rerender: (selectedPropertyKey) => {
+        this.selectedCustomValuePropertyKey =
+          selectedPropertyKey ?? this.selectedCustomValuePropertyKey;
+        if (this.isSettingsSurfaceCurrent(surfaceGeneration)) {
+          this.render(null);
+        }
+      },
+      selectedPropertyKey: this.selectedCustomValuePropertyKey,
+      t: (key) => this.t(key),
+    });
+    this.selectedCustomValuePropertyKey = customLifecycle.selectedPropertyKey;
+  }
+
+  private getValueSuggestionDefaultBehaviorOptions(): Record<
+    ValueSuggestionDefaultBehavior,
+    string
+  > {
+    return {
+      native: this.t("settings.valueSuggestions.sortMode.native"),
+      name: this.t("settings.valueSuggestions.sortMode.nameOption"),
+      frequency: this.t("settings.valueSuggestions.behavior.frequency"),
+      "note-count": this.t("settings.valueSuggestions.sortMode.usage"),
+      none: this.t("settings.valueSuggestions.sortMode.none"),
+    };
   }
 
   private configureRuleDiagnosticSetting(setting: Setting): SettingsCleanup {
@@ -775,6 +841,14 @@ export class PropertyOrderSettingTab extends PluginSettingTab {
     }
   }
 
+  private trackValueSuggestionUiCleanup(cleanup: SettingsCleanup): void {
+    const trackedCleanup = createSettingsDisposer(
+      () => this.valueSuggestionUiCleanups.delete(trackedCleanup),
+      cleanup,
+    );
+    this.valueSuggestionUiCleanups.add(trackedCleanup);
+  }
+
   private trackKeyListSetting(lifecycle: KeyListSettingLifecycle): SettingsCleanup {
     const cleanup = createSettingsDisposer(
       () => {
@@ -794,11 +868,13 @@ export class PropertyOrderSettingTab extends PluginSettingTab {
       ...(tabLayoutCleanup == null ? [] : [tabLayoutCleanup]),
       ...this.keyListSettingCleanups.values(),
       ...this.ruleDiagnosticCleanups,
+      ...this.valueSuggestionUiCleanups,
     );
 
     cleanup();
     this.keyListSettingCleanups.clear();
     this.ruleDiagnosticCleanups.clear();
+    this.valueSuggestionUiCleanups.clear();
     this.ruleDiagnosticRefreshes.clear();
     this.saveStatusEl = null;
   }
@@ -992,49 +1068,6 @@ function addKeyListSetting(
   );
 }
 
-function addRuleListSetting(
-  containerEl: HTMLElement,
-  name: string,
-  description: string,
-  values: string[],
-  onChange: (values: string[]) => Promise<void>,
-  placeholder: string,
-): KeyListSettingLifecycle {
-  const setting = new Setting(containerEl).setName(name).setDesc(description);
-  let currentValues = [...values];
-  let textAreaEl: HTMLTextAreaElement | null = null;
-  const getTargetWindow = (): Window =>
-    textAreaEl?.ownerDocument.defaultView ??
-    setting.settingEl.ownerDocument.defaultView ??
-    window;
-  const pendingSave = createDebouncedCommit(() => {
-    void onChange([...currentValues]).catch((error: unknown) => {
-      console.error("Property Order: failed to save property value rules", error);
-    });
-  }, getTargetWindow);
-
-  setting
-    .setClass("property-order-key-list-setting")
-    .addTextArea((textArea) => {
-      textArea
-        .setPlaceholder(placeholder)
-        .setValue(currentValues.join("\n"))
-        .onChange((value) => {
-          currentValues = parseLines(value);
-          pendingSave.schedule();
-        });
-      textArea.inputEl.rows = 5;
-      textArea.inputEl.cols = 32;
-      textArea.inputEl.addClass("property-order-key-list-input");
-      textAreaEl = textArea.inputEl;
-    });
-
-  return {
-    close: () => undefined,
-    flush: () => pendingSave.flush(),
-  };
-}
-
 function configureKeyListSetting(
   setting: Setting,
   values: string[],
@@ -1150,16 +1183,6 @@ function parseLines(value: string): string[] {
     .split(/\r?\n/)
     .map((line) => line.trim())
     .filter(Boolean);
-}
-
-function isValueSuggestionSortMode(value: string): value is ValueSuggestionSortMode {
-  return (
-    value === "native" ||
-    value === "name" ||
-    value === "recent" ||
-    value === "usage" ||
-    value === "none"
-  );
 }
 
 function updateDeclarativeSettingTab(settingTab: object): void {
