@@ -76,7 +76,7 @@ const EN_TRANSLATIONS = {
   "settings.keyOrder.addExisting.placeholder": "Add existing property name...",
   "settings.valueSuggestions.enable.name": "Manage native property value suggestions",
   "settings.valueSuggestions.enable.desc":
-    "Controls the order, filtering, or suppression of values already suggested by Obsidian in the Properties UI. Property Order does not create suggestion values.",
+    "Controls property-value candidate behavior in Obsidian Properties. Custom properties can also keep explicitly configured preset candidates.",
   "settings.valueSuggestions.disabledHint":
     "Property value suggestion management is off. Obsidian's native suggestions remain available; the rules below take effect when management is enabled.",
   "settings.valueSuggestions.sortMode.name": "Default suggestion behavior",
@@ -104,6 +104,19 @@ const EN_TRANSLATIONS = {
   "settings.valueSuggestions.hidden.desc":
     "One rule per line as property-pattern = value-pattern. Hidden rules take priority over pinned and bottom rules.",
   "settings.valueSuggestions.rulePlaceholder": "status = usage",
+  "settings.valueSuggestions.behavior.frequency": "Selection frequency",
+  "settings.valueSuggestions.behavior.custom": "Custom candidates",
+  "settings.valueSuggestions.behavior.followDefault": "Follows default",
+  "settings.valueSuggestions.behavior.alreadyHere": "Already in this group",
+  "settings.valueSuggestions.keyDisplayOrder.name": "Property display order",
+  "settings.valueSuggestions.keyDisplayOrder.byName": "Property name",
+  "settings.valueSuggestions.keyDisplayOrder.recent": "Recently added",
+  "settings.valueSuggestions.addProperty.placeholder": "Search or enter a property name...",
+  "settings.valueSuggestions.addProperty.button": "Add property",
+  "settings.valueSuggestions.moveConfirm":
+    "Move “{property}” from “{from}” to “{to}”? This changes only its suggestion behavior.",
+  "settings.valueSuggestions.legacyMigrationPending":
+    "Some legacy value-suggestion rules cannot be converted without changing meaning. They remain preserved until you review the migration.",
   "a11y.dragStarted": "Reordering property value. Move to choose a position; press Escape to cancel.",
   "a11y.dragReorderTarget": "Reorder within {property}.",
   "a11y.dragMoveTarget": "Move to {property}.",
@@ -224,7 +237,7 @@ export const TRANSLATIONS = {
     "settings.keyOrder.addExisting.placeholder": "添加已有属性名称...",
     "settings.valueSuggestions.enable.name": "管理原生属性值候选",
     "settings.valueSuggestions.enable.desc":
-      "管理 Obsidian 属性面板中已有候选值的排序、过滤或关闭；Property Order 不会自行创建候选值。",
+      "管理 Obsidian 属性面板中的属性值候选行为；自定义属性还可以保留用户明确配置的预设候选。",
     "settings.valueSuggestions.disabledHint":
       "属性值候选管理当前已关闭，Obsidian 原生候选仍然保留；下方规则启用管理后生效。",
     "settings.valueSuggestions.sortMode.name": "默认候选行为",
@@ -252,6 +265,19 @@ export const TRANSLATIONS = {
     "settings.valueSuggestions.hidden.desc":
       "每行一个规则，格式为 属性规则 = 值规则。隐藏规则的优先级高于置顶和置底规则。",
     "settings.valueSuggestions.rulePlaceholder": "status = usage",
+    "settings.valueSuggestions.behavior.frequency": "按选择次数排序",
+    "settings.valueSuggestions.behavior.custom": "自定义候选",
+    "settings.valueSuggestions.behavior.followDefault": "跟随默认行为",
+    "settings.valueSuggestions.behavior.alreadyHere": "已在本组",
+    "settings.valueSuggestions.keyDisplayOrder.name": "属性显示顺序",
+    "settings.valueSuggestions.keyDisplayOrder.byName": "按属性名称",
+    "settings.valueSuggestions.keyDisplayOrder.recent": "按最近加入",
+    "settings.valueSuggestions.addProperty.placeholder": "搜索或输入属性名…",
+    "settings.valueSuggestions.addProperty.button": "添加属性",
+    "settings.valueSuggestions.moveConfirm":
+      "将“{property}”从“{from}”移到“{to}”？只会改变该属性的候选行为。",
+    "settings.valueSuggestions.legacyMigrationPending":
+      "部分旧版属性值候选规则无法在不改变含义的情况下自动转换；在你确认迁移前，这些旧配置会继续保留。",
     "a11y.dragStarted": "正在重排属性值。移动以选择位置；按 Esc 可取消。",
     "a11y.dragReorderTarget": "在 {property} 内重排。",
     "a11y.dragMoveTarget": "移动到 {property}。",
@@ -360,7 +386,7 @@ export const TRANSLATIONS = {
     "settings.keyOrder.addExisting.placeholder": "新增既有屬性名稱...",
     "settings.valueSuggestions.enable.name": "管理原生屬性值候選",
     "settings.valueSuggestions.enable.desc":
-      "管理 Obsidian 屬性面板中既有候選值的排序、過濾或關閉；Property Order 不會自行建立候選值。",
+      "管理 Obsidian 屬性面板中的屬性值候選行為；自訂屬性還可以保留使用者明確設定的預設候選。",
     "settings.valueSuggestions.disabledHint":
       "屬性值候選管理目前已關閉，Obsidian 原生候選仍然保留；下方規則啟用管理後生效。",
     "settings.valueSuggestions.sortMode.name": "預設候選行為",
@@ -388,6 +414,19 @@ export const TRANSLATIONS = {
     "settings.valueSuggestions.hidden.desc":
       "每行一個規則，格式為 屬性規則 = 值規則。隱藏規則的優先順序高於置頂和置底規則。",
     "settings.valueSuggestions.rulePlaceholder": "status = usage",
+    "settings.valueSuggestions.behavior.frequency": "按選擇次數排序",
+    "settings.valueSuggestions.behavior.custom": "自訂候選",
+    "settings.valueSuggestions.behavior.followDefault": "跟隨預設行為",
+    "settings.valueSuggestions.behavior.alreadyHere": "已在本組",
+    "settings.valueSuggestions.keyDisplayOrder.name": "屬性顯示順序",
+    "settings.valueSuggestions.keyDisplayOrder.byName": "按屬性名稱",
+    "settings.valueSuggestions.keyDisplayOrder.recent": "按最近加入",
+    "settings.valueSuggestions.addProperty.placeholder": "搜尋或輸入屬性名稱…",
+    "settings.valueSuggestions.addProperty.button": "新增屬性",
+    "settings.valueSuggestions.moveConfirm":
+      "將「{property}」從「{from}」移到「{to}」？只會改變該屬性的候選行為。",
+    "settings.valueSuggestions.legacyMigrationPending":
+      "部分舊版屬性值候選規則無法在不改變含義的情況下自動轉換；在你確認遷移前，這些舊設定會繼續保留。",
     "a11y.dragStarted": "正在重排屬性值。移動以選擇位置；按 Esc 可取消。",
     "a11y.dragReorderTarget": "在 {property} 內重排。",
     "a11y.dragMoveTarget": "移動到 {property}。",
