@@ -31,7 +31,7 @@ export function parseFlowSequence(rawSequence: string): ListItemToken[] | null {
         continue;
       }
 
-      if (inSingleQuote || buffer.trim().length === 0) {
+      if (inSingleQuote || trimEndYamlSeparationWhitespace(buffer).length === 0) {
         inSingleQuote = !inSingleQuote;
       }
       buffer += character;
