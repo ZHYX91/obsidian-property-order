@@ -14,12 +14,14 @@ This document mirrors the authoritative current interaction and presentation con
 - On mobile, long-press keeps Obsidian's native value menu and adds **Reorder** or **Reorder or move**. Selecting it visibly arms that pill; the next touch/pen movement on the same pill starts drag without another long press.
 - Mobile arming is one-shot and expires after 15 seconds. Tapping elsewhere, Escape, timeout, unload, or invalidated DOM cancels it. Only an armed press suppresses default touch movement and a duplicate native menu.
 - The preview retains source-pill dimensions and single-line ellipsis, then scales and clamps within its owner document's visual viewport with a visible margin.
-- The drop indicator clearly represents the insertion slot. Same-property no-op, invalid cross-property, and cross-file targets never write.
+- Scrollable hit ancestors and the originating pane scroll only while the pointer is inside their bounded edge region; each animation-frame step is capped so drag scrolling remains controlled.
+- The drop indicator clearly represents the logical insertion slot, including wrapped rows and RTL inline direction. Same-property no-op, invalid cross-property, and cross-file targets never write.
+- Drag start and target-state changes are announced through a polite live status. Reduced-motion preference disables preview and indicator transitions without changing geometry or cleanup.
 - While the pointer is over a confirmed non-list property in the same pane, the drop indicator stays hidden and the row uses a warning outline with a `not-allowed` cursor. Releasing there shows one localized “target is not a list property” Notice; passing over and leaving shows none.
 - A native list-type-mismatch field remains draggable from its value editor after threshold, but the plugin adds no persistent grip and never displaces or covers the host warning icon; the warning icon itself keeps its native cursor and is not a drag origin. Only fine pointers with hover use `grab` / `grabbing` while the input is unfocused; focused editing and coarse pointers keep native presentation.
 - After a successful write, Properties is reconciled automatically with the current exact undo/redo state, including an undo or redo performed after the drag's initial reconciliation and delayed save window have finished. One shortcut must update both the editor buffer and visible Properties before another history shortcut is needed. Failed automatic recovery leaves a persistent Notice with a Refresh Properties button. Each click rereads the current valid state and refreshes only the captured pane UI without another value write or save request; only a failed retry recommends reopening the note, and the plugin never closes or reopens it automatically.
 - After a successful drag, platform undo/redo shortcuts work without first clicking the note body. The plugin restores host-lost focus to the original Markdown editor only while the user has not deliberately focused another control, pane, or window. A no-op, cancellation, rejection, conflict, or ineffective write never forces a focus change.
-- Finish, cancellation, conflict, pointer cancellation, Escape, blur, file change, and component removal clean previews, indicators, cursor classes, timers, and temporary listeners.
+- Finish, cancellation, conflict, pointer cancellation, Escape, blur, file change, and component removal clean previews, indicators, live-status nodes, cursor classes, timers, and temporary listeners.
 - Content conflicts show a localized message and retain the newest file without automatic overwrite or retry.
 
 ## Property-key suggestions
@@ -36,7 +38,8 @@ This document mirrors the authoritative current interaction and presentation con
 
 ## Property-value suggestions
 
-- Value suggestions has its own opt-in switch, default sort, per-property sort overrides, and pinned, bottom, and hidden editors. Rules use `property-pattern = value`; sort overrides use `property-pattern = native|name|recent|usage`.
+- Value suggestions has its own opt-in switch, default sort, per-property sort overrides, and pinned, bottom, and hidden editors. Rules use `property-pattern = value`; sort overrides use `property-pattern = native|name|recent|usage|none`.
+- A matching `none` override suppresses native candidates without removing the property-value editor; candidate DOM is made non-visible and has no plugin-visible selection until the rule no longer applies.
 - The native popup retains host styling and value commit behavior. Selection survives refresh while the selected value remains visible; context-menu actions remain unchanged.
 - Recent history records confirmed values separately for each property. Clearing value history affects only this device and Vault. Disabling enhancement restores native candidate order and visibility.
 

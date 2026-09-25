@@ -3,6 +3,8 @@ import type { DropTarget, InvalidDropTarget } from "./types";
 const DRAG_PREVIEW_OFFSET_X = 16;
 const DRAG_PREVIEW_OFFSET_Y = 16;
 const DRAG_PREVIEW_VIEWPORT_MARGIN = 8;
+const DRAG_AUTOSCROLL_EDGE = 40;
+const DRAG_AUTOSCROLL_MAX_STEP = 20;
 
 interface ViewportFrame {
   height: number;
@@ -72,10 +74,14 @@ export function updateIndicator(indicatorElement: HTMLElement, target: DropTarge
   const pillRects = target.context.pills.map((pill) => pill.getBoundingClientRect());
   const requestedSlot = target.slot === "append" ? pillRects.length : target.slot;
   const slot = Math.min(Math.max(requestedSlot, 0), pillRects.length);
+  const direction = getInlineDirection(target.context.container);
   const frame =
     pillRects.length === 0
-      ? getEmptyContainerIndicatorFrame(target.context.container.getBoundingClientRect())
-      : getIndicatorFrame(pillRects, slot);
+      ? getEmptyContainerIndicatorFrame(
+          target.context.container.getBoundingClientRect(),
+          direction,
+        )
+      : getIndicatorFrame(pillRects, slot, direction);
 
   indicatorElement.style.left = `${Math.round(frame.left)}px`;
   indicatorElement.style.top = `${Math.round(frame.top)}px`;
@@ -146,9 +152,103 @@ export function createIndicatorElement(parentElement: HTMLElement): HTMLElement 
   return indicatorElement;
 }
 
-function getEmptyContainerIndicatorFrame(rect: DOMRect): { height: number; left: number; top: number } {
+export function createDragStatusElement(parentElement: HTMLElement): HTMLElement {
+  const statusElement = parentElement.createDiv();
+  statusElement.className = "property-order-drag-status";
+  statusElement.setAttribute("role", "status");
+  statusElement.setAttribute("aria-live", "polite");
+  statusElement.setAttribute("aria-atomic", "true");
+  return statusElement;
+}
+
+export function announceDragStatus(statusElement: HTMLElement, message: string): void {
+  if (statusElement.textContent !== message) {
+    statusElement.textContent = message;
+  }
+}
+
+export function autoScrollDragContainer(
+  root: HTMLElement,
+  clientX: number,
+  clientY: number,
+): boolean {
+  const targetDocument = root.ownerDocument;
+  const hit = targetDocument.elementFromPoint?.(clientX, clientY);
+  const candidates: HTMLElement[] = [];
+  let current =
+    hit != null && hit.nodeType === 1 ? (hit as HTMLElement) : null;
+
+  while (current != null && root.contains(current)) {
+    candidates.push(current);
+    if (current === root) {
+      break;
+    }
+    current = current.parentElement;
+  }
+
+  if (!candidates.includes(root)) {
+    candidates.push(root);
+  }
+
+  for (const candidate of candidates) {
+    const targetWindow = candidate.ownerDocument.defaultView;
+    const overflowY = targetWindow?.getComputedStyle(candidate).overflowY ?? "";
+    if (
+      !["auto", "scroll", "overlay"].includes(overflowY) ||
+      candidate.scrollHeight <= candidate.clientHeight
+    ) {
+      continue;
+    }
+
+    const delta = getDragAutoScrollDelta(
+      clientY,
+      candidate.getBoundingClientRect().top,
+      candidate.getBoundingClientRect().bottom,
+    );
+    if (delta === 0) {
+      continue;
+    }
+
+    const before = candidate.scrollTop;
+    candidate.scrollTop += delta;
+    if (candidate.scrollTop !== before) {
+      return true;
+    }
+  }
+
+  return false;
+}
+
+export function getDragAutoScrollDelta(
+  clientY: number,
+  top: number,
+  bottom: number,
+): number {
+  const height = bottom - top;
+  if (!Number.isFinite(height) || height <= 0) {
+    return 0;
+  }
+
+  const edge = Math.min(DRAG_AUTOSCROLL_EDGE, height / 3);
+  if (clientY < top + edge) {
+    const ratio = Math.min(1, Math.max(0, (top + edge - clientY) / edge));
+    return -Math.max(1, Math.ceil(DRAG_AUTOSCROLL_MAX_STEP * ratio));
+  }
+
+  if (clientY > bottom - edge) {
+    const ratio = Math.min(1, Math.max(0, (clientY - (bottom - edge)) / edge));
+    return Math.max(1, Math.ceil(DRAG_AUTOSCROLL_MAX_STEP * ratio));
+  }
+
+  return 0;
+}
+
+function getEmptyContainerIndicatorFrame(
+  rect: DOMRect,
+  direction: "ltr" | "rtl",
+): { height: number; left: number; top: number } {
   return {
-    left: rect.left + 2,
+    left: direction === "rtl" ? rect.right - 6 : rect.left + 2,
     top: rect.top + 2,
     height: rect.height - 4,
   };
@@ -157,12 +257,13 @@ function getEmptyContainerIndicatorFrame(rect: DOMRect): { height: number; left:
 function getIndicatorFrame(
   pillRects: DOMRect[],
   slot: number,
+  direction: "ltr" | "rtl",
 ): { height: number; left: number; top: number } {
   if (slot <= 0) {
     const rect = pillRects[0];
 
     return {
-      left: rect.left - 4,
+      left: direction === "rtl" ? rect.right + 4 : rect.left - 4,
       top: rect.top + 2,
       height: rect.height - 4,
     };
@@ -172,7 +273,7 @@ function getIndicatorFrame(
     const rect = pillRects[pillRects.length - 1];
 
     return {
-      left: rect.right + 4,
+      left: direction === "rtl" ? rect.left - 4 : rect.right + 4,
       top: rect.top + 2,
       height: rect.height - 4,
     };
@@ -184,14 +285,17 @@ function getIndicatorFrame(
 
   if (wrappedToNextRow) {
     return {
-      left: nextRect.left - 4,
+      left: direction === "rtl" ? nextRect.right + 4 : nextRect.left - 4,
       top: nextRect.top + 2,
       height: nextRect.height - 4,
     };
   }
 
   return {
-    left: (previousRect.right + nextRect.left) / 2,
+    left:
+      direction === "rtl"
+        ? (previousRect.left + nextRect.right) / 2
+        : (previousRect.right + nextRect.left) / 2,
     top: nextRect.top + 2,
     height: nextRect.height - 4,
   };
@@ -324,4 +428,14 @@ function roundCssPixel(value: number): number {
 
 function isPositiveFinite(value: number): boolean {
   return Number.isFinite(value) && value > 0;
+}
+
+function getInlineDirection(container: HTMLElement): "ltr" | "rtl" {
+  try {
+    return container.ownerDocument.defaultView?.getComputedStyle(container).direction === "rtl"
+      ? "rtl"
+      : "ltr";
+  } catch {
+    return "ltr";
+  }
 }

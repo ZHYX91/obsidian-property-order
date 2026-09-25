@@ -3,6 +3,7 @@ import type {
   ValueSuggestionSortMode,
 } from "../../shared/types";
 import { comparePropertyNames } from "./property-names";
+import { createWildcardMatcher } from "./wildcard";
 
 export interface OrderedPropertyValue {
   value: string;
@@ -23,6 +24,12 @@ export interface ResolvedPropertyValueRules {
   sortMode: ValueSuggestionSortMode;
 }
 
+export interface PropertyValueBehaviorExplanation {
+  behavior: ValueSuggestionSortMode;
+  matchedRule: string | null;
+  propertyKey: string;
+}
+
 export function resolvePropertyValueRules(
   rawPropertyKey: string,
   config: PropertyValueRuleConfig,
@@ -33,11 +40,11 @@ export function resolvePropertyValueRules(
     bottomValues: collectScopedRules(config.bottomRules, propertyKey),
     hiddenPatterns: collectScopedRules(config.hiddenRules, propertyKey),
     pinnedValues: collectScopedRules(config.pinnedRules, propertyKey),
-    sortMode: resolveSortOverride(
-      config.sortOverrides,
+    sortMode: explainPropertyValueBehavior(
       propertyKey,
+      config.sortOverrides,
       config.defaultSortMode,
-    ),
+    ).behavior,
   };
 }
 
@@ -48,6 +55,10 @@ export function orderPropertyValues(
   const normalizedValues = dedupePreservingOrder(
     values.map((value) => value.trim()).filter(Boolean),
   );
+
+  if (options.sortMode === "none") {
+    return [];
+  }
   const hiddenMatchers = options.hiddenPatterns
     .map((pattern) => pattern.trim())
     .filter(Boolean)
@@ -109,11 +120,13 @@ export function orderPropertyValues(
   }));
 }
 
-function resolveSortOverride(
+export function explainPropertyValueBehavior(
+  rawPropertyKey: string,
   rules: readonly string[],
-  propertyKey: string,
   fallback: ValueSuggestionSortMode,
-): ValueSuggestionSortMode {
+): PropertyValueBehaviorExplanation {
+  const propertyKey = rawPropertyKey.trim();
+
   for (const rule of rules) {
     const assignment = parseScopedAssignment(rule);
 
@@ -122,11 +135,19 @@ function resolveSortOverride(
       createWildcardMatcher(assignment.scope)(propertyKey) &&
       isValueSuggestionSortMode(assignment.value)
     ) {
-      return assignment.value;
+      return {
+        behavior: assignment.value,
+        matchedRule: rule.trim(),
+        propertyKey,
+      };
     }
   }
 
-  return fallback;
+  return {
+    behavior: fallback,
+    matchedRule: null,
+    propertyKey,
+  };
 }
 
 function collectScopedRules(
@@ -165,7 +186,13 @@ function parseScopedAssignment(
 }
 
 function isValueSuggestionSortMode(value: string): value is ValueSuggestionSortMode {
-  return value === "native" || value === "name" || value === "recent" || value === "usage";
+  return (
+    value === "native" ||
+    value === "name" ||
+    value === "recent" ||
+    value === "usage" ||
+    value === "none"
+  );
 }
 
 function dedupePreservingOrder(values: string[]): string[] {
@@ -206,11 +233,3 @@ function expandPatterns(patterns: readonly string[], values: string[]): string[]
   return result;
 }
 
-function createWildcardMatcher(pattern: string): (value: string) => boolean {
-  const escapedPattern = pattern
-    .replace(/[|\\{}()[\]^$+?.]/g, "\\$&")
-    .replace(/\*/g, ".*");
-  const matcher = new RegExp(`^${escapedPattern}$`, "i");
-
-  return (value: string) => matcher.test(value);
-}

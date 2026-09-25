@@ -24,6 +24,7 @@ function createPlugin(storedSettings: unknown): {
       on: vi.fn(() => ({})),
     },
     metadataCache: {
+      offref: vi.fn(),
       on: vi.fn(() => ({})),
     },
   };

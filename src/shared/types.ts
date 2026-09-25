@@ -1,6 +1,6 @@
 export type ListWritebackFormat = "preserve" | "flow" | "block";
 export type KeySuggestionSortMode = "name" | "recent" | "usage";
-export type ValueSuggestionSortMode = "native" | "name" | "recent" | "usage";
+export type ValueSuggestionSortMode = "native" | "name" | "recent" | "usage" | "none";
 export type PluginLanguage = "auto" | "en" | "zh-CN" | "zh-TW";
 
 export interface PropertyOrderSettings {

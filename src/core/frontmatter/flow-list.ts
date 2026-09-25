@@ -4,6 +4,7 @@ import {
   parseScalar,
   renderInlineComment,
   serializeNormalizedScalar,
+  trimYamlSeparationWhitespace,
 } from "./scalar";
 import type { FrontmatterScalar, ListItemToken, PropertyItem } from "./types";
 
@@ -58,7 +59,7 @@ export function parseFlowSequence(rawSequence: string): ListItemToken[] | null {
     }
 
     if (character === "," && !inSingleQuote && !inDoubleQuote) {
-      const raw = buffer.trim();
+      const raw = trimYamlSeparationWhitespace(buffer);
 
       if (raw.length === 0) {
         return null;
@@ -80,7 +81,7 @@ export function parseFlowSequence(rawSequence: string): ListItemToken[] | null {
     return null;
   }
 
-  const finalItem = buffer.trim();
+  const finalItem = trimYamlSeparationWhitespace(buffer);
 
   if (finalItem.length > 0) {
     if (!isSupportedScalarToken(finalItem)) {
@@ -98,7 +99,7 @@ export function toFlowItemToken(item: PropertyItem): ListItemToken {
     return item;
   }
 
-  const raw = item.rawValue.trim();
+  const raw = trimYamlSeparationWhitespace(item.rawValue);
 
   if (raw.length === 0) {
     return {
@@ -135,7 +136,7 @@ export function renderFlowProperty(
 ): string {
   const renderedItems = items.map((item) =>
     writebackFormat === "preserve"
-      ? item.raw.trim()
+      ? trimYamlSeparationWhitespace(item.raw)
       : serializeNormalizedScalar(item.scalar),
   );
   return `${property.keyText}: [${renderedItems.join(", ")}]${renderInlineComment(
@@ -152,7 +153,7 @@ function isSupportedScalarToken(raw: string): boolean {
     return isValidQuotedScalar(raw);
   }
 
-  if (/^(?:[?&*!|>]|-(?:\s|$))/.test(raw)) {
+  if (/^(?:[?&*!|>]|-(?:[ \t]|$))/.test(raw)) {
     return false;
   }
 
@@ -163,7 +164,7 @@ function hasMappingSeparator(raw: string): boolean {
   for (let index = 0; index < raw.length; index += 1) {
     const nextCharacter = raw[index + 1] ?? "";
 
-    if (raw[index] === ":" && (nextCharacter.length === 0 || /\s/.test(nextCharacter))) {
+    if (raw[index] === ":" && (nextCharacter.length === 0 || /[ \t]/.test(nextCharacter))) {
       return true;
     }
   }

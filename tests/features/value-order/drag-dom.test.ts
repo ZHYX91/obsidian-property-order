@@ -4,9 +4,13 @@ import { Window as HappyDomWindow } from "happy-dom";
 import { afterEach, describe, expect, it } from "vitest";
 
 import {
+  autoScrollDragContainer,
+  createDragStatusElement,
   createIndicatorElement,
   createPreviewElement,
+  getDragAutoScrollDelta,
   positionPreview,
+  updateIndicator,
 } from "../../../src/features/value-order/drag-dom";
 import { installObsidianDomFactories } from "../../setup/obsidian-dom";
 
@@ -94,6 +98,85 @@ describe("drag preview geometry", () => {
     expect(previewRect.right).toBeLessThanOrEqual(102.001);
     expect(previewRect.top).toBeGreaterThanOrEqual(27.999);
     expect(previewRect.bottom).toBeLessThanOrEqual(72.001);
+  });
+
+  it("computes bounded edge autoscroll steps", () => {
+    expect(getDragAutoScrollDelta(5, 0, 120)).toBeLessThan(0);
+    expect(getDragAutoScrollDelta(60, 0, 120)).toBe(0);
+    expect(getDragAutoScrollDelta(115, 0, 120)).toBeGreaterThan(0);
+    expect(Math.abs(getDragAutoScrollDelta(-100, 0, 120))).toBeLessThanOrEqual(20);
+  });
+
+  it("scrolls only near the edge of an actual scrollable hit target and caps each step", () => {
+    const targetWindow = createWindow(240, 160);
+    const root = targetWindow.document.createElement("div") as unknown as HTMLElement;
+    const scroller = targetWindow.document.createElement("div") as unknown as HTMLElement;
+    root.appendChild(scroller);
+    (targetWindow.document.body as unknown as HTMLElement).appendChild(root);
+    scroller.style.overflowY = "auto";
+    Object.defineProperty(scroller, "clientHeight", { configurable: true, value: 100 });
+    Object.defineProperty(scroller, "scrollHeight", { configurable: true, value: 300 });
+    scroller.scrollTop = 50;
+    scroller.getBoundingClientRect = () => createRect(0, 0, 120, 100);
+    Object.defineProperty(targetWindow.document, "elementFromPoint", {
+      configurable: true,
+      value: () => scroller,
+    });
+
+    expect(autoScrollDragContainer(root, 60, 50)).toBe(false);
+    expect(scroller.scrollTop).toBe(50);
+
+    expect(autoScrollDragContainer(root, 60, 95)).toBe(true);
+    expect(scroller.scrollTop).toBeGreaterThan(50);
+    expect(scroller.scrollTop).toBeLessThanOrEqual(70);
+  });
+
+  it("places a wrapped RTL insertion indicator on the logical leading edge", () => {
+    const targetWindow = createWindow(320, 160);
+    const container = targetWindow.document.createElement("div") as unknown as HTMLElement;
+    container.style.direction = "rtl";
+    const pills = [
+      createRect(200, 0, 50, 20),
+      createRect(140, 0, 50, 20),
+      createRect(200, 30, 50, 20),
+    ].map((pillRect) => {
+      const pill = targetWindow.document.createElement("div") as unknown as HTMLElement;
+      pill.getBoundingClientRect = () => pillRect;
+      container.appendChild(pill);
+      return pill;
+    });
+    (targetWindow.document.body as unknown as HTMLElement).appendChild(container);
+    const indicator = createIndicatorElement(
+      targetWindow.document.body as unknown as HTMLElement,
+    );
+
+    updateIndicator(indicator, {
+      context: {
+        container,
+        editorKind: "multi-select",
+        pills,
+        propertyElement: targetWindow.document.createElement("div") as unknown as HTMLElement,
+        propertyKey: "tags",
+      },
+      kind: "drop",
+      mode: "reorder",
+      slot: 2,
+    });
+
+    expect(indicator.style.left).toBe("254px");
+    expect(indicator.style.top).toBe("32px");
+    expect(indicator.style.height).toBe("16px");
+  });
+
+  it("creates a polite live status in the requested owner window", () => {
+    const targetWindow = createWindow(200, 100);
+    const status = createDragStatusElement(
+      targetWindow.document.body as unknown as HTMLElement,
+    );
+
+    expect(status.ownerDocument).toBe(targetWindow.document);
+    expect(status.getAttribute("role")).toBe("status");
+    expect(status.getAttribute("aria-live")).toBe("polite");
   });
 
   it("creates the drop indicator in the requested owner window", () => {

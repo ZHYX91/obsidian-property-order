@@ -23,6 +23,10 @@ interface TestableValueController {
   originalSuggestions: Map<HTMLElement, unknown>;
   recordRecentPropertyValue(propertyKey: string, value: string): void;
   restoreContainer(container: HTMLElement): void;
+  shouldScheduleEnhancement(
+    targetDocument: Document,
+    mutations: readonly MutationRecord[],
+  ): boolean;
 }
 
 function installRafHarness(targetWindow: Window = window): RafHarness {
@@ -158,6 +162,145 @@ describe("ValueSuggestionOrderController", () => {
     Platform.isMacOS = false;
     Platform.isMobileApp = false;
     vi.restoreAllMocks();
+  });
+
+  it("ignores unrelated body mutations after tracking a popup but detects candidate lifecycle changes", () => {
+    const settings = createDefaultSettings();
+    settings.enableNativeValueSuggestionOrder = true;
+    const controller = createController(settings);
+    const testable = asTestable(controller);
+    const { container } = createValueMenu(["a", "b"]);
+
+    testable.enhanceContainer(container);
+    expect(testable.originalSuggestions.size).toBe(1);
+
+    const observer = new MutationObserver(() => undefined);
+    observer.observe(document.body, { childList: true });
+    const unrelatedText = document.createTextNode("unrelated");
+    document.body.appendChild(unrelatedText);
+    const unrelatedTextMutations = observer.takeRecords();
+    observer.disconnect();
+
+    expect(unrelatedTextMutations).toHaveLength(1);
+    expect(unrelatedTextMutations[0]?.target).toBe(document.body);
+    expect(
+      testable.shouldScheduleEnhancement(document, unrelatedTextMutations),
+    ).toBe(false);
+    unrelatedText.remove();
+
+    const unrelated = document.createElement("div");
+    document.body.appendChild(unrelated);
+    expect(testable.shouldScheduleEnhancement(document, [{
+      addedNodes: [unrelated],
+      removedNodes: [],
+      target: document.body,
+      type: "childList",
+    } as unknown as MutationRecord])).toBe(false);
+
+    const addedItem = document.createElement("div");
+    addedItem.className = "suggestion-item";
+    container.appendChild(addedItem);
+    expect(testable.shouldScheduleEnhancement(document, [{
+      addedNodes: [addedItem],
+      removedNodes: [],
+      target: container,
+      type: "childList",
+    } as unknown as MutationRecord])).toBe(true);
+
+    const titleText = container.querySelector(".suggestion-title")?.firstChild;
+    expect(titleText).not.toBeNull();
+    expect(testable.shouldScheduleEnhancement(document, [{
+      addedNodes: [],
+      removedNodes: [],
+      target: titleText as Node,
+      type: "characterData",
+    } as unknown as MutationRecord])).toBe(true);
+
+    const wrapper = document.createElement("div");
+    document.body.insertBefore(wrapper, container);
+    wrapper.appendChild(container);
+    expect(testable.shouldScheduleEnhancement(document, [{
+      addedNodes: [],
+      removedNodes: [],
+      target: wrapper,
+      type: "attributes",
+      attributeName: "hidden",
+    } as unknown as MutationRecord])).toBe(true);
+
+    addedItem.remove();
+    expect(testable.shouldScheduleEnhancement(document, [{
+      addedNodes: [],
+      removedNodes: [addedItem],
+      target: container,
+      type: "childList",
+    } as unknown as MutationRecord])).toBe(true);
+
+    container.remove();
+    expect(testable.shouldScheduleEnhancement(document, [{
+      addedNodes: [],
+      removedNodes: [container],
+      target: wrapper,
+      type: "childList",
+    } as unknown as MutationRecord])).toBe(true);
+
+    const inserted = createValueMenu(["c", "d"]).container;
+    expect(testable.shouldScheduleEnhancement(document, [{
+      addedNodes: [inserted],
+      removedNodes: [],
+      target: document.body,
+      type: "childList",
+    } as unknown as MutationRecord])).toBe(true);
+    controller.dispose();
+  });
+
+  it("refreshes usage ordering only when an active popup actually uses usage mode", () => {
+    const raf = installRafHarness();
+    const settings = createDefaultSettings();
+    settings.enableNativeValueSuggestionOrder = true;
+    settings.valueSuggestionSortMode = "name";
+    const controller = createController(settings);
+    const testable = asTestable(controller);
+    const { container } = createValueMenu(["b", "a"]);
+    controller.initialize();
+    raf.flush();
+    testable.enhanceContainer(container);
+
+    testable.invalidateUsage();
+    expect(raf.pending()).toBe(0);
+
+    settings.valueSuggestionSortMode = "usage";
+    testable.enhanceContainer(container);
+    testable.invalidateUsage();
+    expect(raf.pending()).toBe(1);
+    controller.dispose();
+  });
+
+  it("suppresses the native value candidate popup for a matching property", () => {
+    const settings = createDefaultSettings();
+    settings.enableNativeValueSuggestionOrder = true;
+    settings.valueSuggestionSortOverrides = ["status = none"];
+    const controller = createController(settings);
+    const { container } = createValueMenu(["draft", "done"]);
+
+    asTestable(controller).enhanceContainer(container);
+
+    expect(container.classList.contains("property-order-value-suggestions-suppressed")).toBe(true);
+    expect(asTestable(controller).getActiveContainer(document)).toBeNull();
+    expect(container.querySelector(".suggestion-item.is-selected")).toBeNull();
+    expect(
+      Array.from(container.querySelectorAll<HTMLElement>(".suggestion-item")).every(
+        (item) =>
+          item.hidden &&
+          item.getAttribute("aria-hidden") === "true" &&
+          item.classList.contains("property-order-suggestion-hidden"),
+      ),
+    ).toBe(true);
+
+    settings.valueSuggestionSortOverrides = [];
+    asTestable(controller).enhanceContainer(container);
+    expect(container.classList.contains("property-order-value-suggestions-suppressed")).toBe(false);
+    expect(visibleValues(container)).toEqual(["draft", "done"]);
+    controller.dispose();
   });
 
   it("orders, hides, and restores native value suggestions", () => {
@@ -395,16 +538,19 @@ describe("ValueSuggestionOrderController", () => {
     expect(testable.documentStates.size).toBe(0);
   });
 
-  it("reschedules after metadata usage invalidation only while enabled", () => {
+  it("reschedules active usage ordering after metadata invalidation only while enabled", () => {
     const raf = installRafHarness();
     const settings = createDefaultSettings();
     settings.enableNativeValueSuggestionOrder = true;
+    settings.valueSuggestionSortMode = "usage";
     const app = createApp();
     const controller = createController(settings, app);
     const testable = asTestable(controller);
+    const { container } = createValueMenu(["a", "b"]);
 
     controller.initialize();
     raf.flush();
+    testable.enhanceContainer(container);
     testable.invalidateUsage();
     expect(raf.pending()).toBe(1);
     raf.flush();

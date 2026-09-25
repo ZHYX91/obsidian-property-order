@@ -12,23 +12,43 @@ module.exports = class PropertyOrderAcceptanceProvider extends Plugin {
   onload() {
     this.conflictCleanup = null;
 
-    const prepareValueRules = async () => {
+    const applyValueSettings = async (overrides, notice) => {
       const plugin = this.app.plugins.getPlugin("property-order");
       if (plugin == null) return;
       Object.assign(plugin.propertyOrderSettings, {
+        enableNativeValueSuggestionOrder: true,
         pinnedPropertyValues: ["status = draft", "priority = high"],
         bottomPropertyValues: ["status = archived"],
         hiddenPropertyValuePatterns: ["status = cancelled"],
+        valueSuggestionSortOverrides: overrides,
       });
       await plugin.saveSettings(false, true);
-      new Notice("Acceptance provider: per-property value rules prepared.");
+      new Notice(notice);
     };
+    const prepareValueRules = () =>
+      applyValueSettings([], "Acceptance provider: per-property value rules prepared.");
+    const prepareNoneRule = () =>
+      applyValueSettings(["status = none"], "Acceptance provider: status none rule prepared.");
+    const restoreValueRules = () =>
+      applyValueSettings([], "Acceptance provider: value rules restored.");
     this.addCommand({
       id: "prepare-value-rules",
       name: "Acceptance: prepare per-property value rules",
       callback: prepareValueRules,
     });
     this.addRibbonIcon("list-filter", "Acceptance: prepare value rules", prepareValueRules);
+    this.addCommand({
+      id: "prepare-none-rule",
+      name: "Acceptance: prepare status none rule",
+      callback: prepareNoneRule,
+    });
+    this.addRibbonIcon("eye-off", "Acceptance: prepare none rule", prepareNoneRule);
+    this.addCommand({
+      id: "restore-value-rules",
+      name: "Acceptance: restore value rule overrides",
+      callback: restoreValueRules,
+    });
+    this.addRibbonIcon("rotate-ccw", "Acceptance: restore value rules", restoreValueRules);
 
     this.addCommand({
       id: "open-first-source-value-menu",

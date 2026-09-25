@@ -13,12 +13,14 @@ translation_status: source
 - 移动端长按仍打开 Obsidian 原生属性值菜单，并追加“重排”或“重排或移动”。选择后该 pill 显示待拖动状态；下一次在同一 pill 上 touch/pen 移动即可开始拖拽，无需再次长按。
 - 移动端待拖动状态只消费一次并在 15 秒后过期；点击其他位置、Escape、超时、插件卸载或 DOM 失效都会取消。只有待拖动按压才抑制默认触摸移动和重复原生菜单。
 - 预览保持源 pill 的渲染尺寸和单行省略，按所属 document 的 visual viewport 缩放与限制，四周保留可见边距。
-- drop indicator 必须清楚表达插入槽；同属性 noop、非法跨属性目标和跨文件目标不得写回。
+- 命中点下的可滚动祖先和发起 pane 只有在指针进入其有界边缘区域时才滚动；每个 animation frame 的步长设有上限，避免拖拽滚动失控。
+- drop indicator 必须清楚表达逻辑插入槽，包括换行和 RTL inline direction；同属性 noop、非法跨属性目标和跨文件目标不得写回。
+- 拖拽开始与目标状态变化通过 polite live status 播报；reduced motion 只关闭预览和指示器过渡，不改变几何与清理语义。
 - 指针位于同一 pane 内明确的非列表属性上时，隐藏 drop indicator，以警示轮廓和 `not-allowed` 光标标记目标；仅在该目标上松手时显示一次“目标不是列表属性”Notice，经过后离开不提示。
 - 原生列表类型不匹配字段的值编辑区域可在超过阈值后拖动，但插件不添加常驻抓手、不挤压或覆盖宿主警告图标；警告图标本身保持原生光标且不作为拖拽起点。只有支持 hover 的精细指针在输入未聚焦时显示 `grab` / `grabbing` 光标，聚焦编辑与粗指针保持原生呈现。
 - 成功写回后自动让 Properties 与当前精确撤销/重做状态对齐，包括拖拽初始对账及延迟保存窗口均结束后才执行的撤销或重做；一次快捷键必须同时更新 editor buffer 与可见 Properties，无需再按一次历史快捷键。自动恢复失败时，持久 Notice 提供“刷新属性面板”按钮。按钮每次点击都重新读取当前合法状态，只刷新原 pane 的 UI，不再次写值或安排保存；仍失败时才建议重新打开笔记，插件不得自动关闭或重开。
 - 成功拖拽后无需先点击正文即可使用平台快捷键撤销或重做。插件只在用户尚未主动聚焦其他控件、pane 或窗口时，把宿主重建丢失的焦点恢复给原 Markdown editor；noop、取消、拒绝、冲突和未生效写入不强制改变焦点。
-- 完成、取消、冲突、pointercancel、Escape、blur、文件切换或组件消失都清理预览、指示器、cursor class、计时器和临时 listener。
+- 完成、取消、冲突、pointercancel、Escape、blur、文件切换或组件消失都清理预览、指示器、live-status 节点、cursor class、计时器和临时 listener。
 - 内容冲突显示本地化提示并保留最新文件，不自动重试或覆盖。
 
 ## 属性键候选
@@ -35,7 +37,8 @@ translation_status: source
 
 ## 属性值候选
 
-- Value suggestions 提供独立启用开关、默认排序、按属性排序覆盖，以及置顶、置底和隐藏编辑器。规则使用 `property-pattern = value`；排序覆盖使用 `property-pattern = native|name|recent|usage`。
+- Value suggestions 提供独立启用开关、默认排序、按属性排序覆盖，以及置顶、置底和隐藏编辑器。规则使用 `property-pattern = value`；排序覆盖使用 `property-pattern = native|name|recent|usage|none`。
+- 命中 `none` 覆盖时抑制原生候选但保留属性值编辑器；候选 DOM 变为不可见且不保留插件可见的选中状态，直到规则不再适用。
 - 原生弹窗保留宿主样式和值提交行为。刷新时仍可见的选中值保持选中，上下文菜单操作不变。
 - 最近使用按属性分别记录已确认的值。清除值历史只影响当前设备和 Vault。关闭增强后恢复原生候选顺序和可见性。
 

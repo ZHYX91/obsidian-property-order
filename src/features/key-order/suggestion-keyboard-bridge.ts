@@ -39,6 +39,10 @@ export function registerSuggestionKeyboardBridge(
     const visibleElements = getVisibleSuggestionElements(container);
 
     if (event.key === "Tab") {
+      if (event.shiftKey || event.altKey || event.ctrlKey || event.metaKey) {
+        return;
+      }
+
       const selectedElement = getSelectedSuggestionElement(container);
 
       if (selectedElement != null && visibleElements.includes(selectedElement)) {

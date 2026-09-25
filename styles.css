@@ -168,6 +168,10 @@ body.property-order-value-drag-enabled .metadata-property .multi-select-pill {
   display: none !important;
 }
 
+.property-order-value-suggestions-suppressed {
+  display: none !important;
+}
+
 .property-order-settings-tabs {
   align-items: stretch;
   display: flex;
@@ -297,3 +301,23 @@ body.property-order-value-drag-enabled .metadata-property .multi-select-pill {
     width: 100%;
   }
 }
+.property-order-drag-status {
+  position: fixed;
+  inline-size: 1px;
+  block-size: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .property-order-drop-indicator,
+  .property-order-drag-preview {
+    transition: none !important;
+  }
+
+  .property-order-drag-preview {
+    transform: none;
+  }
+}
+

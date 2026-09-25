@@ -42,6 +42,9 @@ import {
 import { RecentPropertyValueStore } from "./recent-property-value-store";
 import { RecentPropertyValueTracker } from "./recent-property-value-tracker";
 
+const VALUE_SUGGESTIONS_SUPPRESSED_CLASS =
+  "property-order-value-suggestions-suppressed";
+
 const OBSERVER_OPTIONS: MutationObserverInit = {
   attributeFilter: ["aria-hidden", "hidden"],
   attributes: true,
@@ -223,7 +226,10 @@ export class ValueSuggestionOrderController {
 
     const observer = new targetWindow.MutationObserver((mutations) => {
       this.updateNativeSnapshots(targetDocument, mutations);
-      this.scheduleEnhancement(targetDocument);
+
+      if (this.shouldScheduleEnhancement(targetDocument, mutations)) {
+        this.scheduleEnhancement(targetDocument);
+      }
     });
     const state: DocumentEnhancementState = {
       keyboardCleanup: () => undefined,
@@ -396,6 +402,7 @@ export class ValueSuggestionOrderController {
 
   private enhanceContainer(container: HTMLElement): void {
     const settings = this.getSettings();
+    container.classList.remove(VALUE_SUGGESTIONS_SUPPRESSED_CLASS);
     const items = getSuggestionItems(container);
 
     if (
@@ -423,6 +430,28 @@ export class ValueSuggestionOrderController {
       pinnedRules: settings.pinnedPropertyValues,
       sortOverrides: settings.valueSuggestionSortOverrides,
     });
+
+    if (rules.sortMode === "none") {
+      restoreSnapshot(snapshot);
+      snapshot.appliedState = null;
+
+      for (const item of items) {
+        item.element.hidden = true;
+        item.element.classList.add(PLUGIN_HIDDEN_SUGGESTION_CLASS);
+        item.element.setAttribute("aria-hidden", "true");
+        item.element.classList.remove("is-selected");
+      }
+
+      container.classList.add(VALUE_SUGGESTIONS_SUPPRESSED_CLASS);
+      container.dataset.propertyOrderValueEnhanced = "true";
+      container.dataset.propertyOrderValueSignature = JSON.stringify({
+        propertyKey: context.propertyKey,
+        sortMode: rules.sortMode,
+      });
+      this.activeContainers.delete(container.ownerDocument);
+      return;
+    }
+
     const itemsByElement = new Map(items.map((item) => [item.element, item]));
     const nativeItems = snapshot.childOrder
       .map((node) => itemsByElement.get(node as HTMLElement))
@@ -577,8 +606,107 @@ export class ValueSuggestionOrderController {
     }
 
     for (const targetDocument of this.documentStates.keys()) {
-      this.scheduleEnhancement(targetDocument);
+      if (this.documentHasActiveUsageOrdering(targetDocument)) {
+        this.scheduleEnhancement(targetDocument);
+      }
     }
+  }
+
+  private documentHasActiveUsageOrdering(targetDocument: Document): boolean {
+    const settings = this.getSettings();
+
+    for (const container of this.originalSuggestions.keys()) {
+      if (
+        container.ownerDocument !== targetDocument ||
+        !container.isConnected ||
+        !isSuggestionElementVisible(container)
+      ) {
+        continue;
+      }
+
+      const context = getPropertyValueSuggestionContext(container);
+      if (context == null) {
+        continue;
+      }
+
+      const rules = resolvePropertyValueRules(context.propertyKey, {
+        bottomRules: settings.bottomPropertyValues,
+        defaultSortMode: settings.valueSuggestionSortMode,
+        hiddenRules: settings.hiddenPropertyValuePatterns,
+        pinnedRules: settings.pinnedPropertyValues,
+        sortOverrides: settings.valueSuggestionSortOverrides,
+      });
+
+      if (rules.sortMode === "usage") {
+        return true;
+      }
+    }
+
+    return false;
+  }
+
+  private shouldScheduleEnhancement(
+    targetDocument: Document,
+    mutations: readonly MutationRecord[],
+  ): boolean {
+    for (const mutation of mutations) {
+      const mutationElement = getElementAtOrAboveNode(mutation.target);
+      const targetMayAffectTrackedDescendants = mutation.type === "attributes";
+
+      if (
+        mutationElement != null &&
+        this.isValueSuggestionRelatedElement(
+          targetDocument,
+          mutationElement,
+          targetMayAffectTrackedDescendants,
+        )
+      ) {
+        return true;
+      }
+
+      for (const node of [...mutation.addedNodes, ...mutation.removedNodes]) {
+        if (node.nodeType !== 1) {
+          continue;
+        }
+
+        if (
+          this.isValueSuggestionRelatedElement(
+            targetDocument,
+            node as HTMLElement,
+            true,
+          )
+        ) {
+          return true;
+        }
+      }
+    }
+
+    return false;
+  }
+
+  private isValueSuggestionRelatedElement(
+    targetDocument: Document,
+    element: HTMLElement,
+    includeDescendants: boolean,
+  ): boolean {
+    for (const container of this.originalSuggestions.keys()) {
+      if (
+        container.ownerDocument === targetDocument &&
+        (container === element ||
+          container.contains(element) ||
+          (includeDescendants && element.contains(container)))
+      ) {
+        return true;
+      }
+    }
+
+    if (resolvePropertyValueSuggestionContainer(element) != null) {
+      return true;
+    }
+
+    return includeDescendants && findSuggestionContainers(element).some(
+      (candidate) => resolvePropertyValueSuggestionContainer(candidate) != null,
+    );
   }
 
   private recordRecentPropertyValue(propertyKey: string, value: string): void {
@@ -612,9 +740,12 @@ export class ValueSuggestionOrderController {
   }
 
   private restoreContainer(container: HTMLElement): void {
+    container.classList.remove(VALUE_SUGGESTIONS_SUPPRESSED_CLASS);
     const snapshot = this.originalSuggestions.get(container);
 
     if (snapshot == null) {
+      delete container.dataset.propertyOrderValueEnhanced;
+      delete container.dataset.propertyOrderValueSignature;
       return;
     }
 
@@ -649,3 +780,10 @@ function haveSameElementSet(
   return snapshots.every(({ element }) => currentElements.has(element));
 }
 
+function getElementAtOrAboveNode(node: Node): HTMLElement | null {
+  if (node.nodeType === 1) {
+    return node as HTMLElement;
+  }
+
+  return node.parentElement;
+}
