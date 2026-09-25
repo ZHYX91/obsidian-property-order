@@ -742,8 +742,34 @@ export class ValueSuggestionOrderController {
 
   private recordConfirmedPropertyValue(propertyKey: string, value: string): void {
     this.recordRecentPropertyValue(propertyKey, value);
-    this.propertyValueFrequencyStore.increment(propertyKey, value);
-    this.frequencyRevision += 1;
+
+    if (this.shouldTrackPropertyValueFrequency(propertyKey)) {
+      this.propertyValueFrequencyStore.increment(propertyKey, value);
+      this.frequencyRevision += 1;
+    }
+  }
+
+  private shouldTrackPropertyValueFrequency(propertyKey: string): boolean {
+    const settings = this.getSettings();
+    const normalizedKey = propertyKey.trim().toLocaleLowerCase();
+    const assignment = settings.valueSuggestionPropertyAssignments.find(
+      (candidate) => candidate.propertyKey.trim().toLocaleLowerCase() === normalizedKey,
+    );
+    const behavior = assignment?.behavior ?? settings.valueSuggestionDefaultBehavior;
+
+    if (behavior === "frequency") {
+      return true;
+    }
+
+    if (behavior !== "custom") {
+      return false;
+    }
+
+    return settings.valueSuggestionCustomOrders.some(
+      (order) =>
+        order.propertyKey.trim().toLocaleLowerCase() === normalizedKey &&
+        order.middleSortMode === "frequency",
+    );
   }
 
   private getPropertyValueFrequency(propertyKey: string) {
