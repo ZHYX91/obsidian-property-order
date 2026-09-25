@@ -205,10 +205,15 @@ export function autoScrollDragContainer(
       continue;
     }
 
+    const candidateRect = candidate.getBoundingClientRect();
+    if (!isPointInsideRect(clientX, clientY, candidateRect)) {
+      continue;
+    }
+
     const delta = getDragAutoScrollDelta(
       clientY,
-      candidate.getBoundingClientRect().top,
-      candidate.getBoundingClientRect().bottom,
+      candidateRect.top,
+      candidateRect.bottom,
     );
     if (delta === 0) {
       continue;
