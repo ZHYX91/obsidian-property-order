@@ -92,7 +92,7 @@ export class ValueSuggestionOrderController {
     this.recentValueTracker = new RecentPropertyValueTracker({
       getEnabled: () =>
         this.initialized && this.getSettings().enableNativeValueSuggestionOrder,
-      onConfirmed: (propertyKey, value) => this.recordRecentPropertyValue(propertyKey, value),
+      onConfirmed: (propertyKey, value) => this.recordConfirmedPropertyValue(propertyKey, value),
       plugin,
     });
   }
