@@ -212,23 +212,23 @@ describe("renderCustomValueSuggestionEditor", () => {
     };
 
     await clickAction("settings.valueSuggestions.custom.moveDown: draft");
-    expect(changes.at(-1)?.find((order) => order.propertyKey === "status")?.pinnedValues)
+    expect(changes[changes.length - 1]?.find((order) => order.propertyKey === "status")?.pinnedValues)
       .toEqual(["planned", "draft"]);
 
     await clickAction("settings.valueSuggestions.custom.toMiddle: planned");
-    expect(changes.at(-1)?.find((order) => order.propertyKey === "status")?.middleValues)
+    expect(changes[changes.length - 1]?.find((order) => order.propertyKey === "status")?.middleValues)
       .toContain("planned");
 
     await clickAction("settings.valueSuggestions.custom.toPinned: done");
-    expect(changes.at(-1)?.find((order) => order.propertyKey === "status")?.pinnedValues)
+    expect(changes[changes.length - 1]?.find((order) => order.propertyKey === "status")?.pinnedValues)
       .toContain("done");
 
     await clickAction("settings.valueSuggestions.custom.toBottom: manual");
-    expect(changes.at(-1)?.find((order) => order.propertyKey === "status")?.bottomValues)
+    expect(changes[changes.length - 1]?.find((order) => order.propertyKey === "status")?.bottomValues)
       .toContain("manual");
 
     await clickAction("settings.valueSuggestions.custom.removePreset: manual");
-    expect(changes.at(-1)?.find((order) => order.propertyKey === "status")?.middleValues)
+    expect(changes[changes.length - 1]?.find((order) => order.propertyKey === "status")?.middleValues)
       .not.toContain("manual");
 
     const pinnedInput = container.querySelector<HTMLInputElement>(
@@ -248,7 +248,7 @@ describe("renderCustomValueSuggestionEditor", () => {
     pinnedInput.value = "new-top";
     pinnedAdd.click();
     await flushPersist();
-    expect(changes.at(-1)?.find((order) => order.propertyKey === "status")?.pinnedValues)
+    expect(changes[changes.length - 1]?.find((order) => order.propertyKey === "status")?.pinnedValues)
       .toContain("new-top");
 
     const bottomInput = container.querySelector<HTMLInputElement>(
@@ -263,7 +263,7 @@ describe("renderCustomValueSuggestionEditor", () => {
       bubbles: true,
     }));
     await flushPersist();
-    expect(changes.at(-1)?.find((order) => order.propertyKey === "status")?.bottomValues)
+    expect(changes[changes.length - 1]?.find((order) => order.propertyKey === "status")?.bottomValues)
       .toContain("new-bottom");
 
     const beforeSort = onCustomOrdersChange.mock.calls.length;
@@ -271,7 +271,7 @@ describe("renderCustomValueSuggestionEditor", () => {
     expect(onCustomOrdersChange).toHaveBeenCalledTimes(beforeSort);
     dropdowns[0]?.onChange?.("frequency");
     await flushPersist();
-    expect(changes.at(-1)?.find((order) => order.propertyKey === "status")?.middleSortMode)
+    expect(changes[changes.length - 1]?.find((order) => order.propertyKey === "status")?.middleSortMode)
       .toBe("frequency");
     expect(rerender).toHaveBeenCalledWith("status");
   });
