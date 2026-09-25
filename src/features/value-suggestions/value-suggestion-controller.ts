@@ -75,6 +75,7 @@ export class ValueSuggestionOrderController {
   private readonly recentValueStore: RecentPropertyValueStore;
   private readonly recentValueTracker: RecentPropertyValueTracker;
   private recentValueRevision = 0;
+  private frequencyRevision = 0;
   private usageRevision = 0;
   private readonly registeredEventCleanups: Array<() => void> = [];
 
