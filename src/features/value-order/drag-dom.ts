@@ -173,6 +173,11 @@ export function autoScrollDragContainer(
   clientY: number,
 ): boolean {
   const targetDocument = root.ownerDocument;
+  const rootRect = root.getBoundingClientRect();
+  if (!isPointInsideRect(clientX, clientY, rootRect)) {
+    return false;
+  }
+
   const hit = targetDocument.elementFromPoint?.(clientX, clientY);
   const candidates: HTMLElement[] = [];
   let current =
