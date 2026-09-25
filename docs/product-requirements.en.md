@@ -53,7 +53,7 @@ The enhancement must remain local, reversible, and fail-safe. Unrecognized host 
 
 ## Settings
 
-- Settings currently use schema 5, with sequential migration and normalization of invalid values.
+- Settings currently use schema 6, with sequential migration and normalization of invalid values. The grouped value-suggestion model enforces at most one active behavior per exact property key; legacy rules that cannot be translated without changing semantics remain marked for explicit migration.
 - General, Value order, Key suggestions, and Value suggestions remain four immediate-application tabs on the imperative settings surface used by every supported Obsidian version. Declarative settings remain disabled because they bypass this layout.
 - Persistence failure keeps the in-memory state and presents a localized Notice, accessible unsaved status, and Retry action. Before each save and when Obsidian reports an external settings change, a three-way merge preserves external changes to keys untouched in the current UI and preserves unknown future-schema fields; current UI edits win for the keys they changed. Storage operations remain ordered across plugin replacement, and an unloaded instance cannot start a new save.
 - Key suggestions provides a **Clear recent property history** action. It cancels pending confirmations and deletes only the current Vault and device's MRU; it does not modify `data.json`, notes, or another Vault. If device-local deletion fails, the in-memory history remains cleared and the user is warned that saved history may return after restart.
