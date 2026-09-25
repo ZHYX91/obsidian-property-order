@@ -162,11 +162,13 @@ export class RecentPropertyValueTracker {
       propertyKey: context.propertyKey,
       value,
     };
+    // One property editor can only have one current activation intent. A later
+    // candidate activation supersedes an older unconfirmed value for the same
+    // file/property so a stale intent cannot consume a later cache change.
     const queue = this.getLivePendingQueue(itemElement.ownerDocument, pending.createdAt).filter(
       (candidate) =>
         candidate.file !== pending.file ||
-        candidate.propertyKey !== pending.propertyKey ||
-        candidate.value !== pending.value,
+        candidate.propertyKey !== pending.propertyKey,
     );
     queue.push(pending);
     this.setPendingQueue(
@@ -233,8 +235,8 @@ function getFrontmatterValues(cache: CachedMetadata, propertyKey: string): strin
         typeof value === "number" ||
         typeof value === "boolean",
     )
-    .map((value) => String(value).trim())
-    .filter(Boolean);
+    .map((value) => String(value))
+    .filter((value) => value.length > 0);
 }
 
 function countValue(values: readonly string[], target: string): number {

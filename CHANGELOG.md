@@ -8,6 +8,7 @@ follow the repository's Git tags; entries summarize the corresponding commit his
 ### Fixed
 
 - Preserved Unicode edge characters when validating property pills and when moving scalar text into flow lists.
+- Tightened property-value recent confirmation to exact values and refreshed reused suggestion popups when property focus changes.
 
 ## [0.7.0] - 2026-09-25
 

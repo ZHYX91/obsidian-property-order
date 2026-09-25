@@ -275,6 +275,40 @@ describe("ValueSuggestionOrderController", () => {
     controller.dispose();
   });
 
+  it("re-evaluates a reused popup when focus moves to another property", () => {
+    const raf = installRafHarness();
+    const settings = createDefaultSettings();
+    settings.enableNativeValueSuggestionOrder = true;
+    settings.valueSuggestionSortMode = "name";
+    settings.valueSuggestionSortOverrides = ["status = none", "priority = name"];
+    const controller = createController(settings);
+    const status = createValueMenu(["beta", "alpha"], "status");
+    controller.initialize();
+    raf.flush();
+
+    expect(status.container.classList.contains("property-order-value-suggestions-suppressed")).toBe(
+      true,
+    );
+
+    const priorityRow = document.createElement("div");
+    priorityRow.className = "metadata-property";
+    priorityRow.dataset.propertyKey = "priority";
+    const priorityEditor = document.createElement("input");
+    priorityEditor.className = "metadata-property-value";
+    priorityRow.appendChild(priorityEditor);
+    document.body.appendChild(priorityRow);
+    priorityEditor.focus();
+
+    expect(raf.pending()).toBe(1);
+    raf.flush();
+
+    expect(status.container.classList.contains("property-order-value-suggestions-suppressed")).toBe(
+      false,
+    );
+    expect(visibleValues(status.container)).toEqual(["alpha", "beta"]);
+    controller.dispose();
+  });
+
   it("suppresses the native value candidate popup for a matching property", () => {
     const settings = createDefaultSettings();
     settings.enableNativeValueSuggestionOrder = true;
