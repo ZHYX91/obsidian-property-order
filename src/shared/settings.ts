@@ -384,6 +384,15 @@ function cloneSettings(settings: PropertyOrderSettings): PropertyOrderSettings {
     pinnedPropertyValues: [...settings.pinnedPropertyValues],
     bottomPropertyValues: [...settings.bottomPropertyValues],
     hiddenPropertyValuePatterns: [...settings.hiddenPropertyValuePatterns],
+    valueSuggestionPropertyAssignments: settings.valueSuggestionPropertyAssignments.map(
+      (assignment) => ({ ...assignment }),
+    ),
+    valueSuggestionCustomOrders: settings.valueSuggestionCustomOrders.map((order) => ({
+      ...order,
+      bottomValues: [...order.bottomValues],
+      middleValues: [...order.middleValues],
+      pinnedValues: [...order.pinnedValues],
+    })),
   };
 }
 
