@@ -236,7 +236,7 @@ export const TRANSLATIONS = {
     "settings.keyOrder.addExisting.placeholder": "添加已有属性名称...",
     "settings.valueSuggestions.enable.name": "管理原生属性值候选",
     "settings.valueSuggestions.enable.desc":
-      "管理 Obsidian 属性面板中已有候选值的排序、过滤或关闭；Property Order 不会自行创建候选值。",
+      "管理 Obsidian 属性面板中的属性值候选行为；自定义属性还可以保留用户明确配置的预设候选。",
     "settings.valueSuggestions.disabledHint":
       "属性值候选管理当前已关闭，Obsidian 原生候选仍然保留；下方规则启用管理后生效。",
     "settings.valueSuggestions.sortMode.name": "默认候选行为",
