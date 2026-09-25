@@ -104,6 +104,18 @@ const EN_TRANSLATIONS = {
   "settings.valueSuggestions.hidden.desc":
     "One rule per line as property-pattern = value-pattern. Hidden rules take priority over pinned and bottom rules.",
   "settings.valueSuggestions.rulePlaceholder": "status = usage",
+  "settings.valueSuggestions.behavior.frequency": "Selection frequency",
+  "settings.valueSuggestions.behavior.custom": "Custom candidates",
+  "settings.valueSuggestions.behavior.followDefault": "Follows default",
+  "settings.valueSuggestions.keyDisplayOrder.name": "Property display order",
+  "settings.valueSuggestions.keyDisplayOrder.byName": "Property name",
+  "settings.valueSuggestions.keyDisplayOrder.recent": "Recently added",
+  "settings.valueSuggestions.addProperty.placeholder": "Search or enter a property name...",
+  "settings.valueSuggestions.addProperty.button": "Add property",
+  "settings.valueSuggestions.moveConfirm":
+    "Move “{property}” from “{from}” to “{to}”? This changes only its suggestion behavior.",
+  "settings.valueSuggestions.legacyMigrationPending":
+    "Some legacy value-suggestion rules cannot be converted without changing meaning. They remain preserved until you review the migration.",
   "a11y.dragStarted": "Reordering property value. Move to choose a position; press Escape to cancel.",
   "a11y.dragReorderTarget": "Reorder within {property}.",
   "a11y.dragMoveTarget": "Move to {property}.",
