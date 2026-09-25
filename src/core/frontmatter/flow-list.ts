@@ -4,6 +4,7 @@ import {
   parseScalar,
   renderInlineComment,
   serializeNormalizedScalar,
+  trimEndYamlSeparationWhitespace,
   trimYamlSeparationWhitespace,
 } from "./scalar";
 import type { FrontmatterScalar, ListItemToken, PropertyItem } from "./types";
