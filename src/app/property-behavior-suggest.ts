@@ -38,7 +38,7 @@ export class PropertyBehaviorSuggest extends AbstractInputSuggest<string> {
   protected override getSuggestions(query: string): string[] {
     const normalizedQuery = query.trim().toLocaleLowerCase();
     const candidates = mergePropertyValueKeyCandidates(
-      this.options.availableKeys,
+      this.options.getAvailableKeys(),
       this.options.getAssignments(),
       this.options.customOrderKeys,
     );
