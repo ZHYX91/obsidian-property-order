@@ -11,10 +11,12 @@ import type {
 } from "../shared/types";
 
 export interface PropertyBehaviorSuggestOptions {
-  availableKeys: readonly string[];
   customOrderKeys: readonly string[];
+  getAlreadyHereLabel(): string;
   getAssignments(): readonly PropertyValueBehaviorAssignment[];
-  getBehaviorLabel(behavior: ValueSuggestionBehavior | null): string;
+  getAvailableKeys(): readonly string[];
+  getBehaviorLabel(behavior: ValueSuggestionBehavior): string;
+  getFollowDefaultLabel(): string;
   onSelect(propertyKey: string): Promise<void>;
   targetBehavior: ValueSuggestionBehavior;
 }
