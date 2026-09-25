@@ -21,11 +21,11 @@ export interface ValueSuggestionBehaviorGroupsOptions {
   containerEl: HTMLElement;
   customOrderKeys: readonly string[];
   displayOrder: ValueSuggestionKeyDisplayOrder;
-  getAssignments(): readonly PropertyValueBehaviorAssignment[];
-  onAssignmentsChange(assignments: PropertyValueBehaviorAssignment[]): Promise<void>;
-  onDisplayOrderChange(displayOrder: ValueSuggestionKeyDisplayOrder): Promise<void>;
-  rerender(): void;
-  t(key: TranslationKey): string;
+  getAssignments: () => readonly PropertyValueBehaviorAssignment[];
+  onAssignmentsChange: (assignments: PropertyValueBehaviorAssignment[]) => Promise<void>;
+  onDisplayOrderChange: (displayOrder: ValueSuggestionKeyDisplayOrder) => Promise<void>;
+  rerender: () => void;
+  t: (key: TranslationKey) => string;
 }
 
 export interface ValueSuggestionBehaviorGroupsLifecycle {
