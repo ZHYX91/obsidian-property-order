@@ -336,6 +336,107 @@ body.property-order-value-drag-enabled .metadata-property .multi-select-pill {
   font-weight: var(--font-medium);
 }
 
+.property-order-custom-value-layout {
+  display: grid;
+  gap: var(--size-4-4);
+  grid-template-columns: minmax(10rem, 0.32fr) minmax(0, 1fr);
+  margin-block-start: var(--size-4-4);
+}
+
+.property-order-custom-value-keys {
+  border-inline-end: 1px solid var(--background-modifier-border);
+  display: flex;
+  flex-direction: column;
+  gap: var(--size-2-1);
+  min-width: 0;
+  padding-inline-end: var(--size-4-3);
+}
+
+.property-order-custom-value-key {
+  overflow: hidden;
+  text-align: start;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.property-order-custom-value-key.is-active {
+  background: var(--background-modifier-hover);
+  color: var(--text-normal);
+  font-weight: var(--font-semibold);
+}
+
+.property-order-custom-value-editor {
+  min-width: 0;
+}
+
+.property-order-custom-value-editor > h4 {
+  margin-block-start: 0;
+}
+
+.property-order-custom-value-section {
+  border: 1px solid var(--background-modifier-border);
+  border-radius: var(--radius-m);
+  margin-block-end: var(--size-4-3);
+  min-height: 4rem;
+  padding: var(--size-4-3);
+}
+
+.property-order-custom-value-section-title {
+  font-weight: var(--font-semibold);
+  margin-block-end: var(--size-2-2);
+}
+
+.property-order-custom-value-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--size-2-1);
+}
+
+.property-order-custom-value-item {
+  align-items: center;
+  background: var(--background-secondary);
+  border-radius: var(--radius-s);
+  display: flex;
+  gap: var(--size-2-2);
+  justify-content: space-between;
+  min-width: 0;
+  padding: var(--size-2-1) var(--size-2-2);
+}
+
+.property-order-custom-value-item[draggable="true"] {
+  cursor: grab;
+}
+
+.property-order-custom-value-label {
+  min-width: 0;
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
+}
+
+.property-order-custom-value-actions {
+  display: flex;
+  flex: 0 0 auto;
+  gap: 2px;
+}
+
+.property-order-custom-value-actions button {
+  min-height: 26px;
+  min-width: 26px;
+  padding: 0 5px !important;
+}
+
+.property-order-custom-value-add {
+  align-items: center;
+  display: flex;
+  gap: var(--size-2-2);
+  margin-block-start: var(--size-2-2);
+}
+
+.property-order-custom-value-add input {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
 .property-order-rule-diagnostic-input {
   max-width: 100%;
   min-width: 12rem;
@@ -354,6 +455,28 @@ body.property-order-value-drag-enabled .metadata-property .multi-select-pill {
 }
 
 @media (max-width: 480px) {
+  .property-order-custom-value-layout {
+    grid-template-columns: 1fr;
+  }
+
+  .property-order-custom-value-keys {
+    border-block-end: 1px solid var(--background-modifier-border);
+    border-inline-end: 0;
+    flex-direction: row;
+    overflow-x: auto;
+    padding-block-end: var(--size-2-2);
+    padding-inline-end: 0;
+  }
+
+  .property-order-custom-value-key {
+    flex: 0 0 auto;
+  }
+
+  .property-order-custom-value-add {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
   .property-order-value-behavior-add {
     align-items: stretch;
     flex-direction: column;
