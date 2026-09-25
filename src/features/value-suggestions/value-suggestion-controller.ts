@@ -245,6 +245,22 @@ export class ValueSuggestionOrderController {
 
     try {
       state.recentTrackingCleanup = this.recentValueTracker.registerDocument(targetDocument);
+      const handleFocusIn = (event: FocusEvent): void => {
+        const target = event.target;
+        if (
+          target instanceof targetWindow.HTMLElement &&
+          target.closest(".metadata-property-value") != null &&
+          this.getSettings().enableNativeValueSuggestionOrder
+        ) {
+          // Obsidian can reuse the same popup nodes while focus moves to a
+          // different property row. Focus identity is therefore an input to
+          // enhancement even when the popup itself produces no DOM mutation.
+          this.scheduleEnhancement(targetDocument);
+        }
+      };
+      targetDocument.addEventListener("focusin", handleFocusIn, true);
+      state.contextCleanup = () =>
+        targetDocument.removeEventListener("focusin", handleFocusIn, true);
       state.keyboardCleanup = registerSuggestionKeyboardBridge({
         getActiveContainer: () => this.getActiveContainer(targetDocument),
         hasActiveContext: hasActivePropertyValueSuggestionContext,
