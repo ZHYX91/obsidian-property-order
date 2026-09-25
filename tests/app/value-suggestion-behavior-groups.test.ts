@@ -190,7 +190,8 @@ describe("renderValueSuggestionBehaviorGroups", () => {
     const onDisplayOrderChange = vi.fn(() => Promise.resolve());
     const rerender = vi.fn();
     const close = vi.spyOn(PropertyBehaviorSuggest.prototype, "close");
-    const confirm = vi.spyOn(window, "confirm").mockReturnValue(true);
+    const confirm = vi.fn(() => true);
+    Reflect.set(window, "confirm", confirm);
     const container = document.createElement("div");
     document.body.appendChild(container);
 
@@ -273,7 +274,7 @@ describe("renderValueSuggestionBehaviorGroups", () => {
     const onAssignmentsChange = vi.fn(async (next: PropertyValueBehaviorAssignment[]) => {
       assignments = next;
     });
-    vi.spyOn(window, "confirm").mockReturnValue(false);
+    Reflect.set(window, "confirm", vi.fn(() => false));
     const container = document.createElement("div");
 
     renderValueSuggestionBehaviorGroups({
