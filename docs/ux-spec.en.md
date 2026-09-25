@@ -38,20 +38,28 @@ This document mirrors the authoritative current interaction and presentation con
 
 ## Property-value suggestions
 
-- Value suggestions has its own opt-in switch, default sort, per-property sort overrides, and pinned, bottom, and hidden editors. Rules use `property-pattern = value`; sort overrides use `property-pattern = native|name|recent|usage|none`.
-- A matching `none` override suppresses native candidates without removing the property-value editor; candidate DOM is made non-visible and has no plugin-visible selection until the rule no longer applies.
-- The native popup retains host styling and value commit behavior. Selection survives refresh while the selected value remains visible; context-menu actions remain unchanged.
-- Recent history records confirmed values separately for each property. Clearing value history affects only this device and Vault. Disabling enhancement restores native candidate order and visibility.
+- Value suggestions remains independently opt-in. Unassigned properties follow one default among Native, Name, Selection frequency, Note count, and No suggestions.
+- Exact property keys can be placed in one of six mutually exclusive groups: Name, Selection frequency, Note count, Native, No suggestions, or Custom candidates. Removing a key from a group makes it follow the default again.
+- Each ordinary group renders configured keys as compact removable chips. One page-level display preference orders chips inside each group by property name or by most recently added to that group; it never changes YAML order or candidate order.
+- The Add property control accepts direct typing and autocomplete from both Vault-discovered and already configured keys. A key already in the target group is marked unavailable for duplicate addition. A key in another group remains visible with its current group and, when selected, shows a confirmation before it moves.
+- Custom candidates uses a property list at the left and the selected property's candidate editor at the right. Narrow layouts stack these regions instead of forcing a two-column viewport.
+- The custom candidate editor keeps Pinned, Normal, and Bottom sections visible together. Values can be dragged between sections; keyboard-accessible buttons provide equivalent move and up/down actions. Pinned and Bottom also accept literal manually entered candidate values.
+- A manually configured value is preset vocabulary. Moving it back to Normal removes fixed placement but keeps the preset; Remove preset removes only plugin configuration. Existing note values are never deleted.
+- Normal candidates can use Native, Name, Selection frequency, or Note count ordering. Pinned and Bottom retain explicit order and are not re-sorted by the normal-section mode.
+- A custom preset absent from Obsidian's native popup is still shown. When a native popup exists, plugin-owned preset items join that popup; when it does not, a plugin-owned fallback popup is anchored to the active property-value editor. Both paths filter against the current query and use the final visible keyboard order.
+- Selecting a plugin-owned preset writes through the focused native property-value editor input path. It never writes frontmatter directly. The selection frequency counter advances only after Metadata Cache confirms the value was actually committed.
+- No suggestions hides candidates but does not disable typing. Escape, focus departure, feature disable, window close, or plugin unload removes plugin-owned popup state and restores native state.
+- Schema-5 rules that cannot be migrated without changing meaning remain read-only and active until the user explicitly confirms the grouped-model migration.
 
 ## Settings UI
 
 - General, Value order, Key suggestions, and Value suggestions remain the same four logical settings groups across host versions. Control values, conditional visibility, immediate application, persistence failure, and Retry semantics do not vary by renderer.
 - Obsidian 1.12.x uses the custom four-tab UI with `tablist`, `tab`, `tabpanel`, `aria-selected`, and roving `tabindex`. Left/Right and Home/End switch tabs; rerender, rotation, and viewport resize keep the active tab visible with sensible focus.
 - On 1.12.x, tab minimum height is 34px for fine pointers and 44px for coarse pointers. The active tab combines an accent underline with a semibold label, and stable space separates the baseline from the content panel. Narrow layouts keep one horizontally scrollable row without vertical clipping.
-- Every supported Obsidian version uses the same four imperative top tabs. Declarative settings remain disabled because they bypass this layout. Custom property-rule editors retain suggestion, persistence, and cleanup lifecycles.
+- Every supported Obsidian version uses the same four imperative top tabs. Declarative settings remain disabled because they bypass this layout. Key-rule editors and the grouped value-suggestion controls retain suggestion, persistence, confirmation, and cleanup lifecycles; moving a key between value groups never creates a transient duplicate assignment.
 - Key suggestions provides **Clear recent property history** in both render paths. It cancels pending confirmations, removes only the current Vault and device's in-memory timestamp-free MRU of at most 100 entries, and immediately refreshes open enhanced menus; it changes neither `data.json` nor notes. Success shows confirmation. A local-storage deletion failure shows that history is cleared for this session but may return after restart.
 - Key suggestions provides a non-persisted rule-test field in both render paths. After a property name is entered, its result region lists the first matching hidden, pinned, and bottom rules, states the effective hidden > pinned > bottom priority, and announces updates with `aria-live="polite"`; clearing the input restores the prompt. Existing results refresh immediately after a rule edit, and testing never scans the Vault.
-- At widths up to 480px, both render paths stack rule textareas, existing-property inputs, and the rule-test input to fill their card or control area.
+- At widths up to 480px, key-rule textareas and rule-test inputs fill their control area, value-group add controls stack vertically, and the Custom candidates key list/editor stack into one column while preserving the selected key.
 - Persistence failure presents a Notice and `role="alert"` unsaved state. Successful Retry clears the state and performs any required suggestion refresh.
 
 ## Accessibility and accepted boundary
