@@ -455,6 +455,92 @@ function getSettingsSchemaVersion(value: unknown): number {
     : 0;
 }
 
+function migrateLegacyValueSuggestionModel(
+  value: Record<string, unknown>,
+): Pick<
+  PropertyOrderSettings,
+  | "valueSuggestionDefaultBehavior"
+  | "valueSuggestionPropertyAssignments"
+  | "valueSuggestionCustomOrders"
+  | "valueSuggestionKeyDisplayOrder"
+  | "valueSuggestionLegacyMigrationPending"
+> {
+  const legacyDefault = value.valueSuggestionSortMode;
+  const valueSuggestionDefaultBehavior: ValueSuggestionDefaultBehavior =
+    legacyDefault === "name"
+      ? "name"
+      : legacyDefault === "usage"
+        ? "note-count"
+        : legacyDefault === "none"
+          ? "none"
+          : "native";
+  const assignments: PropertyValueBehaviorAssignment[] = [];
+  const seenKeys = new Set<string>();
+  let pending = legacyDefault === "recent";
+
+  for (const rawRule of normalizeStringList(value.valueSuggestionSortOverrides)) {
+    const separatorIndex = rawRule.indexOf("=");
+    if (separatorIndex < 0) {
+      continue;
+    }
+
+    const propertyKey = rawRule.slice(0, separatorIndex).trim();
+    const legacyBehavior = rawRule.slice(separatorIndex + 1).trim();
+    if (propertyKey.length === 0) {
+      continue;
+    }
+
+    if (propertyKey.includes("*")) {
+      pending = true;
+      continue;
+    }
+
+    const identity = propertyKey.toLocaleLowerCase();
+    if (seenKeys.has(identity)) {
+      continue;
+    }
+
+    const behavior: ValueSuggestionBehavior | null =
+      legacyBehavior === "native"
+        ? "native"
+        : legacyBehavior === "name"
+          ? "name"
+          : legacyBehavior === "usage"
+            ? "note-count"
+            : legacyBehavior === "none"
+              ? "none"
+              : null;
+    if (behavior == null) {
+      if (legacyBehavior === "recent") {
+        pending = true;
+      }
+      continue;
+    }
+
+    seenKeys.add(identity);
+    assignments.push({ behavior, propertyKey });
+  }
+
+  if (
+    normalizeStringList(value.pinnedPropertyValues).length > 0 ||
+    normalizeStringList(value.bottomPropertyValues).length > 0 ||
+    normalizeStringList(value.hiddenPropertyValuePatterns).length > 0
+  ) {
+    // Legacy value-level wildcard rules only reorder/filter native vocabulary.
+    // The new custom model can also create preset candidates, so translating
+    // these rules automatically would silently change semantics.
+    pending = true;
+  }
+
+  return {
+    valueSuggestionDefaultBehavior,
+    valueSuggestionPropertyAssignments: assignments,
+    valueSuggestionCustomOrders: [],
+    valueSuggestionKeyDisplayOrder: "name",
+    valueSuggestionLegacyMigrationPending: pending,
+  };
+}
+
 function migrateSettingsVersion(
   value: Record<string, unknown>,
   version: number,
