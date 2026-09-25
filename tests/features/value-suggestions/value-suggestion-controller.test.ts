@@ -4,6 +4,7 @@ import { Window as HappyDomWindow } from "happy-dom";
 import { Platform, type App, type Plugin, type TFile } from "obsidian";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
+import { PropertyValueFrequencyStore } from "../../../src/features/value-suggestions/property-value-frequency-store";
 import { RecentPropertyValueStore } from "../../../src/features/value-suggestions/recent-property-value-store";
 import { ValueSuggestionOrderController } from "../../../src/features/value-suggestions/value-suggestion-controller";
 import { createDefaultSettings } from "../../../src/shared/settings";
@@ -21,6 +22,7 @@ interface TestableValueController {
   getActiveContainer(targetDocument: Document): HTMLElement | null;
   invalidateUsage(): void;
   originalSuggestions: Map<HTMLElement, unknown>;
+  recordConfirmedPropertyValue(propertyKey: string, value: string): void;
   recordRecentPropertyValue(propertyKey: string, value: string): void;
   restoreContainer(container: HTMLElement): void;
   shouldScheduleEnhancement(
@@ -88,12 +90,13 @@ function createController(
   settings: PropertyOrderSettings,
   app = createApp(),
   store?: RecentPropertyValueStore,
+  frequencyStore?: PropertyValueFrequencyStore,
 ): ValueSuggestionOrderController {
   const plugin = {
     app,
     registerEvent: vi.fn(),
   } as unknown as Plugin;
-  return new ValueSuggestionOrderController(plugin, () => settings, store);
+  return new ValueSuggestionOrderController(plugin, () => settings, store, frequencyStore);
 }
 
 function createValueMenu(
@@ -401,6 +404,42 @@ describe("ValueSuggestionOrderController", () => {
     expect(allValues(container)).toEqual(["gamma", "alpha", "beta"]);
     expect(container.dataset.propertyOrderValueSignature).toBe(signature);
     expect(Array.from(container.children)).toEqual(firstNodes);
+  });
+
+  it("records frequency only for properties configured to use it", () => {
+    const settings = createDefaultSettings();
+    settings.enableNativeValueSuggestionOrder = true;
+    const frequencyStore = {
+      clear: vi.fn(() => true),
+      getCounts: vi.fn(() => []),
+      increment: vi.fn(() => []),
+    } as unknown as PropertyValueFrequencyStore;
+    const controller = createController(settings, createApp(), undefined, frequencyStore);
+    const testable = asTestable(controller);
+
+    testable.recordConfirmedPropertyValue("status", "draft");
+    expect(frequencyStore.increment).not.toHaveBeenCalled();
+
+    settings.valueSuggestionPropertyAssignments = [
+      { behavior: "frequency", propertyKey: "status" },
+    ];
+    testable.recordConfirmedPropertyValue("status", "done");
+    expect(frequencyStore.increment).toHaveBeenCalledWith("status", "done");
+
+    settings.valueSuggestionPropertyAssignments = [
+      { behavior: "custom", propertyKey: "priority" },
+    ];
+    settings.valueSuggestionCustomOrders = [
+      {
+        bottomValues: [],
+        middleSortMode: "frequency",
+        middleValues: [],
+        pinnedValues: [],
+        propertyKey: "priority",
+      },
+    ];
+    testable.recordConfirmedPropertyValue("priority", "high");
+    expect(frequencyStore.increment).toHaveBeenCalledWith("priority", "high");
   });
 
   it("uses recent values from the device-local store", () => {
