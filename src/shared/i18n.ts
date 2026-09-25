@@ -107,6 +107,7 @@ const EN_TRANSLATIONS = {
   "settings.valueSuggestions.behavior.frequency": "Selection frequency",
   "settings.valueSuggestions.behavior.custom": "Custom candidates",
   "settings.valueSuggestions.behavior.followDefault": "Follows default",
+  "settings.valueSuggestions.behavior.alreadyHere": "Already in this group",
   "settings.valueSuggestions.keyDisplayOrder.name": "Property display order",
   "settings.valueSuggestions.keyDisplayOrder.byName": "Property name",
   "settings.valueSuggestions.keyDisplayOrder.recent": "Recently added",
