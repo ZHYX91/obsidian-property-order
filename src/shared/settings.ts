@@ -439,7 +439,11 @@ function areSettingValuesEqual(
 function cloneSettingValue<T extends PropertyOrderSettings[keyof PropertyOrderSettings]>(
   value: T,
 ): T {
-  return (Array.isArray(value) ? [...value] : value) as T;
+  return (
+    Array.isArray(value) || isRecord(value)
+      ? JSON.parse(JSON.stringify(value))
+      : value
+  ) as T;
 }
 
 function getSettingsSchemaVersion(value: unknown): number {
