@@ -24,7 +24,7 @@ translation_status: source
 2. `src/features/`：功能编排。
    - `value-order/`：把状态机动作、drop 几何、DOM 呈现、pane 上下文和写回组合成一次拖拽事务。
    - `key-order/`：监听候选菜单、应用纯排序规则，把键盘选择桥接到可见候选顺序，并由 recent tracker 与 device-local store 管理已确认属性名称的严格 MRU。
-   - `value-suggestions/`：把属性值专用规则应用到可识别的原生弹窗，跟踪已确认值的 MRU，并在增强不再适用时精确恢复宿主状态。
+   - `value-suggestions/`：解析按属性分组的候选行为，增强可识别的原生弹窗，跟踪已确认且仅本设备保存的选择次数，注入明确配置的自定义预设候选，在没有原生值弹窗时拥有回退弹窗，并在增强不再适用时精确恢复宿主状态。
 3. `src/obsidian/`：Obsidian 和 DOM 适配边界。
    - `properties-dom.ts`：Properties 容器、pill 和属性名识别。
    - `native-suggest-dom.ts`：原生属性键和属性值候选菜单识别。
@@ -105,7 +105,9 @@ recent tracker 只捕获已增强属性名候选上的主指针按下、键盘 E
 
 recent store 使用 Obsidian 公开的 `App.loadLocalStorage()` / `App.saveLocalStorage()`，以 namespaced key 在当前 Vault、当前设备保存一个版本化的精确字符串数组。数组顺序本身就是严格 MRU，最多 100 项，不保存时间戳；重复确认只把精确同名项移到首位，当前候选中不存在的陈旧项被排序器忽略。读取失败、未知版本或畸形数据按空历史 fail open；后台 MRU 写入失败时保留本次会话的内存顺序，不影响原生属性编辑。只有 Metadata Cache 确认成功提交且顺序实际变化时才写入这一小数组；该状态不进入 `data.json`，不参与 Obsidian Sync。“清除最近使用历史”先取消待确认意图，再清除当前 Vault、当前设备的内存历史并立即刷新候选，不修改设置、笔记或其他 Vault；如果 local-storage 删除失败，界面会提示旧的已保存历史可能在重启后恢复。
 
-所有受支持 Obsidian 版本都使用自定义 General、Value order、Key suggestions、Value suggestions 四个选项卡，并提供 `tablist`/`tab`/`tabpanel`、本地化标签栏名称、`aria-selected`、roving `tabindex`、左右方向键、Home/End 和重渲染后的焦点保持。declarative definitions 保持为空，避免 Obsidian 绕过这套布局。选项卡在窄宽度下保持单行横向滚动，活动标签在初次布局和 viewport resize 后自动进入可视区，纵向溢出被隐藏；桌面精细指针下最小高度为 34px，粗指针下为 44px。控件读写 `propertyOrderSettings`，三个属性规则编辑器、“清除最近使用历史”和规则测试框保留自定义行为。设置构造阶段不得遍历 Vault，已有属性名称只在规则编辑器实际渲染时惰性读取。清除按钮只读取 store 是否为空并执行本地删除，不触发 Vault 枚举；规则测试值只存在于当前设置 surface，既不保存也不读取属性笔记数。宽度不超过 480px 时，属性规则文本框、已有属性输入框与规则测试框都改为纵向占满控制区。
+属性值选择次数使用另一份版本化 local-storage map，并分别限制属性数与精确值数。确认 tracker 只保存绑定到精确文件/属性/值的短期待确认意图，只有 Metadata Cache 证明该值数量增加后才递增次数。值按精确字符串身份保存，包括有意义的非 ASCII 首尾字符。次数状态不进入 `data.json`，也不参与 Sync；设备本地写入失败时保留本次会话计数，清除次数不会修改笔记或自定义预设配置。
+
+所有受支持 Obsidian 版本都使用自定义 General、Value order、Key suggestions、Value suggestions 四个选项卡，并提供 `tablist`/`tab`/`tabpanel`、本地化标签栏名称、`aria-selected`、roving `tabindex`、左右方向键、Home/End 和重渲染后的焦点保持。declarative definitions 保持为空，避免 Obsidian 绕过这套布局。选项卡在窄宽度下保持单行横向滚动，活动标签在初次布局和 viewport resize 后自动进入可视区，纵向溢出被隐藏；桌面精细指针下最小高度为 34px，粗指针下为 44px。Key suggestions 继续保留三组属性规则编辑器、“清除最近使用历史”和临时规则测试框。Value suggestions 改为一个默认行为下拉框、一个仅影响设置页的属性显示顺序下拉框、六个互斥行为分组、可移除属性胶囊、由 Vault 已发现 key 与插件已配置 key 共同提供的惰性选择器、仅本设备保存的选择次数清除入口，以及左右两栏的 Custom 编辑器；右栏包含置顶/普通/置底三段。已属于其他分组的 key 仍可选择，确认后才原子移动。无法无损转换的 schema 5 旧规则以只读形式保留在显式迁移确认后方，并在确认前继续作为运行时权威。窄布局会纵向堆叠添加控件并把 Custom 两栏折叠为单列，但不改变持久化行为。
 
 设置保存失败时，设置页保留当前内存快照，显示本地化 Notice 和带 `role="alert"` 的未保存状态，并提供重试按钮。重试必须保留失败批次是否需要刷新键候选的语义；成功后清除未保存状态。每次保存前重新读取 `data.json`，并相对上次持久化基线执行三方合并：当前设置界面修改过的键优先，外部并发修改的其他键保留，未来 schema 的未知字段保持原样。Obsidian 的公开 `onExternalSettingsChange()` hook 使用同一合并规则，并刷新设置 surface 与受影响的运行时状态。模块级存储队列保证旧实例的在途写入先完成、替代实例再读取；已卸载实例不得启动新保存，因此旧实例延迟写入不能覆盖替代实例已经读取并编辑的设置。
 
@@ -125,4 +127,4 @@ controller 不缓存会影响后续交互的旧设置：value drag 在下一次�
 
 声称 DOM 交互与视觉宿主验收完成时，必须具备测试策略规定的证据；宿主验收对发布保持可选。明确列入产品非目标的能力不作为未完成发布项。
 
-属性值候选复用属性名称候选的原生快照生命周期。一个外层弹窗只拥有一份快照，宿主变更会更新原生顺序，刷新时保留仍可见的键盘选中项。命中 `none` 时先恢复原生快照，再把全部候选设为不可见并清除候选选中状态，同时保留属性值编辑器。笔记数量缓存失效只为当前存在、可见且使用 `usage` 排序的已跟踪弹窗所在 document 安排刷新。Mutation observer 只把目标局部候选变化以及新增/移除的候选子树视为相关；无关的 `body` child-list 变化不会触发 document 重扫。属性值规则和本设备最近使用历史与属性名称设置相互独立。
+属性值候选复用属性名称候选的原生快照生命周期。一个外层原生弹窗只拥有一份宿主快照；每次重新取原生快照前先移除插件自有预设项，避免把插件节点误当宿主证据。分组行为解析先查精确 key，再回退到一个全局默认。命中 `none` 时先恢复原生快照，再隐藏全部候选并清除选中状态，同时保留属性值编辑器。`custom` 从原生标签、缓存词汇、保留的预设值、笔记数以及仅本设备保存的已确认选择次数规划“置顶 + 普通 + 置底”；原生不存在的预设值使用插件自有节点，但激活后仍通过当前聚焦的原生属性值编辑器提交。没有可识别原生弹窗时，由 document 所有的回退弹窗呈现同一份自定义计划，并服从最终可见键盘顺序；焦点离开、Escape、停用、窗口关闭或卸载都会移除。笔记数缓存失效只为当前确实需要笔记数的原生弹窗所在 document 安排刷新；无关的 `body` child-list 变化不会触发重扫。只有显式 migration-pending 标记仍存在时，schema 5 旧规则才继续作为运行时权威。
