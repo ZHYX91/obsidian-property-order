@@ -26,6 +26,10 @@ export function registerSuggestionKeyboardBridge(
   const hasActiveContext =
     options.hasActiveContext ?? hasActivePropertyKeySuggestionContext;
   const handleKeyDown = (event: KeyboardEvent): void => {
+    if (Reflect.get(event, "propertyOrderPresetCommit") === true) {
+      return;
+    }
+
     if (event.isComposing) {
       return;
     }
@@ -52,6 +56,14 @@ export function registerSuggestionKeyboardBridge(
           "tab",
           event,
         );
+
+        if (selectedElement.dataset.propertyOrderPresetValue === "true") {
+          event.preventDefault();
+          event.stopImmediatePropagation();
+          if (!activateSuggestion(selectedElement)) {
+            options.onSynchronizationFailure(container);
+          }
+        }
       }
 
       return;
