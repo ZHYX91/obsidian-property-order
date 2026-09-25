@@ -54,6 +54,7 @@ const OBSERVER_OPTIONS: MutationObserverInit = {
 };
 
 interface DocumentEnhancementState {
+  contextCleanup: () => void;
   keyboardCleanup: () => void;
   observer: MutationObserver;
   observing: boolean;
