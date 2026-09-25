@@ -12,12 +12,12 @@ import type {
 
 export interface PropertyBehaviorSuggestOptions {
   customOrderKeys: readonly string[];
-  getAlreadyHereLabel(): string;
-  getAssignments(): readonly PropertyValueBehaviorAssignment[];
-  getAvailableKeys(): readonly string[];
-  getBehaviorLabel(behavior: ValueSuggestionBehavior): string;
-  getFollowDefaultLabel(): string;
-  onSelect(propertyKey: string): Promise<void>;
+  getAlreadyHereLabel: () => string;
+  getAssignments: () => readonly PropertyValueBehaviorAssignment[];
+  getAvailableKeys: () => readonly string[];
+  getBehaviorLabel: (behavior: ValueSuggestionBehavior) => string;
+  getFollowDefaultLabel: () => string;
+  onSelect: (propertyKey: string) => Promise<void>;
   targetBehavior: ValueSuggestionBehavior;
 }
 
