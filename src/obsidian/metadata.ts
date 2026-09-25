@@ -152,7 +152,7 @@ function getPrimitiveFrontmatterValues(value: unknown): string[] {
       continue;
     }
 
-    const normalizedValue = String(item).trim();
+    const normalizedValue = String(item);
 
     if (normalizedValue.length > 0) {
       result.push(normalizedValue);
