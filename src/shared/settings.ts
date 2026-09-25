@@ -264,6 +264,116 @@ function normalizeStringList(value: unknown): string[] {
   );
 }
 
+function normalizeValueSuggestionAssignments(
+  value: unknown,
+): PropertyValueBehaviorAssignment[] {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+
+  const result: PropertyValueBehaviorAssignment[] = [];
+  const indexByIdentity = new Map<string, number>();
+
+  for (const rawAssignment of value) {
+    if (!isRecord(rawAssignment) || !isValueSuggestionBehavior(rawAssignment.behavior)) {
+      continue;
+    }
+
+    const propertyKey = normalizePropertyKey(rawAssignment.propertyKey);
+    if (propertyKey == null) {
+      continue;
+    }
+
+    const identity = propertyKey.toLocaleLowerCase();
+    const previousIndex = indexByIdentity.get(identity);
+    if (previousIndex != null) {
+      result.splice(previousIndex, 1);
+      for (const [key, index] of indexByIdentity) {
+        if (index > previousIndex) {
+          indexByIdentity.set(key, index - 1);
+        }
+      }
+    }
+
+    indexByIdentity.set(identity, result.length);
+    result.push({ behavior: rawAssignment.behavior, propertyKey });
+  }
+
+  return result;
+}
+
+function normalizeValueSuggestionCustomOrders(value: unknown): PropertyValueCustomOrder[] {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+
+  const result: PropertyValueCustomOrder[] = [];
+  const indexByIdentity = new Map<string, number>();
+
+  for (const rawOrder of value) {
+    if (!isRecord(rawOrder)) {
+      continue;
+    }
+
+    const propertyKey = normalizePropertyKey(rawOrder.propertyKey);
+    const middleSortMode = isValueSuggestionMiddleSortMode(rawOrder.middleSortMode)
+      ? rawOrder.middleSortMode
+      : "native";
+    if (propertyKey == null) {
+      continue;
+    }
+
+    const normalizedOrder: PropertyValueCustomOrder = {
+      bottomValues: normalizeExactStringList(rawOrder.bottomValues),
+      middleSortMode,
+      middleValues: normalizeExactStringList(rawOrder.middleValues),
+      pinnedValues: normalizeExactStringList(rawOrder.pinnedValues),
+      propertyKey,
+    };
+    const identity = propertyKey.toLocaleLowerCase();
+    const previousIndex = indexByIdentity.get(identity);
+    if (previousIndex != null) {
+      result.splice(previousIndex, 1);
+      for (const [key, index] of indexByIdentity) {
+        if (index > previousIndex) {
+          indexByIdentity.set(key, index - 1);
+        }
+      }
+    }
+
+    indexByIdentity.set(identity, result.length);
+    result.push(normalizedOrder);
+  }
+
+  return result;
+}
+
+function normalizePropertyKey(value: unknown): string | null {
+  if (typeof value !== "string") {
+    return null;
+  }
+
+  const propertyKey = value.trim();
+  return propertyKey.length === 0 ? null : propertyKey;
+}
+
+function normalizeExactStringList(value: unknown): string[] {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+
+  const result: string[] = [];
+  const seen = new Set<string>();
+  for (const item of value) {
+    if (typeof item !== "string" || item.length === 0 || seen.has(item)) {
+      continue;
+    }
+    seen.add(item);
+    result.push(item);
+  }
+  return result;
+}
+
 function cloneSettings(settings: PropertyOrderSettings): PropertyOrderSettings {
   return {
     ...settings,
