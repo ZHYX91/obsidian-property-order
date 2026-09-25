@@ -14,6 +14,7 @@ follow the repository's Git tags; entries summarize the corresponding commit his
 - Added device-local confirmed selection counts and pure frequency ordering for property-value candidates.
 - Added a pure custom-candidate planner that combines native and preset values across pinned, middle, and bottom sections without losing exact value identity.
 - Added grouped property-behavior controls with searchable Vault/configured key choices, mutual-exclusion moves, and name/recently-added display order.
+- Added a custom-candidate editor with a property list and draggable pinned, normal, and bottom sections; pinned and bottom sections also accept literal preset values.
 
 ## [0.7.0] - 2026-09-25
 
