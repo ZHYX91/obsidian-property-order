@@ -39,6 +39,7 @@ import {
   isSuggestionElementVisible,
   PLUGIN_HIDDEN_SUGGESTION_CLASS,
 } from "../key-order/suggestion-visibility";
+import { PropertyValueFrequencyStore } from "./property-value-frequency-store";
 import { RecentPropertyValueStore } from "./recent-property-value-store";
 import { RecentPropertyValueTracker } from "./recent-property-value-tracker";
 
@@ -70,9 +71,11 @@ export class ValueSuggestionOrderController {
   private readonly getSettings: () => PropertyOrderSettings;
   private readonly originalSuggestions = new Map<HTMLElement, OriginalSuggestionSnapshot>();
   private readonly plugin: Plugin;
+  private readonly propertyValueFrequencyStore: PropertyValueFrequencyStore;
   private readonly recentValueStore: RecentPropertyValueStore;
   private readonly recentValueTracker: RecentPropertyValueTracker;
   private recentValueRevision = 0;
+  private frequencyRevision = 0;
   private usageRevision = 0;
   private readonly registeredEventCleanups: Array<() => void> = [];
 
@@ -80,14 +83,16 @@ export class ValueSuggestionOrderController {
     plugin: Plugin,
     getSettings: () => PropertyOrderSettings,
     recentValueStore = new RecentPropertyValueStore(plugin.app),
+    propertyValueFrequencyStore = new PropertyValueFrequencyStore(plugin.app),
   ) {
     this.plugin = plugin;
     this.getSettings = getSettings;
     this.recentValueStore = recentValueStore;
+    this.propertyValueFrequencyStore = propertyValueFrequencyStore;
     this.recentValueTracker = new RecentPropertyValueTracker({
       getEnabled: () =>
         this.initialized && this.getSettings().enableNativeValueSuggestionOrder,
-      onConfirmed: (propertyKey, value) => this.recordRecentPropertyValue(propertyKey, value),
+      onConfirmed: (propertyKey, value) => this.recordConfirmedPropertyValue(propertyKey, value),
       plugin,
     });
   }
@@ -204,6 +209,13 @@ export class ValueSuggestionOrderController {
     const persisted = this.recentValueStore.clear();
     this.recentValueTracker.clearPending();
     this.recentValueRevision += 1;
+    this.refresh();
+    return persisted;
+  }
+
+  clearPropertyValueFrequency(): boolean {
+    const persisted = this.propertyValueFrequencyStore.clear();
+    this.frequencyRevision += 1;
     this.refresh();
     return persisted;
   }
@@ -726,6 +738,42 @@ export class ValueSuggestionOrderController {
     return includeDescendants && findSuggestionContainers(element).some(
       (candidate) => resolvePropertyValueSuggestionContainer(candidate) != null,
     );
+  }
+
+  private recordConfirmedPropertyValue(propertyKey: string, value: string): void {
+    this.recordRecentPropertyValue(propertyKey, value);
+
+    if (this.shouldTrackPropertyValueFrequency(propertyKey)) {
+      this.propertyValueFrequencyStore.increment(propertyKey, value);
+      this.frequencyRevision += 1;
+    }
+  }
+
+  private shouldTrackPropertyValueFrequency(propertyKey: string): boolean {
+    const settings = this.getSettings();
+    const normalizedKey = propertyKey.trim().toLocaleLowerCase();
+    const assignment = settings.valueSuggestionPropertyAssignments.find(
+      (candidate) => candidate.propertyKey.trim().toLocaleLowerCase() === normalizedKey,
+    );
+    const behavior = assignment?.behavior ?? settings.valueSuggestionDefaultBehavior;
+
+    if (behavior === "frequency") {
+      return true;
+    }
+
+    if (behavior !== "custom") {
+      return false;
+    }
+
+    return settings.valueSuggestionCustomOrders.some(
+      (order) =>
+        order.propertyKey.trim().toLocaleLowerCase() === normalizedKey &&
+        order.middleSortMode === "frequency",
+    );
+  }
+
+  getPropertyValueFrequency(propertyKey: string) {
+    return this.propertyValueFrequencyStore.getCounts(propertyKey);
   }
 
   private recordRecentPropertyValue(propertyKey: string, value: string): void {

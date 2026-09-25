@@ -11,6 +11,7 @@ follow the repository's Git tags; entries summarize the corresponding commit his
 - Tightened property-value recent confirmation to exact values and refreshed reused suggestion popups when property focus changes.
 - Kept drag auto-scroll inside the active pane geometry and removed deferred cursor-cleanup frames.
 - Added a versioned, loss-aware settings model for per-property value-suggestion behaviors and custom candidate order.
+- Added device-local confirmed selection counts and pure frequency ordering for property-value candidates.
 
 ## [0.7.0] - 2026-09-25
 
