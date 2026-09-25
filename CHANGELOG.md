@@ -10,6 +10,7 @@ follow the repository's Git tags; entries summarize the corresponding commit his
 - Preserved Unicode edge characters when validating property pills and when moving scalar text into flow lists.
 - Tightened property-value recent confirmation to exact values and refreshed reused suggestion popups when property focus changes.
 - Kept drag auto-scroll inside the active pane geometry and removed deferred cursor-cleanup frames.
+- Added a versioned, loss-aware settings model for per-property value-suggestion behaviors and custom candidate order.
 
 ## [0.7.0] - 2026-09-25
 
