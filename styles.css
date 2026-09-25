@@ -354,6 +354,16 @@ body.property-order-value-drag-enabled .metadata-property .multi-select-pill {
 }
 
 @media (max-width: 480px) {
+  .property-order-value-behavior-add {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .property-order-value-behavior-input {
+    flex-basis: auto;
+    width: 100%;
+  }
+
   .property-order-key-list-setting .setting-item-control,
   .property-order-rule-diagnostic-setting .setting-item-control {
     align-items: stretch;
