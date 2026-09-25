@@ -31,6 +31,11 @@ export const DEFAULT_SETTINGS: PropertyOrderSettings = {
   pinnedPropertyValues: [],
   bottomPropertyValues: [],
   hiddenPropertyValuePatterns: [],
+  valueSuggestionDefaultBehavior: "native",
+  valueSuggestionPropertyAssignments: [],
+  valueSuggestionCustomOrders: [],
+  valueSuggestionKeyDisplayOrder: "name",
+  valueSuggestionLegacyMigrationPending: false,
   showDiagnostics: false,
 };
 
