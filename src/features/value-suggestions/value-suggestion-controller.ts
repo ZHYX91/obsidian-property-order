@@ -772,7 +772,7 @@ export class ValueSuggestionOrderController {
     );
   }
 
-  private getPropertyValueFrequency(propertyKey: string) {
+  getPropertyValueFrequency(propertyKey: string) {
     return this.propertyValueFrequencyStore.getCounts(propertyKey);
   }
 
