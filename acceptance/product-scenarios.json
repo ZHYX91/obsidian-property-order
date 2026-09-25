@@ -40,7 +40,7 @@
     },
     {
       "id": "value-suggestions-settings-and-commit",
-      "title": "Value suggestion settings, ordering, native actions, and confirmed commits",
+      "title": "Grouped value suggestions, custom presets, frequency, and confirmed commits",
       "surfaces": [
         "desktop",
         "android-emulator"
@@ -50,17 +50,21 @@
         "android-emulator": []
       },
       "steps": [
-        "Open Value Suggestions.md and enable value suggestion ordering in the four-tab settings surface",
-        "Compare Native and Name ordering and apply the fixture per-property pinned, bottom and hidden rules",
-        "Choose a visible candidate, verify the committed YAML, then compare Recently used and Note count modes",
-        "Check that ordinary context menus retain their actions and disable enhancement to restore native behavior",
-        "Use the acceptance provider to prepare status = none, type a value into status, and confirm manual typing remains available; press Enter and Tab without intentionally selecting a candidate and confirm neither commits a suppressed native candidate; restore the rules and confirm native suggestions return"
+        "Open Value Suggestions.md and enable value suggestion management in the four-tab settings surface",
+        "Use the acceptance provider to prepare grouped behaviors: status uses Custom candidates with planned/draft pinned and archived/deferred bottom, while priority uses Selection frequency",
+        "Verify the Value suggestions page shows mutually exclusive behavior groups, supports property-key choices without eager duplicate membership, and shows the Custom status editor with pinned, normal, and bottom sections",
+        "Open status candidates and verify planned and deferred remain selectable even though no fixture note previously contains them; select one through the visible candidate UI and verify the committed YAML",
+        "Select priority candidates in a controlled order, wait for Metadata Cache confirmation, and verify Selection frequency changes only after confirmed commits while Note count remains a different ordering source",
+        "Check that ordinary context menus retain their actions and disabling enhancement restores native behavior",
+        "Use the acceptance provider to prepare status No suggestions, type a value into status, and confirm manual typing remains available; press Enter and Tab without intentionally selecting a candidate and confirm neither commits a suppressed candidate; restore the grouped behaviors and confirm suggestions return"
       ],
       "expected": [
-        "General, Value order, Key suggestions and Value suggestions are accessible at desktop and mobile widths",
-        "Only native property-value suggestions change; selected values persist to YAML and cancelled interactions do not enter recent history",
-        "Per-property rules remain separate from key rules; native actions and existing value dragging remain usable",
-        "A none rule suppresses only the native value candidate popup: manual typing and committing remain available, unmodified Enter/Tab does not select a hidden candidate, and restoring the rule restores native suggestions"
+        "General, Value order, Key suggestions and Value suggestions remain accessible at desktop and mobile widths",
+        "Each exact property key has at most one active behavior; moving a key changes its group rather than duplicating it",
+        "Custom status candidates use pinned + normal + bottom ordering and explicit preset-only values can be selected without first appearing in another note",
+        "A selected preset commits through the Properties editor and only a Metadata Cache-confirmed selection advances device-local Selection frequency",
+        "Selection frequency and Markdown note count remain distinct; ordinary context-menu actions and existing value dragging remain usable",
+        "No suggestions suppresses candidates only: manual typing remains available, unmodified Enter/Tab does not select a suppressed candidate, and restoring the grouped behavior restores suggestions"
       ]
     }
   ]
