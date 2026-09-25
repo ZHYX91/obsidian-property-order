@@ -128,6 +128,13 @@ export function getCachedPropertyValueUsage(
   return usage;
 }
 
+export function getCachedPropertyValueVocabulary(
+  app: App,
+  propertyKey: string,
+): string[] {
+  return getCachedPropertyValueUsage(app, propertyKey).map((item) => item.value);
+}
+
 export function invalidatePropertyValueUsage(app: App): void {
   propertyValueUsageCache.delete(app);
 }
