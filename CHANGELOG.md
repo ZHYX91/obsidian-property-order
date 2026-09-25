@@ -5,16 +5,36 @@ follow the repository's Git tags; entries summarize the corresponding commit his
 
 ## [Unreleased]
 
+### Added
+
+- Added device-local confirmed selection-frequency ordering for property-value candidates.
+- Added six mutually exclusive per-property value-suggestion behaviors: name, selection frequency,
+  note count, native order, no suggestions, and custom candidates.
+- Added a grouped Value suggestions UI with searchable/manual key addition, property chips,
+  name/recently-added settings display order, confirmed cross-group moves, and a three-section
+  custom candidate editor.
+- Added custom preset vocabulary with pinned, normal, and bottom sections. Explicit preset values
+  remain selectable even when no note currently contains them, including through a guarded
+  plugin-owned fallback popup when no native value popup exists.
+
+### Changed
+
+- Migrated value-suggestion settings to schema 6 with loss-aware legacy handling. Exact rules that
+  can be translated without changing meaning are migrated; ambiguous legacy recent, wildcard,
+  pinned, bottom, or hidden rules remain preserved until explicit migration confirmation.
+- Custom preset selection continues through the active Obsidian property-value editor instead of
+  writing frontmatter directly; selection frequency advances only after Metadata Cache confirms
+  the commit.
+
 ### Fixed
 
-- Preserved Unicode edge characters when validating property pills and when moving scalar text into flow lists.
-- Tightened property-value recent confirmation to exact values and refreshed reused suggestion popups when property focus changes.
+- Preserved Unicode edge characters when validating property pills, converting quoted scalars to
+  flow lists, tracking recent values, and reading cached property-value vocabulary.
+- Tightened property-value confirmation to exact values and refreshed reused suggestion popups
+  when property focus changes.
 - Kept drag auto-scroll inside the active pane geometry and removed deferred cursor-cleanup frames.
-- Added a versioned, loss-aware settings model for per-property value-suggestion behaviors and custom candidate order.
-- Added device-local confirmed selection counts and pure frequency ordering for property-value candidates.
-- Added a pure custom-candidate planner that combines native and preset values across pinned, middle, and bottom sections without losing exact value identity.
-- Added grouped property-behavior controls with searchable Vault/configured key choices, mutual-exclusion moves, and name/recently-added display order.
-- Added a custom-candidate editor with a property list and draggable pinned, normal, and bottom sections; pinned and bottom sections also accept literal preset values.
+- Prevented plugin-generated preset commit key events from re-entering the suggestion keyboard
+  bridge.
 
 ## [0.7.0] - 2026-09-25
 
