@@ -413,6 +413,11 @@ function getPersistedSettingKeys(): Array<Exclude<keyof PropertyOrderSettings, "
     "pinnedPropertyValues",
     "bottomPropertyValues",
     "hiddenPropertyValuePatterns",
+    "valueSuggestionDefaultBehavior",
+    "valueSuggestionPropertyAssignments",
+    "valueSuggestionCustomOrders",
+    "valueSuggestionKeyDisplayOrder",
+    "valueSuggestionLegacyMigrationPending",
     "showDiagnostics",
   ];
 }
