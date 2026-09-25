@@ -53,12 +53,14 @@
         "Open Value Suggestions.md and enable value suggestion ordering in the four-tab settings surface",
         "Compare Native and Name ordering and apply the fixture per-property pinned, bottom and hidden rules",
         "Choose a visible candidate, verify the committed YAML, then compare Recently used and Note count modes",
-        "Check that ordinary context menus retain their actions and disable enhancement to restore native behavior"
+        "Check that ordinary context menus retain their actions and disable enhancement to restore native behavior",
+        "Use the acceptance provider to prepare status = none, type a value into status, and confirm manual typing remains available; press Enter and Tab without intentionally selecting a candidate and confirm neither commits a suppressed native candidate; restore the rules and confirm native suggestions return"
       ],
       "expected": [
         "General, Value order, Key suggestions and Value suggestions are accessible at desktop and mobile widths",
         "Only native property-value suggestions change; selected values persist to YAML and cancelled interactions do not enter recent history",
-        "Per-property rules remain separate from key rules; native actions and existing value dragging remain usable"
+        "Per-property rules remain separate from key rules; native actions and existing value dragging remain usable",
+        "A none rule suppresses only the native value candidate popup: manual typing and committing remain available, unmodified Enter/Tab does not select a hidden candidate, and restoring the rule restores native suggestions"
       ]
     }
   ]
