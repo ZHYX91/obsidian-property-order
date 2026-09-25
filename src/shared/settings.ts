@@ -3,10 +3,16 @@ import type {
   ListWritebackFormat,
   PluginLanguage,
   PropertyOrderSettings,
+  PropertyValueBehaviorAssignment,
+  PropertyValueCustomOrder,
+  ValueSuggestionBehavior,
+  ValueSuggestionDefaultBehavior,
+  ValueSuggestionKeyDisplayOrder,
+  ValueSuggestionMiddleSortMode,
   ValueSuggestionSortMode,
 } from "./types";
 
-export const CURRENT_SETTINGS_SCHEMA_VERSION = 5;
+export const CURRENT_SETTINGS_SCHEMA_VERSION = 6;
 
 export const DEFAULT_SETTINGS: PropertyOrderSettings = {
   schemaVersion: CURRENT_SETTINGS_SCHEMA_VERSION,
