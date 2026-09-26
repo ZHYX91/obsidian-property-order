@@ -79,27 +79,29 @@ export function renderValueSuggestionBehaviorGroups(
     });
     count.textContent = String(group.propertyKeys.length);
 
-    const chips = section.createDiv({
-      cls: "property-order-value-behavior-chips",
-    });
-    for (const propertyKey of group.propertyKeys) {
-      const chip = chips.createSpan({
-        cls: "property-order-value-behavior-chip",
+    if (group.behavior !== "custom") {
+      const chips = section.createDiv({
+        cls: "property-order-value-behavior-chips",
       });
-      const label = chip.createSpan();
-      label.textContent = propertyKey;
-      const removeButton = chip.createEl("button");
-      removeButton.type = "button";
-      removeButton.className = "property-order-value-behavior-chip-remove";
-      removeButton.setAttribute("aria-label", `Remove ${propertyKey}`);
-      removeButton.textContent = "×";
-      removeButton.addEventListener("click", () => {
-        const nextAssignments = removePropertyValueBehavior(
-          options.getAssignments(),
-          propertyKey,
-        );
-        void options.onAssignmentsChange(nextAssignments).then(() => options.rerender());
-      });
+      for (const propertyKey of group.propertyKeys) {
+        const chip = chips.createSpan({
+          cls: "property-order-value-behavior-chip",
+        });
+        const label = chip.createSpan();
+        label.textContent = propertyKey;
+        const removeButton = chip.createEl("button");
+        removeButton.type = "button";
+        removeButton.className = "property-order-value-behavior-chip-remove";
+        removeButton.setAttribute("aria-label", `Remove ${propertyKey}`);
+        removeButton.textContent = "×";
+        removeButton.addEventListener("click", () => {
+          const nextAssignments = removePropertyValueBehavior(
+            options.getAssignments(),
+            propertyKey,
+          );
+          void options.onAssignmentsChange(nextAssignments).then(() => options.rerender());
+        });
+      }
     }
 
     const addRow = section.createDiv({

@@ -120,15 +120,18 @@ export class RecentPropertyValueTracker {
     }
 
     const itemElement = target?.closest<HTMLElement>(".suggestion-item, .menu-item") ?? null;
+    const pluginPopup =
+      itemElement?.closest<HTMLElement>(".property-order-custom-value-popup") ?? null;
     const container =
-      itemElement == null ? null : resolvePropertyValueSuggestionContainer(itemElement);
+      pluginPopup ??
+      (itemElement == null ? null : resolvePropertyValueSuggestionContainer(itemElement));
 
     if (
       itemElement == null ||
       container == null ||
       !isSuggestionElementVisible(itemElement) ||
       container.dataset.propertyOrderValueEnhanced !== "true" ||
-      !isPropertyValueSuggestionContainer(container)
+      (pluginPopup == null && !isPropertyValueSuggestionContainer(container))
     ) {
       return;
     }
@@ -149,7 +152,7 @@ export class RecentPropertyValueTracker {
     }
 
     const beforeValues = getFrontmatterValues(cache, context.propertyKey);
-    const value = item.key.trim();
+    const value = item.key;
 
     if (value.length === 0) {
       return;

@@ -233,6 +233,40 @@ body.property-order-value-drag-enabled .metadata-property .multi-select-pill {
   margin: 4px 0 12px;
 }
 
+.property-order-custom-value-popup {
+  position: fixed;
+  z-index: 10020;
+  max-height: min(320px, 50vh);
+  overflow-y: auto;
+}
+
+.property-order-preset-value-item::after {
+  color: var(--text-muted);
+  content: "•";
+  margin-inline-start: auto;
+  padding-inline-start: var(--size-2-2);
+}
+
+.property-order-value-suggestion-migration {
+  border: 1px solid var(--background-modifier-border);
+  border-radius: var(--radius-s);
+  margin-block-end: var(--size-4-4);
+  padding: var(--size-4-3);
+}
+
+.property-order-value-suggestion-migration details {
+  margin-block: var(--size-2-2);
+}
+
+.property-order-legacy-value-rules {
+  background: var(--background-secondary);
+  border-radius: var(--radius-s);
+  max-height: 16rem;
+  overflow: auto;
+  padding: var(--size-4-2);
+  white-space: pre-wrap;
+}
+
 .property-order-settings-save-status {
   align-items: center;
   background: var(--background-modifier-error);

@@ -117,6 +117,14 @@ const EN_TRANSLATIONS = {
     "Move “{property}” from “{from}” to “{to}”? This changes only its suggestion behavior.",
   "settings.valueSuggestions.legacyMigrationPending":
     "Some legacy value-suggestion rules cannot be converted without changing meaning. They remain preserved until you review the migration.",
+  "settings.valueSuggestions.legacyMigrationDetails": "Review preserved legacy rules",
+  "settings.valueSuggestions.legacyMigrationAdopt": "Use grouped behaviors",
+  "settings.valueSuggestions.legacyMigrationConfirm":
+    "Switch to grouped value-suggestion behaviors? Preserved legacy rules will remain in settings data but will stop affecting suggestions.",
+  "settings.valueSuggestions.frequencyHistory.name": "Selection frequency",
+  "settings.valueSuggestions.frequencyHistory.desc":
+    "Counts confirmed candidate selections on this device for properties that use Selection frequency. Clearing does not change notes or configured candidates.",
+  "settings.valueSuggestions.frequencyHistory.clear": "Clear counts",
   "settings.valueSuggestions.custom.pinned": "Pinned candidates",
   "settings.valueSuggestions.custom.middle": "Normal candidates",
   "settings.valueSuggestions.custom.bottom": "Bottom candidates",
@@ -291,6 +299,14 @@ export const TRANSLATIONS = {
       "将“{property}”从“{from}”移到“{to}”？只会改变该属性的候选行为。",
     "settings.valueSuggestions.legacyMigrationPending":
       "部分旧版属性值候选规则无法在不改变含义的情况下自动转换；在你确认迁移前，这些旧配置会继续保留。",
+    "settings.valueSuggestions.legacyMigrationDetails": "查看保留的旧规则",
+    "settings.valueSuggestions.legacyMigrationAdopt": "启用分组候选行为",
+    "settings.valueSuggestions.legacyMigrationConfirm":
+      "切换到新的分组候选行为？旧规则仍会保留在设置数据中，但不再影响属性值候选。",
+    "settings.valueSuggestions.frequencyHistory.name": "选择次数统计",
+    "settings.valueSuggestions.frequencyHistory.desc":
+      "仅在本设备统计使用“按选择次数排序”的属性中，经确认成功的候选选择次数。清除不会修改笔记或预设候选。",
+    "settings.valueSuggestions.frequencyHistory.clear": "清除次数",
     "settings.valueSuggestions.custom.pinned": "置顶候选",
     "settings.valueSuggestions.custom.middle": "普通候选",
     "settings.valueSuggestions.custom.bottom": "置底候选",
@@ -453,6 +469,14 @@ export const TRANSLATIONS = {
       "將「{property}」從「{from}」移到「{to}」？只會改變該屬性的候選行為。",
     "settings.valueSuggestions.legacyMigrationPending":
       "部分舊版屬性值候選規則無法在不改變含義的情況下自動轉換；在你確認遷移前，這些舊設定會繼續保留。",
+    "settings.valueSuggestions.legacyMigrationDetails": "查看保留的舊規則",
+    "settings.valueSuggestions.legacyMigrationAdopt": "啟用分組候選行為",
+    "settings.valueSuggestions.legacyMigrationConfirm":
+      "切換到新的分組候選行為？舊規則仍會保留在設定資料中，但不再影響屬性值候選。",
+    "settings.valueSuggestions.frequencyHistory.name": "選擇次數統計",
+    "settings.valueSuggestions.frequencyHistory.desc":
+      "僅在本裝置統計使用「按選擇次數排序」的屬性中，經確認成功的候選選擇次數。清除不會修改筆記或預設候選。",
+    "settings.valueSuggestions.frequencyHistory.clear": "清除次數",
     "settings.valueSuggestions.custom.pinned": "置頂候選",
     "settings.valueSuggestions.custom.middle": "一般候選",
     "settings.valueSuggestions.custom.bottom": "置底候選",
