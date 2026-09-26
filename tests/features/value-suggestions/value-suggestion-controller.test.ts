@@ -447,6 +447,9 @@ describe("ValueSuggestionOrderController", () => {
     ];
     testable.recordConfirmedPropertyValue("priority", "high");
     expect(frequencyStore.increment).toHaveBeenCalledWith("priority", "high");
+
+    expect(controller.getPropertyValueFrequency("STATUS")).toEqual([]);
+    expect(frequencyStore.getCounts).toHaveBeenCalledWith("STATUS");
   });
 
   it("uses recent values from the device-local store", () => {
