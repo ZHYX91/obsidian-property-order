@@ -56,14 +56,15 @@ export function mountCustomValuePopup(
     item.addEventListener("click", () => onCommit(value));
   }
 
-  const handleTab = (event: KeyboardEvent): void => {
+  const handleTab = (event: Event): void => {
+    const keyboardEvent = event as KeyboardEvent;
     if (
-      event.key !== "Tab" ||
-      event.shiftKey ||
-      event.altKey ||
-      event.ctrlKey ||
-      event.metaKey ||
-      event.isComposing
+      keyboardEvent.key !== "Tab" ||
+      keyboardEvent.shiftKey ||
+      keyboardEvent.altKey ||
+      keyboardEvent.ctrlKey ||
+      keyboardEvent.metaKey ||
+      keyboardEvent.isComposing
     ) {
       return;
     }
