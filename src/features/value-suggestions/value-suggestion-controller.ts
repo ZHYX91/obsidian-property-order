@@ -16,18 +16,24 @@ import {
   orderPropertyValues,
   resolvePropertyValueRules,
 } from "../../core/suggestions/order-values";
+import { getPropertyValueCustomOrder } from "../../core/suggestions/custom-value-order";
+import { resolvePropertyValueBehavior } from "../../core/suggestions/value-behavior";
+import { planGroupedPropertyValueSuggestions } from "../../core/suggestions/value-suggestion-runtime";
 import {
   getCachedPropertyValueUsage,
+  getCachedPropertyValueVocabulary,
   invalidatePropertyValueUsage,
 } from "../../obsidian/metadata";
 import {
   findSuggestionContainers,
+  getActivePropertyValueSuggestionContext,
   getPropertyValueSuggestionContext,
   getSuggestionItemParent,
   getSuggestionItems,
   hasActivePropertyValueSuggestionContext,
   isPropertyValueSuggestionContainer,
   resolvePropertyValueSuggestionContainer,
+  type PropertyValueSuggestionContext,
   type SuggestionItem,
 } from "../../obsidian/native-suggest-dom";
 import type { PropertyOrderSettings } from "../../shared/types";
@@ -39,12 +45,19 @@ import {
   isSuggestionElementVisible,
   PLUGIN_HIDDEN_SUGGESTION_CLASS,
 } from "../key-order/suggestion-visibility";
+import {
+  commitCustomPropertyValueCandidate,
+  getPropertyValueInput,
+  mountCustomValuePopup,
+  type CustomValuePopupMount,
+} from "./custom-value-popup";
 import { PropertyValueFrequencyStore } from "./property-value-frequency-store";
 import { RecentPropertyValueStore } from "./recent-property-value-store";
 import { RecentPropertyValueTracker } from "./recent-property-value-tracker";
 
 const VALUE_SUGGESTIONS_SUPPRESSED_CLASS =
   "property-order-value-suggestions-suppressed";
+const PLUGIN_PRESET_VALUE_ITEM_CLASS = "property-order-preset-value-item";
 
 const OBSERVER_OPTIONS: MutationObserverInit = {
   attributeFilter: ["aria-hidden", "hidden"],
@@ -66,6 +79,7 @@ interface DocumentEnhancementState {
 
 export class ValueSuggestionOrderController {
   private readonly activeContainers = new Map<Document, HTMLElement>();
+  private readonly customFallbacks = new Map<Document, CustomValuePopupMount>();
   private readonly documentStates = new Map<Document, DocumentEnhancementState>();
   private initialized = false;
   private readonly getSettings: () => PropertyOrderSettings;
@@ -268,11 +282,33 @@ export class ValueSuggestionOrderController {
           // different property row. Focus identity is therefore an input to
           // enhancement even when the popup itself produces no DOM mutation.
           this.scheduleEnhancement(targetDocument);
+        } else {
+          this.hideCustomFallback(targetDocument);
+        }
+      };
+      const handleInput = (event: Event): void => {
+        const target = event.target;
+        if (
+          target instanceof targetWindow.HTMLElement &&
+          target.closest(".metadata-property-value") != null &&
+          this.getSettings().enableNativeValueSuggestionOrder
+        ) {
+          this.scheduleEnhancement(targetDocument);
+        }
+      };
+      const handleKeyDown = (event: KeyboardEvent): void => {
+        if (event.key === "Escape") {
+          this.hideCustomFallback(targetDocument);
         }
       };
       targetDocument.addEventListener("focusin", handleFocusIn, true);
-      state.contextCleanup = () =>
+      targetDocument.addEventListener("input", handleInput, true);
+      targetDocument.addEventListener("keydown", handleKeyDown, true);
+      state.contextCleanup = () => {
         targetDocument.removeEventListener("focusin", handleFocusIn, true);
+        targetDocument.removeEventListener("input", handleInput, true);
+        targetDocument.removeEventListener("keydown", handleKeyDown, true);
+      };
       state.keyboardCleanup = registerSuggestionKeyboardBridge({
         getActiveContainer: () => this.getActiveContainer(targetDocument),
         hasActiveContext: hasActivePropertyValueSuggestionContext,
@@ -362,6 +398,7 @@ export class ValueSuggestionOrderController {
 
       try {
         this.enhanceDocument(targetDocument);
+        this.refreshCustomFallback(targetDocument);
       } finally {
         this.startDocumentObservation(targetDocument, state);
       }
@@ -406,7 +443,11 @@ export class ValueSuggestionOrderController {
       const snapshot = this.originalSuggestions.get(container);
 
       if (snapshot != null) {
-        synchronizeSnapshotElements(container, snapshot);
+        synchronizeSnapshotElements(
+          container,
+          snapshot,
+          (element) => !element.classList.contains(PLUGIN_PRESET_VALUE_ITEM_CLASS),
+        );
       }
     }
   }
@@ -433,6 +474,7 @@ export class ValueSuggestionOrderController {
 
   private enhanceContainer(container: HTMLElement): void {
     const settings = this.getSettings();
+    this.removePluginPresetItems(container);
     container.classList.remove(VALUE_SUGGESTIONS_SUPPRESSED_CLASS);
     const items = getSuggestionItems(container);
 
@@ -454,15 +496,121 @@ export class ValueSuggestionOrderController {
     }
 
     const snapshot = this.ensureCurrentSnapshot(container, items, itemParent);
-    const rules = resolvePropertyValueRules(context.propertyKey, {
-      bottomRules: settings.bottomPropertyValues,
-      defaultSortMode: settings.valueSuggestionSortMode,
-      hiddenRules: settings.hiddenPropertyValuePatterns,
-      pinnedRules: settings.pinnedPropertyValues,
-      sortOverrides: settings.valueSuggestionSortOverrides,
-    });
+    const itemsByElement = new Map(items.map((item) => [item.element, item]));
+    const nativeItems = snapshot.childOrder
+      .map((node) => itemsByElement.get(node as HTMLElement))
+      .filter((item): item is SuggestionItem => item != null);
+    const nativeValues = nativeItems.map((item) => item.key);
 
-    if (rules.sortMode === "none") {
+    let plannedValues: Array<{ isPreset: boolean; value: string }> = [];
+    let shouldSuppress = false;
+    let signaturePayload: Record<string, unknown>;
+
+    if (settings.valueSuggestionLegacyMigrationPending) {
+      const rules = resolvePropertyValueRules(context.propertyKey, {
+        bottomRules: settings.bottomPropertyValues,
+        defaultSortMode: settings.valueSuggestionSortMode,
+        hiddenRules: settings.hiddenPropertyValuePatterns,
+        pinnedRules: settings.pinnedPropertyValues,
+        sortOverrides: settings.valueSuggestionSortOverrides,
+      });
+
+      shouldSuppress = rules.sortMode === "none";
+      const orderedValues = shouldSuppress
+        ? []
+        : orderPropertyValues(nativeValues, {
+            bottomValues: rules.bottomValues,
+            hiddenPatterns: rules.hiddenPatterns,
+            pinnedValues: rules.pinnedValues,
+            recentValues:
+              rules.sortMode === "recent"
+                ? this.recentValueStore.getValues(context.propertyKey)
+                : [],
+            sortMode: rules.sortMode,
+            usage:
+              rules.sortMode === "usage"
+                ? getCachedPropertyValueUsage(this.plugin.app, context.propertyKey)
+                : [],
+          });
+      plannedValues = orderedValues.map(({ value }) => ({ isPreset: false, value }));
+      signaturePayload = {
+        legacy: true,
+        bottom: rules.bottomValues,
+        hidden: rules.hiddenPatterns,
+        pinned: rules.pinnedValues,
+        propertyKey: context.propertyKey,
+        recentRevision: rules.sortMode === "recent" ? this.recentValueRevision : 0,
+        sortMode: rules.sortMode,
+        usageRevision: rules.sortMode === "usage" ? this.usageRevision : 0,
+        values: nativeValues,
+      };
+    } else {
+      const behavior = resolvePropertyValueBehavior(
+        settings.valueSuggestionPropertyAssignments,
+        settings.valueSuggestionDefaultBehavior,
+        context.propertyKey,
+      );
+      const needsFrequency =
+        behavior === "frequency" ||
+        (
+          behavior === "custom" &&
+          getPropertyValueCustomOrder(
+            settings.valueSuggestionCustomOrders,
+            context.propertyKey,
+          ).middleSortMode === "frequency"
+        );
+      const needsNoteCount =
+        behavior === "note-count" ||
+        (
+          behavior === "custom" &&
+          getPropertyValueCustomOrder(
+            settings.valueSuggestionCustomOrders,
+            context.propertyKey,
+          ).middleSortMode === "note-count"
+        );
+      const groupedPlan = planGroupedPropertyValueSuggestions(
+        settings,
+        context.propertyKey,
+        nativeValues,
+        needsFrequency
+          ? this.propertyValueFrequencyStore.getCounts(context.propertyKey)
+          : [],
+        needsNoteCount
+          ? getCachedPropertyValueUsage(this.plugin.app, context.propertyKey)
+          : [],
+      );
+
+      shouldSuppress = groupedPlan.behavior === "none";
+      plannedValues = groupedPlan.candidates.map(({ isPreset, value }) => ({
+        isPreset,
+        value,
+      }));
+      signaturePayload = {
+        behavior: groupedPlan.behavior,
+        customOrder:
+          groupedPlan.behavior === "custom"
+            ? getPropertyValueCustomOrder(
+                settings.valueSuggestionCustomOrders,
+                context.propertyKey,
+              )
+            : null,
+        frequencyRevision: needsFrequency ? this.frequencyRevision : 0,
+        propertyKey: context.propertyKey,
+        usageRevision: needsNoteCount ? this.usageRevision : 0,
+        values: nativeValues,
+      };
+    }
+
+    const query = getPropertyValueInput(context)?.value.toLocaleLowerCase() ?? "";
+    if (query.length > 0) {
+      plannedValues = plannedValues.filter(
+        (planned) =>
+          !planned.isPreset ||
+          planned.value.toLocaleLowerCase().includes(query),
+      );
+    }
+
+    if (shouldSuppress) {
       restoreSnapshot(snapshot);
       snapshot.appliedState = null;
 
@@ -475,64 +623,38 @@ export class ValueSuggestionOrderController {
 
       container.classList.add(VALUE_SUGGESTIONS_SUPPRESSED_CLASS);
       container.dataset.propertyOrderValueEnhanced = "true";
-      container.dataset.propertyOrderValueSignature = JSON.stringify({
-        propertyKey: context.propertyKey,
-        sortMode: rules.sortMode,
-      });
+      container.dataset.propertyOrderValueSignature = JSON.stringify(signaturePayload);
       this.activeContainers.delete(container.ownerDocument);
       return;
     }
 
-    const itemsByElement = new Map(items.map((item) => [item.element, item]));
-    const nativeItems = snapshot.childOrder
-      .map((node) => itemsByElement.get(node as HTMLElement))
-      .filter((item): item is SuggestionItem => item != null);
-    const signature = JSON.stringify({
-      bottom: rules.bottomValues,
-      hidden: rules.hiddenPatterns,
-      pinned: rules.pinnedValues,
-      propertyKey: context.propertyKey,
-      recentRevision: rules.sortMode === "recent" ? this.recentValueRevision : 0,
-      sortMode: rules.sortMode,
-      usageRevision: rules.sortMode === "usage" ? this.usageRevision : 0,
-      values: nativeItems.map((item) => item.key),
-    });
-
-    if (container.dataset.propertyOrderValueSignature === signature &&
-      matchesAppliedState(snapshot.appliedState, items)) {
+    const signature = JSON.stringify(signaturePayload);
+    if (
+      !plannedValues.some((item) => item.isPreset) &&
+      container.dataset.propertyOrderValueSignature === signature &&
+      matchesAppliedState(snapshot.appliedState, items)
+    ) {
       return;
     }
 
-    const orderedValues = orderPropertyValues(
-      nativeItems.map((item) => item.key),
-      {
-        bottomValues: rules.bottomValues,
-        hiddenPatterns: rules.hiddenPatterns,
-        pinnedValues: rules.pinnedValues,
-        recentValues:
-          rules.sortMode === "recent"
-            ? this.recentValueStore.getValues(context.propertyKey)
-            : [],
-        sortMode: rules.sortMode,
-        usage:
-          rules.sortMode === "usage"
-            ? getCachedPropertyValueUsage(this.plugin.app, context.propertyKey)
-            : [],
-      },
-    );
     const elementsByValue = new Map<string, HTMLElement[]>();
-
-    for (const item of items) {
+    for (const item of nativeItems) {
       const elements = elementsByValue.get(item.key) ?? [];
       elements.push(item.element);
       elementsByValue.set(item.key, elements);
     }
 
-    const visibleElements = orderedValues
-      .map((item) => elementsByValue.get(item.value)?.shift())
+    const visibleElements = plannedValues
+      .map((planned) => {
+        const nativeElement = elementsByValue.get(planned.value)?.shift();
+        return nativeElement ??
+          (planned.isPreset
+            ? this.createPresetValueItem(context, planned.value)
+            : null);
+      })
       .filter((element): element is HTMLElement => element != null);
     const visibleElementSet = new Set(visibleElements);
-    const hiddenElements = items
+    const hiddenElements = nativeItems
       .map((item) => item.element)
       .filter((element) => !visibleElementSet.has(element));
     const snapshotsByElement = new Map(
@@ -542,9 +664,8 @@ export class ValueSuggestionOrderController {
       ]),
     );
 
-    for (const item of items) {
+    for (const item of nativeItems) {
       const elementSnapshot = snapshotsByElement.get(item.element);
-
       if (elementSnapshot == null) {
         continue;
       }
@@ -571,6 +692,40 @@ export class ValueSuggestionOrderController {
     container.dataset.propertyOrderValueEnhanced = "true";
     container.dataset.propertyOrderValueSignature = signature;
     this.activeContainers.set(container.ownerDocument, container);
+  }
+
+  private createPresetValueItem(
+    context: PropertyValueSuggestionContext,
+    value: string,
+  ): HTMLElement {
+    // eslint-disable-next-line obsidianmd/prefer-create-el
+    const item = context.editor.ownerDocument.createElement("div");
+    item.className = `suggestion-item ${PLUGIN_PRESET_VALUE_ITEM_CLASS}`;
+    item.dataset.propertyOrderPresetValue = "true";
+    item.setAttribute("role", "option");
+    // eslint-disable-next-line obsidianmd/prefer-create-el
+    const title = context.editor.ownerDocument.createElement("div");
+    title.className = "suggestion-title";
+    title.textContent = value;
+    item.appendChild(title);
+
+    item.addEventListener("mousedown", (event) => {
+      event.preventDefault();
+    });
+    item.addEventListener("click", () => {
+      if (commitCustomPropertyValueCandidate(context, value)) {
+        this.hideCustomFallback(context.editor.ownerDocument);
+      }
+    });
+    return item;
+  }
+
+  private removePluginPresetItems(container: HTMLElement): void {
+    for (const element of container.querySelectorAll<HTMLElement>(
+      `.${PLUGIN_PRESET_VALUE_ITEM_CLASS}`,
+    )) {
+      element.remove();
+    }
   }
 
   private ensureCurrentSnapshot(
@@ -660,15 +815,35 @@ export class ValueSuggestionOrderController {
         continue;
       }
 
-      const rules = resolvePropertyValueRules(context.propertyKey, {
-        bottomRules: settings.bottomPropertyValues,
-        defaultSortMode: settings.valueSuggestionSortMode,
-        hiddenRules: settings.hiddenPropertyValuePatterns,
-        pinnedRules: settings.pinnedPropertyValues,
-        sortOverrides: settings.valueSuggestionSortOverrides,
-      });
+      if (settings.valueSuggestionLegacyMigrationPending) {
+        const rules = resolvePropertyValueRules(context.propertyKey, {
+          bottomRules: settings.bottomPropertyValues,
+          defaultSortMode: settings.valueSuggestionSortMode,
+          hiddenRules: settings.hiddenPropertyValuePatterns,
+          pinnedRules: settings.pinnedPropertyValues,
+          sortOverrides: settings.valueSuggestionSortOverrides,
+        });
+        if (rules.sortMode === "usage") {
+          return true;
+        }
+        continue;
+      }
 
-      if (rules.sortMode === "usage") {
+      const behavior = resolvePropertyValueBehavior(
+        settings.valueSuggestionPropertyAssignments,
+        settings.valueSuggestionDefaultBehavior,
+        context.propertyKey,
+      );
+      if (behavior === "note-count") {
+        return true;
+      }
+      if (
+        behavior === "custom" &&
+        getPropertyValueCustomOrder(
+          settings.valueSuggestionCustomOrders,
+          context.propertyKey,
+        ).middleSortMode === "note-count"
+      ) {
         return true;
       }
     }
@@ -740,17 +915,103 @@ export class ValueSuggestionOrderController {
     );
   }
 
+  private refreshCustomFallback(targetDocument: Document): void {
+    this.hideCustomFallback(targetDocument);
+    const settings = this.getSettings();
+
+    if (
+      !settings.enableNativeValueSuggestionOrder ||
+      settings.valueSuggestionLegacyMigrationPending
+    ) {
+      return;
+    }
+
+    const context = getActivePropertyValueSuggestionContext(targetDocument);
+    if (context == null) {
+      return;
+    }
+
+    const behavior = resolvePropertyValueBehavior(
+      settings.valueSuggestionPropertyAssignments,
+      settings.valueSuggestionDefaultBehavior,
+      context.propertyKey,
+    );
+    if (behavior !== "custom") {
+      return;
+    }
+
+    const nativePopupExists = findSuggestionContainers(targetDocument)
+      .map(resolvePropertyValueSuggestionContainer)
+      .some((container) =>
+        container != null &&
+        container.isConnected &&
+        isSuggestionElementVisible(container) &&
+        isPropertyValueSuggestionContainer(container)
+      );
+    if (nativePopupExists) {
+      return;
+    }
+
+    const order = getPropertyValueCustomOrder(
+      settings.valueSuggestionCustomOrders,
+      context.propertyKey,
+    );
+    const plan = planGroupedPropertyValueSuggestions(
+      settings,
+      context.propertyKey,
+      getCachedPropertyValueVocabulary(this.plugin.app, context.propertyKey),
+      order.middleSortMode === "frequency"
+        ? this.propertyValueFrequencyStore.getCounts(context.propertyKey)
+        : [],
+      order.middleSortMode === "note-count"
+        ? getCachedPropertyValueUsage(this.plugin.app, context.propertyKey)
+        : [],
+    );
+    const mount = mountCustomValuePopup(
+      context,
+      plan.candidates.map((candidate) => candidate.value),
+      (value) => {
+        commitCustomPropertyValueCandidate(context, value);
+        this.hideCustomFallback(targetDocument);
+      },
+    );
+
+    if (mount != null) {
+      this.customFallbacks.set(targetDocument, mount);
+      this.activeContainers.set(targetDocument, mount.container);
+    }
+  }
+
+  private hideCustomFallback(targetDocument: Document): void {
+    const mount = this.customFallbacks.get(targetDocument);
+    if (mount == null) {
+      return;
+    }
+
+    this.customFallbacks.delete(targetDocument);
+    if (this.activeContainers.get(targetDocument) === mount.container) {
+      this.activeContainers.delete(targetDocument);
+    }
+    this.runCleanup(() => mount.cleanup());
+  }
+
   private recordConfirmedPropertyValue(propertyKey: string, value: string): void {
     this.recordRecentPropertyValue(propertyKey, value);
 
     if (this.shouldTrackPropertyValueFrequency(propertyKey)) {
       this.propertyValueFrequencyStore.increment(propertyKey, value);
       this.frequencyRevision += 1;
+      for (const targetDocument of this.documentStates.keys()) {
+        this.scheduleEnhancement(targetDocument);
+      }
     }
   }
 
   private shouldTrackPropertyValueFrequency(propertyKey: string): boolean {
     const settings = this.getSettings();
+    if (settings.valueSuggestionLegacyMigrationPending) {
+      return false;
+    }
     const normalizedKey = propertyKey.trim().toLocaleLowerCase();
     const assignment = settings.valueSuggestionPropertyAssignments.find(
       (candidate) => candidate.propertyKey.trim().toLocaleLowerCase() === normalizedKey,
@@ -793,12 +1054,16 @@ export class ValueSuggestionOrderController {
   }
 
   private restoreAllContainers(): void {
+    for (const targetDocument of Array.from(this.customFallbacks.keys())) {
+      this.hideCustomFallback(targetDocument);
+    }
     for (const container of Array.from(this.originalSuggestions.keys())) {
       this.runCleanup(() => this.restoreContainer(container));
     }
   }
 
   private restoreContainersForDocument(targetDocument: Document): void {
+    this.hideCustomFallback(targetDocument);
     for (const container of Array.from(this.originalSuggestions.keys())) {
       if (container.ownerDocument === targetDocument) {
         this.runCleanup(() => this.restoreContainer(container));
@@ -808,6 +1073,7 @@ export class ValueSuggestionOrderController {
 
   private restoreContainer(container: HTMLElement): void {
     container.classList.remove(VALUE_SUGGESTIONS_SUPPRESSED_CLASS);
+    this.removePluginPresetItems(container);
     const snapshot = this.originalSuggestions.get(container);
 
     if (snapshot == null) {
