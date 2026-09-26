@@ -26,10 +26,9 @@ export function mountCustomValuePopup(
     return null;
   }
 
-  // eslint-disable-next-line obsidianmd/prefer-create-el
-  const container = context.editor.ownerDocument.createElement("div");
-  container.className =
-    "suggestion-container property-order-custom-value-popup";
+  const container = context.editor.ownerDocument.body.createDiv({
+    cls: "suggestion-container property-order-custom-value-popup",
+  });
   container.dataset.propertyOrderValueEnhanced = "true";
   container.setAttribute("role", "listbox");
 
@@ -40,29 +39,22 @@ export function mountCustomValuePopup(
   container.style.maxWidth = `${Math.max(200, targetWindow.innerWidth - 16)}px`;
 
   for (const [index, value] of visibleValues.entries()) {
-    // eslint-disable-next-line obsidianmd/prefer-create-el
-    const item = context.editor.ownerDocument.createElement("div");
-    item.className = index === 0 ? "suggestion-item is-selected" : "suggestion-item";
+    const item = container.createDiv({
+      cls: index === 0 ? "suggestion-item is-selected" : "suggestion-item",
+    });
     item.dataset.propertyOrderPresetValue = "true";
     item.setAttribute("role", "option");
     item.setAttribute("aria-selected", String(index === 0));
 
-    // eslint-disable-next-line obsidianmd/prefer-create-el
-    const title = context.editor.ownerDocument.createElement("div");
-    title.className = "suggestion-title";
+    const title = item.createDiv({ cls: "suggestion-title" });
     title.textContent = value;
-    item.appendChild(title);
-
     item.addEventListener("mousedown", (event) => {
       // Keep the native property editor focused so its commit path remains the
       // authority for writing the selected preset value.
       event.preventDefault();
     });
     item.addEventListener("click", () => onCommit(value));
-    container.appendChild(item);
   }
-
-  context.editor.ownerDocument.body.appendChild(container);
 
   const handleTab = (event: KeyboardEvent): void => {
     if (
