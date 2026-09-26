@@ -67,9 +67,13 @@ describe("production bundle checker", () => {
     );
   });
 
-  it("pins the release budget and measured reference", () => {
+  it("pins the release budget, reference, and production minification contract", () => {
     expect(PRODUCTION_MAIN_JS_BUDGET_BYTES).toBe(320_000);
     expect(PRODUCTION_MAIN_JS_REFERENCE_BYTES).toBe(267_789);
+    expect(createEsbuildOptions({
+      production: true,
+      projectRoot: "/tmp/property-order",
+    }).minifyIdentifiers).toBe(true);
   });
 
   it("rejects an empty or stale bundle", async () => {
