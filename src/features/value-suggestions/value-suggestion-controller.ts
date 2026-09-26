@@ -649,7 +649,7 @@ export class ValueSuggestionOrderController {
         const nativeElement = elementsByValue.get(planned.value)?.shift();
         return nativeElement ??
           (planned.isPreset
-            ? this.createPresetValueItem(context, planned.value)
+            ? this.createPresetValueItem(context, itemParent, planned.value)
             : null);
       })
       .filter((element): element is HTMLElement => element != null);
@@ -696,18 +696,16 @@ export class ValueSuggestionOrderController {
 
   private createPresetValueItem(
     context: PropertyValueSuggestionContext,
+    itemParent: HTMLElement,
     value: string,
   ): HTMLElement {
-    // eslint-disable-next-line obsidianmd/prefer-create-el
-    const item = context.editor.ownerDocument.createElement("div");
-    item.className = `suggestion-item ${PLUGIN_PRESET_VALUE_ITEM_CLASS}`;
+    const item = itemParent.createDiv({
+      cls: `suggestion-item ${PLUGIN_PRESET_VALUE_ITEM_CLASS}`,
+    });
     item.dataset.propertyOrderPresetValue = "true";
     item.setAttribute("role", "option");
-    // eslint-disable-next-line obsidianmd/prefer-create-el
-    const title = context.editor.ownerDocument.createElement("div");
-    title.className = "suggestion-title";
+    const title = item.createDiv({ cls: "suggestion-title" });
     title.textContent = value;
-    item.appendChild(title);
 
     item.addEventListener("mousedown", (event) => {
       event.preventDefault();
