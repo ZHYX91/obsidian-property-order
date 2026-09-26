@@ -178,7 +178,9 @@ export class ValueSuggestionOrderController {
     if (
       !this.initialized &&
       this.documentStates.size === 0 &&
-      this.registeredEventCleanups.length === 0
+      this.registeredEventCleanups.length === 0 &&
+      this.customFallbacks.size === 0 &&
+      this.originalSuggestions.size === 0
     ) {
       return;
     }
