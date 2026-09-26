@@ -57,6 +57,50 @@ describe("custom value fallback popup", () => {
     expect(mount!.container.isConnected).toBe(false);
   });
 
+  it("keeps focus on mouse press and commits the selected fallback with Tab", () => {
+    const { context, input } = createContext();
+    const onCommit = vi.fn();
+    const mount = mountCustomValuePopup(context, ["draft", "done"], onCommit);
+
+    if (mount == null) {
+      throw new Error("Expected fallback popup.");
+    }
+
+    const selected = mount.container.querySelector<HTMLElement>(
+      ".suggestion-item.is-selected",
+    );
+    if (selected == null) {
+      throw new Error("Expected selected fallback candidate.");
+    }
+
+    const mouseDown = new MouseEvent("mousedown", {
+      bubbles: true,
+      cancelable: true,
+    });
+    selected.dispatchEvent(mouseDown);
+    expect(mouseDown.defaultPrevented).toBe(true);
+
+    const modifiedTab = new KeyboardEvent("keydown", {
+      bubbles: true,
+      cancelable: true,
+      key: "Tab",
+      shiftKey: true,
+    });
+    input.dispatchEvent(modifiedTab);
+    expect(onCommit).not.toHaveBeenCalled();
+
+    const tab = new KeyboardEvent("keydown", {
+      bubbles: true,
+      cancelable: true,
+      key: "Tab",
+    });
+    input.dispatchEvent(tab);
+    expect(onCommit).toHaveBeenCalledWith("draft");
+
+    mount.cleanup();
+    mount.cleanup();
+  });
+
   it("commits through the focused native editor input path", () => {
     const { context, input } = createContext();
     const inputEvents: string[] = [];
