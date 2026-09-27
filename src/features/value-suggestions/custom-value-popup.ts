@@ -18,7 +18,7 @@ export function mountCustomValuePopup(
     return null;
   }
 
-  const query = input.value.toLocaleLowerCase();
+  const query = getPropertyValueInputText(input).toLocaleLowerCase();
   const visibleValues = values.filter(
     (value) => query.length === 0 || value.toLocaleLowerCase().includes(query),
   );
@@ -104,7 +104,11 @@ export function commitCustomPropertyValueCandidate(
   }
 
   input.focus({ preventScroll: true });
-  input.value = value;
+  if (input.matches("input, textarea")) {
+    (input as HTMLInputElement | HTMLTextAreaElement).value = value;
+  } else {
+    input.textContent = value;
+  }
   input.dispatchEvent(new targetWindow.InputEvent("input", {
     bubbles: true,
     data: value,
@@ -129,17 +133,27 @@ export function commitCustomPropertyValueCandidate(
 
 export function getPropertyValueInput(
   context: PropertyValueSuggestionContext,
-): HTMLInputElement | HTMLTextAreaElement | null {
+): HTMLElement | null {
   const targetWindow = context.editor.ownerDocument.defaultView;
   if (targetWindow == null) {
     return null;
   }
 
-  if (context.editor.matches("input, textarea")) {
-    return context.editor as HTMLInputElement | HTMLTextAreaElement;
+  const selector = "input, textarea, [contenteditable=true]";
+  const active = context.editor.ownerDocument.activeElement;
+  if (active instanceof targetWindow.HTMLElement &&
+    context.editor.contains(active) && active.matches(selector)) {
+    return active;
   }
 
-  return context.editor.querySelector<HTMLInputElement | HTMLTextAreaElement>(
-    "input, textarea",
-  );
+  return context.editor.matches(selector)
+    ? context.editor
+    : context.editor.querySelector<HTMLElement>(selector);
+}
+
+export function getPropertyValueInputText(input: HTMLElement | null): string {
+  if (input == null) return "";
+  return input.matches("input, textarea")
+    ? (input as HTMLInputElement | HTMLTextAreaElement).value
+    : input.textContent ?? "";
 }

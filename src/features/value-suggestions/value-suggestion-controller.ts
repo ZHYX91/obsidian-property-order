@@ -48,6 +48,7 @@ import {
 import {
   commitCustomPropertyValueCandidate,
   getPropertyValueInput,
+  getPropertyValueInputText,
   mountCustomValuePopup,
   type CustomValuePopupMount,
 } from "./custom-value-popup";
@@ -68,6 +69,7 @@ const OBSERVER_OPTIONS: MutationObserverInit = {
 };
 
 interface DocumentEnhancementState {
+  synchronizeKeyboardScope: (active: boolean) => void;
   contextCleanup: () => void;
   keyboardCleanup: () => void;
   observer: MutationObserver;
@@ -216,6 +218,7 @@ export class ValueSuggestionOrderController {
         state.observer.disconnect();
         state.observing = false;
         this.cancelScheduledEnhancement(state);
+        state.synchronizeKeyboardScope(false);
         this.restoreContainersForDocument(targetDocument);
       }
     }
@@ -266,6 +269,7 @@ export class ValueSuggestionOrderController {
       }
     });
     const state: DocumentEnhancementState = {
+      synchronizeKeyboardScope: () => undefined,
       contextCleanup: () => undefined,
       keyboardCleanup: () => undefined,
       observer,
@@ -291,6 +295,7 @@ export class ValueSuggestionOrderController {
           this.scheduleEnhancement(targetDocument);
         } else {
           this.hideCustomFallback(targetDocument);
+          state.synchronizeKeyboardScope(false);
         }
       };
       const handleInput = (event: Event): void => {
@@ -316,7 +321,9 @@ export class ValueSuggestionOrderController {
         targetDocument.removeEventListener("input", handleInput, true);
         targetDocument.removeEventListener("keydown", handleKeyDown, true);
       };
-      state.keyboardCleanup = registerSuggestionKeyboardBridge({
+      const keyboard = registerSuggestionKeyboardBridge({
+        keymap: this.plugin.app.keymap,
+        parentScope: this.plugin.app.scope,
         getActiveContainer: () => this.getActiveContainer(targetDocument),
         hasActiveContext: hasActivePropertyValueSuggestionContext,
         onActivationIntent: (element) => {
@@ -326,6 +333,8 @@ export class ValueSuggestionOrderController {
         supportsEmacsNavigation: Platform.isMacOS || Platform.isIosApp,
         targetWindow,
       });
+      state.keyboardCleanup = keyboard;
+      state.synchronizeKeyboardScope = (active) => keyboard.synchronizeScope(active);
 
       if (this.getSettings().enableNativeValueSuggestionOrder) {
         this.startDocumentObservation(targetDocument, state);
@@ -406,6 +415,12 @@ export class ValueSuggestionOrderController {
       try {
         this.enhanceDocument(targetDocument);
         this.refreshCustomFallback(targetDocument);
+        const context = getActivePropertyValueSuggestionContext(targetDocument);
+        const suppressed = context != null && Array.from(this.originalSuggestions.keys())
+          .some((container) => container.ownerDocument === targetDocument &&
+            container.classList.contains(VALUE_SUGGESTIONS_SUPPRESSED_CLASS));
+        state.synchronizeKeyboardScope(context != null &&
+          (this.getActiveContainer(targetDocument) != null || suppressed));
       } finally {
         this.startDocumentObservation(targetDocument, state);
       }
@@ -608,7 +623,7 @@ export class ValueSuggestionOrderController {
       };
     }
 
-    const query = getPropertyValueInput(context)?.value.toLocaleLowerCase() ?? "";
+    const query = getPropertyValueInputText(getPropertyValueInput(context)).toLocaleLowerCase();
     if (query.length > 0) {
       plannedValues = plannedValues.filter(
         (planned) =>

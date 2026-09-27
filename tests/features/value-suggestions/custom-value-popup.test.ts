@@ -32,6 +32,29 @@ function createContext(
 }
 
 describe("custom value fallback popup", () => {
+  it("commits and filters the contenteditable list editor used by Properties", () => {
+    const { context, input } = createContext();
+    const wrapper = document.createElement("div");
+    wrapper.className = "metadata-property-value";
+    const editable = document.createElement("div");
+    editable.setAttribute("contenteditable", "true");
+    editable.tabIndex = 0;
+    editable.textContent = "pla";
+    wrapper.appendChild(editable);
+    input.replaceWith(wrapper);
+    context.editor = wrapper;
+    editable.focus();
+    const committed: string[] = [];
+    editable.addEventListener("keydown", (event) => {
+      if (event.key === "Enter") committed.push(editable.textContent ?? "");
+    });
+    const mount = mountCustomValuePopup(context, ["planned", "draft"], () => undefined);
+    expect(mount?.container.textContent).toBe("planned");
+    expect(commitCustomPropertyValueCandidate(context, "planned")).toBe(true);
+    expect(committed).toEqual(["planned"]);
+    mount?.cleanup();
+  });
+
   it("filters preset candidates against the current editor query", () => {
     const { context, input } = createContext();
     input.value = "do";

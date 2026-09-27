@@ -30,6 +30,8 @@ follow the repository's Git tags; entries summarize the corresponding commit his
 
 ### Fixed
 
+- Bound property-value keyboard handling to the active Obsidian scope and support contenteditable
+  list inputs so preset commits cannot activate a different native suggestion.
 - Removed custom fallback popups when their property editor is detached and report failures to persist selection-count clearing.
 
 - Preserved Unicode edge characters when validating property pills, converting quoted scalars to

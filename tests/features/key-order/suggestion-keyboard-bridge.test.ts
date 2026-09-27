@@ -1,6 +1,7 @@
 // @vitest-environment happy-dom
 
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import type { Keymap } from "obsidian";
 
 import { registerSuggestionKeyboardBridge } from "../../../src/features/key-order/suggestion-keyboard-bridge";
 
@@ -24,6 +25,48 @@ function createContainer(hidden = false): HTMLElement {
 describe("suggestion keyboard bridge", () => {
   beforeEach(() => document.body.replaceChildren());
   afterEach(() => vi.restoreAllMocks());
+
+  it("owns the host scope before native selection and releases it on cleanup", () => {
+    const container = createContainer();
+    const selected = container.querySelector<HTMLElement>(".suggestion-item")!;
+    const click = vi.spyOn(selected, "click");
+    let currentScope: { handler: (event: KeyboardEvent) => boolean | void } | null = null;
+    const nativeCommit = vi.fn();
+    const hostListener = (event: KeyboardEvent): void => {
+      if (currentScope != null) {
+        if (currentScope.handler(event) === false) event.stopPropagation();
+      } else {
+        nativeCommit();
+      }
+    };
+    window.addEventListener("keydown", hostListener, true);
+    const keymap = {
+      pushScope: vi.fn((scope) => { currentScope = scope; }),
+      popScope: vi.fn(() => { currentScope = null; }),
+    };
+    const cleanup = registerSuggestionKeyboardBridge({
+      keymap: keymap as unknown as Keymap,
+      getActiveContainer: () => container,
+      hasActiveContext: () => true,
+      onSynchronizationFailure: vi.fn(),
+      supportsEmacsNavigation: false,
+      targetWindow: window,
+    });
+    cleanup.synchronizeScope(true);
+    window.dispatchEvent(new KeyboardEvent("keydown", {
+      bubbles: true, cancelable: true, key: "Enter",
+    }));
+    expect(click).toHaveBeenCalledOnce();
+    expect(nativeCommit).not.toHaveBeenCalled();
+    const synthetic = new KeyboardEvent("keydown", { key: "Enter" });
+    Reflect.set(synthetic, "propertyOrderPresetCommit", true);
+    window.dispatchEvent(synthetic);
+    expect(click).toHaveBeenCalledOnce();
+    cleanup.synchronizeScope(false);
+    expect(keymap.popScope).toHaveBeenCalled();
+    cleanup();
+    window.removeEventListener("keydown", hostListener, true);
+  });
 
   it("ignores internal preset commit Enter events", () => {
     const container = createContainer(false);
