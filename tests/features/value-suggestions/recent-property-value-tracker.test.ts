@@ -177,6 +177,30 @@ describe("RecentPropertyValueTracker", () => {
     tracker.dispose();
   });
 
+  it("confirms leading and trailing whitespace as exact candidate identity", () => {
+    const file = { path: "note.md" } as TFile;
+    let cache = { frontmatter: {} } as CachedMetadata;
+    const suggestion = createValueSuggestion(" draft ");
+    const plugin = createPlugin(
+      suggestion.row.parentElement as HTMLElement,
+      file,
+      () => cache,
+    );
+    const onConfirmed = vi.fn();
+    const tracker = new RecentPropertyValueTracker({
+      getEnabled: () => true,
+      onConfirmed,
+      plugin,
+    });
+
+    tracker.captureSuggestionActivation(suggestion.item);
+    cache = { frontmatter: { status: " draft " } } as CachedMetadata;
+    tracker.handleMetadataChanged(file, cache);
+
+    expect(onConfirmed).toHaveBeenCalledWith("status", " draft ");
+    tracker.dispose();
+  });
+
   it("lets a later activation supersede stale intent for the same property", () => {
     const file = { path: "note.md" } as TFile;
     let cache = { frontmatter: {} } as CachedMetadata;

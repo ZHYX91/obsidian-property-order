@@ -61,6 +61,7 @@ function installRafHarness(targetWindow: Window = window): RafHarness {
 function createApp(options: {
   files?: TFile[];
   frontmatterByFile?: Map<TFile, Record<string, unknown>>;
+  metadataEvents?: Map<string, (...args: never[]) => void>;
 } = {}): App {
   const files = options.files ?? [];
   const frontmatterByFile = options.frontmatterByFile ?? new Map();
@@ -74,7 +75,10 @@ function createApp(options: {
         return frontmatter == null ? null : { frontmatter };
       }),
       offref: vi.fn(),
-      on: vi.fn(() => ({})),
+      on: vi.fn((name: string, callback: (...args: never[]) => void) => {
+        options.metadataEvents?.set(name, callback);
+        return {};
+      }),
     },
     vault: {
       getMarkdownFiles: vi.fn(() => files),
@@ -142,14 +146,14 @@ function replaceValues(
 
 function allValues(container: HTMLElement): string[] {
   return Array.from(container.querySelectorAll<HTMLElement>(".suggestion-item")).map(
-    (item) => item.textContent?.trim() ?? "",
+    (item) => item.textContent ?? "",
   );
 }
 
 function visibleValues(container: HTMLElement): string[] {
   return Array.from(
     container.querySelectorAll<HTMLElement>(".suggestion-item:not([hidden])"),
-  ).map((item) => item.textContent?.trim() ?? "");
+  ).map((item) => item.textContent ?? "");
 }
 
 function asTestable(controller: ValueSuggestionOrderController): TestableValueController {
@@ -559,6 +563,33 @@ describe("ValueSuggestionOrderController", () => {
     controller.dispose();
   });
 
+  it("commits an exact custom preset value without normalizing whitespace", () => {
+    const settings = createDefaultSettings();
+    settings.enableNativeValueSuggestionOrder = true;
+    settings.valueSuggestionPropertyAssignments = [
+      { behavior: "custom", propertyKey: "status" },
+    ];
+    settings.valueSuggestionCustomOrders = [{
+      bottomValues: [],
+      middleSortMode: "native",
+      middleValues: [],
+      pinnedValues: [" planned "],
+      propertyKey: "status",
+    }];
+    const controller = createController(settings);
+    const { container, editor } = createValueMenu(["planned"], "status");
+
+    asTestable(controller).enhanceContainer(container);
+    const preset = Array.from(
+      container.querySelectorAll<HTMLElement>(".property-order-preset-value-item"),
+    ).find((item) => item.textContent === " planned ");
+
+    expect(preset).not.toBeNull();
+    preset!.click();
+    expect(editor.value).toBe(" planned ");
+    controller.dispose();
+  });
+
   it("filters injected preset-only candidates by the active input query", () => {
     const settings = createDefaultSettings();
     settings.enableNativeValueSuggestionOrder = true;
@@ -581,6 +612,54 @@ describe("ValueSuggestionOrderController", () => {
     asTestable(controller).enhanceContainer(container);
 
     expect(visibleValues(container)).toEqual(["planned"]);
+    controller.dispose();
+  });
+
+  it("refreshes an active custom fallback from a metadata event through queued RAF", () => {
+    const raf = installRafHarness();
+    const files = ["one.md", "two.md", "three.md"].map((path) => ({ path }) as TFile);
+    const frontmatterByFile = new Map<TFile, Record<string, unknown>>([
+      [files[0]!, { status: "alpha" }],
+      [files[1]!, { status: "alpha" }],
+      [files[2]!, { status: "beta" }],
+    ]);
+    const metadataEvents = new Map<string, (...args: never[]) => void>();
+    const app = createApp({ files, frontmatterByFile, metadataEvents });
+    const settings = createDefaultSettings();
+    settings.enableNativeValueSuggestionOrder = true;
+    settings.valueSuggestionPropertyAssignments = [
+      { behavior: "custom", propertyKey: "status" },
+    ];
+    settings.valueSuggestionCustomOrders = [{
+      bottomValues: [],
+      middleSortMode: "note-count",
+      middleValues: [],
+      pinnedValues: [],
+      propertyKey: "status",
+    }];
+    const { container, editor } = createValueMenu([], "status");
+    container.remove();
+    editor.focus();
+    const controller = createController(settings, app);
+
+    controller.initialize();
+    raf.flush();
+    let fallback = document.querySelector<HTMLElement>(".property-order-custom-value-popup");
+    expect(fallback).not.toBeNull();
+    expect(visibleValues(fallback!)).toEqual(["alpha", "beta"]);
+
+    frontmatterByFile.set(files[0]!, { status: "beta" });
+    metadataEvents.get("changed")?.(
+      files[0] as never,
+      {} as never,
+      { frontmatter: { status: "beta" } } as never,
+    );
+
+    expect(raf.pending()).toBe(1);
+    raf.flush();
+    fallback = document.querySelector<HTMLElement>(".property-order-custom-value-popup");
+    expect(fallback).not.toBeNull();
+    expect(visibleValues(fallback!)).toEqual(["beta", "alpha"]);
     controller.dispose();
   });
 
@@ -658,6 +737,27 @@ describe("ValueSuggestionOrderController", () => {
 
     expect(visibleValues(container)).toEqual(["c", "d"]);
     expect(testable.originalSuggestions.size).toBe(1);
+  });
+
+  it("preserves distinct native values with leading and trailing whitespace", () => {
+    const settings = createDefaultSettings();
+    settings.enableNativeValueSuggestionOrder = true;
+    settings.valueSuggestionDefaultBehavior = "native";
+    const controller = createController(settings);
+    const values = [
+      "alpha",
+      " alpha",
+      "alpha ",
+      "\u00a0alpha\u00a0",
+      "\u3000alpha\u3000",
+    ];
+    const { container } = createValueMenu(values);
+
+    asTestable(controller).enhanceContainer(container);
+
+    expect(visibleValues(container)).toEqual(values);
+    expect(container.querySelectorAll<HTMLElement>(".suggestion-item[hidden]")).toHaveLength(0);
+    controller.dispose();
   });
 
   it("hides duplicate native labels after exact-value de-duplication", () => {
