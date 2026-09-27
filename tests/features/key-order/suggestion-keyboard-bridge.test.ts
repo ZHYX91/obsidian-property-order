@@ -138,6 +138,7 @@ describe("suggestion keyboard bridge", () => {
       onEscapeIntent: (event: KeyboardEvent) => void;
     };
     const cleanup = registerSuggestionKeyboardBridge(options);
+    listenerCleanups.add(cleanup);
     cleanup.synchronizeScope(true);
 
     physicalEscape = new KeyboardEvent("keydown", {
