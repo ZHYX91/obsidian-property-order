@@ -15,6 +15,8 @@ interface RafHarness {
   pending(): number;
 }
 
+const liveControllers = new Set<ValueSuggestionOrderController>();
+
 interface TestableValueController {
   activeContainers: Map<Document, HTMLElement>;
   documentStates: Map<Document, unknown>;
@@ -101,7 +103,14 @@ function createController(
     app,
     registerEvent: vi.fn(),
   } as unknown as Plugin;
-  return new ValueSuggestionOrderController(plugin, () => settings, store, frequencyStore);
+  const controller = new ValueSuggestionOrderController(
+    plugin,
+    () => settings,
+    store,
+    frequencyStore,
+  );
+  liveControllers.add(controller);
+  return controller;
 }
 
 function createValueMenu(
@@ -166,6 +175,10 @@ describe("ValueSuggestionOrderController", () => {
   });
 
   afterEach(() => {
+    for (const controller of liveControllers) {
+      controller.dispose();
+    }
+    liveControllers.clear();
     Platform.isIosApp = false;
     Platform.isMacOS = false;
     Platform.isMobileApp = false;
