@@ -21,6 +21,7 @@ import type {
 } from "../shared/types";
 import { PropertyNameSuggest } from "./property-name-suggest";
 import { renderValueSuggestionBehaviorGroups } from "./value-suggestion-behavior-groups";
+import { preserveSettingsView } from "./settings-view-state";
 import { renderCustomValueSuggestionEditor } from "./value-suggestion-custom-editor";
 import {
   applyPropertyOrderControlValue,
@@ -699,12 +700,43 @@ export class PropertyOrderSettingTab extends PluginSettingTab {
         .setButtonText(this.t("settings.valueSuggestions.frequencyHistory.clear"))
         .onClick(() => {
           this.clearPropertyValueFrequency();
-          if (this.isSettingsSurfaceCurrent(surfaceGeneration)) {
-            this.render(null);
-          }
+          const editor = containerEl.querySelector<HTMLElement>(".property-order-custom-value-layout")?.parentElement;
+          if (editor != null) renderCustom(editor);
         });
     });
 
+    const renderCustom = (container: HTMLElement): void => {
+      if (!this.isSettingsSurfaceCurrent(surfaceGeneration)) return;
+      preserveSettingsView(container, () => {
+        // Build off-document in the settings window's realm, then swap atomically.
+        const staging = container.createDiv();
+        staging.remove();
+        const customLifecycle = renderCustomValueSuggestionEditor({
+          app: this.app,
+          assignments: this.plugin.propertyOrderSettings.valueSuggestionPropertyAssignments,
+          containerEl: staging,
+          customOrders: this.plugin.propertyOrderSettings.valueSuggestionCustomOrders,
+          displayOrder: this.plugin.propertyOrderSettings.valueSuggestionKeyDisplayOrder,
+          getFrequency: (propertyKey) =>
+            this.plugin.getPropertyValueFrequency(propertyKey),
+          onCustomOrdersChange: async (orders) => {
+            this.plugin.propertyOrderSettings.valueSuggestionCustomOrders = orders;
+            await this.persistSettings(false, surfaceGeneration, true);
+          },
+          rerender: (selectedPropertyKey) => {
+            this.selectedCustomValuePropertyKey =
+              selectedPropertyKey ?? this.selectedCustomValuePropertyKey;
+            if (this.isSettingsSurfaceCurrent(surfaceGeneration)) {
+              renderCustom(container);
+            }
+          },
+          selectedPropertyKey: this.selectedCustomValuePropertyKey,
+          t: (key) => this.t(key),
+        });
+        this.selectedCustomValuePropertyKey = customLifecycle.selectedPropertyKey;
+        container.replaceChildren(...Array.from(staging.childNodes));
+      });
+    };
     const behaviorLifecycle = renderValueSuggestionBehaviorGroups({
       app: this.app,
       containerEl,
@@ -724,38 +756,10 @@ export class PropertyOrderSettingTab extends PluginSettingTab {
           displayOrder;
         await this.persistSettings(false, surfaceGeneration, false);
       },
-      rerender: () => {
-        if (this.isSettingsSurfaceCurrent(surfaceGeneration)) {
-          this.render(null);
-        }
-      },
+      renderCustomEditor: renderCustom,
       t: (key) => this.t(key),
     });
     this.trackValueSuggestionUiCleanup(() => behaviorLifecycle.close());
-
-    const customLifecycle = renderCustomValueSuggestionEditor({
-      app: this.app,
-      assignments: settings.valueSuggestionPropertyAssignments,
-      containerEl,
-      customOrders: settings.valueSuggestionCustomOrders,
-      displayOrder: settings.valueSuggestionKeyDisplayOrder,
-      getFrequency: (propertyKey) =>
-        this.plugin.getPropertyValueFrequency(propertyKey),
-      onCustomOrdersChange: async (orders) => {
-        this.plugin.propertyOrderSettings.valueSuggestionCustomOrders = orders;
-        await this.persistSettings(false, surfaceGeneration, true);
-      },
-      rerender: (selectedPropertyKey) => {
-        this.selectedCustomValuePropertyKey =
-          selectedPropertyKey ?? this.selectedCustomValuePropertyKey;
-        if (this.isSettingsSurfaceCurrent(surfaceGeneration)) {
-          this.render(null);
-        }
-      },
-      selectedPropertyKey: this.selectedCustomValuePropertyKey,
-      t: (key) => this.t(key),
-    });
-    this.selectedCustomValuePropertyKey = customLifecycle.selectedPropertyKey;
   }
 
   private clearPropertyValueFrequency(): void {

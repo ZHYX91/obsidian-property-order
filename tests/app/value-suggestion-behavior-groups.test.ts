@@ -178,7 +178,7 @@ describe("renderValueSuggestionBehaviorGroups", () => {
     } as unknown as App;
   }
 
-  it("renders six groups, removes chips, adds keys, and confirms cross-group moves", async () => {
+  it("renders only configured cards, preserves add controls, and confirms cross-card moves", async () => {
     let assignments: PropertyValueBehaviorAssignment[] = [
       { behavior: "name", propertyKey: "status" },
       { behavior: "none", propertyKey: "id" },
@@ -203,14 +203,13 @@ describe("renderValueSuggestionBehaviorGroups", () => {
       getAssignments: () => assignments,
       onAssignmentsChange,
       onDisplayOrderChange,
-      rerender,
       t: (key) => key,
     });
 
     const groups = Array.from(
       container.querySelectorAll<HTMLElement>(".property-order-value-behavior-group"),
     );
-    expect(groups).toHaveLength(6);
+    expect(groups).toHaveLength(3);
     expect(dropdowns).toHaveLength(1);
     expect(dropdowns[0]?.value).toBe("name");
 
@@ -219,10 +218,10 @@ describe("renderValueSuggestionBehaviorGroups", () => {
     dropdowns[0]?.onChange?.("recent");
     await Promise.resolve();
     expect(onDisplayOrderChange).toHaveBeenCalledWith("recent");
-    expect(rerender).toHaveBeenCalled();
+    expect(rerender).not.toHaveBeenCalled();
 
     const nameGroup = groups.find((group) =>
-      group.querySelector("h4")?.textContent?.includes("sortMode.nameOption"),
+      group.dataset.behavior === "name",
     );
     expect(nameGroup).toBeDefined();
 
@@ -243,11 +242,16 @@ describe("renderValueSuggestionBehaviorGroups", () => {
       throw new Error("Expected name-group add controls.");
     }
 
+    container.scrollTop = 450;
+    nameInput.focus();
     nameInput.value = "project";
     commitButton.click();
     await Promise.resolve();
     await Promise.resolve();
     expect(assignments).toContainEqual({ behavior: "name", propertyKey: "project" });
+    expect(container.scrollTop).toBe(450);
+    expect(document.activeElement).toBe(nameInput);
+    expect(nameGroup?.querySelector("input")).toBe(nameInput);
 
     nameInput.value = "id";
     commitButton.click();
@@ -264,12 +268,13 @@ describe("renderValueSuggestionBehaviorGroups", () => {
     expect(onAssignmentsChange).toHaveBeenCalledTimes(changeCalls);
 
     lifecycle.close();
-    expect(close).toHaveBeenCalledTimes(6);
+    expect(close).toHaveBeenCalledTimes(3);
   });
 
   it("does not move an assigned key when confirmation is cancelled", async () => {
     let assignments: PropertyValueBehaviorAssignment[] = [
       { behavior: "none", propertyKey: "id" },
+      { behavior: "name", propertyKey: "status" },
     ];
     const onAssignmentsChange = vi.fn(async (next: PropertyValueBehaviorAssignment[]) => {
       assignments = next;
@@ -285,14 +290,13 @@ describe("renderValueSuggestionBehaviorGroups", () => {
       getAssignments: () => assignments,
       onAssignmentsChange,
       onDisplayOrderChange: () => Promise.resolve(),
-      rerender: vi.fn(),
       t: (key) => key,
     });
 
     const nameGroup = Array.from(
       container.querySelectorAll<HTMLElement>(".property-order-value-behavior-group"),
     ).find((group) =>
-      group.querySelector("h4")?.textContent?.includes("sortMode.nameOption"),
+      group.dataset.behavior === "name",
     );
     const input = nameGroup?.querySelector<HTMLInputElement>(
       ".property-order-value-behavior-input",
@@ -308,7 +312,39 @@ describe("renderValueSuggestionBehaviorGroups", () => {
     await Promise.resolve();
 
     expect(onAssignmentsChange).not.toHaveBeenCalled();
-    expect(assignments).toEqual([{ behavior: "none", propertyKey: "id" }]);
+    expect(assignments).toEqual([{ behavior: "none", propertyKey: "id" }, { behavior: "name", propertyKey: "status" }]);
+  });
+
+  it("adds cards on demand and merges all keys when changing to an existing behavior", async () => {
+    let assignments: PropertyValueBehaviorAssignment[] = [
+      { behavior: "frequency", propertyKey: "priority" },
+      { behavior: "name", propertyKey: "status" },
+      { behavior: "name", propertyKey: "project" },
+    ];
+    const container = document.body.createDiv();
+    renderValueSuggestionBehaviorGroups({
+      app: createApp(), containerEl: container, customOrderKeys: [], displayOrder: "name",
+      getAssignments: () => assignments,
+      onAssignmentsChange: async (next) => { assignments = next; },
+      onDisplayOrderChange: async () => undefined, t: (key) => key,
+    });
+    const name = container.querySelector<HTMLElement>('[data-behavior="name"]')!;
+    const frequency = container.querySelector<HTMLElement>('[data-behavior="frequency"]')!;
+    const select = name.querySelector("select")!;
+    select.value = "frequency";
+    select.dispatchEvent(new Event("change"));
+    await Promise.resolve();
+    await Promise.resolve();
+    expect(container.querySelector('[data-behavior="name"]')).toBeNull();
+    expect(container.querySelector('[data-behavior="frequency"]')).toBe(frequency);
+    expect(assignments).toHaveLength(3);
+    expect(assignments.every((assignment) => assignment.behavior === "frequency")).toBe(true);
+    const add = container.lastElementChild!;
+    const choice = add.querySelector("select")!;
+    choice.value = "custom";
+    add.querySelector<HTMLButtonElement>("button")!.click();
+    expect(container.querySelector('[data-behavior="custom"]')).not.toBeNull();
+    expect(assignments).toHaveLength(3);
   });
 
   it("maps every behavior to a localized label", () => {

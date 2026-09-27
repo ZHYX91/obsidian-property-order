@@ -79,7 +79,10 @@ export function renderCustomValueSuggestionEditor(
       : "property-order-custom-value-key";
     button.textContent = propertyKey;
     button.setAttribute("aria-pressed", String(equalKey(propertyKey, selectedPropertyKey)));
-    button.addEventListener("click", () => options.rerender(propertyKey));
+    button.dataset.settingsFocus = `custom-key:${propertyKey}`;
+    button.addEventListener("click", () => {
+      if (!equalKey(propertyKey, selectedPropertyKey)) options.rerender(propertyKey);
+    });
   }
 
   const heading = editor.createEl("h4");
@@ -182,6 +185,7 @@ export function renderCustomValueSuggestionEditor(
         button.type = "button";
         button.textContent = text;
         button.title = labelText;
+        button.dataset.settingsFocus = `candidate:${item.value}:${text}`;
         button.setAttribute("aria-label", `${labelText}: ${item.value}`);
         button.disabled = disabled;
         button.addEventListener("click", onClick);
@@ -273,6 +277,7 @@ export function renderCustomValueSuggestionEditor(
       });
       const input = addRow.createEl("input");
       input.type = "text";
+      input.dataset.settingsFocus = `custom-add:${placement}`;
       input.placeholder = options.t("settings.valueSuggestions.custom.valuePlaceholder");
       const button = addRow.createEl("button");
       button.type = "button";
@@ -283,6 +288,7 @@ export function renderCustomValueSuggestionEditor(
         }
         const value = input.value;
         input.value = "";
+        input.focus({ preventScroll: true });
         void persist(moveCustomCandidate(order, value, placement));
       };
       button.addEventListener("click", commit);

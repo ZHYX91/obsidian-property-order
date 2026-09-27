@@ -173,6 +173,8 @@ describe("renderCustomValueSuggestionEditor", () => {
     ]);
     expect(dropdowns[0]?.value).toBe("native");
 
+    container.querySelector<HTMLButtonElement>(".property-order-custom-value-key.is-active")?.click();
+    expect(rerender).not.toHaveBeenCalled();
     const priorityButton = Array.from(
       container.querySelectorAll<HTMLButtonElement>(".property-order-custom-value-key"),
     ).find((button) => button.textContent === "priority");

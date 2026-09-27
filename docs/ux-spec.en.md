@@ -39,6 +39,7 @@ This document mirrors the authoritative current interaction and presentation con
 ## Property-value suggestions
 
 - Value suggestions remains independently opt-in. Unassigned properties follow one default among Native, Name, Selection frequency, Note count, and No suggestions.
+- Rule cards appear on demand and include their behavior selector, property chips, and add input. Changing a card behavior moves all its keys, merging matching cards. Local updates retain page position and focus; selecting the already active custom key does nothing.
 - Exact property keys can be placed in one of six mutually exclusive groups: Name, Selection frequency, Note count, Native, No suggestions, or Custom candidates. Removing a key from a group makes it follow the default again.
 - Each ordinary group renders configured keys as compact removable chips. One page-level display preference orders chips inside each group by property name or by most recently added to that group; it never changes YAML order or candidate order.
 - The Add property control accepts direct typing and autocomplete from both Vault-discovered and already configured keys. A key already in the target group is marked unavailable for duplicate addition. A key in another group remains visible with its current group and, when selected, shows a confirmation before it moves.

@@ -303,8 +303,25 @@ body.property-order-value-drag-enabled .metadata-property .multi-select-pill {
 }
 
 .property-order-value-behavior-group {
-  border-block-start: 1px solid var(--background-modifier-border);
-  padding-block: var(--size-4-3);
+  border: 1px solid var(--background-modifier-border);
+  border-radius: var(--radius-m);
+  padding: var(--size-4-4);
+  margin-block: var(--size-4-3);
+}
+
+.property-order-value-behavior-group-header label {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--size-2-2);
+}
+
+.property-order-value-behavior-group-header select {
+  max-width: 100%;
+}
+
+.property-order-value-behavior-add[hidden] {
+  display: none;
 }
 
 .property-order-value-behavior-group-header {
