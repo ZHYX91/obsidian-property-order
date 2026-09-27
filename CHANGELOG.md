@@ -5,6 +5,22 @@ follow the repository's Git tags; entries summarize the corresponding commit his
 
 ## [Unreleased]
 
+## [0.8.1] - 2026-09-27
+
+### Fixed
+
+- Kept Value suggestions controls bound to the current settings snapshot after each save, so
+  consecutive default-behavior edits and changes after rule-card saves persist correctly.
+- Preserved exact native property-value candidate identity, including meaningful leading and
+  trailing whitespace, through ordering, node mapping, keyboard navigation and activation,
+  candidate commit, and confirmed selection tracking without changing property-name normalization.
+- Refreshed plugin-owned custom fallback candidates after metadata changes even when the current
+  query has no matches, while preserving an exact selected value only within the same
+  editor/property/query context, safely selecting a remaining candidate when needed, and keeping
+  Escape or focus-loss closures inactive until a new input/focus session starts. Scope-owned
+  Escape now closes that session before the native forwarded Escape can be consumed, while
+  internal focus transfers within one value editor preserve the session and exact selection.
+
 ## [0.8.0] - 2026-09-27
 
 ### Added

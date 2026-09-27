@@ -146,6 +146,29 @@ describe("orderPropertyValues", () => {
       }).map((item) => item.value),
     ).toEqual(["alpha", "beta"]);
   });
+
+  it("preserves leading and trailing whitespace as exact value identity", () => {
+    const nbsp = "\u00a0";
+    const ideographicSpace = "\u3000";
+    const values = [
+      "alpha",
+      " alpha",
+      "alpha ",
+      `${nbsp}alpha${nbsp}`,
+      `${ideographicSpace}alpha${ideographicSpace}`,
+    ];
+
+    expect(
+      orderPropertyValues(values, {
+        bottomValues: [],
+        hiddenPatterns: [],
+        pinnedValues: [],
+        recentValues: [],
+        sortMode: "native",
+        usage: [],
+      }).map((item) => item.value),
+    ).toEqual(values);
+  });
 });
 
 describe("orderPropertyValuesByFrequency", () => {

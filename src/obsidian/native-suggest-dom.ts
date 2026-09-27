@@ -45,13 +45,16 @@ export function findSuggestionContainers(root: ParentNode = document): HTMLEleme
 }
 
 export function getSuggestionItems(container: HTMLElement): SuggestionItem[] {
-  const itemElements = SUGGESTION_ITEM_SELECTORS.flatMap((selector) =>
-    Array.from(container.querySelectorAll<HTMLElement>(selector)),
-  ).filter((element, index, elements) => elements.indexOf(element) === index);
+  return getSuggestionItemsWithExtractor(container, extractSuggestionText);
+}
 
-  return itemElements
-    .map((element) => ({ element, key: extractSuggestionText(element) }))
-    .filter((item) => item.key.length > 0);
+export function getPropertyValueSuggestionItems(
+  container: HTMLElement,
+): SuggestionItem[] {
+  return getSuggestionItemsWithExtractor(
+    container,
+    extractPropertyValueSuggestionText,
+  );
 }
 
 export function getSuggestionItemParent(items: SuggestionItem[]): HTMLElement | null {
@@ -110,7 +113,7 @@ export function getPropertyValueSuggestionContext(
 
 export function isPropertyValueSuggestionContainer(
   container: HTMLElement,
-  items = getSuggestionItems(container),
+  items = getPropertyValueSuggestionItems(container),
 ): boolean {
   return (
     resolvePropertyValueSuggestionContainer(container) === container &&
@@ -192,12 +195,33 @@ export function hasActivePropertyKeySuggestionContext(
   return activeElement?.closest(PROPERTY_KEY_EDITOR_SELECTOR) != null;
 }
 
+function getSuggestionItemsWithExtractor(
+  container: HTMLElement,
+  extractKey: (element: HTMLElement) => string,
+): SuggestionItem[] {
+  const itemElements = SUGGESTION_ITEM_SELECTORS.flatMap((selector) =>
+    Array.from(container.querySelectorAll<HTMLElement>(selector)),
+  ).filter((element, index, elements) => elements.indexOf(element) === index);
+
+  return itemElements
+    .map((element) => ({ element, key: extractKey(element) }))
+    .filter((item) => item.key.length > 0);
+}
+
 function extractSuggestionText(element: HTMLElement): string {
+  return extractSuggestionTextElement(element).trim();
+}
+
+function extractPropertyValueSuggestionText(element: HTMLElement): string {
+  return extractSuggestionTextElement(element);
+}
+
+function extractSuggestionTextElement(element: HTMLElement): string {
   const textElement =
     element.querySelector<HTMLElement>(".suggestion-title") ??
     element.querySelector<HTMLElement>(".menu-item-title") ??
     element;
-  return (textElement.textContent ?? "").trim();
+  return textElement.textContent ?? "";
 }
 
 function asHtmlElement(value: unknown): HTMLElement | null {

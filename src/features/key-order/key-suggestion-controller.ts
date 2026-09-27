@@ -265,6 +265,7 @@ export class KeySuggestionOrderController {
       state.recentTrackingCleanup = this.recentKeyTracker.registerDocument(targetDocument);
       state.keyboardCleanup = registerSuggestionKeyboardBridge({
         getActiveContainer: () => this.getActiveContainer(targetDocument),
+        getSuggestionElements: getPropertyKeySuggestionElements,
         onActivationIntent: (element, activation, event) => {
           this.recentKeyTracker.captureSuggestionActivation(
             element,
@@ -730,7 +731,11 @@ export class KeySuggestionOrderController {
       itemParent.appendChild(element);
     }
 
-    if (!synchronizeSuggestionSelection(container, snapshot.appliedState == null)) {
+    if (!synchronizeSuggestionSelection(
+      container,
+      snapshot.appliedState == null,
+      getPropertyKeySuggestionElements,
+    )) {
       this.restoreContainer(container);
       return;
     }
@@ -918,4 +923,8 @@ function getElementAtOrAboveNode(node: Node): HTMLElement | null {
 function getOwnerDocument(root: ParentNode): Document | null {
   const node = root as Node;
   return node.nodeType === 9 ? (node as Document) : node.ownerDocument;
+}
+
+function getPropertyKeySuggestionElements(container: HTMLElement): HTMLElement[] {
+  return getSuggestionItems(container).map((item) => item.element);
 }

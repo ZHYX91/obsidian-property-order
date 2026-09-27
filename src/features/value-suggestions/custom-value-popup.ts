@@ -4,12 +4,16 @@ export interface CustomValuePopupMount {
   cleanup(): void;
   container: HTMLElement;
   editor: HTMLElement;
+  getSelectedValue(): string | null;
+  propertyKey: string;
+  query: string;
 }
 
 export function mountCustomValuePopup(
   context: PropertyValueSuggestionContext,
   values: readonly string[],
   onCommit: (value: string) => void,
+  selectedValue: string | null = null,
 ): CustomValuePopupMount | null {
   const input = getPropertyValueInput(context);
   const targetWindow = context.editor.ownerDocument.defaultView;
@@ -18,7 +22,8 @@ export function mountCustomValuePopup(
     return null;
   }
 
-  const query = getPropertyValueInputText(input).toLocaleLowerCase();
+  const rawQuery = getPropertyValueInputText(input);
+  const query = rawQuery.toLocaleLowerCase();
   const visibleValues = values.filter(
     (value) => query.length === 0 || value.toLocaleLowerCase().includes(query),
   );
@@ -39,13 +44,18 @@ export function mountCustomValuePopup(
   container.style.minWidth = `${Math.max(160, Math.round(editorRect.width))}px`;
   container.style.maxWidth = `${Math.max(200, targetWindow.innerWidth - 16)}px`;
 
+  const selectedIndex = Math.max(0, visibleValues.indexOf(selectedValue ?? ""));
+  const itemValues: Array<{ element: HTMLElement; value: string }> = [];
+
   for (const [index, value] of visibleValues.entries()) {
+    const isSelected = index === selectedIndex;
     const item = container.createDiv({
-      cls: index === 0 ? "suggestion-item is-selected" : "suggestion-item",
+      cls: isSelected ? "suggestion-item is-selected" : "suggestion-item",
     });
+    itemValues.push({ element: item, value });
     item.dataset.propertyOrderPresetValue = "true";
     item.setAttribute("role", "option");
-    item.setAttribute("aria-selected", String(index === 0));
+    item.setAttribute("aria-selected", String(isSelected));
 
     const title = item.createDiv({ cls: "suggestion-title" });
     title.textContent = value;
@@ -81,6 +91,15 @@ export function mountCustomValuePopup(
   return {
     container,
     editor: context.editor,
+    propertyKey: context.propertyKey,
+    query: rawQuery,
+    getSelectedValue() {
+      return itemValues.find(({ element }) =>
+        element.classList.contains("is-selected") &&
+        !element.hidden &&
+        element.getAttribute("aria-hidden") !== "true"
+      )?.value ?? null;
+    },
     cleanup() {
       if (cleaned) {
         return;

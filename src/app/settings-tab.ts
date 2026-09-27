@@ -603,16 +603,16 @@ export class PropertyOrderSettingTab extends PluginSettingTab {
 
   private displayValueSuggestionSettings(containerEl: HTMLElement): void {
     const surfaceGeneration = this.settingsSurfaceGeneration;
-    const settings = this.plugin.propertyOrderSettings;
+    const settingsAtRender = this.plugin.propertyOrderSettings;
 
     new Setting(containerEl)
       .setName(this.t("settings.valueSuggestions.enable.name"))
       .setDesc(this.t("settings.valueSuggestions.enable.desc"))
       .addToggle((toggle) => {
         toggle
-          .setValue(settings.enableNativeValueSuggestionOrder)
+          .setValue(settingsAtRender.enableNativeValueSuggestionOrder)
           .onChange(async (value) => {
-            settings.enableNativeValueSuggestionOrder = value;
+            this.plugin.propertyOrderSettings.enableNativeValueSuggestionOrder = value;
             await this.persistSettings(false, surfaceGeneration, true);
 
             if (this.isSettingsSurfaceCurrent(surfaceGeneration)) {
@@ -621,11 +621,11 @@ export class PropertyOrderSettingTab extends PluginSettingTab {
           });
       });
 
-    if (!settings.enableNativeValueSuggestionOrder) {
+    if (!settingsAtRender.enableNativeValueSuggestionOrder) {
       addInactiveHint(containerEl, this.t("settings.valueSuggestions.disabledHint"));
     }
 
-    if (settings.valueSuggestionLegacyMigrationPending) {
+    if (settingsAtRender.valueSuggestionLegacyMigrationPending) {
       const migrationEl = containerEl.createDiv({
         cls: "property-order-value-suggestion-migration",
       });
@@ -640,11 +640,11 @@ export class PropertyOrderSettingTab extends PluginSettingTab {
       const legacyRules = details.createEl("pre");
       legacyRules.className = "property-order-legacy-value-rules";
       legacyRules.textContent = [
-        `default = ${settings.valueSuggestionSortMode}`,
-        ...settings.valueSuggestionSortOverrides.map((rule) => `behavior: ${rule}`),
-        ...settings.pinnedPropertyValues.map((rule) => `pinned: ${rule}`),
-        ...settings.bottomPropertyValues.map((rule) => `bottom: ${rule}`),
-        ...settings.hiddenPropertyValuePatterns.map((rule) => `hidden: ${rule}`),
+        `default = ${settingsAtRender.valueSuggestionSortMode}`,
+        ...settingsAtRender.valueSuggestionSortOverrides.map((rule) => `behavior: ${rule}`),
+        ...settingsAtRender.pinnedPropertyValues.map((rule) => `pinned: ${rule}`),
+        ...settingsAtRender.bottomPropertyValues.map((rule) => `bottom: ${rule}`),
+        ...settingsAtRender.hiddenPropertyValuePatterns.map((rule) => `hidden: ${rule}`),
       ].join("\n");
 
       const adoptButton = migrationEl.createEl("button");
@@ -660,7 +660,7 @@ export class PropertyOrderSettingTab extends PluginSettingTab {
           return;
         }
 
-        settings.valueSuggestionLegacyMigrationPending = false;
+        this.plugin.propertyOrderSettings.valueSuggestionLegacyMigrationPending = false;
         void this.persistSettings(false, surfaceGeneration, true).then(() => {
           if (this.isSettingsSurfaceCurrent(surfaceGeneration)) {
             this.render(null);
@@ -681,13 +681,13 @@ export class PropertyOrderSettingTab extends PluginSettingTab {
         }
 
         dropdown
-          .setValue(settings.valueSuggestionDefaultBehavior)
+          .setValue(settingsAtRender.valueSuggestionDefaultBehavior)
           .onChange(async (value) => {
             if (!isValueSuggestionDefaultBehavior(value)) {
               return;
             }
 
-            settings.valueSuggestionDefaultBehavior = value;
+            this.plugin.propertyOrderSettings.valueSuggestionDefaultBehavior = value;
             await this.persistSettings(false, surfaceGeneration, true);
           });
       });
@@ -740,10 +740,10 @@ export class PropertyOrderSettingTab extends PluginSettingTab {
     const behaviorLifecycle = renderValueSuggestionBehaviorGroups({
       app: this.app,
       containerEl,
-      customOrderKeys: settings.valueSuggestionCustomOrders.map(
+      customOrderKeys: settingsAtRender.valueSuggestionCustomOrders.map(
         (order) => order.propertyKey,
       ),
-      displayOrder: settings.valueSuggestionKeyDisplayOrder,
+      displayOrder: settingsAtRender.valueSuggestionKeyDisplayOrder,
       getAssignments: () =>
         this.plugin.propertyOrderSettings.valueSuggestionPropertyAssignments,
       onAssignmentsChange: async (assignments) => {

@@ -22,9 +22,34 @@ function createContainer(hidden = false): HTMLElement {
   return container;
 }
 
+function createExactValueContainer(values: readonly string[]): HTMLElement {
+  const container = document.createElement("div");
+  container.className = "suggestion-container";
+
+  for (const value of values) {
+    const item = document.createElement("div");
+    item.className = "suggestion-item";
+    const title = document.createElement("div");
+    title.className = "suggestion-title";
+    title.textContent = value;
+    item.appendChild(title);
+    container.appendChild(item);
+  }
+
+  container.firstElementChild?.classList.add("is-selected");
+  document.body.appendChild(container);
+  return container;
+}
+
+const listenerCleanups = new Set<() => void>();
+
 describe("suggestion keyboard bridge", () => {
   beforeEach(() => document.body.replaceChildren());
-  afterEach(() => vi.restoreAllMocks());
+  afterEach(() => {
+    for (const cleanup of listenerCleanups) cleanup();
+    listenerCleanups.clear();
+    vi.restoreAllMocks();
+  });
 
   it("owns the host scope before native selection and releases it on cleanup", () => {
     const container = createContainer();
@@ -66,6 +91,71 @@ describe("suggestion keyboard bridge", () => {
     expect(keymap.popScope).toHaveBeenCalled();
     cleanup();
     window.removeEventListener("keydown", hostListener, true);
+  });
+
+  it("reports Escape intent before a host capture layer consumes the forwarded event", () => {
+    const container = createContainer();
+    const editor = document.createElement("input");
+    document.body.appendChild(editor);
+    editor.focus();
+
+    let currentScope: { handler: ((event: KeyboardEvent) => boolean | void) | null } | null = null;
+    let physicalEscape: KeyboardEvent | null = null;
+    const swallowedForwardedEscape = vi.fn();
+    const onEscapeIntent = vi.fn();
+    const hostCapture = (event: KeyboardEvent): void => {
+      if (event !== physicalEscape) {
+        swallowedForwardedEscape();
+        event.stopImmediatePropagation();
+        return;
+      }
+
+      const handled = currentScope?.handler?.(event);
+      if (handled === false) {
+        event.stopImmediatePropagation();
+      }
+    };
+    window.addEventListener("keydown", hostCapture, true);
+    listenerCleanups.add(() => window.removeEventListener("keydown", hostCapture, true));
+
+    const keymap = {
+      pushScope: vi.fn((scope) => {
+        currentScope = scope as { handler: ((event: KeyboardEvent) => boolean | void) | null };
+      }),
+      popScope: vi.fn(() => {
+        currentScope = null;
+      }),
+    };
+    const options = {
+      keymap: keymap as unknown as Keymap,
+      getActiveContainer: () => container,
+      hasActiveContext: () => true,
+      onEscapeIntent,
+      onSynchronizationFailure: vi.fn(),
+      supportsEmacsNavigation: false,
+      targetWindow: window,
+    } as Parameters<typeof registerSuggestionKeyboardBridge>[0] & {
+      onEscapeIntent: (event: KeyboardEvent) => void;
+    };
+    const cleanup = registerSuggestionKeyboardBridge(options);
+    listenerCleanups.add(cleanup);
+    cleanup.synchronizeScope(true);
+
+    physicalEscape = new KeyboardEvent("keydown", {
+      bubbles: true,
+      cancelable: true,
+      code: "Escape",
+      key: "Escape",
+    });
+    editor.dispatchEvent(physicalEscape);
+
+    expect(swallowedForwardedEscape).toHaveBeenCalledOnce();
+    expect(onEscapeIntent).toHaveBeenCalledOnce();
+    expect(onEscapeIntent).toHaveBeenCalledWith(physicalEscape);
+    expect(keymap.popScope).toHaveBeenCalledOnce();
+
+    cleanup();
+    window.removeEventListener("keydown", hostCapture, true);
   });
 
   it("ignores internal preset commit Enter events", () => {
@@ -140,6 +230,81 @@ describe("suggestion keyboard bridge", () => {
 
     window.dispatchEvent(new KeyboardEvent("keydown", { key: "Tab" }));
     expect(onActivationIntent).toHaveBeenCalledOnce();
+    cleanup();
+  });
+
+  it("navigates and activates whitespace-only and near-label candidates by element identity", () => {
+    const values = [" ", "\u00a0", "\u3000", "alpha", " alpha", "alpha "];
+    const container = createExactValueContainer(values);
+    const items = Array.from(
+      container.querySelectorAll<HTMLElement>(".suggestion-item"),
+    );
+    const clicks = items.map((item) => vi.spyOn(item, "click"));
+    const onActivationIntent = vi.fn();
+    const keymap = {
+      popScope: vi.fn(),
+      pushScope: vi.fn(),
+    };
+    const cleanup = registerSuggestionKeyboardBridge({
+      keymap: keymap as unknown as Keymap,
+      getActiveContainer: () => container,
+      hasActiveContext: () => true,
+      onActivationIntent,
+      onSynchronizationFailure: vi.fn(),
+      supportsEmacsNavigation: false,
+      targetWindow: window,
+    });
+
+    const enter = new KeyboardEvent("keydown", {
+      bubbles: true,
+      cancelable: true,
+      key: "Enter",
+    });
+    window.dispatchEvent(enter);
+    expect(clicks[0]).toHaveBeenCalledOnce();
+    expect(onActivationIntent).toHaveBeenLastCalledWith(
+      items[0],
+      "enter",
+      enter,
+    );
+
+    items.forEach((item, index) => item.classList.toggle("is-selected", index === 0));
+    window.dispatchEvent(new KeyboardEvent("keydown", {
+      bubbles: true,
+      cancelable: true,
+      key: "ArrowDown",
+    }));
+    expect(items[1]?.classList.contains("is-selected")).toBe(true);
+
+    items.forEach((item, index) => item.classList.toggle("is-selected", index === 2));
+    const tab = new KeyboardEvent("keydown", {
+      bubbles: true,
+      cancelable: true,
+      key: "Tab",
+    });
+    window.dispatchEvent(tab);
+    expect(tab.defaultPrevented).toBe(true);
+    expect(clicks[2]).toHaveBeenCalledOnce();
+    expect(onActivationIntent).toHaveBeenLastCalledWith(
+      items[2],
+      "tab",
+      tab,
+    );
+
+    window.dispatchEvent(new KeyboardEvent("keydown", {
+      bubbles: true,
+      cancelable: true,
+      key: "ArrowDown",
+    }));
+    expect(items[3]?.classList.contains("is-selected")).toBe(true);
+    window.dispatchEvent(new KeyboardEvent("keydown", {
+      bubbles: true,
+      cancelable: true,
+      key: "ArrowDown",
+    }));
+    expect(items[4]?.classList.contains("is-selected")).toBe(true);
+    expect(items[4]?.textContent).toBe(" alpha");
+
     cleanup();
   });
 });
