@@ -1195,6 +1195,155 @@ describe("ValueSuggestionOrderController", () => {
     expect(keymap.pushScope).toHaveBeenCalledTimes(2);
   });
 
+  it("preserves fallback selection across delayed focus transfer within one editor", async () => {
+    const raf = installRafHarness();
+    const settings = createDefaultSettings();
+    settings.enableNativeValueSuggestionOrder = true;
+    settings.valueSuggestionPropertyAssignments = [
+      { behavior: "custom", propertyKey: "status" },
+    ];
+    settings.valueSuggestionCustomOrders = [{
+      bottomValues: [],
+      middleSortMode: "native",
+      middleValues: [],
+      pinnedValues: ["alpha", "beta"],
+      propertyKey: "status",
+    }];
+
+    const row = document.createElement("div");
+    row.className = "metadata-property";
+    row.dataset.propertyKey = "status";
+    const editor = document.createElement("div");
+    editor.className = "metadata-property-value";
+    const inputA = document.createElement("input");
+    const inputB = document.createElement("input");
+    editor.append(inputA, inputB);
+    row.appendChild(editor);
+    document.body.appendChild(row);
+    inputA.focus();
+
+    const controller = createController(settings);
+    controller.initialize();
+    raf.flush();
+
+    let fallback = document.querySelector<HTMLElement>(
+      ".property-order-custom-value-popup",
+    );
+    expect(visibleValues(fallback!)).toEqual(["alpha", "beta"]);
+    window.dispatchEvent(new KeyboardEvent("keydown", {
+      bubbles: true,
+      cancelable: true,
+      key: "ArrowDown",
+    }));
+    expect(fallback?.querySelector(".is-selected")?.textContent).toBe("beta");
+
+    const activeElement = vi
+      .spyOn(document, "activeElement", "get")
+      .mockReturnValue(document.body);
+    inputA.dispatchEvent(new FocusEvent("focusout", {
+      bubbles: true,
+      relatedTarget: inputB,
+    }));
+
+    // Chromium can expose BODY as activeElement while relatedTarget already
+    // identifies the next control. Let the controller's queued microtask run
+    // before B receives its real focus.
+    await Promise.resolve();
+
+    expect(document.querySelector(".property-order-custom-value-popup")).not.toBeNull();
+
+    activeElement.mockRestore();
+    inputB.focus();
+    expect(raf.pending()).toBe(1);
+    raf.flush();
+
+    fallback = document.querySelector<HTMLElement>(
+      ".property-order-custom-value-popup",
+    );
+    expect(fallback?.querySelector(".is-selected")?.textContent).toBe("beta");
+
+    inputB.dispatchEvent(new KeyboardEvent("keydown", {
+      bubbles: true,
+      cancelable: true,
+      key: "Enter",
+    }));
+    expect(inputB.value).toBe("beta");
+  });
+
+  it("does not let stale focusout cleanup delete a newer fallback session", async () => {
+    const raf = installRafHarness();
+    const settings = createDefaultSettings();
+    settings.enableNativeValueSuggestionOrder = true;
+    settings.valueSuggestionPropertyAssignments = [
+      { behavior: "custom", propertyKey: "status" },
+      { behavior: "custom", propertyKey: "priority" },
+    ];
+    settings.valueSuggestionCustomOrders = [
+      {
+        bottomValues: [],
+        middleSortMode: "native",
+        middleValues: [],
+        pinnedValues: ["alpha"],
+        propertyKey: "status",
+      },
+      {
+        bottomValues: [],
+        middleSortMode: "native",
+        middleValues: [],
+        pinnedValues: ["high"],
+        propertyKey: "priority",
+      },
+    ];
+
+    const statusRow = document.createElement("div");
+    statusRow.className = "metadata-property";
+    statusRow.dataset.propertyKey = "status";
+    const statusEditor = document.createElement("input");
+    statusEditor.className = "metadata-property-value";
+    statusRow.appendChild(statusEditor);
+
+    const priorityRow = document.createElement("div");
+    priorityRow.className = "metadata-property";
+    priorityRow.dataset.propertyKey = "priority";
+    const priorityEditor = document.createElement("input");
+    priorityEditor.className = "metadata-property-value";
+    priorityRow.appendChild(priorityEditor);
+    document.body.append(statusRow, priorityRow);
+    statusEditor.focus();
+
+    const controller = createController(settings);
+    controller.initialize();
+    raf.flush();
+    expect(visibleValues(document.querySelector<HTMLElement>(
+      ".property-order-custom-value-popup",
+    )!)).toEqual(["alpha"]);
+
+    const activeElement = vi
+      .spyOn(document, "activeElement", "get")
+      .mockReturnValue(document.body);
+    statusEditor.dispatchEvent(new FocusEvent("focusout", {
+      bubbles: true,
+      relatedTarget: priorityEditor,
+    }));
+    priorityEditor.dispatchEvent(new FocusEvent("focusin", {
+      bubbles: true,
+      relatedTarget: statusEditor,
+    }));
+
+    // The old focusout cleanup is now stale: focusin has already created a
+    // newer session even though activeElement still models Chromium's BODY gap.
+    await Promise.resolve();
+
+    expect(document.querySelector(".property-order-custom-value-popup")).not.toBeNull();
+
+    activeElement.mockRestore();
+    priorityEditor.focus();
+    raf.flush();
+    expect(visibleValues(document.querySelector<HTMLElement>(
+      ".property-order-custom-value-popup",
+    )!)).toEqual(["high"]);
+  });
+
   it("clears fallback and keyboard ownership after editor blur without another focus target", async () => {
     const raf = installRafHarness();
     const file = { path: "one.md" } as TFile;
