@@ -663,6 +663,332 @@ describe("ValueSuggestionOrderController", () => {
     controller.dispose();
   });
 
+  it("preserves a non-first fallback selection across metadata refresh and commits it", () => {
+    const raf = installRafHarness();
+    const files = ["one.md", "two.md"].map((path) => ({ path }) as TFile);
+    const frontmatterByFile = new Map<TFile, Record<string, unknown>>([
+      [files[0]!, { status: "alpha" }],
+      [files[1]!, { status: "beta" }],
+    ]);
+    const metadataEvents = new Map<string, (...args: never[]) => void>();
+    const app = createApp({ files, frontmatterByFile, metadataEvents });
+    const settings = createDefaultSettings();
+    settings.enableNativeValueSuggestionOrder = true;
+    settings.valueSuggestionPropertyAssignments = [
+      { behavior: "custom", propertyKey: "status" },
+    ];
+    settings.valueSuggestionCustomOrders = [{
+      bottomValues: [],
+      middleSortMode: "note-count",
+      middleValues: [],
+      pinnedValues: [],
+      propertyKey: "status",
+    }];
+    const { container, editor } = createValueMenu([], "status");
+    container.remove();
+    const controller = createController(settings, app);
+
+    controller.initialize();
+    raf.flush();
+    let fallback = document.querySelector<HTMLElement>(
+      ".property-order-custom-value-popup",
+    );
+    expect(visibleValues(fallback!)).toEqual(["alpha", "beta"]);
+
+    window.dispatchEvent(new KeyboardEvent("keydown", {
+      bubbles: true,
+      cancelable: true,
+      key: "ArrowDown",
+    }));
+    expect(fallback?.querySelector(".is-selected")?.textContent).toBe("beta");
+
+    frontmatterByFile.set(files[0]!, { status: "alpha", touched: true });
+    metadataEvents.get("changed")?.(
+      files[0] as never,
+      {} as never,
+      { frontmatter: { status: "alpha", touched: true } } as never,
+    );
+    expect(raf.pending()).toBe(1);
+    raf.flush();
+
+    fallback = document.querySelector<HTMLElement>(
+      ".property-order-custom-value-popup",
+    );
+    expect(fallback?.querySelector(".is-selected")?.textContent).toBe("beta");
+
+    window.dispatchEvent(new KeyboardEvent("keydown", {
+      bubbles: true,
+      cancelable: true,
+      key: "Enter",
+    }));
+    expect(editor.value).toBe("beta");
+    controller.dispose();
+  });
+
+  it("uses the first remaining fallback candidate when the selected value disappears", () => {
+    const raf = installRafHarness();
+    const files = ["one.md", "two.md"].map((path) => ({ path }) as TFile);
+    const frontmatterByFile = new Map<TFile, Record<string, unknown>>([
+      [files[0]!, { status: "alpha" }],
+      [files[1]!, { status: "beta" }],
+    ]);
+    const metadataEvents = new Map<string, (...args: never[]) => void>();
+    const app = createApp({ files, frontmatterByFile, metadataEvents });
+    const settings = createDefaultSettings();
+    settings.enableNativeValueSuggestionOrder = true;
+    settings.valueSuggestionPropertyAssignments = [
+      { behavior: "custom", propertyKey: "status" },
+    ];
+    settings.valueSuggestionCustomOrders = [{
+      bottomValues: [],
+      middleSortMode: "note-count",
+      middleValues: [],
+      pinnedValues: [],
+      propertyKey: "status",
+    }];
+    const { container } = createValueMenu([], "status");
+    container.remove();
+    const controller = createController(settings, app);
+
+    controller.initialize();
+    raf.flush();
+    window.dispatchEvent(new KeyboardEvent("keydown", {
+      bubbles: true,
+      cancelable: true,
+      key: "ArrowDown",
+    }));
+    expect(document.querySelector(
+      ".property-order-custom-value-popup .is-selected",
+    )?.textContent).toBe("beta");
+
+    frontmatterByFile.set(files[1]!, {});
+    metadataEvents.get("changed")?.(
+      files[1] as never,
+      {} as never,
+      { frontmatter: {} } as never,
+    );
+    raf.flush();
+
+    expect(document.querySelector(
+      ".property-order-custom-value-popup .is-selected",
+    )?.textContent).toBe("alpha");
+    controller.dispose();
+  });
+
+  it("does not carry fallback selection into a different property editor context", () => {
+    const raf = installRafHarness();
+    const files = ["one.md", "two.md"].map((path) => ({ path }) as TFile);
+    const frontmatterByFile = new Map<TFile, Record<string, unknown>>([
+      [files[0]!, { status: "alpha", priority: "high" }],
+      [files[1]!, { status: "beta", priority: "low" }],
+    ]);
+    const app = createApp({ files, frontmatterByFile });
+    const settings = createDefaultSettings();
+    settings.enableNativeValueSuggestionOrder = true;
+    settings.valueSuggestionPropertyAssignments = [
+      { behavior: "custom", propertyKey: "status" },
+      { behavior: "custom", propertyKey: "priority" },
+    ];
+    settings.valueSuggestionCustomOrders = [
+      {
+        bottomValues: [],
+        middleSortMode: "name",
+        middleValues: [],
+        pinnedValues: [],
+        propertyKey: "status",
+      },
+      {
+        bottomValues: [],
+        middleSortMode: "name",
+        middleValues: [],
+        pinnedValues: [],
+        propertyKey: "priority",
+      },
+    ];
+    const status = createValueMenu([], "status");
+    status.container.remove();
+    const controller = createController(settings, app);
+
+    controller.initialize();
+    raf.flush();
+    window.dispatchEvent(new KeyboardEvent("keydown", {
+      bubbles: true,
+      cancelable: true,
+      key: "ArrowDown",
+    }));
+    expect(document.querySelector(
+      ".property-order-custom-value-popup .is-selected",
+    )?.textContent).toBe("beta");
+
+    const priority = createValueMenu([], "priority");
+    priority.container.remove();
+    priority.editor.focus();
+    expect(raf.pending()).toBe(1);
+    raf.flush();
+
+    expect(document.querySelector(
+      ".property-order-custom-value-popup .is-selected",
+    )?.textContent).toBe("high");
+    controller.dispose();
+  });
+
+  it("opens a custom fallback after metadata adds the first matching candidate", () => {
+    const raf = installRafHarness();
+    const file = { path: "one.md" } as TFile;
+    const frontmatterByFile = new Map<TFile, Record<string, unknown>>([
+      [file, { status: "alpha" }],
+    ]);
+    const metadataEvents = new Map<string, (...args: never[]) => void>();
+    const app = createApp({ files: [file], frontmatterByFile, metadataEvents });
+    const settings = createDefaultSettings();
+    settings.enableNativeValueSuggestionOrder = true;
+    settings.valueSuggestionPropertyAssignments = [
+      { behavior: "custom", propertyKey: "status" },
+    ];
+    settings.valueSuggestionCustomOrders = [{
+      bottomValues: [],
+      middleSortMode: "note-count",
+      middleValues: [],
+      pinnedValues: [],
+      propertyKey: "status",
+    }];
+    const { container, editor } = createValueMenu([], "status");
+    container.remove();
+    editor.value = "z";
+    editor.focus();
+    const controller = createController(settings, app);
+
+    controller.initialize();
+    raf.flush();
+    expect(document.querySelector(".property-order-custom-value-popup")).toBeNull();
+
+    frontmatterByFile.set(file, { status: "zeta" });
+    metadataEvents.get("changed")?.(
+      file as never,
+      {} as never,
+      { frontmatter: { status: "zeta" } } as never,
+    );
+
+    expect(raf.pending()).toBe(1);
+    raf.flush();
+    expect(visibleValues(document.querySelector<HTMLElement>(
+      ".property-order-custom-value-popup",
+    )!)).toEqual(["zeta"]);
+    controller.dispose();
+  });
+
+  it("refreshes a custom fallback after candidates go nonempty to empty and back", () => {
+    const raf = installRafHarness();
+    const file = { path: "one.md" } as TFile;
+    const frontmatterByFile = new Map<TFile, Record<string, unknown>>([
+      [file, { status: "zeta" }],
+    ]);
+    const metadataEvents = new Map<string, (...args: never[]) => void>();
+    const app = createApp({ files: [file], frontmatterByFile, metadataEvents });
+    const settings = createDefaultSettings();
+    settings.enableNativeValueSuggestionOrder = true;
+    settings.valueSuggestionPropertyAssignments = [
+      { behavior: "custom", propertyKey: "status" },
+    ];
+    settings.valueSuggestionCustomOrders = [{
+      bottomValues: [],
+      middleSortMode: "note-count",
+      middleValues: [],
+      pinnedValues: [],
+      propertyKey: "status",
+    }];
+    const { container, editor } = createValueMenu([], "status");
+    container.remove();
+    editor.value = "z";
+    editor.focus();
+    const controller = createController(settings, app);
+
+    controller.initialize();
+    raf.flush();
+    expect(visibleValues(document.querySelector<HTMLElement>(
+      ".property-order-custom-value-popup",
+    )!)).toEqual(["zeta"]);
+
+    frontmatterByFile.set(file, { status: "alpha" });
+    metadataEvents.get("changed")?.(
+      file as never,
+      {} as never,
+      { frontmatter: { status: "alpha" } } as never,
+    );
+    expect(raf.pending()).toBe(1);
+    raf.flush();
+    expect(document.querySelector(".property-order-custom-value-popup")).toBeNull();
+
+    frontmatterByFile.set(file, { status: "zulu" });
+    metadataEvents.get("changed")?.(
+      file as never,
+      {} as never,
+      { frontmatter: { status: "zulu" } } as never,
+    );
+    expect(raf.pending()).toBe(1);
+    raf.flush();
+    expect(visibleValues(document.querySelector<HTMLElement>(
+      ".property-order-custom-value-popup",
+    )!)).toEqual(["zulu"]);
+    controller.dispose();
+  });
+
+  it("does not reopen an empty custom fallback after focus leaves or the feature is disabled", () => {
+    const raf = installRafHarness();
+    const file = { path: "one.md" } as TFile;
+    const frontmatterByFile = new Map<TFile, Record<string, unknown>>([
+      [file, { status: "alpha" }],
+    ]);
+    const metadataEvents = new Map<string, (...args: never[]) => void>();
+    const app = createApp({ files: [file], frontmatterByFile, metadataEvents });
+    const settings = createDefaultSettings();
+    settings.enableNativeValueSuggestionOrder = true;
+    settings.valueSuggestionPropertyAssignments = [
+      { behavior: "custom", propertyKey: "status" },
+    ];
+    settings.valueSuggestionCustomOrders = [{
+      bottomValues: [],
+      middleSortMode: "note-count",
+      middleValues: [],
+      pinnedValues: [],
+      propertyKey: "status",
+    }];
+    const { container, editor } = createValueMenu([], "status");
+    container.remove();
+    editor.value = "z";
+    editor.focus();
+    const controller = createController(settings, app);
+
+    controller.initialize();
+    raf.flush();
+    expect(document.querySelector(".property-order-custom-value-popup")).toBeNull();
+
+    const outside = document.createElement("button");
+    document.body.appendChild(outside);
+    outside.focus();
+    expect(raf.pending()).toBe(0);
+    frontmatterByFile.set(file, { status: "zeta" });
+    metadataEvents.get("changed")?.(
+      file as never,
+      {} as never,
+      { frontmatter: { status: "zeta" } } as never,
+    );
+    expect(raf.pending()).toBe(0);
+
+    editor.focus();
+    raf.flush();
+    settings.enableNativeValueSuggestionOrder = false;
+    controller.refresh();
+    frontmatterByFile.set(file, { status: "zulu" });
+    metadataEvents.get("changed")?.(
+      file as never,
+      {} as never,
+      { frontmatter: { status: "zulu" } } as never,
+    );
+    expect(raf.pending()).toBe(0);
+    controller.dispose();
+  });
+
   it("removes the fallback when its editor is detached without a focus event", async () => {
     const raf = installRafHarness();
     const settings = createDefaultSettings();

@@ -22,6 +22,25 @@ function createContainer(hidden = false): HTMLElement {
   return container;
 }
 
+function createExactValueContainer(values: readonly string[]): HTMLElement {
+  const container = document.createElement("div");
+  container.className = "suggestion-container";
+
+  for (const value of values) {
+    const item = document.createElement("div");
+    item.className = "suggestion-item";
+    const title = document.createElement("div");
+    title.className = "suggestion-title";
+    title.textContent = value;
+    item.appendChild(title);
+    container.appendChild(item);
+  }
+
+  container.firstElementChild?.classList.add("is-selected");
+  document.body.appendChild(container);
+  return container;
+}
+
 describe("suggestion keyboard bridge", () => {
   beforeEach(() => document.body.replaceChildren());
   afterEach(() => vi.restoreAllMocks());
@@ -140,6 +159,81 @@ describe("suggestion keyboard bridge", () => {
 
     window.dispatchEvent(new KeyboardEvent("keydown", { key: "Tab" }));
     expect(onActivationIntent).toHaveBeenCalledOnce();
+    cleanup();
+  });
+
+  it("navigates and activates whitespace-only and near-label candidates by element identity", () => {
+    const values = [" ", "\u00a0", "\u3000", "alpha", " alpha", "alpha "];
+    const container = createExactValueContainer(values);
+    const items = Array.from(
+      container.querySelectorAll<HTMLElement>(".suggestion-item"),
+    );
+    const clicks = items.map((item) => vi.spyOn(item, "click"));
+    const onActivationIntent = vi.fn();
+    const keymap = {
+      popScope: vi.fn(),
+      pushScope: vi.fn(),
+    };
+    const cleanup = registerSuggestionKeyboardBridge({
+      keymap: keymap as unknown as Keymap,
+      getActiveContainer: () => container,
+      hasActiveContext: () => true,
+      onActivationIntent,
+      onSynchronizationFailure: vi.fn(),
+      supportsEmacsNavigation: false,
+      targetWindow: window,
+    });
+
+    const enter = new KeyboardEvent("keydown", {
+      bubbles: true,
+      cancelable: true,
+      key: "Enter",
+    });
+    window.dispatchEvent(enter);
+    expect(clicks[0]).toHaveBeenCalledOnce();
+    expect(onActivationIntent).toHaveBeenLastCalledWith(
+      items[0],
+      "enter",
+      enter,
+    );
+
+    items.forEach((item, index) => item.classList.toggle("is-selected", index === 0));
+    window.dispatchEvent(new KeyboardEvent("keydown", {
+      bubbles: true,
+      cancelable: true,
+      key: "ArrowDown",
+    }));
+    expect(items[1]?.classList.contains("is-selected")).toBe(true);
+
+    items.forEach((item, index) => item.classList.toggle("is-selected", index === 2));
+    const tab = new KeyboardEvent("keydown", {
+      bubbles: true,
+      cancelable: true,
+      key: "Tab",
+    });
+    window.dispatchEvent(tab);
+    expect(tab.defaultPrevented).toBe(true);
+    expect(clicks[2]).toHaveBeenCalledOnce();
+    expect(onActivationIntent).toHaveBeenLastCalledWith(
+      items[2],
+      "tab",
+      tab,
+    );
+
+    window.dispatchEvent(new KeyboardEvent("keydown", {
+      bubbles: true,
+      cancelable: true,
+      key: "ArrowDown",
+    }));
+    expect(items[3]?.classList.contains("is-selected")).toBe(true);
+    window.dispatchEvent(new KeyboardEvent("keydown", {
+      bubbles: true,
+      cancelable: true,
+      key: "ArrowDown",
+    }));
+    expect(items[4]?.classList.contains("is-selected")).toBe(true);
+    expect(items[4]?.textContent).toBe(" alpha");
+
     cleanup();
   });
 });
