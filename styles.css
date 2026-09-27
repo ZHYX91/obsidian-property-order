@@ -320,7 +320,8 @@ body.property-order-value-drag-enabled .metadata-property .multi-select-pill {
   max-width: 100%;
 }
 
-.property-order-value-behavior-add[hidden] {
+.property-order-value-behavior-add[hidden],
+.property-order-value-behavior-group-header button[hidden] {
   display: none;
 }
 
@@ -572,4 +573,3 @@ body.property-order-value-drag-enabled .metadata-property .multi-select-pill {
     transform: none;
   }
 }
-
