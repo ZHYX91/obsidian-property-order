@@ -30,7 +30,7 @@ Lint 使用当前 Obsidian API typings，兼容性仍以 `manifest.json` 为契�
 - Properties 与候选 DOM adapter、限定原 pane 的点几何回退、包含隐藏祖先及计算 display/visibility 的可见候选排序、仅候选菜单文本观察且不启用全 document character-data 观察、全部隐藏、键盘导航、焦点离开、置顶/隐藏/置底优先级、严格 MRU 与未记录项名称回退、笔记数平局、菜单复用，以及 DOM 不匹配时 fail open；
 - recent tracker 的点击与键盘/输入提交意图、Metadata Cache 成功确认、hover/浏览/取消/失败不记录、文件与 document 身份、超时/删除/卸载清理；recent store 的精确大小写、去重前移、100 项上限、无时间戳版本化格式、畸形或读取失败回退、写入失败 fail open、当前 Vault/设备隔离和清除；名称与 recent 模式零 Vault 遍历，无菜单时 usage 缓存失效也不触发扫描；
 - 属性值候选分组规划覆盖：每个精确 key 只有一个行为、默认回退、仅设置页使用的胶囊显示顺序、跨分组移动、仅本设备保存的已确认选择次数、笔记数平局、自定义置顶/普通/置底、预设值精确身份、移除预设不修改笔记、向原生弹窗注入预设、无原生弹窗时的插件回退弹窗、最终可见键盘顺序、属性/编辑器上下文复用、`none` 下手动输入保留、生命周期清理以及无损旧规则迁移；
-- schema 3 到 4、4 到 5 和 5 到 6 的 settings 迁移、`recent` 合法值、属性值候选分组归属归一化与无损旧规则迁移、即时生效、保存失败、Retry、公开外部设置回调的三方合并与实时 surface 刷新、跨实例存储串行化、卸载后新保存拒绝、关闭值拖拽时保留跨属性偏好、属性名候选排序/清除/规则测试控件、属性值默认行为、六个互斥 key 分组、自定义编辑器持久化、选择次数清除、选择器 cleanup、key 候选零提前 Vault 遍历以及窄屏 CSS；
+- schema 3 到 4、4 到 5 和 5 到 6 的 settings 迁移、`recent` 合法值、属性值候选分组归属归一化与无损旧规则迁移、即时生效、保存失败、Retry、公开外部设置回调的三方合并与实时 surface 刷新、跨实例存储串行化、卸载后新保存拒绝、关闭值拖拽时保留跨属性偏好、属性名候选排序/清除/规则测试控件、属性值默认行为、六种互斥行为的按需规则卡片、卡片合并、添加输入框焦点及滚动保持、自定义编辑器持久化、选择次数清除、选择器 cleanup、key 候选零提前 Vault 遍历以及窄屏 CSS；
 - 精确 Node.js/npm 与 lockfile root 契约、发布 job 读写权限隔离、仓库代码执行前的默认分支与标签身份核对、只读 Candidate Bundle artifact 传输与 SHA-256、裸 action digest 与 REST 前缀兼容、外层/内层恶意 ZIP fail closed、写权限 job 零 checkout/npm/仓库脚本、仓库级发布串行化、真实 Release 版本与说明基线预检、existing no-op 与新发布四资产的字节及精确 signer/repo/ref/commit provenance、发布后 HTTP 重试分类、三个官方附件、手动安装 ZIP 和幂等 Release 更新。
 
 `npm run check` 通过 `npm run test:coverage` 执行完整 Vitest suite，并使用 V8 coverage 显式包含 `main.ts` 与 `src/**/*.ts`，使没有被任何测试导入的运行时代码仍以 0% 出现在源清单中。当前不设置仓促选择的全局百分比阈值；统一门禁仍会生成覆盖率报告，用于发现遗漏文件和指导针对性测试，但不能替代真实宿主证据。

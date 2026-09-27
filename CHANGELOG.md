@@ -21,6 +21,8 @@ follow the repository's Git tags; entries summarize the corresponding commit his
 
 ### Changed
 
+- Organize value-suggestion rules into on-demand cards with behavior selectors, property chips,
+  inline add controls, and an embedded custom editor. Local updates retain scroll and focus.
 - Migrated value-suggestion settings to schema 6 with loss-aware legacy handling. Exact rules that
   can be translated without changing meaning are migrated; ambiguous legacy recent, wildcard,
   pinned, bottom, or hidden rules remain preserved until explicit migration confirmation.
@@ -30,6 +32,7 @@ follow the repository's Git tags; entries summarize the corresponding commit his
 
 ### Fixed
 
+- Stop preset clicks from reaching native popup delegates and committing a second value.
 - Bound property-value keyboard handling to the active Obsidian scope and support contenteditable
   list inputs so preset commits cannot activate a different native suggestion.
 - Removed custom fallback popups when their property editor is detached and report failures to persist selection-count clearing.
