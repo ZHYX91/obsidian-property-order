@@ -12,43 +12,81 @@ module.exports = class PropertyOrderAcceptanceProvider extends Plugin {
   onload() {
     this.conflictCleanup = null;
 
-    const applyValueSettings = async (overrides, notice) => {
+    const applyGroupedValueSettings = async ({
+      assignments,
+      customOrders = [],
+      notice,
+      resetFrequency = false,
+    }) => {
       const plugin = this.app.plugins.getPlugin("property-order");
       if (plugin == null) return;
       Object.assign(plugin.propertyOrderSettings, {
         enableNativeValueSuggestionOrder: true,
-        pinnedPropertyValues: ["status = draft", "priority = high"],
-        bottomPropertyValues: ["status = archived"],
-        hiddenPropertyValuePatterns: ["status = cancelled"],
-        valueSuggestionSortOverrides: overrides,
+        valueSuggestionDefaultBehavior: "native",
+        valueSuggestionPropertyAssignments: assignments,
+        valueSuggestionCustomOrders: customOrders,
+        valueSuggestionKeyDisplayOrder: "name",
+        valueSuggestionLegacyMigrationPending: false,
       });
+      if (resetFrequency) {
+        plugin.clearPropertyValueFrequency?.();
+      }
       await plugin.saveSettings(false, true);
       new Notice(notice);
     };
+    const customStatusOrder = {
+      propertyKey: "status",
+      pinnedValues: ["planned", "draft"],
+      middleValues: [],
+      bottomValues: ["archived", "deferred"],
+      middleSortMode: "name",
+    };
     const prepareValueRules = () =>
-      applyValueSettings([], "Acceptance provider: per-property value rules prepared.");
+      applyGroupedValueSettings({
+        assignments: [
+          { propertyKey: "status", behavior: "custom" },
+          { propertyKey: "priority", behavior: "frequency" },
+        ],
+        customOrders: [customStatusOrder],
+        notice: "Acceptance provider: grouped value behaviors prepared.",
+        resetFrequency: true,
+      });
     const prepareNoneRule = () =>
-      applyValueSettings(["status = none"], "Acceptance provider: status none rule prepared.");
+      applyGroupedValueSettings({
+        assignments: [
+          { propertyKey: "status", behavior: "none" },
+          { propertyKey: "priority", behavior: "frequency" },
+        ],
+        customOrders: [customStatusOrder],
+        notice: "Acceptance provider: status no-suggestions behavior prepared.",
+      });
     const restoreValueRules = () =>
-      applyValueSettings([], "Acceptance provider: value rules restored.");
+      applyGroupedValueSettings({
+        assignments: [
+          { propertyKey: "status", behavior: "custom" },
+          { propertyKey: "priority", behavior: "frequency" },
+        ],
+        customOrders: [customStatusOrder],
+        notice: "Acceptance provider: grouped value behaviors restored.",
+      });
     this.addCommand({
       id: "prepare-value-rules",
-      name: "Acceptance: prepare per-property value rules",
+      name: "Acceptance: prepare grouped value behaviors",
       callback: prepareValueRules,
     });
-    this.addRibbonIcon("list-filter", "Acceptance: prepare value rules", prepareValueRules);
+    this.addRibbonIcon("list-filter", "Acceptance: prepare grouped value behaviors", prepareValueRules);
     this.addCommand({
       id: "prepare-none-rule",
-      name: "Acceptance: prepare status none rule",
+      name: "Acceptance: prepare status no-suggestions behavior",
       callback: prepareNoneRule,
     });
-    this.addRibbonIcon("eye-off", "Acceptance: prepare none rule", prepareNoneRule);
+    this.addRibbonIcon("eye-off", "Acceptance: prepare no-suggestions behavior", prepareNoneRule);
     this.addCommand({
       id: "restore-value-rules",
-      name: "Acceptance: restore value rule overrides",
+      name: "Acceptance: restore grouped value behaviors",
       callback: restoreValueRules,
     });
-    this.addRibbonIcon("rotate-ccw", "Acceptance: restore value rules", restoreValueRules);
+    this.addRibbonIcon("rotate-ccw", "Acceptance: restore grouped value behaviors", restoreValueRules);
 
     this.addCommand({
       id: "open-first-source-value-menu",

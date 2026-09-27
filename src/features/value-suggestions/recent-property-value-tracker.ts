@@ -120,15 +120,18 @@ export class RecentPropertyValueTracker {
     }
 
     const itemElement = target?.closest<HTMLElement>(".suggestion-item, .menu-item") ?? null;
+    const pluginPopup =
+      itemElement?.closest<HTMLElement>(".property-order-custom-value-popup") ?? null;
     const container =
-      itemElement == null ? null : resolvePropertyValueSuggestionContainer(itemElement);
+      pluginPopup ??
+      (itemElement == null ? null : resolvePropertyValueSuggestionContainer(itemElement));
 
     if (
       itemElement == null ||
       container == null ||
       !isSuggestionElementVisible(itemElement) ||
       container.dataset.propertyOrderValueEnhanced !== "true" ||
-      !isPropertyValueSuggestionContainer(container)
+      (pluginPopup == null && !isPropertyValueSuggestionContainer(container))
     ) {
       return;
     }
@@ -149,7 +152,7 @@ export class RecentPropertyValueTracker {
     }
 
     const beforeValues = getFrontmatterValues(cache, context.propertyKey);
-    const value = item.key.trim();
+    const value = item.key;
 
     if (value.length === 0) {
       return;
@@ -162,11 +165,13 @@ export class RecentPropertyValueTracker {
       propertyKey: context.propertyKey,
       value,
     };
+    // One property editor can only have one current activation intent. A later
+    // candidate activation supersedes an older unconfirmed value for the same
+    // file/property so a stale intent cannot consume a later cache change.
     const queue = this.getLivePendingQueue(itemElement.ownerDocument, pending.createdAt).filter(
       (candidate) =>
         candidate.file !== pending.file ||
-        candidate.propertyKey !== pending.propertyKey ||
-        candidate.value !== pending.value,
+        candidate.propertyKey !== pending.propertyKey,
     );
     queue.push(pending);
     this.setPendingQueue(
@@ -233,8 +238,8 @@ function getFrontmatterValues(cache: CachedMetadata, propertyKey: string): strin
         typeof value === "number" ||
         typeof value === "boolean",
     )
-    .map((value) => String(value).trim())
-    .filter(Boolean);
+    .map((value) => String(value))
+    .filter((value) => value.length > 0);
 }
 
 function countValue(values: readonly string[], target: string): number {

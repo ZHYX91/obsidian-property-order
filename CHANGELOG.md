@@ -5,6 +5,41 @@ follow the repository's Git tags; entries summarize the corresponding commit his
 
 ## [Unreleased]
 
+## [0.8.0] - 2026-09-27
+
+### Added
+
+- Added device-local confirmed selection-frequency ordering for property-value candidates.
+- Added six mutually exclusive per-property value-suggestion behaviors: name, selection frequency,
+  note count, native order, no suggestions, and custom candidates.
+- Added a grouped Value suggestions UI with searchable/manual key addition, property chips,
+  name/recently-added settings display order, confirmed cross-group moves, and a three-section
+  custom candidate editor.
+- Added custom preset vocabulary with pinned, normal, and bottom sections. Explicit preset values
+  remain selectable even when no note currently contains them, including through a guarded
+  plugin-owned fallback popup when no native value popup exists.
+
+### Changed
+
+- Migrated value-suggestion settings to schema 6 with loss-aware legacy handling. Exact rules that
+  can be translated without changing meaning are migrated; ambiguous legacy recent, wildcard,
+  pinned, bottom, or hidden rules remain preserved until explicit migration confirmation.
+- Custom preset selection continues through the active Obsidian property-value editor instead of
+  writing frontmatter directly; selection frequency advances only after Metadata Cache confirms
+  the commit.
+
+### Fixed
+
+- Removed custom fallback popups when their property editor is detached and report failures to persist selection-count clearing.
+
+- Preserved Unicode edge characters when validating property pills, converting quoted scalars to
+  flow lists, tracking recent values, and reading cached property-value vocabulary.
+- Tightened property-value confirmation to exact values and refreshed reused suggestion popups
+  when property focus changes.
+- Kept drag auto-scroll inside the active pane geometry and removed deferred cursor-cleanup frames.
+- Prevented plugin-generated preset commit key events from re-entering the suggestion keyboard
+  bridge.
+
 ## [0.7.0] - 2026-09-25
 
 ### Added

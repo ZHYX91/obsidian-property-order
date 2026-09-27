@@ -5,6 +5,7 @@ import {
   getCachedFrontmatterStorageKinds,
   getCachedPropertyKeyUsage,
   getCachedPropertyValueUsage,
+  getCachedPropertyValueVocabulary,
   getPropertyKeyUsage,
   getPropertyValueUsage,
   invalidatePropertyKeyUsage,
@@ -127,6 +128,34 @@ describe("getPropertyValueUsage", () => {
       { value: "2", count: 1 },
       { value: "true", count: 1 },
     ]);
+  });
+
+  it("preserves exact string values and exposes the cached vocabulary", () => {
+    const file = { path: "note.md" } as TFile;
+    const nbsp = "\u00a0";
+    const getMarkdownFiles = vi.fn(() => [file]);
+    const app = {
+      metadataCache: {
+        getFileCache: vi.fn(() => ({
+          frontmatter: {
+            status: [`draft${nbsp}`, "draft", " edge "],
+          },
+        })),
+      },
+      vault: { getMarkdownFiles },
+    } as unknown as App;
+
+    expect(getPropertyValueUsage(app, "status")).toEqual([
+      { value: `draft${nbsp}`, count: 1 },
+      { value: "draft", count: 1 },
+      { value: " edge ", count: 1 },
+    ]);
+    expect(getCachedPropertyValueVocabulary(app, "STATUS")).toEqual([
+      `draft${nbsp}`,
+      "draft",
+      " edge ",
+    ]);
+    expect(getMarkdownFiles).toHaveBeenCalledTimes(2);
   });
 
   it("returns no values for an empty property key", () => {

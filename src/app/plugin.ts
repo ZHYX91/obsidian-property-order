@@ -176,6 +176,14 @@ export default class PropertyOrderPlugin extends Plugin {
     return this.valueSuggestionOrderController?.clearRecentPropertyValues() ?? false;
   }
 
+  clearPropertyValueFrequency(): boolean {
+    return this.valueSuggestionOrderController?.clearPropertyValueFrequency() ?? false;
+  }
+
+  getPropertyValueFrequency(propertyKey: string) {
+    return this.valueSuggestionOrderController?.getPropertyValueFrequency(propertyKey) ?? [];
+  }
+
   private async initialize(lifecycleEpoch: number): Promise<void> {
     const settingsLoaded = await this.loadSettings(lifecycleEpoch);
 
@@ -484,7 +492,15 @@ function areValueSuggestionSettingsEqual(
     areStringListsEqual(
       left.hiddenPropertyValuePatterns,
       right.hiddenPropertyValuePatterns,
-    )
+    ) &&
+    left.valueSuggestionDefaultBehavior === right.valueSuggestionDefaultBehavior &&
+    JSON.stringify(left.valueSuggestionPropertyAssignments) ===
+      JSON.stringify(right.valueSuggestionPropertyAssignments) &&
+    JSON.stringify(left.valueSuggestionCustomOrders) ===
+      JSON.stringify(right.valueSuggestionCustomOrders) &&
+    left.valueSuggestionKeyDisplayOrder === right.valueSuggestionKeyDisplayOrder &&
+    left.valueSuggestionLegacyMigrationPending ===
+      right.valueSuggestionLegacyMigrationPending
   );
 }
 

@@ -3,10 +3,16 @@ import type {
   ListWritebackFormat,
   PluginLanguage,
   PropertyOrderSettings,
+  PropertyValueBehaviorAssignment,
+  PropertyValueCustomOrder,
+  ValueSuggestionBehavior,
+  ValueSuggestionDefaultBehavior,
+  ValueSuggestionKeyDisplayOrder,
+  ValueSuggestionMiddleSortMode,
   ValueSuggestionSortMode,
 } from "./types";
 
-export const CURRENT_SETTINGS_SCHEMA_VERSION = 5;
+export const CURRENT_SETTINGS_SCHEMA_VERSION = 6;
 
 export const DEFAULT_SETTINGS: PropertyOrderSettings = {
   schemaVersion: CURRENT_SETTINGS_SCHEMA_VERSION,
@@ -25,6 +31,11 @@ export const DEFAULT_SETTINGS: PropertyOrderSettings = {
   pinnedPropertyValues: [],
   bottomPropertyValues: [],
   hiddenPropertyValuePatterns: [],
+  valueSuggestionDefaultBehavior: "native",
+  valueSuggestionPropertyAssignments: [],
+  valueSuggestionCustomOrders: [],
+  valueSuggestionKeyDisplayOrder: "name",
+  valueSuggestionLegacyMigrationPending: false,
   showDiagnostics: false,
 };
 
@@ -38,6 +49,8 @@ export function createDefaultSettings(): PropertyOrderSettings {
     pinnedPropertyValues: [],
     bottomPropertyValues: [],
     hiddenPropertyValuePatterns: [],
+    valueSuggestionPropertyAssignments: [],
+    valueSuggestionCustomOrders: [],
   };
 }
 
@@ -96,6 +109,26 @@ export function normalizeSettings(value: unknown): PropertyOrderSettings {
     hiddenPropertyValuePatterns: normalizeStringList(
       migratedValue.hiddenPropertyValuePatterns,
     ),
+    valueSuggestionDefaultBehavior: isValueSuggestionDefaultBehavior(
+      migratedValue.valueSuggestionDefaultBehavior,
+    )
+      ? migratedValue.valueSuggestionDefaultBehavior
+      : defaults.valueSuggestionDefaultBehavior,
+    valueSuggestionPropertyAssignments: normalizeValueSuggestionAssignments(
+      migratedValue.valueSuggestionPropertyAssignments,
+    ),
+    valueSuggestionCustomOrders: normalizeValueSuggestionCustomOrders(
+      migratedValue.valueSuggestionCustomOrders,
+    ),
+    valueSuggestionKeyDisplayOrder: isValueSuggestionKeyDisplayOrder(
+      migratedValue.valueSuggestionKeyDisplayOrder,
+    )
+      ? migratedValue.valueSuggestionKeyDisplayOrder
+      : defaults.valueSuggestionKeyDisplayOrder,
+    valueSuggestionLegacyMigrationPending:
+      typeof migratedValue.valueSuggestionLegacyMigrationPending === "boolean"
+        ? migratedValue.valueSuggestionLegacyMigrationPending
+        : defaults.valueSuggestionLegacyMigrationPending,
     showDiagnostics:
       typeof migratedValue.showDiagnostics === "boolean"
         ? migratedValue.showDiagnostics
@@ -174,6 +207,40 @@ export function isValueSuggestionSortMode(
   );
 }
 
+export function isValueSuggestionBehavior(value: unknown): value is ValueSuggestionBehavior {
+  return (
+    value === "native" ||
+    value === "name" ||
+    value === "frequency" ||
+    value === "note-count" ||
+    value === "none" ||
+    value === "custom"
+  );
+}
+
+export function isValueSuggestionDefaultBehavior(
+  value: unknown,
+): value is ValueSuggestionDefaultBehavior {
+  return isValueSuggestionBehavior(value) && value !== "custom";
+}
+
+export function isValueSuggestionMiddleSortMode(
+  value: unknown,
+): value is ValueSuggestionMiddleSortMode {
+  return (
+    value === "native" ||
+    value === "name" ||
+    value === "frequency" ||
+    value === "note-count"
+  );
+}
+
+export function isValueSuggestionKeyDisplayOrder(
+  value: unknown,
+): value is ValueSuggestionKeyDisplayOrder {
+  return value === "name" || value === "recent";
+}
+
 export function isPluginLanguage(value: unknown): value is PluginLanguage {
   return value === "auto" || value === "en" || value === "zh-CN" || value === "zh-TW";
 }
@@ -197,6 +264,116 @@ function normalizeStringList(value: unknown): string[] {
   );
 }
 
+function normalizeValueSuggestionAssignments(
+  value: unknown,
+): PropertyValueBehaviorAssignment[] {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+
+  const result: PropertyValueBehaviorAssignment[] = [];
+  const indexByIdentity = new Map<string, number>();
+
+  for (const rawAssignment of value) {
+    if (!isRecord(rawAssignment) || !isValueSuggestionBehavior(rawAssignment.behavior)) {
+      continue;
+    }
+
+    const propertyKey = normalizePropertyKey(rawAssignment.propertyKey);
+    if (propertyKey == null) {
+      continue;
+    }
+
+    const identity = propertyKey.toLocaleLowerCase();
+    const previousIndex = indexByIdentity.get(identity);
+    if (previousIndex != null) {
+      result.splice(previousIndex, 1);
+      for (const [key, index] of indexByIdentity) {
+        if (index > previousIndex) {
+          indexByIdentity.set(key, index - 1);
+        }
+      }
+    }
+
+    indexByIdentity.set(identity, result.length);
+    result.push({ behavior: rawAssignment.behavior, propertyKey });
+  }
+
+  return result;
+}
+
+function normalizeValueSuggestionCustomOrders(value: unknown): PropertyValueCustomOrder[] {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+
+  const result: PropertyValueCustomOrder[] = [];
+  const indexByIdentity = new Map<string, number>();
+
+  for (const rawOrder of value) {
+    if (!isRecord(rawOrder)) {
+      continue;
+    }
+
+    const propertyKey = normalizePropertyKey(rawOrder.propertyKey);
+    const middleSortMode = isValueSuggestionMiddleSortMode(rawOrder.middleSortMode)
+      ? rawOrder.middleSortMode
+      : "native";
+    if (propertyKey == null) {
+      continue;
+    }
+
+    const normalizedOrder: PropertyValueCustomOrder = {
+      bottomValues: normalizeExactStringList(rawOrder.bottomValues),
+      middleSortMode,
+      middleValues: normalizeExactStringList(rawOrder.middleValues),
+      pinnedValues: normalizeExactStringList(rawOrder.pinnedValues),
+      propertyKey,
+    };
+    const identity = propertyKey.toLocaleLowerCase();
+    const previousIndex = indexByIdentity.get(identity);
+    if (previousIndex != null) {
+      result.splice(previousIndex, 1);
+      for (const [key, index] of indexByIdentity) {
+        if (index > previousIndex) {
+          indexByIdentity.set(key, index - 1);
+        }
+      }
+    }
+
+    indexByIdentity.set(identity, result.length);
+    result.push(normalizedOrder);
+  }
+
+  return result;
+}
+
+function normalizePropertyKey(value: unknown): string | null {
+  if (typeof value !== "string") {
+    return null;
+  }
+
+  const propertyKey = value.trim();
+  return propertyKey.length === 0 ? null : propertyKey;
+}
+
+function normalizeExactStringList(value: unknown): string[] {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+
+  const result: string[] = [];
+  const seen = new Set<string>();
+  for (const item of value) {
+    if (typeof item !== "string" || item.length === 0 || seen.has(item)) {
+      continue;
+    }
+    seen.add(item);
+    result.push(item);
+  }
+  return result;
+}
+
 function cloneSettings(settings: PropertyOrderSettings): PropertyOrderSettings {
   return {
     ...settings,
@@ -207,6 +384,15 @@ function cloneSettings(settings: PropertyOrderSettings): PropertyOrderSettings {
     pinnedPropertyValues: [...settings.pinnedPropertyValues],
     bottomPropertyValues: [...settings.bottomPropertyValues],
     hiddenPropertyValuePatterns: [...settings.hiddenPropertyValuePatterns],
+    valueSuggestionPropertyAssignments: settings.valueSuggestionPropertyAssignments.map(
+      (assignment) => ({ ...assignment }),
+    ),
+    valueSuggestionCustomOrders: settings.valueSuggestionCustomOrders.map((order) => ({
+      ...order,
+      bottomValues: [...order.bottomValues],
+      middleValues: [...order.middleValues],
+      pinnedValues: [...order.pinnedValues],
+    })),
   };
 }
 
@@ -227,6 +413,11 @@ function getPersistedSettingKeys(): Array<Exclude<keyof PropertyOrderSettings, "
     "pinnedPropertyValues",
     "bottomPropertyValues",
     "hiddenPropertyValuePatterns",
+    "valueSuggestionDefaultBehavior",
+    "valueSuggestionPropertyAssignments",
+    "valueSuggestionCustomOrders",
+    "valueSuggestionKeyDisplayOrder",
+    "valueSuggestionLegacyMigrationPending",
     "showDiagnostics",
   ];
 }
@@ -235,8 +426,11 @@ function areSettingValuesEqual(
   left: PropertyOrderSettings[keyof PropertyOrderSettings],
   right: PropertyOrderSettings[keyof PropertyOrderSettings],
 ): boolean {
-  if (Array.isArray(left) && Array.isArray(right)) {
-    return left.length === right.length && left.every((value, index) => value === right[index]);
+  if (
+    (Array.isArray(left) && Array.isArray(right)) ||
+    (isRecord(left) && isRecord(right))
+  ) {
+    return JSON.stringify(left) === JSON.stringify(right);
   }
 
   return left === right;
@@ -245,7 +439,11 @@ function areSettingValuesEqual(
 function cloneSettingValue<T extends PropertyOrderSettings[keyof PropertyOrderSettings]>(
   value: T,
 ): T {
-  return (Array.isArray(value) ? [...value] : value) as T;
+  return (
+    Array.isArray(value) || isRecord(value)
+      ? JSON.parse(JSON.stringify(value))
+      : value
+  ) as T;
 }
 
 function getSettingsSchemaVersion(value: unknown): number {
@@ -255,6 +453,92 @@ function getSettingsSchemaVersion(value: unknown): number {
     value <= CURRENT_SETTINGS_SCHEMA_VERSION
     ? value
     : 0;
+}
+
+function migrateLegacyValueSuggestionModel(
+  value: Record<string, unknown>,
+): Pick<
+  PropertyOrderSettings,
+  | "valueSuggestionDefaultBehavior"
+  | "valueSuggestionPropertyAssignments"
+  | "valueSuggestionCustomOrders"
+  | "valueSuggestionKeyDisplayOrder"
+  | "valueSuggestionLegacyMigrationPending"
+> {
+  const legacyDefault = value.valueSuggestionSortMode;
+  const valueSuggestionDefaultBehavior: ValueSuggestionDefaultBehavior =
+    legacyDefault === "name"
+      ? "name"
+      : legacyDefault === "usage"
+        ? "note-count"
+        : legacyDefault === "none"
+          ? "none"
+          : "native";
+  const assignments: PropertyValueBehaviorAssignment[] = [];
+  const seenKeys = new Set<string>();
+  let pending = legacyDefault === "recent";
+
+  for (const rawRule of normalizeStringList(value.valueSuggestionSortOverrides)) {
+    const separatorIndex = rawRule.indexOf("=");
+    if (separatorIndex < 0) {
+      continue;
+    }
+
+    const propertyKey = rawRule.slice(0, separatorIndex).trim();
+    const legacyBehavior = rawRule.slice(separatorIndex + 1).trim();
+    if (propertyKey.length === 0) {
+      continue;
+    }
+
+    if (propertyKey.includes("*")) {
+      pending = true;
+      continue;
+    }
+
+    const identity = propertyKey.toLocaleLowerCase();
+    if (seenKeys.has(identity)) {
+      continue;
+    }
+
+    const behavior: ValueSuggestionBehavior | null =
+      legacyBehavior === "native"
+        ? "native"
+        : legacyBehavior === "name"
+          ? "name"
+          : legacyBehavior === "usage"
+            ? "note-count"
+            : legacyBehavior === "none"
+              ? "none"
+              : null;
+    if (behavior == null) {
+      if (legacyBehavior === "recent") {
+        pending = true;
+      }
+      continue;
+    }
+
+    seenKeys.add(identity);
+    assignments.push({ behavior, propertyKey });
+  }
+
+  if (
+    normalizeStringList(value.pinnedPropertyValues).length > 0 ||
+    normalizeStringList(value.bottomPropertyValues).length > 0 ||
+    normalizeStringList(value.hiddenPropertyValuePatterns).length > 0
+  ) {
+    // Legacy value-level wildcard rules only reorder/filter native vocabulary.
+    // The new custom model can also create preset candidates, so translating
+    // these rules automatically would silently change semantics.
+    pending = true;
+  }
+
+  return {
+    valueSuggestionDefaultBehavior,
+    valueSuggestionPropertyAssignments: assignments,
+    valueSuggestionCustomOrders: [],
+    valueSuggestionKeyDisplayOrder: "name",
+    valueSuggestionLegacyMigrationPending: pending,
+  };
 }
 
 function migrateSettingsVersion(
@@ -297,6 +581,14 @@ function migrateSettingsVersion(
     return {
       ...value,
       schemaVersion: 5,
+    };
+  }
+
+  if (version === 5) {
+    return {
+      ...value,
+      ...migrateLegacyValueSuggestionModel(value),
+      schemaVersion: 6,
     };
   }
 

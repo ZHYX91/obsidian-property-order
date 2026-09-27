@@ -25,6 +25,8 @@ const PROPERTY_VALUE_EDITOR_SELECTOR = ".metadata-property-value";
 const PROPERTY_ROW_SELECTOR = ".metadata-property[data-property-key]";
 const PROPERTY_KEY_SUGGESTION_SELECTOR =
   ".suggestion-container.mod-property-key, .suggestion.mod-property-key, .menu.mod-property-key";
+const PROPERTY_ORDER_CUSTOM_VALUE_POPUP_SELECTOR =
+  ".property-order-custom-value-popup";
 
 const SUGGESTION_CONTAINER_SELECTOR = SUGGESTION_CONTAINER_SELECTORS.join(", ");
 
@@ -85,10 +87,10 @@ export function isPropertyKeySuggestionContainer(
   );
 }
 
-export function getPropertyValueSuggestionContext(
-  container: HTMLElement,
+export function getActivePropertyValueSuggestionContext(
+  targetDocument: Document,
 ): PropertyValueSuggestionContext | null {
-  const activeElement = asHtmlElement(container.ownerDocument.activeElement);
+  const activeElement = asHtmlElement(targetDocument.activeElement);
   const editor = activeElement?.closest<HTMLElement>(PROPERTY_VALUE_EDITOR_SELECTOR) ?? null;
   const row = editor?.closest<HTMLElement>(PROPERTY_ROW_SELECTOR) ?? null;
   const propertyKey = row?.getAttribute("data-property-key")?.trim() ?? "";
@@ -98,6 +100,12 @@ export function getPropertyValueSuggestionContext(
   }
 
   return { editor, propertyKey, row };
+}
+
+export function getPropertyValueSuggestionContext(
+  container: HTMLElement,
+): PropertyValueSuggestionContext | null {
+  return getActivePropertyValueSuggestionContext(container.ownerDocument);
 }
 
 export function isPropertyValueSuggestionContainer(
@@ -143,6 +151,12 @@ export function resolveSuggestionContainer(
 export function resolvePropertyValueSuggestionContainer(
   candidate: HTMLElement,
 ): HTMLElement | null {
+  // Plugin-owned custom fallback popups are managed by the value controller
+  // directly and must never be mistaken for a native Obsidian popup.
+  if (candidate.closest(PROPERTY_ORDER_CUSTOM_VALUE_POPUP_SELECTOR) != null) {
+    return null;
+  }
+
   // Context menus contain actions, not property values. Always use the outer
   // popup so its nested .suggestion list has only one lifecycle owner.
   if (candidate.closest(".menu") != null) {

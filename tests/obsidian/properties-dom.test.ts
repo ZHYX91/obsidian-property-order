@@ -356,6 +356,30 @@ describe("Properties DOM", () => {
     ]);
   });
 
+
+  it("preserves exact edge whitespace from the native pill content", () => {
+    const nbsp = "\u00a0";
+    const { context } = createEvidenceContext(`alpha${nbsp}`, `${nbsp}beta`);
+
+    expect(getPropertyPillValueEvidence(context)).toEqual([
+      { kind: "text", text: `alpha${nbsp}` },
+      { kind: "text", text: `${nbsp}beta` },
+    ]);
+  });
+
+  it("does not include native pill controls in plain value evidence", () => {
+    const { context } = createEvidenceContext("alpha");
+    const pill = context.pills[0];
+    const removeButton = document.createElement("button");
+    removeButton.className = "multi-select-pill-remove-button";
+    removeButton.textContent = "×";
+    pill?.appendChild(removeButton);
+
+    expect(getPropertyPillValueEvidence(context)).toEqual([
+      { kind: "text", text: "alpha" },
+    ]);
+  });
+
   it("reports a single verified host link as link evidence with its target", () => {
     const { context, contentElements } = createEvidenceContext("alpha", "[[医院 A|医院]]");
     const linkElement = document.createElement("a");

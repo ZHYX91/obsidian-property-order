@@ -1,7 +1,33 @@
 export type ListWritebackFormat = "preserve" | "flow" | "block";
 export type KeySuggestionSortMode = "name" | "recent" | "usage";
 export type ValueSuggestionSortMode = "native" | "name" | "recent" | "usage" | "none";
+export type ValueSuggestionBehavior =
+  | "native"
+  | "name"
+  | "frequency"
+  | "note-count"
+  | "none"
+  | "custom";
+export type ValueSuggestionDefaultBehavior = Exclude<ValueSuggestionBehavior, "custom">;
+export type ValueSuggestionMiddleSortMode = Exclude<
+  ValueSuggestionDefaultBehavior,
+  "none"
+>;
+export type ValueSuggestionKeyDisplayOrder = "name" | "recent";
 export type PluginLanguage = "auto" | "en" | "zh-CN" | "zh-TW";
+
+export interface PropertyValueBehaviorAssignment {
+  behavior: ValueSuggestionBehavior;
+  propertyKey: string;
+}
+
+export interface PropertyValueCustomOrder {
+  bottomValues: string[];
+  middleSortMode: ValueSuggestionMiddleSortMode;
+  middleValues: string[];
+  pinnedValues: string[];
+  propertyKey: string;
+}
 
 export interface PropertyOrderSettings {
   schemaVersion: number;
@@ -20,6 +46,11 @@ export interface PropertyOrderSettings {
   pinnedPropertyValues: string[];
   bottomPropertyValues: string[];
   hiddenPropertyValuePatterns: string[];
+  valueSuggestionDefaultBehavior: ValueSuggestionDefaultBehavior;
+  valueSuggestionPropertyAssignments: PropertyValueBehaviorAssignment[];
+  valueSuggestionCustomOrders: PropertyValueCustomOrder[];
+  valueSuggestionKeyDisplayOrder: ValueSuggestionKeyDisplayOrder;
+  valueSuggestionLegacyMigrationPending: boolean;
   showDiagnostics: boolean;
 }
 

@@ -128,6 +128,13 @@ export function getCachedPropertyValueUsage(
   return usage;
 }
 
+export function getCachedPropertyValueVocabulary(
+  app: App,
+  propertyKey: string,
+): string[] {
+  return getCachedPropertyValueUsage(app, propertyKey).map((item) => item.value);
+}
+
 export function invalidatePropertyValueUsage(app: App): void {
   propertyValueUsageCache.delete(app);
 }
@@ -145,7 +152,7 @@ function getPrimitiveFrontmatterValues(value: unknown): string[] {
       continue;
     }
 
-    const normalizedValue = String(item).trim();
+    const normalizedValue = String(item);
 
     if (normalizedValue.length > 0) {
       result.push(normalizedValue);

@@ -25,6 +25,61 @@ describe("suggestion keyboard bridge", () => {
   beforeEach(() => document.body.replaceChildren());
   afterEach(() => vi.restoreAllMocks());
 
+  it("ignores internal preset commit Enter events", () => {
+    const container = createContainer(false);
+    const onActivationIntent = vi.fn();
+    const firstItem = container.querySelector<HTMLElement>(".suggestion-item");
+    const click = vi.spyOn(firstItem!, "click");
+    const cleanup = registerSuggestionKeyboardBridge({
+      getActiveContainer: () => container,
+      hasActiveContext: () => true,
+      onActivationIntent,
+      onSynchronizationFailure: vi.fn(),
+      supportsEmacsNavigation: false,
+      targetWindow: window,
+    });
+
+    const event = new KeyboardEvent("keydown", {
+      bubbles: true,
+      cancelable: true,
+      key: "Enter",
+    });
+    Reflect.set(event, "propertyOrderPresetCommit", true);
+    window.dispatchEvent(event);
+
+    expect(onActivationIntent).not.toHaveBeenCalled();
+    expect(click).not.toHaveBeenCalled();
+    cleanup();
+  });
+
+  it("activates plugin-owned preset candidates on unmodified Tab", () => {
+    const container = createContainer(false);
+    const selected = container.querySelector<HTMLElement>(".suggestion-item");
+    selected!.dataset.propertyOrderPresetValue = "true";
+    const click = vi.spyOn(selected!, "click");
+    const onActivationIntent = vi.fn();
+    const cleanup = registerSuggestionKeyboardBridge({
+      getActiveContainer: () => container,
+      hasActiveContext: () => true,
+      onActivationIntent,
+      onSynchronizationFailure: vi.fn(),
+      supportsEmacsNavigation: false,
+      targetWindow: window,
+    });
+
+    const event = new KeyboardEvent("keydown", {
+      bubbles: true,
+      cancelable: true,
+      key: "Tab",
+    });
+    window.dispatchEvent(event);
+
+    expect(event.defaultPrevented).toBe(true);
+    expect(onActivationIntent).toHaveBeenCalledOnce();
+    expect(click).toHaveBeenCalledOnce();
+    cleanup();
+  });
+
   it("does not treat modified Tab as a candidate activation", () => {
     const container = createContainer(false);
     const onActivationIntent = vi.fn();

@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import {
   explainPropertyValueBehavior,
   orderPropertyValues,
+  orderPropertyValuesByFrequency,
   resolvePropertyValueRules,
 } from "../../../src/core/suggestions/order-values";
 
@@ -146,3 +147,29 @@ describe("orderPropertyValues", () => {
     ).toEqual(["alpha", "beta"]);
   });
 });
+
+describe("orderPropertyValuesByFrequency", () => {
+  it("sorts by confirmed selection count and uses name order for ties", () => {
+    expect(
+      orderPropertyValuesByFrequency(
+        ["gamma", "alpha", "beta"],
+        [
+          { value: "alpha", count: 2 },
+          { value: "beta", count: 4 },
+          { value: "gamma", count: 2 },
+        ],
+      ).map((item) => item.value),
+    ).toEqual(["beta", "alpha", "gamma"]);
+  });
+
+  it("preserves exact candidate identity while deduplicating", () => {
+    const nbsp = "\u00a0";
+    expect(
+      orderPropertyValuesByFrequency(
+        [`alpha${nbsp}`, "alpha", `alpha${nbsp}`],
+        [{ value: `alpha${nbsp}`, count: 3 }],
+      ).map((item) => item.value),
+    ).toEqual([`alpha${nbsp}`, "alpha"]);
+  });
+});
+

@@ -39,6 +39,15 @@ describe("RecentPropertyValueStore", () => {
     expect(store.getValues("status")).toEqual(["done", "draft"]);
   });
 
+  it("preserves exact value identity including edge Unicode", () => {
+    const store = new RecentPropertyValueStore(createStorageApp(new Map()));
+    const nbsp = "\u00a0";
+
+    expect(store.touch("status", `draft${nbsp}`)).toEqual([`draft${nbsp}`]);
+    expect(store.touch("status", "draft")).toEqual(["draft", `draft${nbsp}`]);
+    expect(store.getValues("STATUS")).toEqual(["draft", `draft${nbsp}`]);
+  });
+
   it("clears both in-memory and device-local history", () => {
     const storage = new Map<string, unknown>();
     const app = createStorageApp(storage);

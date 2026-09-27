@@ -7,6 +7,7 @@ import { PropertyOrderSettingTab } from "../../src/app/settings-tab";
 import { createDefaultSettings } from "../../src/shared/settings";
 
 interface TestableSettingTab {
+  clearPropertyValueFrequency(): void;
   mountSaveStatus(parentEl: HTMLElement): HTMLElement;
   persistSettings(
     refreshKeySuggestions?: boolean,
@@ -20,6 +21,22 @@ const MockNotice = Notice as typeof Notice & { messages: string[] };
 describe("PropertyOrderSettingTab save failures", () => {
   beforeEach(() => {
     MockNotice.messages.length = 0;
+  });
+
+  it.each([true, false])("reports frequency clearing persistence status %s", (persisted) => {
+    const plugin = {
+      propertyOrderSettings: createDefaultSettings(),
+      clearPropertyValueFrequency: vi.fn(() => persisted),
+      getPropertyValueFrequency: vi.fn(() => []),
+      hasPendingSettingsSave: vi.fn(() => false),
+    };
+    const tab = new PropertyOrderSettingTab({} as never, plugin as never);
+    const testable = tab as unknown as TestableSettingTab;
+    testable.clearPropertyValueFrequency();
+    expect(plugin.clearPropertyValueFrequency).toHaveBeenCalledOnce();
+    expect(MockNotice.messages.at(-1)).toBe(persisted
+      ? "Property Order: selection counts cleared."
+      : "Property Order: counts cleared for this session, but saved counts could not be removed and may return after restarting.");
   });
 
   it("shows an unsaved state and retries the complete settings snapshot", async () => {

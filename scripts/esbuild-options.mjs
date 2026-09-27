@@ -12,6 +12,7 @@ export function createEsbuildOptions({
     format: "cjs",
     target: "es2020",
     logLevel: "info",
+    minifyIdentifiers: production,
     minifySyntax: production,
     minifyWhitespace: production,
     sourcemap: production ? false : "inline",

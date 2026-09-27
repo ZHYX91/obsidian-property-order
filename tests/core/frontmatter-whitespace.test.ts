@@ -84,4 +84,54 @@ describe("YAML value whitespace fidelity", () => {
       `alpha${nbsp}`,
     ]);
   });
+
+  it("quotes a scalar whose non-breaking-space prefix makes quotes literal in flow", () => {
+    const nbsp = "\u00a0";
+    const input = [
+      "---",
+      `source: ${nbsp}'a,b'`,
+      "target: []",
+      "---",
+    ].join("\n");
+
+    const output = moveFrontmatterListPropertyValue(input, {
+      normalizeAsTextList: true,
+      sourcePropertyKey: "source",
+      targetPropertyKey: "target",
+      sourceIndex: 0,
+      targetSlot: 0,
+      writebackFormat: "preserve",
+    });
+
+    expect(output).toBe(
+      ["---", "source: []", `target: ["${nbsp}'a,b'"]`, "---"].join("\n"),
+    );
+    expect(getFrontmatterListPropertyValues(output ?? "", "target")).toEqual([
+      `${nbsp}'a,b'`,
+    ]);
+  });
+
+  it("quotes the double-quote variant without splitting the embedded comma", () => {
+    const nbsp = "\u00a0";
+    const input = [
+      "---",
+      `source: ${nbsp}"a,b"`,
+      "target: []",
+      "---",
+    ].join("\n");
+
+    const output = moveFrontmatterListPropertyValue(input, {
+      normalizeAsTextList: true,
+      sourcePropertyKey: "source",
+      targetPropertyKey: "target",
+      sourceIndex: 0,
+      targetSlot: 0,
+      writebackFormat: "preserve",
+    });
+
+    expect(getFrontmatterListPropertyValues(output ?? "", "target")).toEqual([
+      `${nbsp}"a,b"`,
+    ]);
+  });
+
 });

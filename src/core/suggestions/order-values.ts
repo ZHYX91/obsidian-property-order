@@ -120,6 +120,21 @@ export function orderPropertyValues(
   }));
 }
 
+export function orderPropertyValuesByFrequency(
+  values: readonly string[],
+  frequency: readonly { count: number; value: string }[],
+): OrderedPropertyValue[] {
+  const counts = new Map(frequency.map((item) => [item.value, item.count]));
+  const orderedValues = dedupePreservingOrder(values.filter((value) => value.length > 0));
+
+  orderedValues.sort((left, right) => {
+    const countDelta = (counts.get(right) ?? 0) - (counts.get(left) ?? 0);
+    return countDelta !== 0 ? countDelta : comparePropertyNames(left, right);
+  });
+
+  return orderedValues.map((value) => ({ value }));
+}
+
 export function explainPropertyValueBehavior(
   rawPropertyKey: string,
   rules: readonly string[],

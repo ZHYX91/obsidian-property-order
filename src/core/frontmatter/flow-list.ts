@@ -4,6 +4,7 @@ import {
   parseScalar,
   renderInlineComment,
   serializeNormalizedScalar,
+  trimEndYamlSeparationWhitespace,
   trimYamlSeparationWhitespace,
 } from "./scalar";
 import type { FrontmatterScalar, ListItemToken, PropertyItem } from "./types";
@@ -30,7 +31,7 @@ export function parseFlowSequence(rawSequence: string): ListItemToken[] | null {
         continue;
       }
 
-      if (inSingleQuote || buffer.trim().length === 0) {
+      if (inSingleQuote || trimEndYamlSeparationWhitespace(buffer).length === 0) {
         inSingleQuote = !inSingleQuote;
       }
       buffer += character;
@@ -46,7 +47,7 @@ export function parseFlowSequence(rawSequence: string): ListItemToken[] | null {
         cursor -= 1;
       }
 
-      if (!escaping && (inDoubleQuote || buffer.trim().length === 0)) {
+      if (!escaping && (inDoubleQuote || trimEndYamlSeparationWhitespace(buffer).length === 0)) {
         inDoubleQuote = !inDoubleQuote;
       }
 

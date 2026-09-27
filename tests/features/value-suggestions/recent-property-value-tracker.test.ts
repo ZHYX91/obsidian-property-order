@@ -153,6 +153,61 @@ describe("RecentPropertyValueTracker", () => {
     tracker.dispose();
   });
 
+  it("requires exact metadata value identity including edge Unicode", () => {
+    const file = { path: "note.md" } as TFile;
+    let cache = { frontmatter: {} } as CachedMetadata;
+    const suggestion = createValueSuggestion("draft");
+    const plugin = createPlugin(
+      suggestion.row.parentElement as HTMLElement,
+      file,
+      () => cache,
+    );
+    const onConfirmed = vi.fn();
+    const tracker = new RecentPropertyValueTracker({
+      getEnabled: () => true,
+      onConfirmed,
+      plugin,
+    });
+
+    tracker.captureSuggestionActivation(suggestion.item);
+    cache = { frontmatter: { status: "draft\u00a0" } } as CachedMetadata;
+    tracker.handleMetadataChanged(file, cache);
+
+    expect(onConfirmed).not.toHaveBeenCalled();
+    tracker.dispose();
+  });
+
+  it("lets a later activation supersede stale intent for the same property", () => {
+    const file = { path: "note.md" } as TFile;
+    let cache = { frontmatter: {} } as CachedMetadata;
+    const first = createValueSuggestion("draft");
+    const second = createValueSuggestion("done");
+    const plugin = createPlugin(
+      second.row.parentElement as HTMLElement,
+      file,
+      () => cache,
+    );
+    const onConfirmed = vi.fn();
+    const tracker = new RecentPropertyValueTracker({
+      getEnabled: () => true,
+      onConfirmed,
+      plugin,
+    });
+
+    second.editor.focus();
+    tracker.captureSuggestionActivation(first.item);
+    tracker.captureSuggestionActivation(second.item);
+
+    cache = { frontmatter: { status: "draft" } } as CachedMetadata;
+    tracker.handleMetadataChanged(file, cache);
+    expect(onConfirmed).not.toHaveBeenCalled();
+
+    cache = { frontmatter: { status: ["draft", "done"] } } as CachedMetadata;
+    tracker.handleMetadataChanged(file, cache);
+    expect(onConfirmed).toHaveBeenCalledWith("status", "done");
+    tracker.dispose();
+  });
+
   it("supports list-valued frontmatter and case-insensitive property keys", () => {
     const file = { path: "note.md" } as TFile;
     let cache = { frontmatter: { Status: ["draft"] } } as CachedMetadata;

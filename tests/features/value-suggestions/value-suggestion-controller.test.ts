@@ -4,6 +4,7 @@ import { Window as HappyDomWindow } from "happy-dom";
 import { Platform, type App, type Plugin, type TFile } from "obsidian";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
+import { PropertyValueFrequencyStore } from "../../../src/features/value-suggestions/property-value-frequency-store";
 import { RecentPropertyValueStore } from "../../../src/features/value-suggestions/recent-property-value-store";
 import { ValueSuggestionOrderController } from "../../../src/features/value-suggestions/value-suggestion-controller";
 import { createDefaultSettings } from "../../../src/shared/settings";
@@ -21,7 +22,9 @@ interface TestableValueController {
   getActiveContainer(targetDocument: Document): HTMLElement | null;
   invalidateUsage(): void;
   originalSuggestions: Map<HTMLElement, unknown>;
+  recordConfirmedPropertyValue(propertyKey: string, value: string): void;
   recordRecentPropertyValue(propertyKey: string, value: string): void;
+  refreshCustomFallback(targetDocument: Document): void;
   restoreContainer(container: HTMLElement): void;
   shouldScheduleEnhancement(
     targetDocument: Document,
@@ -88,12 +91,13 @@ function createController(
   settings: PropertyOrderSettings,
   app = createApp(),
   store?: RecentPropertyValueStore,
+  frequencyStore?: PropertyValueFrequencyStore,
 ): ValueSuggestionOrderController {
   const plugin = {
     app,
     registerEvent: vi.fn(),
   } as unknown as Plugin;
-  return new ValueSuggestionOrderController(plugin, () => settings, store);
+  return new ValueSuggestionOrderController(plugin, () => settings, store, frequencyStore);
 }
 
 function createValueMenu(
@@ -253,11 +257,11 @@ describe("ValueSuggestionOrderController", () => {
     controller.dispose();
   });
 
-  it("refreshes usage ordering only when an active popup actually uses usage mode", () => {
+  it("refreshes note-count ordering only when an active popup uses it", () => {
     const raf = installRafHarness();
     const settings = createDefaultSettings();
     settings.enableNativeValueSuggestionOrder = true;
-    settings.valueSuggestionSortMode = "name";
+    settings.valueSuggestionDefaultBehavior = "name";
     const controller = createController(settings);
     const testable = asTestable(controller);
     const { container } = createValueMenu(["b", "a"]);
@@ -268,17 +272,56 @@ describe("ValueSuggestionOrderController", () => {
     testable.invalidateUsage();
     expect(raf.pending()).toBe(0);
 
-    settings.valueSuggestionSortMode = "usage";
+    settings.valueSuggestionDefaultBehavior = "note-count";
     testable.enhanceContainer(container);
     testable.invalidateUsage();
     expect(raf.pending()).toBe(1);
     controller.dispose();
   });
 
+  it("re-evaluates a reused popup when focus moves to another property", () => {
+    const raf = installRafHarness();
+    const settings = createDefaultSettings();
+    settings.enableNativeValueSuggestionOrder = true;
+    settings.valueSuggestionDefaultBehavior = "name";
+    settings.valueSuggestionPropertyAssignments = [
+      { behavior: "none", propertyKey: "status" },
+      { behavior: "name", propertyKey: "priority" },
+    ];
+    const controller = createController(settings);
+    const status = createValueMenu(["beta", "alpha"], "status");
+    controller.initialize();
+    raf.flush();
+
+    expect(status.container.classList.contains("property-order-value-suggestions-suppressed")).toBe(
+      true,
+    );
+
+    const priorityRow = document.createElement("div");
+    priorityRow.className = "metadata-property";
+    priorityRow.dataset.propertyKey = "priority";
+    const priorityEditor = document.createElement("input");
+    priorityEditor.className = "metadata-property-value";
+    priorityRow.appendChild(priorityEditor);
+    document.body.appendChild(priorityRow);
+    priorityEditor.focus();
+
+    expect(raf.pending()).toBe(1);
+    raf.flush();
+
+    expect(status.container.classList.contains("property-order-value-suggestions-suppressed")).toBe(
+      false,
+    );
+    expect(visibleValues(status.container)).toEqual(["alpha", "beta"]);
+    controller.dispose();
+  });
+
   it("suppresses the native value candidate popup for a matching property", () => {
     const settings = createDefaultSettings();
     settings.enableNativeValueSuggestionOrder = true;
-    settings.valueSuggestionSortOverrides = ["status = none"];
+    settings.valueSuggestionPropertyAssignments = [
+      { behavior: "none", propertyKey: "status" },
+    ];
     const controller = createController(settings);
     const { container } = createValueMenu(["draft", "done"]);
 
@@ -296,7 +339,7 @@ describe("ValueSuggestionOrderController", () => {
       ),
     ).toBe(true);
 
-    settings.valueSuggestionSortOverrides = [];
+    settings.valueSuggestionPropertyAssignments = [];
     asTestable(controller).enhanceContainer(container);
     expect(container.classList.contains("property-order-value-suggestions-suppressed")).toBe(false);
     expect(visibleValues(container)).toEqual(["draft", "done"]);
@@ -306,6 +349,7 @@ describe("ValueSuggestionOrderController", () => {
   it("orders, hides, and restores native value suggestions", () => {
     const settings = createDefaultSettings();
     settings.enableNativeValueSuggestionOrder = true;
+    settings.valueSuggestionLegacyMigrationPending = true;
     settings.valueSuggestionSortMode = "name";
     settings.pinnedPropertyValues = ["status = draft"];
     settings.bottomPropertyValues = ["status = archived"];
@@ -354,7 +398,7 @@ describe("ValueSuggestionOrderController", () => {
   it("preserves Obsidian order in native mode and avoids repeated work for one signature", () => {
     const settings = createDefaultSettings();
     settings.enableNativeValueSuggestionOrder = true;
-    settings.valueSuggestionSortMode = "native";
+    settings.valueSuggestionDefaultBehavior = "native";
     const controller = createController(settings);
     const testable = asTestable(controller);
     const { container } = createValueMenu(["gamma", "alpha", "beta"]);
@@ -369,9 +413,49 @@ describe("ValueSuggestionOrderController", () => {
     expect(Array.from(container.children)).toEqual(firstNodes);
   });
 
+  it("records frequency only for properties configured to use it", () => {
+    const settings = createDefaultSettings();
+    settings.enableNativeValueSuggestionOrder = true;
+    const frequencyStore = {
+      clear: vi.fn(() => true),
+      getCounts: vi.fn(() => []),
+      increment: vi.fn(() => []),
+    } as unknown as PropertyValueFrequencyStore;
+    const controller = createController(settings, createApp(), undefined, frequencyStore);
+    const testable = asTestable(controller);
+
+    testable.recordConfirmedPropertyValue("status", "draft");
+    expect(frequencyStore.increment).not.toHaveBeenCalled();
+
+    settings.valueSuggestionPropertyAssignments = [
+      { behavior: "frequency", propertyKey: "status" },
+    ];
+    testable.recordConfirmedPropertyValue("status", "done");
+    expect(frequencyStore.increment).toHaveBeenCalledWith("status", "done");
+
+    settings.valueSuggestionPropertyAssignments = [
+      { behavior: "custom", propertyKey: "priority" },
+    ];
+    settings.valueSuggestionCustomOrders = [
+      {
+        bottomValues: [],
+        middleSortMode: "frequency",
+        middleValues: [],
+        pinnedValues: [],
+        propertyKey: "priority",
+      },
+    ];
+    testable.recordConfirmedPropertyValue("priority", "high");
+    expect(frequencyStore.increment).toHaveBeenCalledWith("priority", "high");
+
+    expect(controller.getPropertyValueFrequency("STATUS")).toEqual([]);
+    expect(frequencyStore.getCounts).toHaveBeenCalledWith("STATUS");
+  });
+
   it("uses recent values from the device-local store", () => {
     const settings = createDefaultSettings();
     settings.enableNativeValueSuggestionOrder = true;
+    settings.valueSuggestionLegacyMigrationPending = true;
     settings.valueSuggestionSortMode = "recent";
     const store = {
       clear: vi.fn(() => true),
@@ -402,7 +486,7 @@ describe("ValueSuggestionOrderController", () => {
     });
     const settings = createDefaultSettings();
     settings.enableNativeValueSuggestionOrder = true;
-    settings.valueSuggestionSortMode = "usage";
+    settings.valueSuggestionDefaultBehavior = "note-count";
     const controller = createController(settings, app);
     const { container } = createValueMenu(["archived", "draft", "done"]);
 
@@ -415,8 +499,10 @@ describe("ValueSuggestionOrderController", () => {
   it("uses per-property sort overrides instead of the global mode", () => {
     const settings = createDefaultSettings();
     settings.enableNativeValueSuggestionOrder = true;
-    settings.valueSuggestionSortMode = "native";
-    settings.valueSuggestionSortOverrides = ["status = name", "priority = recent"];
+    settings.valueSuggestionDefaultBehavior = "native";
+    settings.valueSuggestionPropertyAssignments = [
+      { behavior: "name", propertyKey: "status" },
+    ];
     const controller = createController(settings);
     const { container } = createValueMenu(["gamma", "alpha", "beta"]);
 
@@ -425,10 +511,136 @@ describe("ValueSuggestionOrderController", () => {
     expect(visibleValues(container)).toEqual(["alpha", "beta", "gamma"]);
   });
 
+  it("injects configured preset candidates that are absent from the native popup", () => {
+    const settings = createDefaultSettings();
+    settings.enableNativeValueSuggestionOrder = true;
+    settings.valueSuggestionPropertyAssignments = [
+      { behavior: "custom", propertyKey: "status" },
+    ];
+    settings.valueSuggestionCustomOrders = [
+      {
+        bottomValues: ["never-bottom"],
+        middleSortMode: "name",
+        middleValues: [],
+        pinnedValues: ["never-top"],
+        propertyKey: "status",
+      },
+    ];
+    const controller = createController(settings);
+    const { container, editor } = createValueMenu(["draft", "done"]);
+
+    asTestable(controller).enhanceContainer(container);
+
+    expect(visibleValues(container)).toEqual([
+      "never-top",
+      "done",
+      "draft",
+      "never-bottom",
+    ]);
+    expect(
+      container.querySelectorAll(".property-order-preset-value-item"),
+    ).toHaveLength(2);
+
+    const events: string[] = [];
+    editor.addEventListener("input", () => events.push("input"));
+    editor.addEventListener("keydown", (event) => {
+      if (event.key === "Enter") events.push("enter");
+    });
+    container
+      .querySelector<HTMLElement>(".property-order-preset-value-item")
+      ?.click();
+
+    expect(events).toEqual(["input", "enter"]);
+    controller.dispose();
+  });
+
+  it("filters injected preset-only candidates by the active input query", () => {
+    const settings = createDefaultSettings();
+    settings.enableNativeValueSuggestionOrder = true;
+    settings.valueSuggestionPropertyAssignments = [
+      { behavior: "custom", propertyKey: "status" },
+    ];
+    settings.valueSuggestionCustomOrders = [
+      {
+        bottomValues: ["archived"],
+        middleSortMode: "native",
+        middleValues: [],
+        pinnedValues: ["planned"],
+        propertyKey: "status",
+      },
+    ];
+    const controller = createController(settings);
+    const { container, editor } = createValueMenu(["planned", "archived"], "status");
+    editor.value = "pla";
+
+    asTestable(controller).enhanceContainer(container);
+
+    expect(visibleValues(container)).toEqual(["planned"]);
+    controller.dispose();
+  });
+
+  it("removes the fallback when its editor is detached without a focus event", async () => {
+    const raf = installRafHarness();
+    const settings = createDefaultSettings();
+    settings.enableNativeValueSuggestionOrder = true;
+    settings.valueSuggestionPropertyAssignments = [{ behavior: "custom", propertyKey: "status" }];
+    settings.valueSuggestionCustomOrders = [{
+      bottomValues: [], middleSortMode: "native", middleValues: [],
+      pinnedValues: ["planned"], propertyKey: "status",
+    }];
+    const { container, row } = createValueMenu([], "status");
+    container.remove();
+    const controller = createController(settings);
+    controller.initialize();
+    raf.flush();
+    expect(document.querySelector(".property-order-custom-value-popup")).not.toBeNull();
+    row.remove();
+    await vi.waitFor(() => {
+      expect(document.querySelector(".property-order-custom-value-popup")).toBeNull();
+    });
+    expect(asTestable(controller).getActiveContainer(document)).toBeNull();
+    controller.dispose();
+  });
+
+  it("renders a plugin-owned custom fallback when no native popup exists", () => {
+    const settings = createDefaultSettings();
+    settings.enableNativeValueSuggestionOrder = true;
+    settings.valueSuggestionPropertyAssignments = [
+      { behavior: "custom", propertyKey: "status" },
+    ];
+    settings.valueSuggestionCustomOrders = [
+      {
+        bottomValues: ["archived"],
+        middleSortMode: "native",
+        middleValues: [],
+        pinnedValues: ["draft"],
+        propertyKey: "status",
+      },
+    ];
+    const controller = createController(settings);
+    const testable = asTestable(controller);
+    const { container, editor } = createValueMenu([], "status");
+    container.remove();
+    editor.focus();
+
+    testable.refreshCustomFallback(document);
+
+    const fallback = document.querySelector<HTMLElement>(
+      ".property-order-custom-value-popup",
+    );
+    expect(fallback).not.toBeNull();
+    expect(visibleValues(fallback!)).toEqual(["draft", "archived"]);
+    expect(testable.getActiveContainer(document)).toBe(fallback);
+    controller.dispose();
+    expect(
+      document.querySelector(".property-order-custom-value-popup"),
+    ).toBeNull();
+  });
+
   it("re-snapshots when Obsidian replaces suggestion items", () => {
     const settings = createDefaultSettings();
     settings.enableNativeValueSuggestionOrder = true;
-    settings.valueSuggestionSortMode = "name";
+    settings.valueSuggestionDefaultBehavior = "name";
     const controller = createController(settings);
     const testable = asTestable(controller);
     const { container } = createValueMenu(["b", "a"]);
@@ -458,7 +670,7 @@ describe("ValueSuggestionOrderController", () => {
   it("leaves unrelated, hidden, and key-suggestion menus untouched", () => {
     const settings = createDefaultSettings();
     settings.enableNativeValueSuggestionOrder = true;
-    settings.valueSuggestionSortMode = "name";
+    settings.valueSuggestionDefaultBehavior = "name";
     const controller = createController(settings);
     const testable = asTestable(controller);
 
@@ -513,7 +725,7 @@ describe("ValueSuggestionOrderController", () => {
     const raf = installRafHarness();
     const settings = createDefaultSettings();
     settings.enableNativeValueSuggestionOrder = true;
-    settings.valueSuggestionSortMode = "name";
+    settings.valueSuggestionDefaultBehavior = "name";
     const controller = createController(settings);
     const testable = asTestable(controller);
     const { container } = createValueMenu(["b", "a"]);
@@ -542,7 +754,7 @@ describe("ValueSuggestionOrderController", () => {
     const raf = installRafHarness();
     const settings = createDefaultSettings();
     settings.enableNativeValueSuggestionOrder = true;
-    settings.valueSuggestionSortMode = "usage";
+    settings.valueSuggestionDefaultBehavior = "note-count";
     const app = createApp();
     const controller = createController(settings, app);
     const testable = asTestable(controller);
@@ -737,7 +949,7 @@ describe("ValueSuggestionOrderController", () => {
   it("leaves action menus untouched even while a property value has focus", () => {
     const settings = createDefaultSettings();
     settings.enableNativeValueSuggestionOrder = true;
-    settings.valueSuggestionSortMode = "name";
+    settings.valueSuggestionDefaultBehavior = "name";
     const controller = createController(settings);
     createValueMenu(["b", "a"]);
     const menu = document.createElement("div");
@@ -755,7 +967,7 @@ describe("ValueSuggestionOrderController", () => {
     installRafHarness();
     const settings = createDefaultSettings();
     settings.enableNativeValueSuggestionOrder = true;
-    settings.valueSuggestionSortMode = "name";
+    settings.valueSuggestionDefaultBehavior = "name";
     const controller = createController(settings);
     const { container } = createValueMenu(["b", "a"]);
     controller.initialize();
@@ -780,7 +992,7 @@ describe("ValueSuggestionOrderController", () => {
     const app = createApp({ files, frontmatterByFile });
     const settings = createDefaultSettings();
     settings.enableNativeValueSuggestionOrder = true;
-    settings.valueSuggestionSortMode = "usage";
+    settings.valueSuggestionDefaultBehavior = "note-count";
     const controller = createController(settings, app);
     const { container } = createValueMenu(["a", "b"]);
     controller.initialize();
@@ -798,6 +1010,7 @@ describe("ValueSuggestionOrderController", () => {
   it("restores native ordering after removing a pin or changing sort mode", () => {
     const settings = createDefaultSettings();
     settings.enableNativeValueSuggestionOrder = true;
+    settings.valueSuggestionLegacyMigrationPending = true;
     settings.valueSuggestionSortMode = "name";
     const controller = createController(settings);
     const { container } = createValueMenu(["b", "a"]);
@@ -820,7 +1033,7 @@ describe("ValueSuggestionOrderController", () => {
     const raf = installRafHarness();
     const settings = createDefaultSettings();
     settings.enableNativeValueSuggestionOrder = true;
-    settings.valueSuggestionSortMode = "name";
+    settings.valueSuggestionDefaultBehavior = "name";
     const controller = createController(settings);
     const { container } = createValueMenu(["b", "a"]);
     const list = document.createElement("div");

@@ -10,6 +10,7 @@ import {
   createPreviewElement,
   getDragAutoScrollDelta,
   positionPreview,
+  suppressNativeDrag,
   updateIndicator,
 } from "../../../src/features/value-order/drag-dom";
 import { installObsidianDomFactories } from "../../setup/obsidian-dom";
@@ -113,6 +114,7 @@ describe("drag preview geometry", () => {
     const scroller = targetWindow.document.createElement("div") as unknown as HTMLElement;
     root.appendChild(scroller);
     (targetWindow.document.body as unknown as HTMLElement).appendChild(root);
+    root.getBoundingClientRect = () => createRect(0, 0, 120, 100);
     scroller.style.overflowY = "auto";
     Object.defineProperty(scroller, "clientHeight", { configurable: true, value: 100 });
     Object.defineProperty(scroller, "scrollHeight", { configurable: true, value: 300 });
@@ -129,6 +131,45 @@ describe("drag preview geometry", () => {
     expect(autoScrollDragContainer(root, 60, 95)).toBe(true);
     expect(scroller.scrollTop).toBeGreaterThan(50);
     expect(scroller.scrollTop).toBeLessThanOrEqual(70);
+  });
+
+  it("does not scroll the pane root when the pointer leaves its bounds", () => {
+    const targetWindow = createWindow(240, 160);
+    const root = targetWindow.document.createElement("div") as unknown as HTMLElement;
+    (targetWindow.document.body as unknown as HTMLElement).appendChild(root);
+    root.style.overflowY = "auto";
+    Object.defineProperty(root, "clientHeight", { configurable: true, value: 100 });
+    Object.defineProperty(root, "scrollHeight", { configurable: true, value: 300 });
+    root.scrollTop = 50;
+    root.getBoundingClientRect = () => createRect(0, 0, 120, 100);
+    Object.defineProperty(targetWindow.document, "elementFromPoint", {
+      configurable: true,
+      value: () => targetWindow.document.body,
+    });
+
+    expect(autoScrollDragContainer(root, 1000, 95)).toBe(false);
+    expect(autoScrollDragContainer(root, 60, 500)).toBe(false);
+    expect(root.scrollTop).toBe(50);
+  });
+
+  it("restores native draggable state without scheduling cleanup RAF work", () => {
+    const targetWindow = createWindow(240, 160);
+    const pill = targetWindow.document.createElement("div") as unknown as HTMLElement;
+    (targetWindow.document.body as unknown as HTMLElement).appendChild(pill);
+    let scheduled = 0;
+    const originalRequest = targetWindow.requestAnimationFrame.bind(targetWindow);
+    targetWindow.requestAnimationFrame = ((callback: FrameRequestCallback) => {
+      scheduled += 1;
+      return originalRequest(callback);
+    }) as typeof targetWindow.requestAnimationFrame;
+
+    const restore = suppressNativeDrag(pill);
+    expect(pill.getAttribute("draggable")).toBe("false");
+    restore();
+
+    expect(pill.hasAttribute("draggable")).toBe(false);
+    expect(pill.classList.contains("property-order-cursor-refresh")).toBe(false);
+    expect(scheduled).toBe(0);
   });
 
   it("places a wrapped RTL insertion indicator on the logical leading edge", () => {
