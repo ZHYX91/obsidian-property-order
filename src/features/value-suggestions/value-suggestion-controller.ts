@@ -325,6 +325,7 @@ export class ValueSuggestionOrderController {
         keymap: this.plugin.app.keymap,
         parentScope: this.plugin.app.scope,
         getActiveContainer: () => this.getActiveContainer(targetDocument),
+        getSuggestionElements: getPropertyValueSuggestionElements,
         hasActiveContext: hasActivePropertyValueSuggestionContext,
         onActivationIntent: (element) => {
           this.recentValueTracker.captureSuggestionActivation(element);
@@ -705,7 +706,11 @@ export class ValueSuggestionOrderController {
       itemParent.appendChild(element);
     }
 
-    if (!synchronizeSuggestionSelection(container, snapshot.appliedState == null)) {
+    if (!synchronizeSuggestionSelection(
+      container,
+      snapshot.appliedState == null,
+      getPropertyValueSuggestionElements,
+    )) {
       this.restoreContainer(container);
       return;
     }
@@ -825,19 +830,23 @@ export class ValueSuggestionOrderController {
   }
 
   private documentNeedsMetadataRefresh(targetDocument: Document): boolean {
-    const fallback = this.customFallbacks.get(targetDocument);
+    const settings = this.getSettings();
+    const activeContext = getActivePropertyValueSuggestionContext(targetDocument);
     if (
-      fallback != null &&
-      fallback.container.isConnected &&
-      fallback.editor.isConnected
+      activeContext != null &&
+      !settings.valueSuggestionLegacyMigrationPending &&
+      resolvePropertyValueBehavior(
+        settings.valueSuggestionPropertyAssignments,
+        settings.valueSuggestionDefaultBehavior,
+        activeContext.propertyKey,
+      ) === "custom" &&
+      !this.hasVisibleNativeValuePopup(targetDocument)
     ) {
-      // Plugin-owned fallback vocabulary comes from Metadata Cache, so any
-      // metadata invalidation can change its candidates even outside note-count
-      // ordering. Native popup vocabulary lifecycle remains host-driven.
+      // Fallback vocabulary comes from Metadata Cache even when the current
+      // query yields no mount. Keep the focused custom editor refreshable so
+      // later metadata changes can create, remove, or reorder candidates.
       return true;
     }
-
-    const settings = this.getSettings();
 
     for (const container of this.originalSuggestions.keys()) {
       if (
@@ -954,18 +963,20 @@ export class ValueSuggestionOrderController {
   }
 
   private refreshCustomFallback(targetDocument: Document): void {
-    this.hideCustomFallback(targetDocument);
+    const previousMount = this.customFallbacks.get(targetDocument) ?? null;
     const settings = this.getSettings();
 
     if (
       !settings.enableNativeValueSuggestionOrder ||
       settings.valueSuggestionLegacyMigrationPending
     ) {
+      this.hideCustomFallback(targetDocument);
       return;
     }
 
     const context = getActivePropertyValueSuggestionContext(targetDocument);
     if (context == null) {
+      this.hideCustomFallback(targetDocument);
       return;
     }
 
@@ -974,21 +985,27 @@ export class ValueSuggestionOrderController {
       settings.valueSuggestionDefaultBehavior,
       context.propertyKey,
     );
-    if (behavior !== "custom") {
+    if (behavior !== "custom" || this.hasVisibleNativeValuePopup(targetDocument)) {
+      this.hideCustomFallback(targetDocument);
       return;
     }
 
-    const nativePopupExists = findSuggestionContainers(targetDocument)
-      .map(resolvePropertyValueSuggestionContainer)
-      .some((container) =>
-        container != null &&
-        container.isConnected &&
-        isSuggestionElementVisible(container) &&
-        isPropertyValueSuggestionContainer(container)
-      );
-    if (nativePopupExists) {
+    const input = getPropertyValueInput(context);
+    if (input == null) {
+      this.hideCustomFallback(targetDocument);
       return;
     }
+
+    const query = getPropertyValueInputText(input);
+    const selectedValue =
+      previousMount != null &&
+      previousMount.editor === context.editor &&
+      equalPropertyKey(previousMount.propertyKey, context.propertyKey) &&
+      previousMount.query === query
+        ? previousMount.getSelectedValue()
+        : null;
+
+    this.hideCustomFallback(targetDocument);
 
     const order = getPropertyValueCustomOrder(
       settings.valueSuggestionCustomOrders,
@@ -1012,12 +1029,24 @@ export class ValueSuggestionOrderController {
         commitCustomPropertyValueCandidate(context, value);
         this.hideCustomFallback(targetDocument);
       },
+      selectedValue,
     );
 
     if (mount != null) {
       this.customFallbacks.set(targetDocument, mount);
       this.activeContainers.set(targetDocument, mount.container);
     }
+  }
+
+  private hasVisibleNativeValuePopup(targetDocument: Document): boolean {
+    return findSuggestionContainers(targetDocument)
+      .map(resolvePropertyValueSuggestionContainer)
+      .some((container) =>
+        container != null &&
+        container.isConnected &&
+        isSuggestionElementVisible(container) &&
+        isPropertyValueSuggestionContainer(container)
+      );
   }
 
   private hideCustomFallback(targetDocument: Document): void {
@@ -1157,4 +1186,12 @@ function getElementAtOrAboveNode(node: Node): HTMLElement | null {
   }
 
   return node.parentElement;
+}
+
+function getPropertyValueSuggestionElements(container: HTMLElement): HTMLElement[] {
+  return getPropertyValueSuggestionItems(container).map((item) => item.element);
+}
+
+function equalPropertyKey(left: string, right: string): boolean {
+  return left.trim().toLocaleLowerCase() === right.trim().toLocaleLowerCase();
 }

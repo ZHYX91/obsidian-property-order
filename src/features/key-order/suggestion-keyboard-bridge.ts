@@ -1,18 +1,17 @@
 import { Scope, type Keymap } from "obsidian";
 
-import {
-  getSuggestionItems,
-  hasActivePropertyKeySuggestionContext,
-} from "../../obsidian/native-suggest-dom";
+import { hasActivePropertyKeySuggestionContext } from "../../obsidian/native-suggest-dom";
 import { isSuggestionElementVisible } from "./suggestion-visibility";
 
 const SELECTED_SUGGESTION_CLASS = "is-selected";
 type SuggestionActivation = "enter" | "tab";
+type SuggestionElementResolver = (container: HTMLElement) => HTMLElement[];
 
 interface SuggestionKeyboardBridgeOptions {
   keymap?: Keymap;
   parentScope?: Scope;
   getActiveContainer: () => HTMLElement | null;
+  getSuggestionElements?: SuggestionElementResolver;
   hasActiveContext?: (container: HTMLElement) => boolean;
   onActivationIntent?: (
     element: HTMLElement,
@@ -29,6 +28,8 @@ export function registerSuggestionKeyboardBridge(
 ): (() => void) & { synchronizeScope(active: boolean): void } {
   const hasActiveContext =
     options.hasActiveContext ?? hasActivePropertyKeySuggestionContext;
+  const getSuggestionElements =
+    options.getSuggestionElements ?? getAllSuggestionElements;
   const handleKeyDown = (event: KeyboardEvent): void => {
     if (Reflect.get(event, "propertyOrderPresetCommit") === true) {
       return;
@@ -44,14 +45,20 @@ export function registerSuggestionKeyboardBridge(
       return;
     }
 
-    const visibleElements = getVisibleSuggestionElements(container);
+    const visibleElements = getVisibleSuggestionElements(
+      container,
+      getSuggestionElements,
+    );
 
     if (event.key === "Tab") {
       if (event.shiftKey || event.altKey || event.ctrlKey || event.metaKey) {
         return;
       }
 
-      const selectedElement = getSelectedSuggestionElement(container);
+      const selectedElement = getSelectedSuggestionElement(
+        container,
+        getSuggestionElements,
+      );
 
       if (selectedElement != null && visibleElements.includes(selectedElement)) {
         notifyActivationIntent(
@@ -79,6 +86,7 @@ export function registerSuggestionKeyboardBridge(
         container,
         visibleElements,
         options.onActivationIntent,
+        getSuggestionElements,
         (failedContainer) => {
           options.onSynchronizationFailure(failedContainer);
         },
@@ -108,7 +116,7 @@ export function registerSuggestionKeyboardBridge(
     );
     const targetElement = visibleElements[targetIndex];
 
-    if (!requestNativeSelection(targetElement)) {
+    if (!requestNativeSelection(targetElement, getSuggestionElements)) {
       options.onSynchronizationFailure(container);
     }
   };
@@ -160,21 +168,28 @@ export function registerSuggestionKeyboardBridge(
 export function synchronizeSuggestionSelection(
   container: HTMLElement,
   resetToFirstVisible: boolean,
+  getSuggestionElements: SuggestionElementResolver = getAllSuggestionElements,
 ): boolean {
-  const visibleElements = getVisibleSuggestionElements(container);
+  const visibleElements = getVisibleSuggestionElements(
+    container,
+    getSuggestionElements,
+  );
 
   if (visibleElements.length === 0) {
     return true;
   }
 
-  const selectedElement = getSelectedSuggestionElement(container);
+  const selectedElement = getSelectedSuggestionElement(
+    container,
+    getSuggestionElements,
+  );
   const targetElement =
     !resetToFirstVisible && selectedElement != null && visibleElements.includes(selectedElement)
       ? selectedElement
       : visibleElements[0];
 
   return targetElement.classList.contains(SELECTED_SUGGESTION_CLASS) ||
-    requestNativeSelection(targetElement);
+    requestNativeSelection(targetElement, getSuggestionElements);
 }
 
 function handleEnter(
@@ -186,6 +201,7 @@ function handleEnter(
     activation: SuggestionActivation,
     event: KeyboardEvent,
   ) => void) | undefined,
+  getSuggestionElements: SuggestionElementResolver,
   onSynchronizationFailure: (container: HTMLElement) => void,
 ): void {
   event.preventDefault();
@@ -195,13 +211,16 @@ function handleEnter(
     return;
   }
 
-  const selectedElement = getSelectedSuggestionElement(container);
+  const selectedElement = getSelectedSuggestionElement(
+    container,
+    getSuggestionElements,
+  );
   const targetElement =
     selectedElement != null && visibleElements.includes(selectedElement)
       ? selectedElement
       : visibleElements[0];
 
-  if (!requestNativeSelection(targetElement)) {
+  if (!requestNativeSelection(targetElement, getSuggestionElements)) {
     onSynchronizationFailure(container);
     return;
   }
@@ -323,10 +342,14 @@ function getVisiblePageSize(container: HTMLElement, selectedElement: HTMLElement
   return Math.max(1, Math.floor(viewportHeight / rowHeight) - 1);
 }
 
-function requestNativeSelection(element: HTMLElement): boolean {
-  for (const item of getSuggestionItems(element.closest<HTMLElement>(
+function requestNativeSelection(
+  element: HTMLElement,
+  getSuggestionElements: SuggestionElementResolver,
+): boolean {
+  const container = element.closest<HTMLElement>(
     ".suggestion-container, .suggestion, .menu",
-  ) ?? element).map((suggestion) => suggestion.element)) {
+  ) ?? element;
+  for (const item of getSuggestionElements(container)) {
     item.classList.toggle(SELECTED_SUGGESTION_CLASS, item === element);
   }
 
@@ -343,16 +366,25 @@ function activateSuggestion(element: HTMLElement): boolean {
   return true;
 }
 
-function getVisibleSuggestionElements(container: HTMLElement): HTMLElement[] {
-  return getSuggestionItems(container)
-    .map((item) => item.element)
-    .filter(isSuggestionElementVisible);
+function getVisibleSuggestionElements(
+  container: HTMLElement,
+  getSuggestionElements: SuggestionElementResolver,
+): HTMLElement[] {
+  return getSuggestionElements(container).filter(isSuggestionElementVisible);
 }
 
-function getSelectedSuggestionElement(container: HTMLElement): HTMLElement | null {
-  return getSuggestionItems(container)
-    .map((item) => item.element)
+function getSelectedSuggestionElement(
+  container: HTMLElement,
+  getSuggestionElements: SuggestionElementResolver,
+): HTMLElement | null {
+  return getSuggestionElements(container)
     .find((element) => element.classList.contains(SELECTED_SUGGESTION_CLASS)) ?? null;
+}
+
+function getAllSuggestionElements(container: HTMLElement): HTMLElement[] {
+  return Array.from(
+    container.querySelectorAll<HTMLElement>(".suggestion-item, .menu-item"),
+  );
 }
 
 function getSelectedVisibleIndex(visibleElements: HTMLElement[]): number {
