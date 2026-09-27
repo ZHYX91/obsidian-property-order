@@ -18,6 +18,7 @@ interface SuggestionKeyboardBridgeOptions {
     activation: SuggestionActivation,
     event: KeyboardEvent,
   ) => void;
+  onEscapeIntent?: (event: KeyboardEvent) => void;
   onSynchronizationFailure: (container: HTMLElement) => void;
   supportsEmacsNavigation: boolean;
   targetWindow: Window;
@@ -134,6 +135,7 @@ export function registerSuggestionKeyboardBridge(
     if (Reflect.get(event, "propertyOrderPresetCommit") === true) return true;
     if (event.isComposing) return true;
     if (event.key === "Escape") {
+      notifyEscapeIntent(options.onEscapeIntent, event);
       releaseScope();
       const target = event.target;
       const view = options.targetWindow.document.defaultView;
@@ -246,6 +248,17 @@ function notifyActivationIntent(
     onActivationIntent?.(element, activation, event);
   } catch (error) {
     console.error("Property Order: failed to capture a suggestion activation", error);
+  }
+}
+
+function notifyEscapeIntent(
+  onEscapeIntent: ((event: KeyboardEvent) => void) | undefined,
+  event: KeyboardEvent,
+): void {
+  try {
+    onEscapeIntent?.(event);
+  } catch (error) {
+    console.error("Property Order: failed to capture a suggestion Escape", error);
   }
 }
 

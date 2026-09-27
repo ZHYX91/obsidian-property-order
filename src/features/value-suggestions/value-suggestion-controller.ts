@@ -345,11 +345,14 @@ export class ValueSuggestionOrderController {
           this.scheduleEnhancement(targetDocument);
         }
       };
+      const handleEscapeIntent = (): void => {
+        this.closeCustomFallbackSession(targetDocument);
+        this.hideCustomFallback(targetDocument);
+        state.synchronizeKeyboardScope(false);
+      };
       const handleKeyDown = (event: KeyboardEvent): void => {
         if (event.key === "Escape") {
-          this.closeCustomFallbackSession(targetDocument);
-          this.hideCustomFallback(targetDocument);
-          state.synchronizeKeyboardScope(false);
+          handleEscapeIntent();
         }
       };
       const handleWindowBlur = (): void => {
@@ -389,6 +392,7 @@ export class ValueSuggestionOrderController {
         onActivationIntent: (element) => {
           this.recentValueTracker.captureSuggestionActivation(element);
         },
+        onEscapeIntent: handleEscapeIntent,
         onSynchronizationFailure: (container) => this.restoreContainer(container),
         supportsEmacsNavigation: Platform.isMacOS || Platform.isIosApp,
         targetWindow,
