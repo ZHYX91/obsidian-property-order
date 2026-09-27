@@ -16,7 +16,8 @@ follow the repository's Git tags; entries summarize the corresponding commit his
   candidate commit, and confirmed selection tracking without changing property-name normalization.
 - Refreshed plugin-owned custom fallback candidates after metadata changes even when the current
   query has no matches, while preserving an exact selected value only within the same
-  editor/property/query context and safely selecting a remaining candidate when needed.
+  editor/property/query context, safely selecting a remaining candidate when needed, and keeping
+  Escape or focus-loss closures inactive until a new input/focus session starts.
 
 ## [0.8.0] - 2026-09-27
 

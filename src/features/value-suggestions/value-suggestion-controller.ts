@@ -79,9 +79,16 @@ interface DocumentEnhancementState {
   view: Window;
 }
 
+interface CustomFallbackSession {
+  editor: HTMLElement;
+  propertyKey: string;
+  status: "active" | "closed";
+}
+
 export class ValueSuggestionOrderController {
   private readonly activeContainers = new Map<Document, HTMLElement>();
   private readonly customFallbacks = new Map<Document, CustomValuePopupMount>();
+  private readonly customFallbackSessions = new Map<Document, CustomFallbackSession>();
   private readonly documentStates = new Map<Document, DocumentEnhancementState>();
   private initialized = false;
   private readonly getSettings: () => PropertyOrderSettings;
@@ -182,6 +189,7 @@ export class ValueSuggestionOrderController {
       this.documentStates.size === 0 &&
       this.registeredEventCleanups.length === 0 &&
       this.customFallbacks.size === 0 &&
+      this.customFallbackSessions.size === 0 &&
       this.originalSuggestions.size === 0
     ) {
       return;
@@ -219,6 +227,7 @@ export class ValueSuggestionOrderController {
         state.observing = false;
         this.cancelScheduledEnhancement(state);
         state.synchronizeKeyboardScope(false);
+        this.customFallbackSessions.delete(targetDocument);
         this.restoreContainersForDocument(targetDocument);
       }
     }
@@ -260,6 +269,7 @@ export class ValueSuggestionOrderController {
     const observer = new targetWindow.MutationObserver((mutations) => {
       const fallback = this.customFallbacks.get(targetDocument);
       if (fallback != null && !fallback.editor.isConnected) {
+        this.customFallbackSessions.delete(targetDocument);
         this.hideCustomFallback(targetDocument);
       }
       this.updateNativeSnapshots(targetDocument, mutations);
@@ -289,14 +299,40 @@ export class ValueSuggestionOrderController {
           target.closest(".metadata-property-value") != null &&
           this.getSettings().enableNativeValueSuggestionOrder
         ) {
-          // Obsidian can reuse the same popup nodes while focus moves to a
-          // different property row. Focus identity is therefore an input to
-          // enhancement even when the popup itself produces no DOM mutation.
+          // A new editor focus is an explicit session start. Obsidian can reuse
+          // the same popup nodes while focus moves to another property row.
+          this.activateCustomFallbackSession(targetDocument);
           this.scheduleEnhancement(targetDocument);
         } else {
+          this.customFallbackSessions.delete(targetDocument);
           this.hideCustomFallback(targetDocument);
           state.synchronizeKeyboardScope(false);
         }
+      };
+      const handleFocusOut = (event: FocusEvent): void => {
+        const target = event.target;
+        if (
+          !(target instanceof targetWindow.HTMLElement) ||
+          target.closest(".metadata-property-value") == null
+        ) {
+          return;
+        }
+
+        // Pointer selection prevents the editor's mousedown default, so a real
+        // candidate click does not leave the editor. Defer ordinary focusout
+        // cleanup one microtask so focus moving within or to another property
+        // editor can settle without removing the click target prematurely.
+        targetWindow.queueMicrotask(() => {
+          if (this.documentStates.get(targetDocument) !== state) {
+            return;
+          }
+          if (getActivePropertyValueSuggestionContext(targetDocument) != null) {
+            return;
+          }
+          this.customFallbackSessions.delete(targetDocument);
+          this.hideCustomFallback(targetDocument);
+          state.synchronizeKeyboardScope(false);
+        });
       };
       const handleInput = (event: Event): void => {
         const target = event.target;
@@ -305,21 +341,44 @@ export class ValueSuggestionOrderController {
           target.closest(".metadata-property-value") != null &&
           this.getSettings().enableNativeValueSuggestionOrder
         ) {
+          this.activateCustomFallbackSession(targetDocument);
           this.scheduleEnhancement(targetDocument);
         }
       };
       const handleKeyDown = (event: KeyboardEvent): void => {
         if (event.key === "Escape") {
+          this.closeCustomFallbackSession(targetDocument);
           this.hideCustomFallback(targetDocument);
+          state.synchronizeKeyboardScope(false);
+        }
+      };
+      const handleWindowBlur = (): void => {
+        this.closeCustomFallbackSession(targetDocument);
+        this.hideCustomFallback(targetDocument);
+        state.synchronizeKeyboardScope(false);
+      };
+      const handleWindowFocus = (): void => {
+        if (
+          this.getSettings().enableNativeValueSuggestionOrder &&
+          getActivePropertyValueSuggestionContext(targetDocument) != null
+        ) {
+          this.activateCustomFallbackSession(targetDocument);
+          this.scheduleEnhancement(targetDocument);
         }
       };
       targetDocument.addEventListener("focusin", handleFocusIn, true);
+      targetDocument.addEventListener("focusout", handleFocusOut, true);
       targetDocument.addEventListener("input", handleInput, true);
       targetDocument.addEventListener("keydown", handleKeyDown, true);
+      targetWindow.addEventListener("blur", handleWindowBlur);
+      targetWindow.addEventListener("focus", handleWindowFocus);
       state.contextCleanup = () => {
         targetDocument.removeEventListener("focusin", handleFocusIn, true);
+        targetDocument.removeEventListener("focusout", handleFocusOut, true);
         targetDocument.removeEventListener("input", handleInput, true);
         targetDocument.removeEventListener("keydown", handleKeyDown, true);
+        targetWindow.removeEventListener("blur", handleWindowBlur);
+        targetWindow.removeEventListener("focus", handleWindowFocus);
       };
       const keyboard = registerSuggestionKeyboardBridge({
         keymap: this.plugin.app.keymap,
@@ -359,6 +418,7 @@ export class ValueSuggestionOrderController {
 
     this.documentStates.delete(targetDocument);
     this.activeContainers.delete(targetDocument);
+    this.customFallbackSessions.delete(targetDocument);
     this.updateNativeSnapshots(targetDocument, state.observer.takeRecords());
     state.observer.disconnect();
     state.observing = false;
@@ -832,8 +892,13 @@ export class ValueSuggestionOrderController {
   private documentNeedsMetadataRefresh(targetDocument: Document): boolean {
     const settings = this.getSettings();
     const activeContext = getActivePropertyValueSuggestionContext(targetDocument);
+    const fallbackSession = this.customFallbackSessions.get(targetDocument);
     if (
       activeContext != null &&
+      fallbackSession?.status === "active" &&
+      fallbackSession.editor === activeContext.editor &&
+      equalPropertyKey(fallbackSession.propertyKey, activeContext.propertyKey) &&
+      fallbackSession.editor.isConnected &&
       !settings.valueSuggestionLegacyMigrationPending &&
       resolvePropertyValueBehavior(
         settings.valueSuggestionPropertyAssignments,
@@ -970,12 +1035,14 @@ export class ValueSuggestionOrderController {
       !settings.enableNativeValueSuggestionOrder ||
       settings.valueSuggestionLegacyMigrationPending
     ) {
+      this.customFallbackSessions.delete(targetDocument);
       this.hideCustomFallback(targetDocument);
       return;
     }
 
     const context = getActivePropertyValueSuggestionContext(targetDocument);
     if (context == null) {
+      this.customFallbackSessions.delete(targetDocument);
       this.hideCustomFallback(targetDocument);
       return;
     }
@@ -985,13 +1052,25 @@ export class ValueSuggestionOrderController {
       settings.valueSuggestionDefaultBehavior,
       context.propertyKey,
     );
-    if (behavior !== "custom" || this.hasVisibleNativeValuePopup(targetDocument)) {
+    if (behavior !== "custom") {
+      this.customFallbackSessions.delete(targetDocument);
+      this.hideCustomFallback(targetDocument);
+      return;
+    }
+    if (this.hasVisibleNativeValuePopup(targetDocument)) {
+      this.hideCustomFallback(targetDocument);
+      return;
+    }
+
+    const fallbackSession = this.ensureCustomFallbackSession(context);
+    if (fallbackSession.status !== "active") {
       this.hideCustomFallback(targetDocument);
       return;
     }
 
     const input = getPropertyValueInput(context);
     if (input == null) {
+      this.customFallbackSessions.delete(targetDocument);
       this.hideCustomFallback(targetDocument);
       return;
     }
@@ -1027,6 +1106,7 @@ export class ValueSuggestionOrderController {
       plan.candidates.map((candidate) => candidate.value),
       (value) => {
         commitCustomPropertyValueCandidate(context, value);
+        this.closeCustomFallbackSession(targetDocument);
         this.hideCustomFallback(targetDocument);
       },
       selectedValue,
@@ -1047,6 +1127,56 @@ export class ValueSuggestionOrderController {
         isSuggestionElementVisible(container) &&
         isPropertyValueSuggestionContainer(container)
       );
+  }
+
+  private ensureCustomFallbackSession(
+    context: PropertyValueSuggestionContext,
+  ): CustomFallbackSession {
+    const targetDocument = context.editor.ownerDocument;
+    const existing = this.customFallbackSessions.get(targetDocument);
+    if (
+      existing != null &&
+      existing.editor === context.editor &&
+      equalPropertyKey(existing.propertyKey, context.propertyKey)
+    ) {
+      return existing;
+    }
+
+    const session: CustomFallbackSession = {
+      editor: context.editor,
+      propertyKey: context.propertyKey,
+      status: "active",
+    };
+    this.customFallbackSessions.set(targetDocument, session);
+    return session;
+  }
+
+  private activateCustomFallbackSession(targetDocument: Document): void {
+    const context = getActivePropertyValueSuggestionContext(targetDocument);
+    if (context == null) {
+      this.customFallbackSessions.delete(targetDocument);
+      return;
+    }
+
+    this.customFallbackSessions.set(targetDocument, {
+      editor: context.editor,
+      propertyKey: context.propertyKey,
+      status: "active",
+    });
+  }
+
+  private closeCustomFallbackSession(targetDocument: Document): void {
+    const context = getActivePropertyValueSuggestionContext(targetDocument);
+    if (context == null) {
+      this.customFallbackSessions.delete(targetDocument);
+      return;
+    }
+
+    this.customFallbackSessions.set(targetDocument, {
+      editor: context.editor,
+      propertyKey: context.propertyKey,
+      status: "closed",
+    });
   }
 
   private hideCustomFallback(targetDocument: Document): void {
@@ -1121,6 +1251,7 @@ export class ValueSuggestionOrderController {
   }
 
   private restoreAllContainers(): void {
+    this.customFallbackSessions.clear();
     for (const targetDocument of Array.from(this.customFallbacks.keys())) {
       this.hideCustomFallback(targetDocument);
     }
@@ -1130,6 +1261,7 @@ export class ValueSuggestionOrderController {
   }
 
   private restoreContainersForDocument(targetDocument: Document): void {
+    this.customFallbackSessions.delete(targetDocument);
     this.hideCustomFallback(targetDocument);
     for (const container of Array.from(this.originalSuggestions.keys())) {
       if (container.ownerDocument === targetDocument) {
