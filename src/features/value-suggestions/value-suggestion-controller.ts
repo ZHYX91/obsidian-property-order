@@ -311,19 +311,39 @@ export class ValueSuggestionOrderController {
       };
       const handleFocusOut = (event: FocusEvent): void => {
         const target = event.target;
-        if (
-          !(target instanceof targetWindow.HTMLElement) ||
-          target.closest(".metadata-property-value") == null
-        ) {
+        if (!(target instanceof targetWindow.HTMLElement)) {
           return;
         }
 
+        const editor = target.closest<HTMLElement>(".metadata-property-value");
+        if (editor == null) {
+          return;
+        }
+
+        const relatedTarget = event.relatedTarget;
+        if (
+          relatedTarget instanceof targetWindow.HTMLElement &&
+          (relatedTarget === editor || editor.contains(relatedTarget))
+        ) {
+          // Chromium can transiently expose BODY as activeElement while
+          // relatedTarget already identifies another control inside the same
+          // property-value editor. That is an internal transfer, not a session
+          // exit, so preserve the mounted fallback and exact selection.
+          return;
+        }
+
+        const sessionAtFocusOut = this.customFallbackSessions.get(targetDocument);
+
         // Pointer selection prevents the editor's mousedown default, so a real
         // candidate click does not leave the editor. Defer ordinary focusout
-        // cleanup one microtask so focus moving within or to another property
-        // editor can settle without removing the click target prematurely.
+        // cleanup one microtask, but bind it to the session that actually lost
+        // focus so it cannot erase a newer focus/input session created during
+        // the browser's focus transition.
         targetWindow.queueMicrotask(() => {
           if (this.documentStates.get(targetDocument) !== state) {
+            return;
+          }
+          if (this.customFallbackSessions.get(targetDocument) !== sessionAtFocusOut) {
             return;
           }
           if (getActivePropertyValueSuggestionContext(targetDocument) != null) {

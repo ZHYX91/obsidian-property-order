@@ -18,7 +18,8 @@ follow the repository's Git tags; entries summarize the corresponding commit his
   query has no matches, while preserving an exact selected value only within the same
   editor/property/query context, safely selecting a remaining candidate when needed, and keeping
   Escape or focus-loss closures inactive until a new input/focus session starts. Scope-owned
-  Escape now closes that session before the native forwarded Escape can be consumed.
+  Escape now closes that session before the native forwarded Escape can be consumed, while
+  internal focus transfers within one value editor preserve the session and exact selection.
 
 ## [0.8.0] - 2026-09-27
 
