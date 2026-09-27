@@ -16,6 +16,7 @@ interface RafHarness {
 }
 
 const liveControllers = new Set<ValueSuggestionOrderController>();
+const listenerCleanups = new Set<() => void>();
 
 interface TestableValueController {
   activeContainers: Map<Document, HTMLElement>;
@@ -184,6 +185,8 @@ describe("ValueSuggestionOrderController", () => {
       controller.dispose();
     }
     liveControllers.clear();
+    for (const cleanup of listenerCleanups) cleanup();
+    listenerCleanups.clear();
     Platform.isIosApp = false;
     Platform.isMacOS = false;
     Platform.isMobileApp = false;
@@ -1039,6 +1042,7 @@ describe("ValueSuggestionOrderController", () => {
       }
     };
     window.addEventListener("keydown", hostCapture, true);
+    listenerCleanups.add(() => window.removeEventListener("keydown", hostCapture, true));
 
     const app = createApp({ keymap });
     const settings = createDefaultSettings();

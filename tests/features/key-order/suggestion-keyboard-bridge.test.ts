@@ -41,9 +41,15 @@ function createExactValueContainer(values: readonly string[]): HTMLElement {
   return container;
 }
 
+const listenerCleanups = new Set<() => void>();
+
 describe("suggestion keyboard bridge", () => {
   beforeEach(() => document.body.replaceChildren());
-  afterEach(() => vi.restoreAllMocks());
+  afterEach(() => {
+    for (const cleanup of listenerCleanups) cleanup();
+    listenerCleanups.clear();
+    vi.restoreAllMocks();
+  });
 
   it("owns the host scope before native selection and releases it on cleanup", () => {
     const container = createContainer();
@@ -110,6 +116,7 @@ describe("suggestion keyboard bridge", () => {
       }
     };
     window.addEventListener("keydown", hostCapture, true);
+    listenerCleanups.add(() => window.removeEventListener("keydown", hostCapture, true));
 
     const keymap = {
       pushScope: vi.fn((scope) => {
