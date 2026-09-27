@@ -732,7 +732,11 @@ export class ValueSuggestionOrderController {
     item.addEventListener("mousedown", (event) => {
       event.preventDefault();
     });
-    item.addEventListener("click", () => {
+    item.addEventListener("click", (event) => {
+      // The host delegates clicks from its popup. A plugin-only row has no
+      // native item index, so letting this bubble can commit a second value.
+      event.preventDefault();
+      event.stopImmediatePropagation();
       if (commitCustomPropertyValueCandidate(context, value)) {
         this.hideCustomFallback(context.editor.ownerDocument);
       }

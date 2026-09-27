@@ -542,6 +542,8 @@ describe("ValueSuggestionOrderController", () => {
     ).toHaveLength(2);
 
     const events: string[] = [];
+    const nativeDelegatedClick = vi.fn();
+    container.addEventListener("click", nativeDelegatedClick);
     editor.addEventListener("input", () => events.push("input"));
     editor.addEventListener("keydown", (event) => {
       if (event.key === "Enter") events.push("enter");
@@ -551,6 +553,9 @@ describe("ValueSuggestionOrderController", () => {
       ?.click();
 
     expect(events).toEqual(["input", "enter"]);
+    expect(nativeDelegatedClick).not.toHaveBeenCalled();
+    container.querySelector<HTMLElement>(".suggestion-item:not(.property-order-preset-value-item)")?.click();
+    expect(nativeDelegatedClick).toHaveBeenCalledOnce();
     controller.dispose();
   });
 
