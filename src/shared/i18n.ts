@@ -81,7 +81,7 @@ const EN_TRANSLATIONS = {
     "Property value suggestion management is off. Obsidian's native suggestions remain available; the rules below take effect when management is enabled.",
   "settings.valueSuggestions.sortMode.name": "Default suggestion behavior",
   "settings.valueSuggestions.sortMode.desc":
-    "Native preserves Obsidian's order. Name uses the same mixed-language ordering as key suggestions. Recently used is device-local and advances only after a selected value is confirmed in metadata. Note count ranks values by the number of Markdown notes containing them for the active property. No suggestions hides native value candidates for matching properties while manual input remains available.",
+    "Native preserves Obsidian's order. Name uses the same mixed-language ordering as key suggestions. Selection frequency counts confirmed candidate selections on this device. Note count ranks values by the number of Markdown notes containing them for the active property. No suggestions hides candidates while manual input remains available.",
   "settings.valueSuggestions.sortMode.native": "Native",
   "settings.valueSuggestions.sortMode.nameOption": "Name",
   "settings.valueSuggestions.sortMode.recent": "Recently used",
@@ -265,7 +265,7 @@ export const TRANSLATIONS = {
       "属性值候选管理当前已关闭，Obsidian 原生候选仍然保留；下方规则启用管理后生效。",
     "settings.valueSuggestions.sortMode.name": "默认候选行为",
     "settings.valueSuggestions.sortMode.desc":
-      "原生会保留 Obsidian 的顺序；名称使用与属性名候选相同的混合语言排序；最近使用仅保存在本设备，并且只有候选值真正写入并经元数据确认后才会前移；笔记数按当前属性中包含该值的 Markdown 笔记数量排序；不提供候选会隐藏匹配属性的原生值候选，但仍可手动输入。",
+      "原生会保留 Obsidian 的顺序；名称使用与属性名候选相同的混合语言排序；选择次数统计本设备上经元数据确认的候选选择；笔记数按当前属性中包含该值的 Markdown 笔记数量排序；不提供候选会隐藏候选，但仍可手动输入。",
     "settings.valueSuggestions.sortMode.native": "原生顺序",
     "settings.valueSuggestions.sortMode.nameOption": "按名称排序",
     "settings.valueSuggestions.sortMode.recent": "按最近使用排序",
@@ -437,7 +437,7 @@ export const TRANSLATIONS = {
       "屬性值候選管理目前已關閉，Obsidian 原生候選仍然保留；下方規則啟用管理後生效。",
     "settings.valueSuggestions.sortMode.name": "預設候選行為",
     "settings.valueSuggestions.sortMode.desc":
-      "原生會保留 Obsidian 的順序；名稱使用與屬性名稱候選相同的混合語言排序；最近使用僅儲存在本裝置，並且只有候選值真正寫入且經中繼資料確認後才會前移；筆記數按目前屬性中包含該值的 Markdown 筆記數量排序；不提供候選會隱藏匹配屬性的原生值候選，但仍可手動輸入。",
+      "原生會保留 Obsidian 的順序；名稱使用與屬性名稱候選相同的混合語言排序；選擇次數統計本裝置上經中繼資料確認的候選選擇；筆記數按目前屬性中包含該值的 Markdown 筆記數量排序；不提供候選會隱藏候選，但仍可手動輸入。",
     "settings.valueSuggestions.sortMode.native": "原生順序",
     "settings.valueSuggestions.sortMode.nameOption": "按名稱排序",
     "settings.valueSuggestions.sortMode.recent": "按最近使用排序",

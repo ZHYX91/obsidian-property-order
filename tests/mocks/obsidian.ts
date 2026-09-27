@@ -64,6 +64,15 @@ export class AbstractInputSuggest<T> {
 
 export class MarkdownView {}
 
+export class Scope {
+  handler: ((event: KeyboardEvent) => boolean | void) | null = null;
+  constructor(_parent?: Scope) {}
+  register(_modifiers: unknown, _key: unknown, handler: (event: KeyboardEvent) => boolean | void) {
+    this.handler = handler;
+    return {};
+  }
+}
+
 export function getLanguage(): string {
   return "en";
 }

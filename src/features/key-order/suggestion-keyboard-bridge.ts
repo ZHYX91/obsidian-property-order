@@ -1,3 +1,5 @@
+import { Scope, type Keymap } from "obsidian";
+
 import {
   getSuggestionItems,
   hasActivePropertyKeySuggestionContext,
@@ -8,6 +10,8 @@ const SELECTED_SUGGESTION_CLASS = "is-selected";
 type SuggestionActivation = "enter" | "tab";
 
 interface SuggestionKeyboardBridgeOptions {
+  keymap?: Keymap;
+  parentScope?: Scope;
   getActiveContainer: () => HTMLElement | null;
   hasActiveContext?: (container: HTMLElement) => boolean;
   onActivationIntent?: (
@@ -22,7 +26,7 @@ interface SuggestionKeyboardBridgeOptions {
 
 export function registerSuggestionKeyboardBridge(
   options: SuggestionKeyboardBridgeOptions,
-): () => void {
+): (() => void) & { synchronizeScope(active: boolean): void } {
   const hasActiveContext =
     options.hasActiveContext ?? hasActivePropertyKeySuggestionContext;
   const handleKeyDown = (event: KeyboardEvent): void => {
@@ -57,7 +61,7 @@ export function registerSuggestionKeyboardBridge(
           event,
         );
 
-        if (selectedElement.dataset.propertyOrderPresetValue === "true") {
+        if (options.keymap != null || selectedElement.dataset.propertyOrderPresetValue === "true") {
           event.preventDefault();
           event.stopImmediatePropagation();
           if (!activateSuggestion(selectedElement)) {
@@ -110,7 +114,47 @@ export function registerSuggestionKeyboardBridge(
   };
 
   options.targetWindow.addEventListener("keydown", handleKeyDown, true);
-  return () => options.targetWindow.removeEventListener("keydown", handleKeyDown, true);
+  let scopeActive = false;
+  const scope = options.keymap == null ? null : new Scope(options.parentScope);
+  const releaseScope = (): void => {
+    if (scope != null && scopeActive) options.keymap?.popScope(scope);
+    scopeActive = false;
+  };
+  scope?.register(null, null, (event) => {
+    // Obsidian's keymap captures before DOM listeners. Own the active popup's
+    // scope so native internal selection cannot commit a different visible row.
+    if (Reflect.get(event, "propertyOrderPresetCommit") === true) return true;
+    if (event.isComposing) return true;
+    if (event.key === "Escape") {
+      releaseScope();
+      const target = event.target;
+      const view = options.targetWindow.document.defaultView;
+      if (view != null && target instanceof view.HTMLElement) {
+        target.dispatchEvent(new view.KeyboardEvent("keydown", {
+          bubbles: true, cancelable: true, key: "Escape", code: "Escape",
+        }));
+      }
+      return false;
+    }
+    if (event.key !== "Enter" && event.key !== "Tab" &&
+      getNavigationAction(event, options.supportsEmacsNavigation) == null) return;
+    handleKeyDown(event);
+    // No active container includes `none`: let the native editor accept typed
+    // text without falling through to the hidden native suggestion scope.
+    return !event.defaultPrevented;
+  });
+  return Object.assign(() => {
+    releaseScope();
+    options.targetWindow.removeEventListener("keydown", handleKeyDown, true);
+  }, {
+    synchronizeScope(active: boolean): void {
+      releaseScope();
+      if (active && scope != null) {
+        options.keymap?.pushScope(scope);
+        scopeActive = true;
+      }
+    },
+  });
 }
 
 export function synchronizeSuggestionSelection(
