@@ -4,6 +4,7 @@ import { beforeEach, describe, expect, it } from "vitest";
 
 import {
   getPropertyValueSuggestionContext,
+  getPropertyValueSuggestionItems,
   getSuggestionItems,
   hasActivePropertyValueSuggestionContext,
   isPropertyValueSuggestionContainer,
@@ -43,6 +44,24 @@ describe("native property value suggestion DOM", () => {
     expect(getSuggestionItems(container).map((item) => item.key)).toEqual([
       "draft",
       "done",
+    ]);
+  });
+
+  it("keeps exact property-value text while shared suggestion names stay normalized", () => {
+    const container = document.createElement("div");
+    container.className = "suggestion-container";
+    container.innerHTML = [
+      '<div class="suggestion-item"><div class="suggestion-title"> draft </div></div>',
+      '<div class="suggestion-item"><div class="suggestion-title">draft</div></div>',
+    ].join("");
+
+    expect(getPropertyValueSuggestionItems(container).map((item) => item.key)).toEqual([
+      " draft ",
+      "draft",
+    ]);
+    expect(getSuggestionItems(container).map((item) => item.key)).toEqual([
+      "draft",
+      "draft",
     ]);
   });
 

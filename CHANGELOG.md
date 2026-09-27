@@ -5,6 +5,18 @@ follow the repository's Git tags; entries summarize the corresponding commit his
 
 ## [Unreleased]
 
+## [0.8.1] - 2026-09-27
+
+### Fixed
+
+- Kept Value suggestions controls bound to the current settings snapshot after each save, so
+  consecutive default-behavior edits and changes after rule-card saves persist correctly.
+- Preserved exact native property-value candidate identity, including meaningful leading and
+  trailing whitespace, through ordering, node mapping, candidate commit, and confirmed selection
+  tracking without changing property-name normalization.
+- Refreshed plugin-owned custom fallback candidates after metadata changes so cached vocabulary
+  and note-count ordering stay current.
+
 ## [0.8.0] - 2026-09-27
 
 ### Added

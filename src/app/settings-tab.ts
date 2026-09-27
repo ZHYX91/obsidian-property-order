@@ -603,16 +603,16 @@ export class PropertyOrderSettingTab extends PluginSettingTab {
 
   private displayValueSuggestionSettings(containerEl: HTMLElement): void {
     const surfaceGeneration = this.settingsSurfaceGeneration;
-    const settings = this.plugin.propertyOrderSettings;
+    const settingsAtRender = this.plugin.propertyOrderSettings;
 
     new Setting(containerEl)
-      .setName(this.t("settings.valueSuggestions.enable.name"))
-      .setDesc(this.t("settings.valueSuggestions.enable.desc"))
+      .setName(this.t("settingsAtRender.valueSuggestions.enable.name"))
+      .setDesc(this.t("settingsAtRender.valueSuggestions.enable.desc"))
       .addToggle((toggle) => {
         toggle
-          .setValue(settings.enableNativeValueSuggestionOrder)
+          .setValue(settingsAtRender.enableNativeValueSuggestionOrder)
           .onChange(async (value) => {
-            settings.enableNativeValueSuggestionOrder = value;
+            this.plugin.propertyOrderSettings.enableNativeValueSuggestionOrder = value;
             await this.persistSettings(false, surfaceGeneration, true);
 
             if (this.isSettingsSurfaceCurrent(surfaceGeneration)) {
@@ -621,46 +621,46 @@ export class PropertyOrderSettingTab extends PluginSettingTab {
           });
       });
 
-    if (!settings.enableNativeValueSuggestionOrder) {
-      addInactiveHint(containerEl, this.t("settings.valueSuggestions.disabledHint"));
+    if (!settingsAtRender.enableNativeValueSuggestionOrder) {
+      addInactiveHint(containerEl, this.t("settingsAtRender.valueSuggestions.disabledHint"));
     }
 
-    if (settings.valueSuggestionLegacyMigrationPending) {
+    if (settingsAtRender.valueSuggestionLegacyMigrationPending) {
       const migrationEl = containerEl.createDiv({
         cls: "property-order-value-suggestion-migration",
       });
       const message = migrationEl.createDiv({
         cls: "property-order-settings-hint",
       });
-      message.textContent = this.t("settings.valueSuggestions.legacyMigrationPending");
+      message.textContent = this.t("settingsAtRender.valueSuggestions.legacyMigrationPending");
 
       const details = migrationEl.createEl("details");
       const summary = details.createEl("summary");
-      summary.textContent = this.t("settings.valueSuggestions.legacyMigrationDetails");
+      summary.textContent = this.t("settingsAtRender.valueSuggestions.legacyMigrationDetails");
       const legacyRules = details.createEl("pre");
       legacyRules.className = "property-order-legacy-value-rules";
       legacyRules.textContent = [
-        `default = ${settings.valueSuggestionSortMode}`,
-        ...settings.valueSuggestionSortOverrides.map((rule) => `behavior: ${rule}`),
-        ...settings.pinnedPropertyValues.map((rule) => `pinned: ${rule}`),
-        ...settings.bottomPropertyValues.map((rule) => `bottom: ${rule}`),
-        ...settings.hiddenPropertyValuePatterns.map((rule) => `hidden: ${rule}`),
+        `default = ${settingsAtRender.valueSuggestionSortMode}`,
+        ...settingsAtRender.valueSuggestionSortOverrides.map((rule) => `behavior: ${rule}`),
+        ...settingsAtRender.pinnedPropertyValues.map((rule) => `pinned: ${rule}`),
+        ...settingsAtRender.bottomPropertyValues.map((rule) => `bottom: ${rule}`),
+        ...settingsAtRender.hiddenPropertyValuePatterns.map((rule) => `hidden: ${rule}`),
       ].join("\n");
 
       const adoptButton = migrationEl.createEl("button");
       adoptButton.type = "button";
-      adoptButton.textContent = this.t("settings.valueSuggestions.legacyMigrationAdopt");
+      adoptButton.textContent = this.t("settingsAtRender.valueSuggestions.legacyMigrationAdopt");
       adoptButton.addEventListener("click", () => {
         const targetWindow = migrationEl.ownerDocument.defaultView;
         if (
           targetWindow?.confirm(
-            this.t("settings.valueSuggestions.legacyMigrationConfirm"),
+            this.t("settingsAtRender.valueSuggestions.legacyMigrationConfirm"),
           ) !== true
         ) {
           return;
         }
 
-        settings.valueSuggestionLegacyMigrationPending = false;
+        this.plugin.propertyOrderSettings.valueSuggestionLegacyMigrationPending = false;
         void this.persistSettings(false, surfaceGeneration, true).then(() => {
           if (this.isSettingsSurfaceCurrent(surfaceGeneration)) {
             this.render(null);
@@ -671,8 +671,8 @@ export class PropertyOrderSettingTab extends PluginSettingTab {
     }
 
     new Setting(containerEl)
-      .setName(this.t("settings.valueSuggestions.sortMode.name"))
-      .setDesc(this.t("settings.valueSuggestions.sortMode.desc"))
+      .setName(this.t("settingsAtRender.valueSuggestions.sortMode.name"))
+      .setDesc(this.t("settingsAtRender.valueSuggestions.sortMode.desc"))
       .addDropdown((dropdown) => {
         for (const [value, label] of Object.entries(
           this.getValueSuggestionDefaultBehaviorOptions(),
@@ -681,23 +681,23 @@ export class PropertyOrderSettingTab extends PluginSettingTab {
         }
 
         dropdown
-          .setValue(settings.valueSuggestionDefaultBehavior)
+          .setValue(settingsAtRender.valueSuggestionDefaultBehavior)
           .onChange(async (value) => {
             if (!isValueSuggestionDefaultBehavior(value)) {
               return;
             }
 
-            settings.valueSuggestionDefaultBehavior = value;
+            this.plugin.propertyOrderSettings.valueSuggestionDefaultBehavior = value;
             await this.persistSettings(false, surfaceGeneration, true);
           });
       });
 
     const frequencySetting = new Setting(containerEl)
-      .setName(this.t("settings.valueSuggestions.frequencyHistory.name"))
-      .setDesc(this.t("settings.valueSuggestions.frequencyHistory.desc"));
+      .setName(this.t("settingsAtRender.valueSuggestions.frequencyHistory.name"))
+      .setDesc(this.t("settingsAtRender.valueSuggestions.frequencyHistory.desc"));
     frequencySetting.addButton((button) => {
       button
-        .setButtonText(this.t("settings.valueSuggestions.frequencyHistory.clear"))
+        .setButtonText(this.t("settingsAtRender.valueSuggestions.frequencyHistory.clear"))
         .onClick(() => {
           this.clearPropertyValueFrequency();
           const editor = containerEl.querySelector<HTMLElement>(".property-order-custom-value-layout")?.parentElement;
@@ -740,10 +740,10 @@ export class PropertyOrderSettingTab extends PluginSettingTab {
     const behaviorLifecycle = renderValueSuggestionBehaviorGroups({
       app: this.app,
       containerEl,
-      customOrderKeys: settings.valueSuggestionCustomOrders.map(
+      customOrderKeys: settingsAtRender.valueSuggestionCustomOrders.map(
         (order) => order.propertyKey,
       ),
-      displayOrder: settings.valueSuggestionKeyDisplayOrder,
+      displayOrder: settingsAtRender.valueSuggestionKeyDisplayOrder,
       getAssignments: () =>
         this.plugin.propertyOrderSettings.valueSuggestionPropertyAssignments,
       onAssignmentsChange: async (assignments) => {

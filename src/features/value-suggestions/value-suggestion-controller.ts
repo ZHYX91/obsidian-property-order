@@ -28,8 +28,8 @@ import {
   findSuggestionContainers,
   getActivePropertyValueSuggestionContext,
   getPropertyValueSuggestionContext,
+  getPropertyValueSuggestionItems,
   getSuggestionItemParent,
-  getSuggestionItems,
   hasActivePropertyValueSuggestionContext,
   isPropertyValueSuggestionContainer,
   resolvePropertyValueSuggestionContainer,
@@ -498,7 +498,7 @@ export class ValueSuggestionOrderController {
     const settings = this.getSettings();
     this.removePluginPresetItems(container);
     container.classList.remove(VALUE_SUGGESTIONS_SUPPRESSED_CLASS);
-    const items = getSuggestionItems(container);
+    const items = getPropertyValueSuggestionItems(container);
 
     if (
       !settings.enableNativeValueSuggestionOrder ||
@@ -710,7 +710,9 @@ export class ValueSuggestionOrderController {
       return;
     }
 
-    snapshot.appliedState = createAppliedState(getSuggestionItems(container));
+    snapshot.appliedState = createAppliedState(
+      getPropertyValueSuggestionItems(container),
+    );
     container.dataset.propertyOrderValueEnhanced = "true";
     container.dataset.propertyOrderValueSignature = signature;
     this.activeContainers.set(container.ownerDocument, container);
@@ -816,13 +818,25 @@ export class ValueSuggestionOrderController {
     }
 
     for (const targetDocument of this.documentStates.keys()) {
-      if (this.documentHasActiveUsageOrdering(targetDocument)) {
+      if (this.documentNeedsMetadataRefresh(targetDocument)) {
         this.scheduleEnhancement(targetDocument);
       }
     }
   }
 
-  private documentHasActiveUsageOrdering(targetDocument: Document): boolean {
+  private documentNeedsMetadataRefresh(targetDocument: Document): boolean {
+    const fallback = this.customFallbacks.get(targetDocument);
+    if (
+      fallback != null &&
+      fallback.container.isConnected &&
+      fallback.editor.isConnected
+    ) {
+      // Plugin-owned fallback vocabulary comes from Metadata Cache, so any
+      // metadata invalidation can change its candidates even outside note-count
+      // ordering. Native popup vocabulary lifecycle remains host-driven.
+      return true;
+    }
+
     const settings = this.getSettings();
 
     for (const container of this.originalSuggestions.keys()) {

@@ -175,6 +175,10 @@ async function createHarness(): Promise<{
   await plugin.loadSettings();
 
   const settingTab = new PropertyOrderSettingTab(app, plugin);
+  Reflect.set(settingTab.containerEl, "empty", function (this: HTMLElement) {
+    this.replaceChildren();
+  });
+  document.body.appendChild(settingTab.containerEl);
   const container = document.body.createDiv();
   (
     settingTab as unknown as {

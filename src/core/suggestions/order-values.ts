@@ -53,7 +53,7 @@ export function orderPropertyValues(
   options: PropertyValueOrderOptions,
 ): OrderedPropertyValue[] {
   const normalizedValues = dedupePreservingOrder(
-    values.map((value) => value.trim()).filter(Boolean),
+    values.filter((value) => value.length > 0),
   );
 
   if (options.sortMode === "none") {

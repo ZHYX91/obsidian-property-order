@@ -2,7 +2,7 @@ import type { CachedMetadata, Plugin, TFile } from "obsidian";
 
 import {
   getPropertyValueSuggestionContext,
-  getSuggestionItems,
+  getPropertyValueSuggestionItems,
   isPropertyValueSuggestionContainer,
   resolvePropertyValueSuggestionContainer,
 } from "../../obsidian/native-suggest-dom";
@@ -137,7 +137,9 @@ export class RecentPropertyValueTracker {
     }
 
     const context = getPropertyValueSuggestionContext(container);
-    const item = getSuggestionItems(container).find(({ element }) => element === itemElement);
+    const item = getPropertyValueSuggestionItems(container).find(
+      ({ element }) => element === itemElement,
+    );
 
     if (context == null || item == null) {
       return;
