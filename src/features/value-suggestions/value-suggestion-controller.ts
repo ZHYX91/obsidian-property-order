@@ -231,6 +231,7 @@ export class ValueSuggestionOrderController {
 
   clearPropertyValueFrequency(): boolean {
     const persisted = this.propertyValueFrequencyStore.clear();
+    this.recentValueTracker.clearPending();
     this.frequencyRevision += 1;
     this.refresh();
     return persisted;
@@ -254,6 +255,10 @@ export class ValueSuggestionOrderController {
     }
 
     const observer = new targetWindow.MutationObserver((mutations) => {
+      const fallback = this.customFallbacks.get(targetDocument);
+      if (fallback != null && !fallback.editor.isConnected) {
+        this.hideCustomFallback(targetDocument);
+      }
       this.updateNativeSnapshots(targetDocument, mutations);
 
       if (this.shouldScheduleEnhancement(targetDocument, mutations)) {

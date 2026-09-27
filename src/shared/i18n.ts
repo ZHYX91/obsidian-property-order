@@ -177,6 +177,8 @@ const EN_TRANSLATIONS = {
   "notice.recentHistoryClearFailed":
     "Property Order: saved recent history could not be cleared. It is cleared for this session but may return after restart.",
   "notice.recentValueHistoryCleared": "Property Order: recent property value history cleared.",
+  "notice.valueFrequencyCleared": "Property Order: selection counts cleared.",
+  "notice.valueFrequencyClearFailed": "Property Order: counts cleared for this session, but saved counts could not be removed and may return after restarting.",
   "notice.recentValueHistoryClearFailed":
     "Property Order: saved recent property value history could not be cleared. It is cleared for this session but may return after restart.",
   "notice.mobileReorderArmed":
@@ -355,6 +357,8 @@ export const TRANSLATIONS = {
     "notice.recentHistoryClearFailed":
       "Property Order：无法清除已保存的最近使用记录。本次会话中已清除，但重启后可能恢复。",
     "notice.recentValueHistoryCleared": "Property Order：最近使用的属性值记录已清除。",
+    "notice.valueFrequencyCleared": "Property Order：选择次数已清除。",
+    "notice.valueFrequencyClearFailed": "Property Order：本次会话的次数已清除，但无法删除已保存的次数，重启后可能恢复。",
     "notice.recentValueHistoryClearFailed":
       "Property Order：无法清除已保存的最近属性值记录。本次会话中已清除，但重启后可能恢复。",
     "notice.mobileReorderArmed": "Property Order：现在拖动已选中的值；点击其他位置或等待即可取消。",
@@ -525,6 +529,8 @@ export const TRANSLATIONS = {
     "notice.recentHistoryClearFailed":
       "Property Order：無法清除已儲存的最近使用記錄。本次工作階段中已清除，但重新啟動後可能恢復。",
     "notice.recentValueHistoryCleared": "Property Order：最近使用的屬性值記錄已清除。",
+    "notice.valueFrequencyCleared": "Property Order：選擇次數已清除。",
+    "notice.valueFrequencyClearFailed": "Property Order：本次工作階段的次數已清除，但無法刪除已儲存的次數，重新啟動後可能恢復。",
     "notice.recentValueHistoryClearFailed":
       "Property Order：無法清除已儲存的最近屬性值記錄。本次工作階段中已清除，但重新啟動後可能恢復。",
     "notice.mobileReorderArmed":

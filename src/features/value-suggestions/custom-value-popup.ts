@@ -3,6 +3,7 @@ import type { PropertyValueSuggestionContext } from "../../obsidian/native-sugge
 export interface CustomValuePopupMount {
   cleanup(): void;
   container: HTMLElement;
+  editor: HTMLElement;
 }
 
 export function mountCustomValuePopup(
@@ -79,6 +80,7 @@ export function mountCustomValuePopup(
   let cleaned = false;
   return {
     container,
+    editor: context.editor,
     cleanup() {
       if (cleaned) {
         return;

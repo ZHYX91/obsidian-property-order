@@ -698,7 +698,7 @@ export class PropertyOrderSettingTab extends PluginSettingTab {
       button
         .setButtonText(this.t("settings.valueSuggestions.frequencyHistory.clear"))
         .onClick(() => {
-          this.plugin.clearPropertyValueFrequency();
+          this.clearPropertyValueFrequency();
           if (this.isSettingsSurfaceCurrent(surfaceGeneration)) {
             this.render(null);
           }
@@ -756,6 +756,15 @@ export class PropertyOrderSettingTab extends PluginSettingTab {
       t: (key) => this.t(key),
     });
     this.selectedCustomValuePropertyKey = customLifecycle.selectedPropertyKey;
+  }
+
+  private clearPropertyValueFrequency(): void {
+    const persisted = this.plugin.clearPropertyValueFrequency();
+    new Notice(this.t(
+      persisted
+        ? "notice.valueFrequencyCleared"
+        : "notice.valueFrequencyClearFailed",
+    ));
   }
 
   private getValueSuggestionDefaultBehaviorOptions(): Record<

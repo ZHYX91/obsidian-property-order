@@ -5,6 +5,8 @@ follow the repository's Git tags; entries summarize the corresponding commit his
 
 ## [Unreleased]
 
+## [0.8.0] - 2026-09-27
+
 ### Added
 
 - Added device-local confirmed selection-frequency ordering for property-value candidates.
@@ -27,6 +29,8 @@ follow the repository's Git tags; entries summarize the corresponding commit his
   the commit.
 
 ### Fixed
+
+- Removed custom fallback popups when their property editor is detached and report failures to persist selection-count clearing.
 
 - Preserved Unicode edge characters when validating property pills, converting quoted scalars to
   flow lists, tracking recent values, and reading cached property-value vocabulary.

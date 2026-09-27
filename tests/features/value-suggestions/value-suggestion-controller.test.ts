@@ -579,6 +579,29 @@ describe("ValueSuggestionOrderController", () => {
     controller.dispose();
   });
 
+  it("removes the fallback when its editor is detached without a focus event", async () => {
+    const raf = installRafHarness();
+    const settings = createDefaultSettings();
+    settings.enableNativeValueSuggestionOrder = true;
+    settings.valueSuggestionPropertyAssignments = [{ behavior: "custom", propertyKey: "status" }];
+    settings.valueSuggestionCustomOrders = [{
+      bottomValues: [], middleSortMode: "native", middleValues: [],
+      pinnedValues: ["planned"], propertyKey: "status",
+    }];
+    const { container, row } = createValueMenu([], "status");
+    container.remove();
+    const controller = createController(settings);
+    controller.initialize();
+    raf.flush();
+    expect(document.querySelector(".property-order-custom-value-popup")).not.toBeNull();
+    row.remove();
+    await vi.waitFor(() => {
+      expect(document.querySelector(".property-order-custom-value-popup")).toBeNull();
+    });
+    expect(asTestable(controller).getActiveContainer(document)).toBeNull();
+    controller.dispose();
+  });
+
   it("renders a plugin-owned custom fallback when no native popup exists", () => {
     const settings = createDefaultSettings();
     settings.enableNativeValueSuggestionOrder = true;
