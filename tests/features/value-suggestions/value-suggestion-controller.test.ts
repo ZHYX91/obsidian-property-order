@@ -63,12 +63,17 @@ function installRafHarness(targetWindow: Window = window): RafHarness {
 function createApp(options: {
   files?: TFile[];
   frontmatterByFile?: Map<TFile, Record<string, unknown>>;
+  keymap?: {
+    popScope: ReturnType<typeof vi.fn>;
+    pushScope: ReturnType<typeof vi.fn>;
+  };
   metadataEvents?: Map<string, (...args: never[]) => void>;
 } = {}): App {
   const files = options.files ?? [];
   const frontmatterByFile = options.frontmatterByFile ?? new Map();
 
   return {
+    keymap: options.keymap,
     loadLocalStorage: vi.fn(() => null),
     saveLocalStorage: vi.fn(),
     metadataCache: {
@@ -1000,6 +1005,180 @@ describe("ValueSuggestionOrderController", () => {
     );
     expect(raf.pending()).toBe(0);
     controller.dispose();
+  });
+
+  it("keeps an Escape-closed fallback session closed until new input", () => {
+    const raf = installRafHarness();
+    const file = { path: "one.md" } as TFile;
+    const frontmatterByFile = new Map<TFile, Record<string, unknown>>([
+      [file, { status: "planned" }],
+    ]);
+    const metadataEvents = new Map<string, (...args: never[]) => void>();
+    const keymap = {
+      popScope: vi.fn(),
+      pushScope: vi.fn(),
+    };
+    const app = createApp({
+      files: [file],
+      frontmatterByFile,
+      keymap,
+      metadataEvents,
+    });
+    const settings = createDefaultSettings();
+    settings.enableNativeValueSuggestionOrder = true;
+    settings.valueSuggestionPropertyAssignments = [
+      { behavior: "custom", propertyKey: "status" },
+    ];
+    settings.valueSuggestionCustomOrders = [{
+      bottomValues: [],
+      middleSortMode: "native",
+      middleValues: [],
+      pinnedValues: ["planned"],
+      propertyKey: "status",
+    }];
+    const { container, editor } = createValueMenu([], "status");
+    container.remove();
+    const controller = createController(settings, app);
+
+    controller.initialize();
+    raf.flush();
+    expect(document.querySelector(".property-order-custom-value-popup")).not.toBeNull();
+    expect(keymap.pushScope).toHaveBeenCalledOnce();
+
+    editor.dispatchEvent(new KeyboardEvent("keydown", {
+      bubbles: true,
+      cancelable: true,
+      key: "Escape",
+    }));
+    expect(document.querySelector(".property-order-custom-value-popup")).toBeNull();
+    expect(keymap.popScope).toHaveBeenCalledOnce();
+
+    metadataEvents.get("changed")?.(
+      file as never,
+      {} as never,
+      { frontmatter: { status: "planned", unrelated: true } } as never,
+    );
+    expect(raf.pending()).toBe(0);
+    raf.flush();
+    expect(document.querySelector(".property-order-custom-value-popup")).toBeNull();
+    expect(keymap.pushScope).toHaveBeenCalledOnce();
+
+    editor.dispatchEvent(new InputEvent("input", {
+      bubbles: true,
+      data: "p",
+      inputType: "insertText",
+    }));
+    expect(raf.pending()).toBe(1);
+    raf.flush();
+    expect(document.querySelector(".property-order-custom-value-popup")).not.toBeNull();
+    expect(keymap.pushScope).toHaveBeenCalledTimes(2);
+  });
+
+  it("clears fallback and keyboard ownership after editor blur without another focus target", async () => {
+    const raf = installRafHarness();
+    const file = { path: "one.md" } as TFile;
+    const metadataEvents = new Map<string, (...args: never[]) => void>();
+    const keymap = {
+      popScope: vi.fn(),
+      pushScope: vi.fn(),
+    };
+    const app = createApp({
+      files: [file],
+      frontmatterByFile: new Map([[file, { status: "planned" }]]),
+      keymap,
+      metadataEvents,
+    });
+    const settings = createDefaultSettings();
+    settings.enableNativeValueSuggestionOrder = true;
+    settings.valueSuggestionPropertyAssignments = [
+      { behavior: "custom", propertyKey: "status" },
+    ];
+    settings.valueSuggestionCustomOrders = [{
+      bottomValues: [],
+      middleSortMode: "native",
+      middleValues: [],
+      pinnedValues: ["planned"],
+      propertyKey: "status",
+    }];
+    const { container, editor } = createValueMenu([], "status");
+    container.remove();
+    const controller = createController(settings, app);
+
+    controller.initialize();
+    raf.flush();
+    expect(document.querySelector(".property-order-custom-value-popup")).not.toBeNull();
+    expect(keymap.pushScope).toHaveBeenCalledOnce();
+
+    editor.blur();
+    await Promise.resolve();
+
+    expect(document.querySelector(".property-order-custom-value-popup")).toBeNull();
+    expect(keymap.popScope).toHaveBeenCalledOnce();
+    metadataEvents.get("changed")?.(
+      file as never,
+      {} as never,
+      { frontmatter: { status: "planned", unrelated: true } } as never,
+    );
+    expect(raf.pending()).toBe(0);
+
+    editor.focus();
+    expect(raf.pending()).toBe(1);
+    raf.flush();
+    expect(document.querySelector(".property-order-custom-value-popup")).not.toBeNull();
+    expect(keymap.pushScope).toHaveBeenCalledTimes(2);
+  });
+
+  it("clears fallback and keyboard ownership while the editor window is unfocused", () => {
+    const raf = installRafHarness();
+    const file = { path: "one.md" } as TFile;
+    const metadataEvents = new Map<string, (...args: never[]) => void>();
+    const keymap = {
+      popScope: vi.fn(),
+      pushScope: vi.fn(),
+    };
+    const app = createApp({
+      files: [file],
+      frontmatterByFile: new Map([[file, { status: "planned" }]]),
+      keymap,
+      metadataEvents,
+    });
+    const settings = createDefaultSettings();
+    settings.enableNativeValueSuggestionOrder = true;
+    settings.valueSuggestionPropertyAssignments = [
+      { behavior: "custom", propertyKey: "status" },
+    ];
+    settings.valueSuggestionCustomOrders = [{
+      bottomValues: [],
+      middleSortMode: "native",
+      middleValues: [],
+      pinnedValues: ["planned"],
+      propertyKey: "status",
+    }];
+    const { container } = createValueMenu([], "status");
+    container.remove();
+    const controller = createController(settings, app);
+
+    controller.initialize();
+    raf.flush();
+    expect(document.querySelector(".property-order-custom-value-popup")).not.toBeNull();
+    expect(keymap.pushScope).toHaveBeenCalledOnce();
+
+    window.dispatchEvent(new Event("blur"));
+    expect(document.querySelector(".property-order-custom-value-popup")).toBeNull();
+    expect(keymap.popScope).toHaveBeenCalledOnce();
+
+    metadataEvents.get("changed")?.(
+      file as never,
+      {} as never,
+      { frontmatter: { status: "planned", unrelated: true } } as never,
+    );
+    expect(raf.pending()).toBe(0);
+
+    window.dispatchEvent(new Event("focus"));
+    expect(raf.pending()).toBe(1);
+    raf.flush();
+    expect(document.querySelector(".property-order-custom-value-popup")).not.toBeNull();
+    expect(keymap.pushScope).toHaveBeenCalledTimes(2);
   });
 
   it("removes the fallback when its editor is detached without a focus event", async () => {
