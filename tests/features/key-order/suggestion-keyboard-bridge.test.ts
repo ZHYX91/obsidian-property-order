@@ -87,6 +87,69 @@ describe("suggestion keyboard bridge", () => {
     window.removeEventListener("keydown", hostListener, true);
   });
 
+  it("reports Escape intent before a host capture layer consumes the forwarded event", () => {
+    const container = createContainer();
+    const editor = document.createElement("input");
+    document.body.appendChild(editor);
+    editor.focus();
+
+    let currentScope: { handler: ((event: KeyboardEvent) => boolean | void) | null } | null = null;
+    let physicalEscape: KeyboardEvent | null = null;
+    const swallowedForwardedEscape = vi.fn();
+    const onEscapeIntent = vi.fn();
+    const hostCapture = (event: KeyboardEvent): void => {
+      if (event !== physicalEscape) {
+        swallowedForwardedEscape();
+        event.stopImmediatePropagation();
+        return;
+      }
+
+      const handled = currentScope?.handler?.(event);
+      if (handled === false) {
+        event.stopImmediatePropagation();
+      }
+    };
+    window.addEventListener("keydown", hostCapture, true);
+
+    const keymap = {
+      pushScope: vi.fn((scope) => {
+        currentScope = scope as { handler: ((event: KeyboardEvent) => boolean | void) | null };
+      }),
+      popScope: vi.fn(() => {
+        currentScope = null;
+      }),
+    };
+    const options = {
+      keymap: keymap as unknown as Keymap,
+      getActiveContainer: () => container,
+      hasActiveContext: () => true,
+      onEscapeIntent,
+      onSynchronizationFailure: vi.fn(),
+      supportsEmacsNavigation: false,
+      targetWindow: window,
+    } as Parameters<typeof registerSuggestionKeyboardBridge>[0] & {
+      onEscapeIntent: (event: KeyboardEvent) => void;
+    };
+    const cleanup = registerSuggestionKeyboardBridge(options);
+    cleanup.synchronizeScope(true);
+
+    physicalEscape = new KeyboardEvent("keydown", {
+      bubbles: true,
+      cancelable: true,
+      code: "Escape",
+      key: "Escape",
+    });
+    editor.dispatchEvent(physicalEscape);
+
+    expect(swallowedForwardedEscape).toHaveBeenCalledOnce();
+    expect(onEscapeIntent).toHaveBeenCalledOnce();
+    expect(onEscapeIntent).toHaveBeenCalledWith(physicalEscape);
+    expect(keymap.popScope).toHaveBeenCalledOnce();
+
+    cleanup();
+    window.removeEventListener("keydown", hostCapture, true);
+  });
+
   it("ignores internal preset commit Enter events", () => {
     const container = createContainer(false);
     const onActivationIntent = vi.fn();

@@ -1007,6 +1007,123 @@ describe("ValueSuggestionOrderController", () => {
     controller.dispose();
   });
 
+  it("does not replace a Scope-closed native popup with a fallback when forwarded Escape is consumed", async () => {
+    const raf = installRafHarness();
+    let currentScope: { handler: ((event: KeyboardEvent) => boolean | void) | null } | null = null;
+    let physicalEscape: KeyboardEvent | null = null;
+    let nativePopup: HTMLElement | null = null;
+    const swallowedForwardedEscape = vi.fn();
+    const keymap = {
+      pushScope: vi.fn((scope) => {
+        currentScope = scope as { handler: ((event: KeyboardEvent) => boolean | void) | null };
+      }),
+      popScope: vi.fn(() => {
+        currentScope = null;
+      }),
+    };
+    const hostCapture = (event: KeyboardEvent): void => {
+      if (event.key !== "Escape") {
+        return;
+      }
+      if (event !== physicalEscape) {
+        swallowedForwardedEscape();
+        event.stopImmediatePropagation();
+        return;
+      }
+
+      const handled = currentScope?.handler?.(event);
+      if (handled === false) {
+        nativePopup?.remove();
+        nativePopup = null;
+        event.stopImmediatePropagation();
+      }
+    };
+    window.addEventListener("keydown", hostCapture, true);
+
+    const app = createApp({ keymap });
+    const settings = createDefaultSettings();
+    settings.enableNativeValueSuggestionOrder = true;
+    settings.valueSuggestionPropertyAssignments = [
+      { behavior: "custom", propertyKey: "status" },
+    ];
+    settings.valueSuggestionCustomOrders = [{
+      bottomValues: ["archived", "deferred"],
+      middleSortMode: "native",
+      middleValues: [],
+      pinnedValues: ["planned", "draft"],
+      propertyKey: "status",
+    }];
+    const { container, editor } = createValueMenu(
+      ["draft", "cancelled", "done", "archived"],
+      "status",
+    );
+    nativePopup = container;
+    const controller = createController(settings, app);
+
+    controller.initialize();
+    raf.flush();
+    expect(visibleValues(container)).toEqual([
+      "planned",
+      "draft",
+      "cancelled",
+      "done",
+      "archived",
+      "deferred",
+    ]);
+    expect(keymap.pushScope).toHaveBeenCalledOnce();
+
+    physicalEscape = new KeyboardEvent("keydown", {
+      bubbles: true,
+      cancelable: true,
+      code: "Escape",
+      key: "Escape",
+    });
+    editor.dispatchEvent(physicalEscape);
+    expect(swallowedForwardedEscape).toHaveBeenCalledOnce();
+    expect(container.isConnected).toBe(false);
+
+    await vi.waitFor(() => {
+      expect(raf.pending()).toBe(1);
+    });
+    raf.flush();
+
+    expect(document.querySelector(".property-order-custom-value-popup")).toBeNull();
+    expect(keymap.pushScope).toHaveBeenCalledOnce();
+
+    editor.value = "p";
+    editor.dispatchEvent(new InputEvent("input", {
+      bubbles: true,
+      data: "p",
+      inputType: "insertText",
+    }));
+    expect(raf.pending()).toBe(1);
+    raf.flush();
+    expect(visibleValues(document.querySelector<HTMLElement>(
+      ".property-order-custom-value-popup",
+    )!)).toEqual(["planned"]);
+    expect(keymap.pushScope).toHaveBeenCalledTimes(2);
+
+    physicalEscape = new KeyboardEvent("keydown", {
+      bubbles: true,
+      cancelable: true,
+      code: "Escape",
+      key: "Escape",
+    });
+    editor.dispatchEvent(physicalEscape);
+    expect(document.querySelector(".property-order-custom-value-popup")).toBeNull();
+
+    editor.blur();
+    await Promise.resolve();
+    editor.focus();
+    expect(raf.pending()).toBe(1);
+    raf.flush();
+    expect(visibleValues(document.querySelector<HTMLElement>(
+      ".property-order-custom-value-popup",
+    )!)).toEqual(["planned"]);
+
+    window.removeEventListener("keydown", hostCapture, true);
+  });
+
   it("keeps an Escape-closed fallback session closed until new input", () => {
     const raf = installRafHarness();
     const file = { path: "one.md" } as TFile;
