@@ -8,6 +8,7 @@ import {
 } from "../src/obsidian/metadata";
 
 declare const __PROPERTY_ORDER_BENCHMARK_NOTE_COUNT__: number;
+declare const __PROPERTY_ORDER_BENCHMARK_P95_BUDGET_MS__: number;
 
 it("measures high-cardinality property vocabulary and invalidation rescans", () => {
   const noteCount = __PROPERTY_ORDER_BENCHMARK_NOTE_COUNT__;
@@ -49,6 +50,8 @@ it("measures high-cardinality property vocabulary and invalidation rescans", () 
   }).sort((a, b) => a - b);
   expect(enumerations).toBe(26);
   expect(cacheReads).toBe(noteCount * 26);
+  const p95 = durations[23]!;
+  expect(p95).toBeLessThanOrEqual(__PROPERTY_ORDER_BENCHMARK_P95_BUDGET_MS__);
 
   const cachedFirst = getCachedPropertyValueUsage(app, "status");
   const cachedStartedAt = performance.now();
@@ -59,8 +62,9 @@ it("measures high-cardinality property vocabulary and invalidation rescans", () 
   expect(cacheReads).toBe(noteCount * 26);
   console.info(
     `Property value vocabulary (${noteCount} notes, ${noteCount + 1} values): ` +
-      `p50=${durations[12]!.toFixed(2)}ms p95=${durations[23]!.toFixed(2)}ms ` +
+      `p50=${durations[12]!.toFixed(2)}ms p95=${p95.toFixed(2)}ms ` +
       `max=${durations[24]!.toFixed(2)}ms cached=${cachedDuration.toFixed(3)}ms ` +
+      `budget=${__PROPERTY_ORDER_BENCHMARK_P95_BUDGET_MS__}ms ` +
       `rescans=${enumerations} cacheReads=${cacheReads}`,
   );
 });
