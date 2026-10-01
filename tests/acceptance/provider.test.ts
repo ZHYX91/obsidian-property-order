@@ -21,6 +21,9 @@ interface ProviderRibbon {
 
 class PluginHarness {
   app!: {
+    plugins?: {
+      getPlugin: (id: string) => unknown;
+    };
     workspace: {
       getActiveViewOfType: () => unknown;
     };
@@ -109,6 +112,53 @@ function createFixture() {
 }
 
 describe("Property Order acceptance provider", () => {
+  it("prepares grouped key suggestions through the plugin settings boundary", async () => {
+    const fixture = createFixture();
+    const saveSettings = vi.fn(async () => undefined);
+    const propertyOrderSettings = {
+      enableNativeKeySuggestionOrder: false,
+      groupKeySuggestionsByType: false,
+      keySuggestionSortMode: "recent",
+      pinnedPropertyKeys: [],
+      bottomPropertyKeys: [],
+      hiddenPropertyKeyPatterns: [],
+    };
+    const Provider = loadProvider();
+    const provider = new Provider();
+    provider.app = {
+      plugins: {
+        getPlugin: (id: string) =>
+          id === "property-order"
+            ? { propertyOrderSettings, saveSettings }
+            : null,
+      },
+      workspace: { getActiveViewOfType: () => fixture.view },
+    };
+    provider.onload();
+
+    const command = provider.commands.find(
+      ({ id }) => id === "prepare-key-type-grouping",
+    );
+    const ribbon = provider.ribbons.find(
+      ({ title }) => title === "Acceptance: prepare key type grouping",
+    );
+
+    expect(command?.callback).toBeTypeOf("function");
+    expect(ribbon).toMatchObject({ icon: "list-tree" });
+    await command?.callback?.();
+
+    expect(propertyOrderSettings).toEqual({
+      enableNativeKeySuggestionOrder: true,
+      groupKeySuggestionsByType: true,
+      keySuggestionSortMode: "name",
+      pinnedPropertyKeys: ["tags"],
+      bottomPropertyKeys: ["key_bottom"],
+      hiddenPropertyKeyPatterns: ["key_hidden"],
+    });
+    expect(saveSettings).toHaveBeenCalledOnce();
+    expect(saveSettings).toHaveBeenCalledWith(true, false);
+  });
+
   it("is inert until its explicit menu command dispatches one context-menu event", () => {
     const fixture = createFixture();
     const Provider = loadProvider();
