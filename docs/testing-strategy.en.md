@@ -50,7 +50,9 @@ Injectable failure paths rely primarily on automated evidence: rejected settings
 
 Use a disposable Vault with the exact packaged candidate. The repository provides `acceptance/fixtures/Property Order.md`, `Key Suggestions.md`, `Key Type Vocabulary.md`, and `acceptance/product-scenarios.json`; verify their candidate-bound hashes, install the three candidate assets, and enable only Property Order. An ordinary or production Vault is never a valid target.
 
-The repository does not provide a CLI that installs fixtures, resets a Vault, or injects conflicts, which reduces the risk of touching a real Vault by mistake. When a write-conflict scenario is needed, the acceptance controller operates only on an explicitly selected disposable fixture: it records the starting identity, begins the product action, performs the specified external edit, and records the before/after bytes plus the visible rejection. Automated unit tests remain the main evidence for race boundaries; real-host testing confirms Obsidian's actual DOM, interaction, persistence, undo/redo, and safe refusal behavior.
+The repository does not provide a CLI that installs fixtures, resets a Vault, or injects conflicts, which reduces the risk of touching a real Vault by mistake. When a write-conflict scenario is needed, the acceptance controller operates only on an explicitly selected disposable fixture: it records the starting identity, begins the product action, performs the specified external edit, and records the before/after bytes plus the visible rejection.
+
+Automated unit tests remain the main evidence for race boundaries; real-host testing confirms Obsidian's actual DOM, interaction, persistence, undo/redo, and safe refusal behavior.
 
 ## Optional host regression
 
@@ -111,16 +113,28 @@ The Android emulator verifies:
 
 ## CI and Release
 
-CI and the release workflow both use Node.js 24.19.0 from `.node-version` and require npm 11.17.0 through `packageManager`. They verify the exact runtime before `npm ci`, then run `npm run check`. Its release-asset gate independently reproduces the bundle and requires production `main.js` to remain at or below 320,000 B; this is a project regression budget, not an Obsidian platform limit. CI uploads top-level `dist/main.js`, `dist/manifest.json`, and `dist/styles.css`. The release workflow accepts only an exact `x.y.z` version matching `manifest.json`, without a `v` prefix, reruns the complete gate, and publishes:
+CI and the release workflow both use Node.js 24.19.0 from `.node-version` and require npm 11.17.0 through `packageManager`. They verify the exact runtime before `npm ci`, then run `npm run check`.
+
+Its release-asset gate independently reproduces the bundle and requires production `main.js` to remain at or below 320,000 B; this is a project regression budget, not an Obsidian platform limit. CI uploads top-level `dist/main.js`, `dist/manifest.json`, and `dist/styles.css`.
+
+The release workflow accepts only an exact `x.y.z` version matching `manifest.json`, without a `v` prefix, reruns the complete gate, and publishes:
 
 - `main.js`;
 - `manifest.json`;
 - `styles.css`;
 - `property-order-<version>.zip`, containing only one `property-order/` directory with those files.
 
-The install archive fixes entry order, timestamps, permissions, and irrelevant metadata so identical inputs produce identical bytes. Tests execute the same exactly locked release-core ZIP and candidate logic used by the repository. They cover required and optional styles, missing/extra/non-regular entries, tampered bytes, wrong checksums, path escapes, and a historical same-version tag. Ordinary `npm run check` uses non-tag-aware validation; only `npm run release:check` requires a clean commit and the absent-or-exact tag gate.
+The install archive fixes entry order, timestamps, permissions, and irrelevant metadata so identical inputs produce identical bytes. Tests execute the same exactly locked release-core ZIP and candidate logic used by the repository.
 
-The repository-local release-core 3.1.1 runtime and thin adapter own one deterministic Candidate Bundle and a generated standalone workflow. An authorized stable version tag push or manual publish dispatch on that tag uses the same pipeline; manual verify mode remains read-only. CI installs locked dependencies, runs release:check once, source-verifies the Bundle, and pins its artifact ID/digest. The write-capable publication job checks out that exact tagged source without persisted credentials and runs its locked repository release adapter, without installing dependencies or rebuilding. The tagged release tooling is trusted executable code; Candidate Bundle verification does not isolate the publisher from malicious changes to that tooling. Publication verifies the exact event, source, tag, transported bytes, and SLSA build provenance, then verifies draft downloads before immutable publication and hosted downloads afterward. Product acceptance is optional and reported separately. An independent clone needs no external orchestration.
+They cover required and optional styles, missing/extra/non-regular entries, tampered bytes, wrong checksums, path escapes, and a historical same-version tag. Ordinary `npm run check` uses non-tag-aware validation; only `npm run release:check` requires a clean commit and the absent-or-exact tag gate.
+
+The repository-local release-core 3.1.1 runtime and thin adapter own one deterministic Candidate Bundle and a generated standalone workflow. An authorized stable version tag push or manual publish dispatch on that tag uses the same pipeline; manual verify mode remains read-only.
+
+CI installs locked dependencies, runs release:check once, source-verifies the Bundle, and pins its artifact ID/digest. The write-capable publication job checks out that exact tagged source without persisted credentials and runs its locked repository release adapter, without installing dependencies or rebuilding.
+
+The tagged release tooling is trusted executable code; Candidate Bundle verification does not isolate the publisher from malicious changes to that tooling. Publication verifies the exact event, source, tag, transported bytes, and SLSA build provenance, then verifies draft downloads before immutable publication and hosted downloads afterward.
+
+Product acceptance is optional and reported separately. An independent clone needs no external orchestration.
 
 After publication, GitHub is queried again for an immutable stable Release. Exact four-asset inventory, metadata digests, downloaded bytes, ZIP internal/external equivalence, remote tag, and per-asset provenance must all match. A same-tag no-op is accepted only on complete identity; every conflict requires a higher version. Tag rulesets and immutable Releases remain maintainer-recorded prerequisites outside the workflow, and automated gates do not change administrator settings.
 
