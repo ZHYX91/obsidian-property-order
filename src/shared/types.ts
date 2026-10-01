@@ -1,5 +1,14 @@
 export type ListWritebackFormat = "preserve" | "flow" | "block";
 export type KeySuggestionSortMode = "name" | "recent" | "usage";
+export type PropertyType =
+  | "text"
+  | "list"
+  | "number"
+  | "checkbox"
+  | "date"
+  | "datetime"
+  | "tags"
+  | "unknown";
 export type ValueSuggestionSortMode = "native" | "name" | "recent" | "usage" | "none";
 export type ValueSuggestionBehavior =
   | "native"
@@ -37,6 +46,7 @@ export interface PropertyOrderSettings {
   enableCrossPropertyDrag: boolean;
   enableNativeKeySuggestionOrder: boolean;
   keySuggestionSortMode: KeySuggestionSortMode;
+  groupKeySuggestionsByType: boolean;
   pinnedPropertyKeys: string[];
   bottomPropertyKeys: string[];
   hiddenPropertyKeyPatterns: string[];
@@ -78,8 +88,10 @@ export interface PropertyKeyUsage {
 
 export interface PropertyKeyOrderOptions {
   bottomKeys: string[];
+  groupByType?: boolean;
   hiddenPatterns: string[];
   pinnedKeys: string[];
+  propertyTypes?: ReadonlyMap<string, PropertyType>;
   recentKeys: string[];
   sortMode: KeySuggestionSortMode;
   usage: PropertyKeyUsage[];

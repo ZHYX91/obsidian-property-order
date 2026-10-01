@@ -470,6 +470,7 @@ function areKeySuggestionSettingsEqual(
   return (
     left.enableNativeKeySuggestionOrder === right.enableNativeKeySuggestionOrder &&
     left.keySuggestionSortMode === right.keySuggestionSortMode &&
+    left.groupKeySuggestionsByType === right.groupKeySuggestionsByType &&
     areStringListsEqual(left.pinnedPropertyKeys, right.pinnedPropertyKeys) &&
     areStringListsEqual(left.bottomPropertyKeys, right.bottomPropertyKeys) &&
     areStringListsEqual(left.hiddenPropertyKeyPatterns, right.hiddenPropertyKeyPatterns)

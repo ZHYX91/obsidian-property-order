@@ -52,6 +52,16 @@ function createController(
       on: vi.fn(() => ({})),
       ...app.metadataCache,
     },
+    vault: {
+      adapter: {
+        exists: vi.fn(async () => false),
+        read: vi.fn(async () => JSON.stringify({ types: {} })),
+        ...app.vault?.adapter,
+      },
+      configDir: ".obsidian",
+      getMarkdownFiles: vi.fn(() => []),
+      ...app.vault,
+    },
     workspace: {
       iterateAllLeaves: vi.fn(),
       offref: vi.fn(),
@@ -181,6 +191,13 @@ function visibleKeys(container: HTMLElement): string[] {
 
 async function settleMutations(): Promise<void> {
   await new Promise((resolve) => window.setTimeout(resolve, 0));
+}
+
+async function settlePropertyTypeRefresh(): Promise<void> {
+  await Promise.resolve();
+  await Promise.resolve();
+  await Promise.resolve();
+  await Promise.resolve();
 }
 
 describe("KeySuggestionOrderController", () => {
@@ -919,6 +936,137 @@ describe("KeySuggestionOrderController", () => {
     cleanupError.mockRestore();
     initialWindow.close();
     openedWindow.close();
+  });
+
+  it("groups native key suggestions by Obsidian type without adding header nodes", async () => {
+    const settings = createDefaultSettings();
+    settings.groupKeySuggestionsByType = true;
+    const readTypes = vi.fn(async () => JSON.stringify({
+      types: {
+        alpha: "text",
+        status: "text",
+        people: "multitext",
+        rating: "number",
+        done: "checkbox",
+        due: "date",
+        modified: "datetime",
+        tags: "tags",
+      },
+    }));
+    const menu = createMenu([
+      "rating",
+      "status",
+      "people",
+      "done",
+      "due",
+      "modified",
+      "tags",
+      "automatic",
+      "alpha",
+    ]);
+    const nativeItemCount = menu.querySelectorAll(".suggestion-item").length;
+    const raf = installRafHarness();
+    const controller = createController(settings, {
+      vault: {
+        adapter: {
+          exists: vi.fn(async () => true),
+          read: readTypes,
+        },
+        configDir: ".obsidian",
+      },
+    } as unknown as Partial<App>);
+    const cleanup = controller.initialize();
+
+    raf.flush();
+    await settlePropertyTypeRefresh();
+    raf.flush();
+
+    expect(visibleKeys(menu)).toEqual([
+      "alpha",
+      "status",
+      "people",
+      "rating",
+      "done",
+      "due",
+      "modified",
+      "tags",
+      "automatic",
+    ]);
+    expect(menu.querySelectorAll(".suggestion-item")).toHaveLength(nativeItemCount);
+    expect(
+      Array.from(
+        menu.querySelectorAll<HTMLElement>(
+          ".property-order-suggestion-type-group-start",
+        ),
+      ).map((element) => [
+        element.textContent?.trim(),
+        element.dataset.propertyOrderTypeGroup,
+        element.dataset.propertyOrderTypeLabel,
+      ]),
+    ).toEqual([
+      ["alpha", "text", "Text"],
+      ["people", "list", "List"],
+      ["rating", "number", "Number"],
+      ["done", "checkbox", "Checkbox"],
+      ["due", "date", "Date"],
+      ["modified", "datetime", "Date & time"],
+      ["tags", "tags", "Tags"],
+      ["automatic", "unknown", "Automatic / unspecified"],
+    ]);
+
+    settings.groupKeySuggestionsByType = false;
+    controller.refresh();
+    raf.flush();
+    expect(
+      menu.querySelectorAll(".property-order-suggestion-type-group-start"),
+    ).toHaveLength(0);
+
+    cleanup();
+    expect(allKeys(menu)).toEqual([
+      "rating",
+      "status",
+      "people",
+      "done",
+      "due",
+      "modified",
+      "tags",
+      "automatic",
+      "alpha",
+    ]);
+  });
+
+  it("refreshes an open grouped menu when stored Obsidian property types change", async () => {
+    const settings = createDefaultSettings();
+    settings.groupKeySuggestionsByType = true;
+    let storedTypes = { alpha: "text", rating: "number" };
+    const readTypes = vi.fn(async () => JSON.stringify({ types: storedTypes }));
+    const menu = createMenu(["rating", "alpha"]);
+    const raf = installRafHarness();
+    const controller = createController(settings, {
+      vault: {
+        adapter: {
+          exists: vi.fn(async () => true),
+          read: readTypes,
+        },
+        configDir: ".obsidian",
+      },
+    } as unknown as Partial<App>);
+    const cleanup = controller.initialize();
+
+    raf.flush();
+    await settlePropertyTypeRefresh();
+    raf.flush();
+    expect(visibleKeys(menu)).toEqual(["alpha", "rating"]);
+
+    storedTypes = { alpha: "number", rating: "text" };
+    controller.refresh();
+    raf.flush();
+    await settlePropertyTypeRefresh();
+    raf.flush();
+
+    expect(visibleKeys(menu)).toEqual(["rating", "alpha"]);
+    expect(readTypes).toHaveBeenCalledTimes(2);
+    cleanup();
   });
 
   it("bridges native keyboard selection onto the visible DOM order", () => {

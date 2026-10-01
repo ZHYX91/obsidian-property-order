@@ -15,6 +15,7 @@ describe("settings control contract", () => {
       "enableCrossPropertyDrag",
       "enableNativeKeySuggestionOrder",
       "enablePropertyValueDrag",
+      "groupKeySuggestionsByType",
       "keySuggestionSortMode",
       "language",
       "listWritebackFormat",
@@ -38,6 +39,13 @@ describe("settings control contract", () => {
       refreshKeySuggestions: true,
       refreshMode: "state",
     });
+    expect(
+      applyPropertyOrderControlValue(settings, "groupKeySuggestionsByType", true),
+    ).toEqual({
+      refreshKeySuggestions: true,
+      refreshMode: "none",
+    });
+    expect(settings.groupKeySuggestionsByType).toBe(true);
     expect(applyPropertyOrderControlValue(settings, "keySuggestionSortMode", "usage")).toEqual({
       refreshKeySuggestions: true,
       refreshMode: "none",

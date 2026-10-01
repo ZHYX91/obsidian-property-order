@@ -1,14 +1,8 @@
 import { normalizePath, type App } from "obsidian";
 
-export type PropertyType =
-  | "text"
-  | "list"
-  | "number"
-  | "checkbox"
-  | "date"
-  | "datetime"
-  | "tags"
-  | "unknown";
+import type { PropertyType } from "../shared/types";
+
+export type { PropertyType } from "../shared/types";
 
 export type PropertyTypeRefreshStatus =
   | "loaded"

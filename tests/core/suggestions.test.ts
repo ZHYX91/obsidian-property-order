@@ -77,6 +77,101 @@ describe("orderPropertyKeys", () => {
     ]);
   });
 
+  it("groups only normal keys by property type and sorts names within each group", () => {
+    const orderedKeys = orderPropertyKeys(
+      ["rating", "status", "project", "due", "tags", "done", "unknown", "people"],
+      {
+        bottomKeys: [],
+        groupByType: true,
+        hiddenPatterns: [],
+        pinnedKeys: [],
+        propertyTypes: new Map([
+          ["status", "text"],
+          ["project", "text"],
+          ["people", "list"],
+          ["rating", "number"],
+          ["done", "checkbox"],
+          ["due", "date"],
+          ["tags", "tags"],
+        ]),
+        recentKeys: [],
+        sortMode: "name",
+        usage: [],
+      },
+    );
+
+    expect(orderedKeys).toEqual([
+      { group: "text", groupStart: true, key: "project" },
+      { group: "text", key: "status" },
+      { group: "list", groupStart: true, key: "people" },
+      { group: "number", groupStart: true, key: "rating" },
+      { group: "checkbox", groupStart: true, key: "done" },
+      { group: "date", groupStart: true, key: "due" },
+      { group: "tags", groupStart: true, key: "tags" },
+      { group: "unknown", groupStart: true, key: "unknown" },
+    ]);
+  });
+
+  it("keeps recent and note-count sorting scoped within property type groups", () => {
+    const baseOptions = {
+      bottomKeys: [] as string[],
+      groupByType: true,
+      hiddenPatterns: [] as string[],
+      pinnedKeys: [] as string[],
+      propertyTypes: new Map([
+        ["alpha", "text" as const],
+        ["beta", "text" as const],
+        ["one", "number" as const],
+        ["two", "number" as const],
+      ]),
+      recentKeys: ["beta", "two", "alpha", "one"],
+      usage: [
+        { key: "alpha", count: 9 },
+        { key: "beta", count: 2 },
+        { key: "one", count: 1 },
+        { key: "two", count: 7 },
+      ],
+    };
+
+    expect(
+      orderPropertyKeys(["one", "alpha", "two", "beta"], {
+        ...baseOptions,
+        sortMode: "recent",
+      }).map(({ key }) => key),
+    ).toEqual(["beta", "alpha", "two", "one"]);
+    expect(
+      orderPropertyKeys(["one", "alpha", "two", "beta"], {
+        ...baseOptions,
+        sortMode: "usage",
+      }).map(({ key }) => key),
+    ).toEqual(["alpha", "beta", "two", "one"]);
+  });
+
+  it("keeps hidden, pinned, and bottom rules outside property type groups", () => {
+    const orderedKeys = orderPropertyKeys(["hidden", "bottom", "rating", "pinned", "status"], {
+      bottomKeys: ["bottom"],
+      groupByType: true,
+      hiddenPatterns: ["hidden"],
+      pinnedKeys: ["pinned"],
+      propertyTypes: new Map([
+        ["pinned", "number"],
+        ["rating", "number"],
+        ["status", "text"],
+        ["bottom", "text"],
+      ]),
+      recentKeys: [],
+      sortMode: "name",
+      usage: [],
+    });
+
+    expect(orderedKeys).toEqual([
+      { key: "pinned" },
+      { group: "text", groupStart: true, key: "status" },
+      { group: "number", groupStart: true, key: "rating" },
+      { key: "bottom" },
+    ]);
+  });
+
   it("deduplicates keys without exposing unused source indexes", () => {
     const orderedKeys = orderPropertyKeys(["tags", "aliases", "tags"], {
       bottomKeys: [],

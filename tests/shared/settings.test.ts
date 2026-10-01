@@ -18,6 +18,7 @@ describe("normalizeSettings", () => {
         enableCrossPropertyDrag: "yes",
         enableNativeKeySuggestionOrder: false,
         keySuggestionSortMode: "smart",
+        groupKeySuggestionsByType: "yes",
         pinnedPropertyKeys: [" tags ", "", 42, "aliases"],
         bottomPropertyKeys: "tags",
         hiddenPropertyKeyPatterns: ["TQ_*"],
@@ -37,6 +38,7 @@ describe("normalizeSettings", () => {
       enableCrossPropertyDrag: true,
       enableNativeKeySuggestionOrder: false,
       keySuggestionSortMode: "name",
+      groupKeySuggestionsByType: false,
       pinnedPropertyKeys: ["tags", "aliases"],
       bottomPropertyKeys: [],
       hiddenPropertyKeyPatterns: ["TQ_*"],
@@ -81,6 +83,7 @@ describe("normalizeSettings", () => {
 
   it("enables cross-property drag by default and keeps value suggestions opt-in", () => {
     expect(createDefaultSettings().enableCrossPropertyDrag).toBe(true);
+    expect(createDefaultSettings().groupKeySuggestionsByType).toBe(false);
     expect(normalizeSettings({}).enableCrossPropertyDrag).toBe(true);
     expect(createDefaultSettings().enableNativeValueSuggestionOrder).toBe(false);
     expect(createDefaultSettings().valueSuggestionSortMode).toBe("native");
@@ -113,6 +116,19 @@ describe("normalizeSettings", () => {
       enableNativeValueSuggestionOrder: false,
       valueSuggestionSortMode: "native",
     });
+  });
+
+  it("migrates schema 6 with type grouping disabled unless explicitly enabled", () => {
+    expect(normalizeSettings({ schemaVersion: 6 })).toMatchObject({
+      schemaVersion: CURRENT_SETTINGS_SCHEMA_VERSION,
+      groupKeySuggestionsByType: false,
+    });
+    expect(
+      normalizeSettings({
+        schemaVersion: 6,
+        groupKeySuggestionsByType: true,
+      }).groupKeySuggestionsByType,
+    ).toBe(true);
   });
 
   it("rejects the removed alphabetical sort mode without an alias", () => {

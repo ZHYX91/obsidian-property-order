@@ -28,6 +28,7 @@ This document mirrors the authoritative current interaction and presentation con
 
 - Enhancement reuses native menu nodes rather than rendering a look-alike replacement.
 - Pinned items come first, normal items remain in the middle, bottom items come last, and hidden items do not occupy visible navigation order.
+- Optional property-type grouping divides only the normal section into Text, List, Number, Checkbox, Date, Date & time, Tags, and Automatic / unspecified. The active name, recent, or note-count mode sorts inside each group. Group headings are visual decorations on the first native candidate in a group and never become keyboard, pointer, or ARIA candidate rows.
 - **Recently used** applies strict MRU inside the normal section: confirmed names follow newest first and candidates absent from history use name order. Pinned, bottom, and hidden rule priority remains unchanged. History names no longer present in the menu are neither shown nor allocated a position.
 - Recent order changes only after a property-name commit succeeds and Metadata Cache confirms that the name was added to the current note. Hover, keyboard navigation, cancellation, failure, and unconfirmed input never mutate MRU, so visual selection before menu closure is not itself a use.
 - **Note count** sorts descending by the number of cached Markdown notes containing the property and falls back to name order for ties. It is not a click or selection count. Name and recent modes never traverse the Vault for ordering.
