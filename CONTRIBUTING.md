@@ -43,8 +43,8 @@ TypeScript, unit and integration tests with V8 coverage, the production bundle, 
 text must be valid UTF-8 without a BOM, use LF line endings, contain no NUL or trailing whitespace,
 and end with a newline.
 
-The unified gate runs `npm run test:coverage` and produces its report without imposing a global
-percentage threshold. Coverage output, a successful local build, or isolated fixtures do not prove
+The unified gate runs `npm run test:coverage` and enforces global minimum coverage of 86% statements,
+83% branches, 88% functions, and 86% lines, as configured in `vitest.config.mts`. Coverage output, a successful local build, or isolated fixtures do not prove
 real Obsidian host behavior.
 
 ## Documentation and release changes

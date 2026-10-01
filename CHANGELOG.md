@@ -5,6 +5,21 @@ follow the repository's Git tags; entries summarize the corresponding commit his
 
 ## [Unreleased]
 
+## [0.8.2] - 2026-10-01
+
+### Fixed
+
+- Keep custom property-value suggestion popups inside the visible window, opening above the
+  editor when needed and following scrolling, resizing, and visual viewport changes.
+
+### Changed
+
+- Update development dependencies and pin patched transitive dependencies.
+- Align contribution and testing documentation with enforced coverage thresholds and the
+  release publisher's actual trust boundary.
+- Measure high-cardinality property-value vocabulary and cache invalidation rescans alongside
+  the property-name usage benchmark.
+
 ## [0.8.1] - 2026-09-27
 
 ### Fixed

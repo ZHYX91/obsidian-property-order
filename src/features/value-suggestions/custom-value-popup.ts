@@ -38,12 +38,6 @@ export function mountCustomValuePopup(
   container.dataset.propertyOrderValueEnhanced = "true";
   container.setAttribute("role", "listbox");
 
-  const editorRect = context.editor.getBoundingClientRect();
-  container.style.left = `${Math.round(editorRect.left)}px`;
-  container.style.top = `${Math.round(editorRect.bottom)}px`;
-  container.style.minWidth = `${Math.max(160, Math.round(editorRect.width))}px`;
-  container.style.maxWidth = `${Math.max(200, targetWindow.innerWidth - 16)}px`;
-
   const selectedIndex = Math.max(0, visibleValues.indexOf(selectedValue ?? ""));
   const itemValues: Array<{ element: HTMLElement; value: string }> = [];
 
@@ -66,6 +60,22 @@ export function mountCustomValuePopup(
     });
     item.addEventListener("click", () => onCommit(value));
   }
+
+  const position = (event?: Event): void => {
+    // Scrolling the candidate list must retain its scroll position; only
+    // surrounding layout changes move the popup's anchor.
+    if (event?.type === "scroll" && event.target instanceof targetWindow.Node &&
+      container.contains(event.target)) {
+      return;
+    }
+    positionCustomValuePopup(container, context.editor, targetWindow);
+  };
+  position();
+  targetWindow.addEventListener("resize", position);
+  context.editor.ownerDocument.addEventListener("scroll", position, true);
+  const viewport = targetWindow.visualViewport;
+  viewport?.addEventListener("resize", position);
+  viewport?.addEventListener("scroll", position);
 
   const handleTab = (event: Event): void => {
     const keyboardEvent = event as KeyboardEvent;
@@ -106,9 +116,46 @@ export function mountCustomValuePopup(
       }
       cleaned = true;
       input.removeEventListener("keydown", handleTab, true);
+      targetWindow.removeEventListener("resize", position);
+      context.editor.ownerDocument.removeEventListener("scroll", position, true);
+      viewport?.removeEventListener("resize", position);
+      viewport?.removeEventListener("scroll", position);
       container.remove();
     },
   };
+}
+
+function positionCustomValuePopup(
+  container: HTMLElement,
+  editor: HTMLElement,
+  targetWindow: Window,
+): void {
+  const viewport = targetWindow.visualViewport;
+  const width = viewport?.width ?? targetWindow.innerWidth;
+  const height = viewport?.height ?? targetWindow.innerHeight;
+  const inset = Math.min(8, width / 2, height / 2);
+  const left = (viewport?.offsetLeft ?? 0) + inset;
+  const top = (viewport?.offsetTop ?? 0) + inset;
+  const right = left + Math.max(0, width - inset * 2);
+  const bottom = top + Math.max(0, height - inset * 2);
+  const editorRect = editor.getBoundingClientRect();
+  const availableWidth = right - left;
+
+  container.style.minWidth = `${Math.min(availableWidth, Math.max(160, editorRect.width))}px`;
+  container.style.maxWidth = `${availableWidth}px`;
+  container.style.maxHeight = `${Math.min(320, height / 2)}px`;
+
+  const popupRect = container.getBoundingClientRect();
+  const below = Math.max(0, bottom - Math.max(top, editorRect.bottom));
+  const above = Math.max(0, Math.min(bottom, editorRect.top) - top);
+  const placeBelow = below >= popupRect.height || below >= above;
+  const availableHeight = placeBelow ? below : above;
+  const popupHeight = Math.min(popupRect.height, availableHeight);
+  const popupTop = placeBelow ? editorRect.bottom : editorRect.top - popupHeight;
+
+  container.style.maxHeight = `${Math.min(320, height / 2, availableHeight)}px`;
+  container.style.left = `${Math.min(Math.max(left, editorRect.left), Math.max(left, right - popupRect.width))}px`;
+  container.style.top = `${Math.min(Math.max(top, popupTop), bottom - popupHeight)}px`;
 }
 
 export function commitCustomPropertyValueCandidate(

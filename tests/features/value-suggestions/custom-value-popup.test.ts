@@ -1,7 +1,7 @@
 // @vitest-environment happy-dom
 
 import { Window as HappyDomWindow } from "happy-dom";
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
 import {
   commitCustomPropertyValueCandidate,
@@ -32,6 +32,81 @@ function createContext(
 }
 
 describe("custom value fallback popup", () => {
+  afterEach(() => vi.restoreAllMocks());
+
+  it.each([
+    { height: 300, width: 400, x: 350, y: 270, editorWidth: 120, popupHeight: 120 },
+    { height: 300, width: 400, x: 20, y: 20, editorWidth: 120, popupHeight: 120 },
+    { height: 100, width: 120, x: 100, y: 45, editorWidth: 200, popupHeight: 200 },
+  ])("keeps fallback candidates inside a $width x $height owner window", (sample) => {
+    const targetWindow = new HappyDomWindow(sample);
+    const { context } = createContext(targetWindow.document as unknown as Document);
+    vi.spyOn(context.editor, "getBoundingClientRect").mockReturnValue({
+      left: sample.x,
+      top: sample.y,
+      bottom: sample.y + 30,
+      width: sample.editorWidth,
+    } as DOMRect);
+    vi.spyOn(targetWindow.HTMLElement.prototype as unknown as HTMLElement, "getBoundingClientRect").mockImplementation(
+      function (this: HTMLElement) {
+        return {
+          width: Math.min(Number.parseFloat(this.style.minWidth), Number.parseFloat(this.style.maxWidth)),
+          height: Math.min(sample.popupHeight, Number.parseFloat(this.style.maxHeight)),
+        } as DOMRect;
+      },
+    );
+    const mount = mountCustomValuePopup(context, ["draft", "done"], () => undefined)!;
+    const rect = mount.container.getBoundingClientRect();
+    const left = Number.parseFloat(mount.container.style.left);
+    const top = Number.parseFloat(mount.container.style.top);
+    expect(left).toBeGreaterThanOrEqual(8);
+    expect(top).toBeGreaterThanOrEqual(8);
+    expect(left + rect.width).toBeLessThanOrEqual(sample.width - 8);
+    expect(top + rect.height).toBeLessThanOrEqual(sample.height - 8);
+    expect(rect.height).toBeGreaterThan(0);
+    if (sample.y + 30 === sample.height) expect(top).toBeLessThan(sample.y);
+    mount.cleanup();
+    targetWindow.close();
+  });
+
+  it("repositions within the visual viewport and removes layout listeners on cleanup", () => {
+    const targetWindow = new HappyDomWindow({ height: 600, width: 400 });
+    const { context } = createContext(targetWindow.document as unknown as Document);
+    const viewport = new targetWindow.EventTarget();
+    Object.assign(viewport, { width: 240, height: 200, offsetLeft: 40, offsetTop: 100 });
+    Object.defineProperty(targetWindow, "visualViewport", { value: viewport });
+    const editorRect = { left: 270, top: 280, bottom: 310, width: 180 };
+    const readEditorRect = vi.spyOn(context.editor, "getBoundingClientRect")
+      .mockImplementation(() => editorRect as DOMRect);
+    vi.spyOn(targetWindow.HTMLElement.prototype as unknown as HTMLElement, "getBoundingClientRect").mockImplementation(
+      function (this: HTMLElement) {
+        return { width: Number.parseFloat(this.style.minWidth), height: 80 } as DOMRect;
+      },
+    );
+    const mount = mountCustomValuePopup(context, ["draft"], () => undefined)!;
+    expect(Number.parseFloat(mount.container.style.left)).toBe(92);
+    expect(Number.parseFloat(mount.container.style.top)).toBe(200);
+    const layoutReads = readEditorRect.mock.calls.length;
+    mount.container.dispatchEvent(new targetWindow.Event("scroll") as unknown as Event);
+    expect(readEditorRect).toHaveBeenCalledTimes(layoutReads);
+    editorRect.top = 120;
+    editorRect.bottom = 150;
+    viewport.dispatchEvent(new targetWindow.Event("resize"));
+    expect(Number.parseFloat(mount.container.style.top)).toBe(150);
+    editorRect.top = 280;
+    editorRect.bottom = 310;
+    context.editor.ownerDocument.dispatchEvent(new targetWindow.Event("scroll") as unknown as Event);
+    expect(Number.parseFloat(mount.container.style.top)).toBe(200);
+    mount.cleanup();
+    editorRect.top = 120;
+    editorRect.bottom = 150;
+    viewport.dispatchEvent(new targetWindow.Event("resize"));
+    targetWindow.dispatchEvent(new targetWindow.Event("resize"));
+    context.editor.ownerDocument.dispatchEvent(new targetWindow.Event("scroll") as unknown as Event);
+    expect(Number.parseFloat(mount.container.style.top)).toBe(200);
+    targetWindow.close();
+  });
+
   it("commits and filters the contenteditable list editor used by Properties", () => {
     const { context, input } = createContext();
     const wrapper = document.createElement("div");

@@ -31,11 +31,11 @@ Lint 使用当前 Obsidian API typings，兼容性仍以 `manifest.json` 为契�
 - recent tracker 的点击与键盘/输入提交意图、Metadata Cache 成功确认、hover/浏览/取消/失败不记录、文件与 document 身份、超时/删除/卸载清理；recent store 的精确大小写、去重前移、100 项上限、无时间戳版本化格式、畸形或读取失败回退、写入失败 fail open、当前 Vault/设备隔离和清除；名称与 recent 模式零 Vault 遍历，无菜单时 usage 缓存失效也不触发扫描；
 - 属性值候选分组规划覆盖：每个精确 key 只有一个行为、默认回退、仅设置页使用的胶囊显示顺序、跨分组移动、仅本设备保存的已确认选择次数、笔记数平局、自定义置顶/普通/置底、预设值精确身份、移除预设不修改笔记、向原生弹窗注入预设、无原生弹窗时的插件回退弹窗、最终可见键盘顺序、属性/编辑器上下文复用、`none` 下手动输入保留、生命周期清理以及无损旧规则迁移；
 - schema 3 到 4、4 到 5 和 5 到 6 的 settings 迁移、`recent` 合法值、属性值候选分组归属归一化与无损旧规则迁移、即时生效、保存失败、Retry、公开外部设置回调的三方合并与实时 surface 刷新、跨实例存储串行化、卸载后新保存拒绝、关闭值拖拽时保留跨属性偏好、属性名候选排序/清除/规则测试控件、属性值默认行为、六种互斥行为的按需规则卡片、卡片合并、添加输入框焦点及滚动保持、自定义编辑器持久化、选择次数清除、选择器 cleanup、key 候选零提前 Vault 遍历以及窄屏 CSS；
-- 精确 Node.js/npm 与 lockfile root 契约、发布 job 读写权限隔离、仓库代码执行前的默认分支与标签身份核对、只读 Candidate Bundle artifact 传输与 SHA-256、裸 action digest 与 REST 前缀兼容、外层/内层恶意 ZIP fail closed、写权限 job 零 checkout/npm/仓库脚本、仓库级发布串行化、真实 Release 版本与说明基线预检、existing no-op 与新发布四资产的字节及精确 signer/repo/ref/commit provenance、发布后 HTTP 重试分类、三个官方附件、手动安装 ZIP 和幂等 Release 更新。
+- 精确 Node.js/npm 与 lockfile root 契约、发布 job 读写权限隔离、仓库代码执行前的默认分支与标签身份核对、只读 Candidate Bundle artifact 传输与 SHA-256、裸 action digest 与 REST 前缀兼容、外层/内层恶意 ZIP fail closed、写权限 job 精确 checkout 且不持久化凭据、使用锁定仓库发布脚本但不安装依赖或重新构建、仓库级发布串行化、真实 Release 版本与说明基线预检、existing no-op 与新发布四资产的字节及精确 signer/repo/ref/commit provenance、发布后 HTTP 重试分类、三个官方附件、手动安装 ZIP 和幂等 Release 更新。
 
-`npm run check` 通过 `npm run test:coverage` 执行完整 Vitest suite，并使用 V8 coverage 显式包含 `main.ts` 与 `src/**/*.ts`，使没有被任何测试导入的运行时代码仍以 0% 出现在源清单中。当前不设置仓促选择的全局百分比阈值；统一门禁仍会生成覆盖率报告，用于发现遗漏文件和指导针对性测试，但不能替代真实宿主证据。
+`npm run check` 通过 `npm run test:coverage` 执行完整 Vitest suite，并使用 V8 coverage 显式包含 `main.ts` 与 `src/**/*.ts`，使没有被任何测试导入的运行时代码仍以 0% 出现在源清单中。统一门禁通过 `vitest.config.mts` 强制全局覆盖率下限：statements 86%、branches 83%、functions 88%、lines 86%。报告用于发现遗漏文件和指导针对性测试；达到阈值仍不能替代真实宿主证据。
 
-`npm run bench:usage` 与 `npm run bench:usage:large` 是不进入 `npm run check` 的确定性 Metadata Cache 微基准，分别构造 10,000 与 50,000 篇缓存笔记，对真实 `getPropertyKeyUsage()` 预热后采样 25 次并报告 p50、p95、max 与缓存命中耗时。每次性能判断都应把操作系统、CPU、Node.js 与 npm 版本连同原始输出记录在交付证据中。该合成结果尚不足以证明真实 Obsidian 主线程、移动设备或内存表现，也不单独作为定时门禁；只有真实大 Vault 或重复回归数据越过产品预算时，才据此重新评估增量索引。
+`npm run bench:usage` 与 `npm run bench:usage:large` 是不进入 `npm run check` 的确定性 Metadata Cache 微基准，分别构造 10,000 与 50,000 篇缓存笔记，对真实 `getPropertyKeyUsage()` 与 `getPropertyValueUsage()` 预热后采样 25 次并报告 p50、p95、max 与缓存命中耗时。每次性能判断都应把操作系统、CPU、Node.js 与 npm 版本连同原始输出记录在交付证据中。该合成结果尚不足以证明真实 Obsidian 主线程、移动设备或内存表现，也不单独作为定时门禁；只有真实大 Vault 或重复回归数据越过产品预算时，才据此重新评估增量索引。
 
 可注入的故障路径以自动测试为主证据，包括：设置保存拒绝、宿主 DOM 不匹配、选择同步失败、Escape/blur、组件消失、外部内容冲突和异步乱序。真实宿主用于确认 Obsidian 实际 DOM、输入、视觉和磁盘结果，不重复伪造难以稳定注入的失败。
 
@@ -97,7 +97,7 @@ CI 与 Release workflow 都从 `.node-version` 使用 Node.js 24.19.0，并通�
 
 安装 ZIP 必须固定条目顺序、时间、权限和无关 metadata，使相同输入得到相同字节。仓库内精确锁定的 release-core 测试执行相同 ZIP 解析与候选校验代码，覆盖必需/可选样式、缺失/额外/非普通项、篡改字节、错误 checksum、越界路径和同版本历史标签冲突。普通 `npm run check` 运行非 tag-aware 校验；`npm run release:check` 才要求干净提交并执行 absent-or-exact 标签门。
 
-仓库内 release-core 3.0 runtime 与薄适配器统一管理确定性的 Candidate Bundle 和生成的独立工作流。获授权的稳定版本 tag push 或该 tag 上的手动 publish 派发共用流水线；手动 verify 模式保持只读。CI 安装锁定依赖，执行一次 release:check，验证 Bundle 源码，并固定 artifact ID/digest。发布核对精确事件、源码、tag、传输字节和 SLSA 构建证明；先下载验证草稿，再发布 immutable Release，最后下载回验。产品验收可选且单独报告，独立克隆无需外部编排。
+仓库内 release-core 3.1.1 runtime 与薄适配器统一管理确定性的 Candidate Bundle 和生成的独立工作流。获授权的稳定版本 tag push 或该 tag 上的手动 publish 派发共用流水线；手动 verify 模式保持只读。CI 安装锁定依赖，执行一次 release:check，验证 Bundle 源码，并固定 artifact ID/digest。写权限发布 job 精确 checkout 标签源码且不持久化凭据，运行其中锁定的仓库发布 adapter，不安装依赖或重新构建。标签中的发布工具属于受信任可执行代码；Candidate Bundle 校验不提供针对恶意发布工具改动的独立隔离。发布核对精确事件、源码、tag、传输字节和 SLSA 构建证明；先下载验证草稿，再发布 immutable Release，最后下载回验。产品验收可选且单独报告，独立克隆无需外部编排。
 
 发布成功后必须从 GitHub 再次读取 immutable 稳定 Release，核对精确四附件、metadata digest、下载字节、ZIP 内外一致性、远端标签和逐项 provenance。同标签仅在全部身份一致时允许 no-op，否则使用更高版本。标签 ruleset 与 immutable Releases 仍需维护者在 workflow 外留证；自动门禁不修改管理员设置。
 
