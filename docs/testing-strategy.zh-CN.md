@@ -22,20 +22,26 @@ translation_status: source
 
 Lint 使用当前 Obsidian API typings，兼容性仍以 `manifest.json` 为契约。只有在多窗口支持需要目标 `ownerDocument` 时才保留原生 DOM 创建。所有受支持 Obsidian 版本都使用 imperative 四页签设置界面。自动契约必须证明 declarative definitions 保持为空、保留自定义规则编辑器，并且设置界面构造期间不遍历 Vault。
 
-测试按职责分布在 `tests/core/`、`tests/features/`、`tests/obsidian/`、`tests/shared/`、`tests/app/` 和 `tests/scripts/`。固定契约覆盖：
+测试按职责分布在 `tests/core/`、`tests/features/`、`tests/obsidian/`、`tests/shared/`、`tests/app/` 和 `tests/scripts/`。自动回归按领域覆盖：
 
-- flow/block/empty、宿主文本列表下 scalar source/target 与全部元素规范化、原始 number/boolean/null token 文本化、重复值保留、重复属性键拒绝、BOM、LF/CRLF/CR、引号、注释、空行和不支持结构 fail closed；
-- 桌面 mouse/touch/pen 状态机、移动端原生菜单扩展与单次待拖动状态、四态 drop 解析、空列表与空标量区分、有正面证据的非列表拒绝、经过不提示、松手单次 Notice、noop、取消、内容冲突、pane/file/editor/DOM 身份、未保存编辑内容、以原始文本为统一坐标的单次原子 editor transaction、1.12.x 精确 `"set"` origin 兼容、事务前所有权失效时内容不变、事务后精确内容已应用时归类为未安排持久化、忽略/抛错/部分应用/divergence 且不自动回滚、只抑制坐标匹配的拖拽尾随 click 而保留无关点击、宿主事件循环后与 `setViewData()` 后的文档身份复核、blur 清理拖拽 UI 后仍保存精确提交、精确核对后才调用 `requestSave()`、保存调度失败的独立结果与 Notice、正常及类型不匹配列表 UI 对账、受守卫 `metadataEditor.synchronize()` 的成功/缺失/抛错/宿主归属错误/同步后文本 divergence、可点击刷新重试的单次性与卸载/换页失效、多个 pane 的恢复操作互不清除，以及不调用原生属性 setter、不 Vault 直写、不手工修改宿主 pill DOM；
-- 精确提交后的首次 editor focus、宿主重建丢焦后的受守卫二次恢复、提交前或提交后用户主动转焦时不抢回、noop/拒绝/冲突/事务未生效时不聚焦、保存调度失败但 buffer 已提交时仍可撤销，以及异步对账和手动刷新期间 original/committed undo-redo 状态不误报 divergence；
-- Properties 与候选 DOM adapter、限定原 pane 的点几何回退、包含隐藏祖先及计算 display/visibility 的可见候选排序、仅候选菜单文本观察且不启用全 document character-data 观察、全部隐藏、键盘导航、焦点离开、置顶/隐藏/置底优先级、严格 MRU 与未记录项名称回退、笔记数平局、菜单复用，以及 DOM 不匹配时 fail open；
-- recent tracker 的点击与键盘/输入提交意图、Metadata Cache 成功确认、hover/浏览/取消/失败不记录、文件与 document 身份、超时/删除/卸载清理；recent store 的精确大小写、去重前移、100 项上限、无时间戳版本化格式、畸形或读取失败回退、写入失败 fail open、当前 Vault/设备隔离和清除；名称与 recent 模式零 Vault 遍历，无菜单时 usage 缓存失效也不触发扫描；
-- 属性值候选分组规划覆盖：每个精确 key 只有一个行为、默认回退、仅设置页使用的胶囊显示顺序、跨分组移动、仅本设备保存的已确认选择次数、笔记数平局、自定义置顶/普通/置底、预设值精确身份、移除预设不修改笔记、向原生弹窗注入预设、无原生弹窗时的插件回退弹窗、最终可见键盘顺序、属性/编辑器上下文复用、`none` 下手动输入保留、生命周期清理以及无损旧规则迁移；
-- schema 3 到 4、4 到 5 和 5 到 6 的 settings 迁移、`recent` 合法值、属性值候选分组归属归一化与无损旧规则迁移、即时生效、保存失败、Retry、公开外部设置回调的三方合并与实时 surface 刷新、跨实例存储串行化、卸载后新保存拒绝、关闭值拖拽时保留跨属性偏好、属性名候选排序/清除/规则测试控件、属性值默认行为、六种互斥行为的按需规则卡片、卡片合并、添加输入框焦点及滚动保持、自定义编辑器持久化、选择次数清除、选择器 cleanup、key 候选零提前 Vault 遍历以及窄屏 CSS；
-- 精确 Node.js/npm 与 lockfile root 契约、发布 job 读写权限隔离、仓库代码执行前的默认分支与标签身份核对、只读 Candidate Bundle artifact 传输与 SHA-256、裸 action digest 与 REST 前缀兼容、外层/内层恶意 ZIP fail closed、写权限 job 精确 checkout 且不持久化凭据、使用锁定仓库发布脚本但不安装依赖或重新构建、仓库级发布串行化、真实 Release 版本与说明基线预检、existing no-op 与新发布四资产的字节及精确 signer/repo/ref/commit provenance、发布后 HTTP 重试分类、三个官方附件、手动安装 ZIP 和幂等 Release 更新。
+- **Frontmatter 与写回**：flow、block 和空列表；宿主文本列表下的标量 source/target；number、boolean、null 按原 token 文本转换；重复值保留、重复属性键拒绝；BOM、LF/CRLF/CR、引号、注释、空行，以及不支持结构的安全拒绝。
+- **拖拽输入与目标判定**：桌面 mouse/touch/pen、移动端原生菜单和单次待拖动状态；受支持列表、类型不匹配列表、已确认非列表和未知目标；经过非列表目标不提示、在其上松手只提示一次；noop、取消、冲突、pane/file/editor/DOM 身份和未保存编辑内容。
+- **提交、保存与恢复**：一次原子 editor transaction、1.12.x 的精确 `"set"` origin、提交前后所有权变化、部分应用与 divergence、只抑制本次拖拽产生的尾随 click、`setViewData()` 后再次核对身份、精确验证后才调用 `requestSave()`，以及保存调度失败的独立提示。
+- **Properties 对账**：正常列表和类型不匹配列表的 UI 对账；受守卫的 `metadataEditor.synchronize()` 成功、缺失、抛错、宿主归属错误和同步后文本变化；刷新按钮的失效条件；多个 pane 的恢复操作互不干扰。恢复路径不得使用原生属性 setter、Vault 直写或手工修改宿主 pill DOM。
+- **撤销与焦点**：精确提交后让 editor 接管撤销/重做；宿主重建丢焦时只在安全条件下恢复；用户主动转焦后不抢回；noop、拒绝、冲突或未生效事务不强制聚焦；保存调度失败但 buffer 已提交时仍可撤销。
+- **属性名候选**：Properties/候选 DOM adapter、限定原 pane 的几何回退、隐藏祖先和计算样式下的可见顺序、键盘导航、全部隐藏、菜单复用、置顶/隐藏/置底优先级、属性类型组顺序、只用于显示的组标题、严格 MRU、笔记数平局、停用/卸载后的原生恢复，以及 DOM 不匹配时保留宿主行为。
+- **最近使用记录**：点击和键盘/输入提交意图、Metadata Cache 确认、hover/浏览/取消/失败不记录、文件与 document 身份、超时/删除/卸载清理；recent store 的精确大小写、去重前移、100 项上限、无时间戳格式、损坏/读取失败回退、写入失败时继续当前会话、Vault/设备隔离和清除。名称与 recent 模式不得为了排序遍历 Vault。
+- **属性值候选**：每个精确 key 只有一个行为、默认回退、跨分组移动、选择次数与笔记数、Custom 的置顶/普通/置底、预设值精确身份、移除预设不修改笔记、原生弹窗注入、无原生弹窗时的回退弹窗、最终可见键盘顺序、`none` 下保留手动输入、生命周期清理和旧规则迁移。
+- **设置**：schema 迁移、非法值归一化、即时生效、保存失败与 Retry、外部设置变化的三方合并、跨实例存储串行化、卸载后拒绝新保存、值拖拽偏好保留、规则卡片和选择器状态、焦点/滚动保持、清除入口和窄屏布局。
+- **发布工具链**：精确 Node.js/npm 与 lockfile root、发布 job 权限隔离、默认分支与标签身份、Candidate Bundle 只读传输与 SHA-256、ZIP 输入校验、精确源码 checkout、禁止写权限 job 重新安装依赖或构建、发布串行化、Release 版本/说明预检、四个发布资产的字节与 provenance、HTTP 重试分类和幂等发布。
 
 `npm run check` 通过 `npm run test:coverage` 执行完整 Vitest suite，并使用 V8 coverage 显式包含 `main.ts` 与 `src/**/*.ts`，使没有被任何测试导入的运行时代码仍以 0% 出现在源清单中。统一门禁通过 `vitest.config.mts` 强制全局覆盖率下限：statements 86%、branches 83%、functions 88%、lines 86%。报告用于发现遗漏文件和指导针对性测试；达到阈值仍不能替代真实宿主证据。
 
-`npm run bench:usage` 与 `npm run bench:usage:large` 是不进入 `npm run check` 的确定性 Metadata Cache 微基准，分别构造 10,000 与 50,000 篇缓存笔记，通过真实缓存键/值 usage 路径执行 25 次失效后重扫，并报告 p50、p95、max、缓存命中耗时、扫描次数和 Metadata Cache 读取次数。10,000 篇 quick 基准进入 CI 与发布核验，并使用故意留有较大余量的 75 ms p95 上限；可选的 50,000 篇基准使用 350 ms p95 上限。普通 Vitest coverage 另以确定性断言固定扫描预算：每次未缓存快照只能枚举一次 Markdown 文件，并且每篇笔记只能读取一次 Metadata Cache；缓存命中不得增加读取次数。这些上限只用于捕获意外重复扫描或超线性工作，不是产品延迟目标；合成结果仍不能证明真实 Obsidian 主线程、移动设备或内存表现。每次性能判断都应把操作系统、CPU、Node.js 与 npm 版本连同原始输出记录在交付证据中。只有真实大 Vault 或重复回归数据越过产品预算时，才据此重新评估增量索引。
+`npm run bench:usage` 与 `npm run bench:usage:large` 是独立于 `npm run check` 的确定性 Metadata Cache 微基准，分别构造 10,000 与 50,000 篇缓存笔记，并通过真实缓存路径执行 25 次失效后重扫。输出包括 p50、p95、max、缓存命中耗时、扫描次数和 Metadata Cache 读取次数。
+
+10,000 篇 quick 基准进入 CI 与发布核验，p95 上限为 75 ms；可选的 50,000 篇基准上限为 350 ms。普通 Vitest 还会检查扫描次数：每次未缓存快照只能枚举一次 Markdown 文件，每篇笔记只能读取一次 Metadata Cache，缓存命中不能产生额外读取。
+
+这些数字只是回归警戒线，用来发现重复扫描或超线性退化，不是产品延迟承诺，也不能代表真实 Obsidian 主线程、移动设备或内存表现。需要做性能判断时，应同时记录操作系统、CPU、Node.js、npm 和原始输出；只有真实大 Vault 或重复回归数据明显越过预算时，才考虑引入增量索引。
 
 可注入的故障路径以自动测试为主证据，包括：设置保存拒绝、宿主 DOM 不匹配、选择同步失败、Escape/blur、组件消失、外部内容冲突和异步乱序。真实宿主用于确认 Obsidian 实际 DOM、输入、视觉和磁盘结果，不重复伪造难以稳定注入的失败。
 
