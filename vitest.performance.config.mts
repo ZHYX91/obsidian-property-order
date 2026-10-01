@@ -7,6 +7,9 @@ export default defineConfig(({ mode }) => ({
     __PROPERTY_ORDER_BENCHMARK_NOTE_COUNT__: JSON.stringify(
       mode === "large" ? 50_000 : 10_000,
     ),
+    __PROPERTY_ORDER_BENCHMARK_P95_BUDGET_MS__: JSON.stringify(
+      mode === "large" ? 350 : 75,
+    ),
   },
   resolve: {
     alias: {
