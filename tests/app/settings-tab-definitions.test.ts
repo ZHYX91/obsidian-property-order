@@ -49,6 +49,7 @@ describe("PropertyOrderSettingTab declarative definitions", () => {
       "enableCrossPropertyDrag",
       "enableNativeKeySuggestionOrder",
       "keySuggestionSortMode",
+      "groupKeySuggestionsByType",
     ]);
     expect(getMarkdownFiles).not.toHaveBeenCalled();
 
@@ -95,6 +96,12 @@ describe("PropertyOrderSettingTab declarative definitions", () => {
     expect(update).toHaveBeenCalledTimes(1);
     expect(refreshDomState).not.toHaveBeenCalled();
 
+    await settingTab.setControlValue("groupKeySuggestionsByType", true);
+    expect(settings.groupKeySuggestionsByType).toBe(true);
+    expect(saveSettings).toHaveBeenLastCalledWith(true, false);
+    expect(update).toHaveBeenCalledTimes(1);
+    expect(refreshDomState).not.toHaveBeenCalled();
+
     await settingTab.setControlValue("enablePropertyValueDrag", false);
     expect(settings.enablePropertyValueDrag).toBe(false);
     expect(settings.enableCrossPropertyDrag).toBe(true);
@@ -134,6 +141,12 @@ describe("PropertyOrderSettingTab declarative definitions", () => {
       name: "Name",
       recent: "Recently used",
       usage: "Notes containing the property",
+    });
+    expect(
+      getControls(pages).find((control) => control.key === "groupKeySuggestionsByType"),
+    ).toMatchObject({
+      key: "groupKeySuggestionsByType",
+      type: "toggle",
     });
 
     const clearDefinition = getRenderDefinition(
