@@ -76,7 +76,8 @@ describe("custom value fallback popup", () => {
     Object.assign(viewport, { width: 240, height: 200, offsetLeft: 40, offsetTop: 100 });
     Object.defineProperty(targetWindow, "visualViewport", { value: viewport });
     const editorRect = { left: 270, top: 280, bottom: 310, width: 180 };
-    vi.spyOn(context.editor, "getBoundingClientRect").mockImplementation(() => editorRect as DOMRect);
+    const readEditorRect = vi.spyOn(context.editor, "getBoundingClientRect")
+      .mockImplementation(() => editorRect as DOMRect);
     vi.spyOn(targetWindow.HTMLElement.prototype as unknown as HTMLElement, "getBoundingClientRect").mockImplementation(
       function (this: HTMLElement) {
         return { width: Number.parseFloat(this.style.minWidth), height: 80 } as DOMRect;
@@ -85,6 +86,9 @@ describe("custom value fallback popup", () => {
     const mount = mountCustomValuePopup(context, ["draft"], () => undefined)!;
     expect(Number.parseFloat(mount.container.style.left)).toBe(92);
     expect(Number.parseFloat(mount.container.style.top)).toBe(200);
+    const layoutReads = readEditorRect.mock.calls.length;
+    mount.container.dispatchEvent(new targetWindow.Event("scroll") as unknown as Event);
+    expect(readEditorRect).toHaveBeenCalledTimes(layoutReads);
     editorRect.top = 120;
     editorRect.bottom = 150;
     viewport.dispatchEvent(new targetWindow.Event("resize"));

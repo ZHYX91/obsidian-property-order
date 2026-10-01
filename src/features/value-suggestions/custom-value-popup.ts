@@ -61,7 +61,15 @@ export function mountCustomValuePopup(
     item.addEventListener("click", () => onCommit(value));
   }
 
-  const position = (): void => positionCustomValuePopup(container, context.editor, targetWindow);
+  const position = (event?: Event): void => {
+    // Scrolling the candidate list must retain its scroll position; only
+    // surrounding layout changes move the popup's anchor.
+    if (event?.type === "scroll" && event.target instanceof targetWindow.Node &&
+      container.contains(event.target)) {
+      return;
+    }
+    positionCustomValuePopup(container, context.editor, targetWindow);
+  };
   position();
   targetWindow.addEventListener("resize", position);
   context.editor.ownerDocument.addEventListener("scroll", position, true);
