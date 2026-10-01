@@ -96,8 +96,9 @@ npm run check
 
 ## Support
 
-- Use [General](https://github.com/ZHYX91/obsidian-property-order/discussions/categories/general) for workflow ideas and general feedback.
-- Use [Q&A](https://github.com/ZHYX91/obsidian-property-order/discussions/categories/q-a) for usage and configuration questions.
+- [Q&A](https://github.com/ZHYX91/obsidian-property-order/discussions/categories/q-a): Usage and configuration questions.
+- [Ideas](https://github.com/ZHYX91/obsidian-property-order/discussions/categories/ideas): Early feature and workflow ideas.
+- [Show and tell](https://github.com/ZHYX91/obsidian-property-order/discussions/categories/show-and-tell): Tips, workflows, and reference implementations.
 - Use the structured [GitHub issue forms](https://github.com/ZHYX91/obsidian-property-order/issues/new/choose) for reproducible bugs and concrete feature requests.
 - Report vulnerabilities privately through the repository's [security policy](https://github.com/ZHYX91/obsidian-property-order/security/policy).
 

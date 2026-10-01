@@ -1,8 +1,14 @@
 blank_issues_enabled: false
 contact_links:
-  - name: Questions and general feedback
-    url: https://github.com/ZHYX91/obsidian-property-order/discussions
-    about: Ask questions and share your Property Order experience in English or Chinese.
+  - name: "Q&A"
+    url: https://github.com/ZHYX91/obsidian-property-order/discussions/categories/q-a
+    about: Usage and configuration questions.
+  - name: "Ideas"
+    url: https://github.com/ZHYX91/obsidian-property-order/discussions/categories/ideas
+    about: Early feature and workflow ideas.
+  - name: "Show and tell"
+    url: https://github.com/ZHYX91/obsidian-property-order/discussions/categories/show-and-tell
+    about: Tips, workflows, and reference implementations.
   - name: Security policy
     url: https://github.com/ZHYX91/obsidian-property-order/security/policy
     about: Report vulnerabilities privately; do not disclose private Vault or YAML data in a public issue.

@@ -96,8 +96,9 @@ npm run check
 
 ## 支持
 
-- 工作流想法和一般反馈请发布到 [General](https://github.com/ZHYX91/obsidian-property-order/discussions/categories/general)；
-- 使用和配置问题请发布到 [Q&A](https://github.com/ZHYX91/obsidian-property-order/discussions/categories/q-a)；
+- [Q&A](https://github.com/ZHYX91/obsidian-property-order/discussions/categories/q-a)：使用和配置问题。
+- [Ideas](https://github.com/ZHYX91/obsidian-property-order/discussions/categories/ideas)：尚待讨论的功能与工作流想法。
+- [Show and tell](https://github.com/ZHYX91/obsidian-property-order/discussions/categories/show-and-tell)：技巧、工作流和参考实现。
 - 可复现缺陷和明确的功能建议请使用结构化的 [GitHub Issue 表单](https://github.com/ZHYX91/obsidian-property-order/issues/new/choose)；
 - 安全漏洞请按照仓库的[安全策略](https://github.com/ZHYX91/obsidian-property-order/security/policy)私密报告。
 
