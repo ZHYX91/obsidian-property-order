@@ -74,6 +74,18 @@ describe("README marketplace link contract", () => {
       "docs/i18n/README.zh-CN.md contains a missing relative target: ../assets/missing-demo.gif",
     );
   });
+
+  it("rejects a localized README that drops a current feature concept", async () => {
+    await replaceInReadme(
+      "docs/i18n/README.zh-CN.md",
+      "属性类型分组",
+      "类型分类",
+    );
+
+    expect(checkReadmeI18n(fixtureRoot)).toContain(
+      "docs/i18n/README.zh-CN.md is missing required README semantic phrase: 属性类型分组",
+    );
+  });
 });
 
 async function replaceInReadme(filePath: string, search: string, replacement: string) {
