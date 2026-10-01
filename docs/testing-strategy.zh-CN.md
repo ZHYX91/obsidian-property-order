@@ -41,7 +41,7 @@ Lint 使用当前 Obsidian API typings，兼容性仍以 `manifest.json` 为契�
 
 ## 隔离 Vault
 
-使用安装精确候选包的临时 Vault。仓库提供 `acceptance/fixtures/Property Order.md` 和 `acceptance/product-scenarios.json`；核对它们与候选绑定的哈希，安装三个候选资产，并仅启用 Property Order。普通或生产 Vault 永远不是合法目标。
+使用安装精确候选包的临时 Vault。仓库提供 `acceptance/fixtures/Property Order.md`、`Key Suggestions.md`、`Key Type Vocabulary.md` 和 `acceptance/product-scenarios.json`；核对它们与候选绑定的哈希，安装三个候选资产，并仅启用 Property Order。普通或生产 Vault 永远不是合法目标。
 
 这个仓库刻意不提供夹具安装、Vault 重置或冲突注入 CLI。对于场景契约中的受守卫写入冲突步骤，验收控制器先记录临时夹具身份，启动产品操作，执行指定的外部编辑，再记录两个结果字节流及可见的拒绝行为。自动化单元测试仍是注入竞态边界的主要证据；真实宿主证据覆盖 Obsidian DOM、交互、持久化、撤销/重做和可见的 fail-closed 结果。
 
@@ -58,7 +58,7 @@ Lint 使用当前 Obsidian API typings，兼容性仍以 `manifest.json` 为契�
 - 类型不匹配列表行不得出现覆盖警告图标的常驻抓手，警告图标本身也不得显示拖拽光标；同属性拖拽后普通 Properties 必须立即显示新顺序并可再次拖拽。故意阻断自动重建时，Notice 的“刷新属性面板”只能刷新原 pane，多个 pane 的恢复 Notice 互不清除，成功后消失，失败后才提示重开；按钮必须跟随点击时的合法 undo/redo 状态，不得产生第二次 transaction、保存请求或 YAML 变化；
 - 每次成功的同属性或跨属性拖拽都无需先点击正文即可立即用一次 `Ctrl+Z` 撤销并用一次 redo 重做，所有受影响属性必须共同恢复，Properties、editor 与磁盘状态一致；还要等待至少 3 秒让延迟保存结束后重复撤销/重做，并在发送第二次历史快捷键之前确认第一次快捷键已经改变可见 Properties。立即撤销后可再次拖拽且不出现不同步提示；对账完成前主动聚焦其他输入、pane 或窗口时插件不得抢回焦点。写回后至少等待 3 秒再核对磁盘 YAML 与 SHA-256，避免把宿主延迟保存误判为未持久化；
 - wiki link 契约夹具必须在调整任何 alias 规范化规则前记录精确 alias、首尾空白及 NFC/NFD target 与 alias 对应的 `data-href`、`.internal-link` 位置、`.multi-select-pill-content`、原始 `textContent` 码点和是否可拖动；
-- 键候选 pinned/hidden/bottom、name/recent/笔记数、菜单复用、全部隐藏、hover 后键盘、方向键/Home/End/PageUp/PageDown/Enter/Escape 与焦点离开；recent 必须分别验证鼠标点击、Enter 和手工输入的成功提交，证明只在 Metadata Cache 确认后推进严格 MRU，hover、浏览、取消或失败不记录，未记录项按名称排序，usage 数值确实等于包含属性的 Markdown 笔记数；
+- 键候选 pinned/hidden/bottom、name/recent/笔记数、菜单复用、全部隐藏、hover 后键盘、方向键/Home/End/PageUp/PageDown/Enter/Escape 与焦点离开；启用类型分组时，最低与当前受支持桌面宿主都必须验证文本/列表/数字/复选框/日期/日期与时间/标签/自动未指定分组、故意未登记类型的 `key_automatic`、不会增加候选停靠点的视觉组标题、只在组内排序，以及停用或卸载后的精确原生恢复；recent 必须分别验证鼠标点击、Enter 和手工输入的成功提交，证明只在 Metadata Cache 确认后推进严格 MRU，hover、浏览、取消或失败不记录，未记录项按名称排序，usage 数值确实等于包含属性的 Markdown 笔记数；
 - 最近历史在重载和完整重启后仍保持当前 Vault、当前设备的顺序，另一个 Vault 不继承；清除入口立即恢复名称回退且不修改 `data.json` 或笔记。设置即时生效，并覆盖最低与当前受支持宿主上的四页签界面、深浅主题和窄窗口布局。
 - 属性值候选真实宿主验收覆盖全部分组行为及其边界：精确 key 在互斥分组间移动、手动输入与已有 key 选择、默认回退、选择次数与笔记数严格区分、自定义置顶/普通/置底、一个所有夹具笔记都未出现过的预设值、向原生弹窗注入预设与无原生弹窗时的回退弹窗、鼠标/Enter/Tab 选择、Metadata Cache 确认后才增加次数、Escape/转焦/停用/重载 cleanup，以及旧规则迁移的显式确认。既有 `none` 检查仍必须证明手动输入可用，且未修改的 Enter/Tab 不会提交被抑制的候选。
 
@@ -68,14 +68,14 @@ Android 模拟器必须验证：
 - 选择新增操作后只把该 pill 置为待拖动状态，下一次同 pill 触摸拖拽可完成重排或移动；点击其他位置、Escape、超时、切后台或停用插件都会干净取消；
 - 拖到非列表目标显示拒绝态，在其上松手只提示一次且不写回，离开目标后提示和样式都不残留；
 - wiki link 契约夹具必须取得与桌面端相同的原始 target、文本、结构和拖动证据，不能先推断移动端会采用同一规范化行为；
-- 候选触摸选择及其成功提交后的 recent 更新、最近历史清除、394px 级窄屏设置布局、横竖屏旋转和活动页签显露；
+- 候选触摸选择及其成功提交后的 recent 更新、类型分组键候选且视觉组标题不得成为触摸目标、停用增强后的原生恢复、最近历史清除、394px 级窄屏设置布局、横竖屏旋转和活动页签显露；
 - 前后台恢复、插件停用/重启用，以及无崩溃或 ANR。
 
 ## 验证边界
 
 - 自动门禁覆盖所有纯规则、可注入故障和发布契约。
 - 每个候选构建的验收记录必须分层列出：提交与版本身份、三个部署产物及安装 ZIP 的 SHA-256、自动门禁结果、逐宿主/设备的真实验收证据，以及仍未取得的视觉、输入或平台证据。任何一层都不得由另一层推断。
-- 桌面验收使用 Windows 11 下相互隔离的 Obsidian 1.12.7 与当前受支持 1.13.x Vault。两种宿主都必须证明同属性和跨属性无需中间正文点击的立即单步撤销/重做、立即撤销后再次拖拽、主动转焦不被抢回、等待一个宿主事件循环后 editor 与可见 Properties 一致、再等待至少 3 秒后磁盘 YAML 一致、标量不匹配拖拽把手、非列表拒绝、`preserve`/`flow`/`block` 输出和 wiki link 宿主契约，并验证 strict MRU 的提交确认、重启持久化、每 Vault 隔离、100 项无时间戳边界与清除。两种宿主还必须覆盖四个顶部页签、自定义规则编辑器、条件控件、语言重渲染、持久化和 Retry。
+- 桌面验收使用 Windows 11 下相互隔离的 Obsidian 1.12.7 与当前受支持 1.13.x Vault。两种宿主都必须证明同属性和跨属性无需中间正文点击的立即单步撤销/重做、立即撤销后再次拖拽、主动转焦不被抢回、等待一个宿主事件循环后 editor 与可见 Properties 一致、再等待至少 3 秒后磁盘 YAML 一致、标量不匹配拖拽把手、非列表拒绝、`preserve`/`flow`/`block` 输出和 wiki link 宿主契约，并验证 strict MRU 的提交确认、重启持久化、每 Vault 隔离、100 项无时间戳边界与清除。两种宿主还必须覆盖属性类型分组键候选及停用/卸载后的精确原生恢复、四个顶部页签、自定义规则编辑器、条件控件、语言重渲染、持久化和 Retry。
 - 全新 CRLF 夹具仅打开时必须保持 CRLF；Property Order editor transaction 与普通正文手动编辑在 Obsidian 1.12.7 下都可能把笔记序列化为 LF。验收应把它归入宿主边界，并验证逻辑正文与单步撤销，而不是追加不可撤销的第二次 Vault 写入。
 - Android 验收使用 Android 15 / API 35 独立模拟器 Vault，以 SHA-256 核对部署的生产文件，确认原生“编辑 / 复制 / 从列表中移除”与“重排或移动”共存，验证同属性重排、跨属性移动的磁盘结果、触摸属性名称提交后的 recent 更新与清除，以及取消和前后台恢复期间无插件错误、崩溃或 ANR。
 - 桌面端加模拟器矩阵定义完整宿主回归覆盖范围，不构成公开发布门禁。Android 真机和 iOS 不在范围内。

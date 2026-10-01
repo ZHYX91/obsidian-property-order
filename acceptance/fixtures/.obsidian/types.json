@@ -3,6 +3,15 @@
     "po_source": "multitext",
     "po_target": "multitext",
     "status": "multitext",
-    "priority": "multitext"
+    "priority": "multitext",
+    "key_text": "text",
+    "key_list": "multitext",
+    "key_number": "number",
+    "key_checkbox": "checkbox",
+    "key_date": "date",
+    "key_datetime": "datetime",
+    "tags": "tags",
+    "key_bottom": "text",
+    "key_hidden": "text"
   }
 }
