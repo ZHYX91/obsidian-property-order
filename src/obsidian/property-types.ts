@@ -151,7 +151,9 @@ export function parseStoredPropertyTypes(
       continue;
     }
 
-    types.set(key, OBSIDIAN_TYPE_MAP[rawType] ?? "unknown");
+    types.set(key, Object.prototype.hasOwnProperty.call(OBSIDIAN_TYPE_MAP, rawType)
+      ? OBSIDIAN_TYPE_MAP[rawType]
+      : "unknown");
   }
 
   return types;

@@ -1069,6 +1069,90 @@ describe("KeySuggestionOrderController", () => {
     cleanup();
   });
 
+  it("refreshes stored types while a menu is open and stops reading after closure or disable", async () => {
+    vi.useFakeTimers();
+    let cleanup = (): void => undefined;
+    try {
+      const settings = createDefaultSettings();
+      settings.groupKeySuggestionsByType = true;
+      let storedTypes = { alpha: "text", rating: "number" };
+      const readTypes = vi.fn(async () => JSON.stringify({ types: storedTypes }));
+      const menu = createMenu(["rating", "alpha"]);
+      const raf = installRafHarness();
+      const controller = createController(settings, {
+        vault: {
+          adapter: { exists: vi.fn(async () => true), read: readTypes },
+          configDir: ".obsidian",
+        },
+      } as unknown as Partial<App>);
+      cleanup = controller.initialize();
+      raf.flush();
+      await settlePropertyTypeRefresh();
+      raf.flush();
+      expect(visibleKeys(menu)).toEqual(["alpha", "rating"]);
+
+      storedTypes = { alpha: "number", rating: "text" };
+      await vi.advanceTimersByTimeAsync(1_000);
+      raf.flush();
+      expect(visibleKeys(menu)).toEqual(["rating", "alpha"]);
+      expect(readTypes).toHaveBeenCalledTimes(2);
+
+      menu.closest(".metadata-property")!.remove();
+      await vi.advanceTimersByTimeAsync(2_000);
+      expect(readTypes).toHaveBeenCalledTimes(2);
+
+      const reopenedMenu = createMenu(["rating", "alpha"]);
+      await vi.advanceTimersByTimeAsync(0);
+      raf.flush();
+      await settlePropertyTypeRefresh();
+      raf.flush();
+      expect(visibleKeys(reopenedMenu)).toEqual(["rating", "alpha"]);
+      expect(readTypes).toHaveBeenCalledTimes(3);
+
+      settings.groupKeySuggestionsByType = false;
+      controller.refresh();
+      raf.flush();
+      await vi.advanceTimersByTimeAsync(2_000);
+      expect(readTypes).toHaveBeenCalledTimes(3);
+      expect(reopenedMenu.querySelector(".property-order-suggestion-type-group-start")).toBeNull();
+    } finally {
+      cleanup();
+      vi.useRealTimers();
+    }
+  });
+
+  it.each(["disable", "unload"] as const)("ignores a pending type read after %s", async (action) => {
+    const settings = createDefaultSettings();
+    settings.groupKeySuggestionsByType = true;
+    let finishRead = (_value: string): void => undefined;
+    const readTypes = vi.fn(() => new Promise<string>((resolve) => { finishRead = resolve; }));
+    const nativeKeys = ["rating", "alpha"];
+    const menu = createMenu(nativeKeys);
+    const raf = installRafHarness();
+    const controller = createController(settings, {
+      vault: {
+        adapter: { exists: vi.fn(async () => true), read: readTypes },
+        configDir: ".obsidian",
+      },
+    } as unknown as Partial<App>);
+    const cleanup = controller.initialize();
+    raf.flush();
+    await Promise.resolve();
+    if (action === "disable") {
+      settings.enableNativeKeySuggestionOrder = false;
+      controller.refresh();
+    } else {
+      cleanup();
+    }
+    finishRead(JSON.stringify({ types: { alpha: "text", rating: "number" } }));
+    await settlePropertyTypeRefresh();
+    raf.flush();
+    expect(allKeys(menu)).toEqual(nativeKeys);
+    expect(menu.querySelector(".property-order-suggestion-type-group-start")).toBeNull();
+    expect(raf.pending()).toBe(0);
+    cleanup();
+  });
+
   it("bridges native keyboard selection onto the visible DOM order", () => {
     const settings = createDefaultSettings();
     settings.pinnedPropertyKeys = ["tags"];

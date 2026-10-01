@@ -83,12 +83,18 @@ describe("PropertyTypeRegistry", () => {
     const types = parseStoredPropertyTypes(JSON.stringify({
       types: {
         custom: "future-type",
+        inheritedConstructor: "constructor",
+        inheritedPrototype: "__proto__",
+        inheritedString: "toString",
         legacyTime: "time",
         malformed: 42,
       },
     }));
 
     expect(types?.get("custom")).toBe("unknown");
+    expect(types?.get("inheritedConstructor")).toBe("unknown");
+    expect(types?.get("inheritedPrototype")).toBe("unknown");
+    expect(types?.get("inheritedString")).toBe("unknown");
     expect(types?.get("legacyTime")).toBe("datetime");
     expect(types?.has("malformed")).toBe(false);
   });

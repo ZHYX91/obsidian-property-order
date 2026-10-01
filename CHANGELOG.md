@@ -16,6 +16,11 @@ follow the repository's Git tags; entries summarize the corresponding commit his
 - Gate the 10,000-note suggestion-usage microbenchmark in CI with broad p95 regression budgets,
   deterministic one-read-per-note scan assertions, and richer cached frontmatter fixtures.
 
+### Fixed
+
+- Keep open grouped property-name menus up to date when Obsidian property types change, and treat
+  unsupported type names as unspecified even when they match JavaScript object properties.
+
 ## [0.8.2] - 2026-10-01
 
 ### Fixed
