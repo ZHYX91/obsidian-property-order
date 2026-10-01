@@ -101,6 +101,27 @@ describe("stable documentation i18n checker", () => {
     );
   });
 
+  it("rejects stale schema and feature semantics across language pairs", async () => {
+    await replaceInDocument(
+      "docs/architecture.zh-CN.md",
+      "schema 版本为 7",
+      "schema 版本为 6",
+    );
+    await replaceInDocument(
+      "docs/ux-spec.en.md",
+      "property-type grouping",
+      "type clusters",
+    );
+
+    const errors = checkDocsI18n(fixtureRoot);
+    expect(errors).toContain(
+      "docs/architecture.zh-CN.md must retain the stable semantic phrase: schema 版本为 7",
+    );
+    expect(errors).toContain(
+      "docs/ux-spec.en.md must retain the stable semantic phrase: property-type grouping",
+    );
+  });
+
   it("rejects an unterminated fenced code block", async () => {
     await appendToDocument("docs/ux-spec.en.md", "\n```text\nunfinished");
 
