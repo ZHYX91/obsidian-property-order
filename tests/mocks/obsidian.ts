@@ -93,7 +93,7 @@ export class Notice {
 
 export function normalizePath(path: string): string {
   return path
-    .replaceAll("\\", "/")
+    .replace(/\\\\/g, "/")
     .replace(/\/+/g, "/")
     .replace(/^\.\//, "");
 }
