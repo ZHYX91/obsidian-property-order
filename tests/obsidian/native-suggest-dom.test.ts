@@ -8,6 +8,8 @@ import {
   getSuggestionItemParent,
   getSuggestionItems,
   isLikelyPropertyKeySuggestionContainer,
+  isPropertyKeySuggestionContainer,
+  resolveSuggestionContainer,
 } from "../../src/obsidian/native-suggest-dom";
 
 function suggestionItem(key: string, className = "suggestion-item"): HTMLElement {
@@ -41,6 +43,22 @@ describe("native suggestion DOM adapter", () => {
     expect(items.map((item) => item.key)).toEqual(["tags", "aliases"]);
     expect(getSuggestionItemParent(items)).toBe(container);
     expect(isLikelyPropertyKeySuggestionContainer(container, items)).toBe(true);
+  });
+
+  it.each([
+    "suggestion-container mod-property-key",
+    "suggestion mod-property-key",
+    "menu mod-property-key",
+  ])("recognizes the dedicated property-key container variant %s", (className) => {
+    const container = document.createElement("div");
+    container.className = className;
+    container.append(suggestionItem("tags"), suggestionItem("aliases"));
+    document.body.appendChild(container);
+
+    expect(isPropertyKeySuggestionContainer(container)).toBe(true);
+    expect(resolveSuggestionContainer(container.firstElementChild as HTMLElement)).toBe(
+      container,
+    );
   });
 
   it("keeps suggestion names that differ only by repeated internal whitespace distinct", () => {
