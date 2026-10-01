@@ -5,6 +5,8 @@ follow the repository's Git tags; entries summarize the corresponding commit his
 
 ## [Unreleased]
 
+## [0.9.0] - 2026-10-02
+
 ### Added
 
 - Add optional Obsidian property-type grouping for native property-name suggestions while keeping
@@ -15,6 +17,8 @@ follow the repository's Git tags; entries summarize the corresponding commit his
 
 - Gate the 10,000-note suggestion-usage microbenchmark in CI with broad p95 regression budgets,
   deterministic one-read-per-note scan assertions, and richer cached frontmatter fixtures.
+- Align English and Simplified Chinese documentation and describe user-facing behavior in clearer
+  language.
 
 ### Fixed
 
@@ -266,7 +270,8 @@ follow the repository's Git tags; entries summarize the corresponding commit his
 
 - Established the initial Property Order release baseline.
 
-[Unreleased]: https://github.com/ZHYX91/obsidian-property-order/compare/0.8.2...HEAD
+[Unreleased]: https://github.com/ZHYX91/obsidian-property-order/compare/0.9.0...HEAD
+[0.9.0]: https://github.com/ZHYX91/obsidian-property-order/releases/tag/0.9.0
 [0.8.2]: https://github.com/ZHYX91/obsidian-property-order/releases/tag/0.8.2
 [0.8.1]: https://github.com/ZHYX91/obsidian-property-order/releases/tag/0.8.1
 [0.8.0]: https://github.com/ZHYX91/obsidian-property-order/releases/tag/0.8.0
