@@ -12,6 +12,21 @@ module.exports = class PropertyOrderAcceptanceProvider extends Plugin {
   onload() {
     this.conflictCleanup = null;
 
+    const prepareKeyTypeGrouping = async () => {
+      const plugin = this.app.plugins?.getPlugin?.("property-order");
+      if (plugin == null) return;
+      Object.assign(plugin.propertyOrderSettings, {
+        enableNativeKeySuggestionOrder: true,
+        groupKeySuggestionsByType: true,
+        keySuggestionSortMode: "name",
+        pinnedPropertyKeys: ["tags"],
+        bottomPropertyKeys: ["key_bottom"],
+        hiddenPropertyKeyPatterns: ["key_hidden"],
+      });
+      await plugin.saveSettings(true, false);
+      new Notice("Acceptance provider: key type grouping prepared.");
+    };
+
     const applyGroupedValueSettings = async ({
       assignments,
       customOrders = [],
@@ -69,6 +84,17 @@ module.exports = class PropertyOrderAcceptanceProvider extends Plugin {
         customOrders: [customStatusOrder],
         notice: "Acceptance provider: grouped value behaviors restored.",
       });
+    this.addCommand({
+      id: "prepare-key-type-grouping",
+      name: "Acceptance: prepare key type grouping",
+      callback: prepareKeyTypeGrouping,
+    });
+    this.addRibbonIcon(
+      "list-tree",
+      "Acceptance: prepare key type grouping",
+      prepareKeyTypeGrouping,
+    );
+
     this.addCommand({
       id: "prepare-value-rules",
       name: "Acceptance: prepare grouped value behaviors",
