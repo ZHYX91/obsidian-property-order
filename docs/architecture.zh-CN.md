@@ -70,7 +70,12 @@ translation_status: source
 
 1. 从发起 pill、Properties 容器和 pane 捕获 source 属性、source 索引、精确 pill 节点、文件路径以及该 leaf 的公开 `MarkdownView.editor`。编辑器文本是唯一的内容与冲突基底；可见 pill 顺序必须与 YAML 一致，source 才可参与操作。
    点命中几何回退只查询该发起 pane，重叠或相邻 pane 不会因为全 document 扫描而成为目标。
-2. 由 `drop-targeting.ts` 在同一 pane 内解析一个明确状态：受支持列表、受支持的类型不匹配列表、已确认非列表或未知。正常列表使用 Obsidian 原生多值容器；标量或混合值会被 1.12.7 渲染为单个类型不匹配字段，此时只在原生列表图标和警告同时存在时接受该属性，不读取私有 `types.json`。单标量字段可作为唯一 source 或 target；混合数组字段无法表达具体 source 索引，因此拒绝猜测，只有可读且无歧义的逗号分隔显示与当前 YAML 完全一致时才可作为 append target。只有原生非列表证据并由标量存储形态佐证时才显示非列表 Notice；未知属性行静默取消。
+
+2. 由 `drop-targeting.ts` 在同一 pane 内解析一个明确状态：受支持列表、受支持的类型不匹配列表、已确认非列表或未知。正常列表使用 Obsidian 原生多值容器。
+
+   Obsidian 1.12.7 会把标量或混合存储显示成一个类型不匹配字段。插件只在原生列表图标和警告同时存在时把它当成列表证据，不读取私有 `types.json`。单标量字段可以作为唯一 source 或 target。
+
+   混合数组字段无法表达具体 source 索引，因此不能猜测来源；只有可读、无歧义的逗号分隔显示与当前 YAML 完全一致时，才允许作为 append target。只有原生非列表证据并由标量存储形态佐证时才显示“非列表”提示；未知属性行静默取消。
 3. 由 `drag-dom.ts` 管理预览、指示器、拒绝目标和 cursor class，但不得移动、删除或复制宿主的属性 pill；取消路径必须完全清理。经过拒绝目标不产生 Notice，只有在其上松手才由 controller 提示。
 
 4. 在 pointer release 和原生输入失焦后，先重新验证 leaf、文件、编辑器、属性键、editor kind、精确 source/target 节点、可见值与当前 YAML，再开始规划。同属性重排生成一个精确属性 change；跨属性移动生成两个互不重叠的精确属性 change。
