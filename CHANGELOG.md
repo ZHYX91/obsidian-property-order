@@ -77,7 +77,7 @@ follow the repository's Git tags; entries summarize the corresponding commit his
 - Stop preset clicks from reaching native popup delegates and committing a second value.
 - Bound property-value keyboard handling to the active Obsidian scope and support contenteditable
   list inputs so preset commits cannot activate a different native suggestion.
-- Removed custom fallback popups when their property editor is detached and report failures to persist selection-count clearing.
+- Removed custom fallback popups when their property editor is detached and reported failures to persist selection-count clearing.
 
 - Preserved Unicode edge characters when validating property pills, converting quoted scalars to
   flow lists, tracking recent values, and reading cached property-value vocabulary.
