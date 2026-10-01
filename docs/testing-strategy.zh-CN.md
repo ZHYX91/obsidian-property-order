@@ -110,7 +110,9 @@ Android 模拟器必须验证：
 
 ## CI 与 Release
 
-CI 与 Release workflow 都从 `.node-version` 使用 Node.js 24.19.0，并通过 `packageManager` 要求 npm 11.17.0；在 `npm ci` 前先核对精确运行时，随后执行 `npm run check`。其中发布产物门会独立重现 bundle，并要求生产 `main.js` 不超过 320,000 B；这是项目回归预算，不是 Obsidian 平台限制。CI 上传 `dist/` 顶层的 `main.js`、`manifest.json` 与 `styles.css`。Release workflow 只接受与 `manifest.json` 完全一致、无 `v` 前缀的 `x.y.z` 版本，重新执行完整门禁后发布：
+CI 与 Release workflow 都从 `.node-version` 使用 Node.js 24.19.0，并通过 `packageManager` 要求 npm 11.17.0；在 `npm ci` 前先核对精确运行时，随后执行 `npm run check`。其中发布产物门会独立重现 bundle，并要求生产 `main.js` 不超过 320,000 B；这是项目回归预算，不是 Obsidian 平台限制。
+
+CI 上传 `dist/` 顶层的 `main.js`、`manifest.json` 与 `styles.css`。Release workflow 只接受与 `manifest.json` 完全一致、无 `v` 前缀的 `x.y.z` 版本，重新执行完整门禁后发布：
 
 - `main.js`；
 - `manifest.json`；
@@ -119,7 +121,13 @@ CI 与 Release workflow 都从 `.node-version` 使用 Node.js 24.19.0，并通�
 
 安装 ZIP 必须固定条目顺序、时间、权限和无关 metadata，使相同输入得到相同字节。仓库内精确锁定的 release-core 测试执行相同 ZIP 解析与候选校验代码，覆盖必需/可选样式、缺失/额外/非普通项、篡改字节、错误 checksum、越界路径和同版本历史标签冲突。普通 `npm run check` 运行非 tag-aware 校验；`npm run release:check` 才要求干净提交并执行 absent-or-exact 标签门。
 
-仓库内 release-core 3.1.1 runtime 与薄适配器统一管理确定性的 Candidate Bundle 和生成的独立工作流。获授权的稳定版本 tag push 或该 tag 上的手动 publish 派发共用流水线；手动 verify 模式保持只读。CI 安装锁定依赖，执行一次 release:check，验证 Bundle 源码，并固定 artifact ID/digest。写权限发布 job 精确 checkout 标签源码且不持久化凭据，运行其中锁定的仓库发布 adapter，不安装依赖或重新构建。标签中的发布工具属于受信任可执行代码；Candidate Bundle 校验不提供针对恶意发布工具改动的独立隔离。发布核对精确事件、源码、tag、传输字节和 SLSA 构建证明；先下载验证草稿，再发布 immutable Release，最后下载回验。产品验收可选且单独报告，独立克隆无需外部编排。
+仓库内 release-core 3.1.1 runtime 与薄适配器统一管理确定性的 Candidate Bundle 和生成的独立工作流。获授权的稳定版本 tag push 或该 tag 上的手动 publish 派发共用流水线；手动 verify 模式保持只读。
+
+CI 安装锁定依赖，执行一次 release:check，验证 Bundle 源码，并固定 artifact ID/digest。写权限发布 job 精确 checkout 标签源码且不持久化凭据，运行其中锁定的仓库发布 adapter，不安装依赖或重新构建。
+
+标签中的发布工具属于受信任可执行代码；Candidate Bundle 校验不提供针对恶意发布工具改动的独立隔离。发布核对精确事件、源码、tag、传输字节和 SLSA 构建证明；先下载验证草稿，再发布 immutable Release，最后下载回验。
+
+产品验收可选且单独报告，独立克隆无需外部编排。
 
 发布成功后必须从 GitHub 再次读取 immutable 稳定 Release，核对精确四附件、metadata digest、下载字节、ZIP 内外一致性、远端标签和逐项 provenance。同标签仅在全部身份一致时允许 no-op，否则使用更高版本。标签 ruleset 与 immutable Releases 仍需维护者在 workflow 外留证；自动门禁不修改管理员设置。
 
