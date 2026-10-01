@@ -12,6 +12,7 @@ import {
 import { Platform, type EventRef, type Plugin } from "obsidian";
 
 import { orderPropertyKeys } from "../../core/suggestions/order-keys";
+import { PropertyTypeRegistry } from "../../obsidian/property-types";
 import {
   getCachedPropertyKeyUsage,
   invalidatePropertyKeyUsage,
@@ -25,7 +26,12 @@ import {
   resolveSuggestionContainer,
   type SuggestionItem,
 } from "../../obsidian/native-suggest-dom";
-import type { PropertyKeyUsage, PropertyOrderSettings } from "../../shared/types";
+import { t, type TranslationKey } from "../../shared/i18n";
+import type {
+  PropertyKeyUsage,
+  PropertyOrderSettings,
+  PropertyType,
+} from "../../shared/types";
 import {
   registerSuggestionKeyboardBridge,
   synchronizeSuggestionSelection,
@@ -48,6 +54,18 @@ const SUGGESTION_CONTENT_OBSERVER_OPTIONS: MutationObserverInit = {
   subtree: true,
 };
 const USAGE_REFRESH_DEBOUNCE_MILLISECONDS = 150;
+const PROPERTY_TYPE_REFRESH_INTERVAL_MILLISECONDS = 1_000;
+const PROPERTY_TYPE_GROUP_CLASS = "property-order-suggestion-type-group-start";
+const PROPERTY_TYPE_LABEL_KEYS: Readonly<Record<PropertyType, TranslationKey>> = {
+  text: "settings.keyOrder.type.text",
+  list: "settings.keyOrder.type.list",
+  number: "settings.keyOrder.type.number",
+  checkbox: "settings.keyOrder.type.checkbox",
+  date: "settings.keyOrder.type.date",
+  datetime: "settings.keyOrder.type.datetime",
+  tags: "settings.keyOrder.type.tags",
+  unknown: "settings.keyOrder.type.unknown",
+};
 
 interface EnhancementCycle {
   containers: Set<HTMLElement>;
@@ -79,16 +97,21 @@ export class KeySuggestionOrderController {
   private readonly getSettings: () => PropertyOrderSettings;
   private recentKeyRevision = 0;
   private readonly recentKeyStore: RecentPropertyKeyStore;
+  private readonly propertyTypeRegistry: PropertyTypeRegistry;
+  private propertyTypeRefreshStartedAt = Number.NEGATIVE_INFINITY;
+  private propertyTypeRefreshTask: Promise<void> | null = null;
   private readonly recentKeyTracker: RecentPropertyKeyTracker;
 
   constructor(
     plugin: Plugin,
     getSettings: () => PropertyOrderSettings,
     recentKeyStore = new RecentPropertyKeyStore(plugin.app),
+    propertyTypeRegistry = new PropertyTypeRegistry(plugin.app),
   ) {
     this.plugin = plugin;
     this.getSettings = getSettings;
     this.recentKeyStore = recentKeyStore;
+    this.propertyTypeRegistry = propertyTypeRegistry;
     this.recentKeyTracker = new RecentPropertyKeyTracker({
       getEnabled: () => this.initialized &&
         this.getSettings().enableNativeKeySuggestionOrder,
@@ -143,10 +166,12 @@ export class KeySuggestionOrderController {
       });
       const resolvedRef = this.plugin.app.metadataCache.on("resolved", () => {
         this.invalidateUsage();
+        this.requestPropertyTypeRefresh();
       });
       this.registerControllerEvent(resolvedRef, () => {
         this.plugin.app.metadataCache.offref(resolvedRef);
       });
+      this.requestPropertyTypeRefresh(true);
     } catch (error) {
       this.dispose();
       throw error;
@@ -191,6 +216,8 @@ export class KeySuggestionOrderController {
 
     if (!enabled) {
       this.recentKeyTracker.clearPending();
+    } else {
+      this.requestPropertyTypeRefresh(true);
     }
 
     for (const [targetDocument, state] of this.documentStates) {
@@ -417,6 +444,55 @@ export class KeySuggestionOrderController {
     }
   }
 
+  private requestPropertyTypeRefresh(force = false): void {
+    const settings = this.getSettings();
+
+    if (
+      !this.initialized ||
+      !settings.enableNativeKeySuggestionOrder ||
+      !settings.groupKeySuggestionsByType ||
+      this.propertyTypeRefreshTask != null
+    ) {
+      return;
+    }
+
+    const now = Date.now();
+    if (
+      !force &&
+      now - this.propertyTypeRefreshStartedAt <
+        PROPERTY_TYPE_REFRESH_INTERVAL_MILLISECONDS
+    ) {
+      return;
+    }
+
+    this.propertyTypeRefreshStartedAt = now;
+    const task = this.propertyTypeRegistry.refresh()
+      .then(({ changed }) => {
+        if (
+          !changed ||
+          !this.initialized ||
+          !this.getSettings().enableNativeKeySuggestionOrder ||
+          !this.getSettings().groupKeySuggestionsByType
+        ) {
+          return;
+        }
+
+        for (const targetDocument of this.documentStates.keys()) {
+          this.scheduleSuggestionEnhancement(targetDocument, true);
+        }
+      })
+      .catch((error: unknown) => {
+        console.error("Property Order: failed to refresh property types", error);
+      })
+      .finally(() => {
+        if (this.propertyTypeRefreshTask === task) {
+          this.propertyTypeRefreshTask = null;
+        }
+      });
+
+    this.propertyTypeRefreshTask = task;
+  }
+
   private scheduleUsageRefresh(
     targetDocument: Document,
     state: DocumentEnhancementState,
@@ -603,7 +679,7 @@ export class KeySuggestionOrderController {
       const snapshot = this.originalSuggestions.get(container);
 
       if (snapshot != null) {
-        synchronizeSnapshotElements(container, snapshot);
+        synchronizeKeySuggestionSnapshot(container, snapshot);
       }
     }
   }
@@ -614,6 +690,10 @@ export class KeySuggestionOrderController {
     force: boolean,
   ): void {
     const settings = this.getSettings();
+
+    if (settings.enableNativeKeySuggestionOrder && settings.groupKeySuggestionsByType) {
+      this.requestPropertyTypeRefresh();
+    }
 
     for (const candidate of findSuggestionContainers(root)) {
       const container = resolveSuggestionContainer(candidate);
@@ -662,6 +742,7 @@ export class KeySuggestionOrderController {
       settings,
       items.map((item) => item.key),
       this.recentKeyRevision,
+      this.propertyTypeRegistry.getRevision(),
     );
     const needsForcedUsageRefresh =
       force && settings.keySuggestionSortMode === "usage";
@@ -680,8 +761,12 @@ export class KeySuggestionOrderController {
       items.map((item) => item.key),
       {
         bottomKeys: settings.bottomPropertyKeys,
+        groupByType: settings.groupKeySuggestionsByType,
         hiddenPatterns: settings.hiddenPropertyKeyPatterns,
         pinnedKeys: settings.pinnedPropertyKeys,
+        propertyTypes: settings.groupKeySuggestionsByType
+          ? this.propertyTypeRegistry.getTypes(items.map((item) => item.key))
+          : undefined,
         recentKeys: settings.keySuggestionSortMode === "recent"
           ? this.recentKeyStore.getKeys()
           : [],
@@ -697,9 +782,16 @@ export class KeySuggestionOrderController {
       elementsByKey.set(item.key, elements);
     }
 
-    const visibleElements = orderedKeys
-      .map((item) => elementsByKey.get(item.key)?.shift())
-      .filter((element): element is HTMLElement => element != null);
+    const orderedElements = orderedKeys
+      .map((item) => ({
+        element: elementsByKey.get(item.key)?.shift(),
+        item,
+      }))
+      .filter(
+        (entry): entry is { element: HTMLElement; item: (typeof orderedKeys)[number] } =>
+          entry.element != null,
+      );
+    const visibleElements = orderedElements.map(({ element }) => element);
     const visibleElementSet = new Set(visibleElements);
     const hiddenElements = items
       .map((item) => item.element)
@@ -719,11 +811,23 @@ export class KeySuggestionOrderController {
       }
 
       restoreElementState(elementSnapshot);
+      clearPropertyTypeGroupDecoration(item.element);
 
       if (!visibleElementSet.has(item.element)) {
         item.element.hidden = true;
         item.element.classList.add(PLUGIN_HIDDEN_SUGGESTION_CLASS);
         item.element.setAttribute("aria-hidden", "true");
+      }
+    }
+
+    for (const { element, item } of orderedElements) {
+      if (item.groupStart === true && item.group != null) {
+        element.classList.add(PROPERTY_TYPE_GROUP_CLASS);
+        element.dataset.propertyOrderTypeGroup = item.group;
+        element.dataset.propertyOrderTypeLabel = t(
+          PROPERTY_TYPE_LABEL_KEYS[item.group],
+          settings.language,
+        );
       }
     }
 
@@ -745,6 +849,7 @@ export class KeySuggestionOrderController {
       settings,
       getSuggestionItems(container).map((item) => item.key),
       this.recentKeyRevision,
+      this.propertyTypeRegistry.getRevision(),
     );
     snapshot.appliedState = createAppliedState(getSuggestionItems(container));
     this.activeContainers.set(container.ownerDocument, container);
@@ -782,7 +887,7 @@ export class KeySuggestionOrderController {
     }
 
     if (existingSnapshot != null) {
-      restoreSnapshot(existingSnapshot);
+      restoreKeySuggestionSnapshot(existingSnapshot);
       this.originalSuggestions.delete(container);
       delete container.dataset.propertyOrderEnhanced;
       delete container.dataset.propertyOrderSignature;
@@ -832,7 +937,7 @@ export class KeySuggestionOrderController {
       return;
     }
 
-    restoreSnapshot(snapshot);
+    restoreKeySuggestionSnapshot(snapshot);
     delete container.dataset.propertyOrderEnhanced;
     delete container.dataset.propertyOrderSignature;
     this.originalSuggestions.delete(container);
@@ -887,12 +992,17 @@ function createStructuralSignature(
   settings: PropertyOrderSettings,
   keys: string[],
   recentKeyRevision: number,
+  propertyTypeRevision: number,
 ): string {
   return JSON.stringify({
     bottom: settings.bottomPropertyKeys,
+    groupByType: settings.groupKeySuggestionsByType,
     hidden: settings.hiddenPropertyKeyPatterns,
     keys,
     pinned: settings.pinnedPropertyKeys,
+    propertyTypeRevision: settings.groupKeySuggestionsByType
+      ? propertyTypeRevision
+      : 0,
     recentRevision: settings.keySuggestionSortMode === "recent"
       ? recentKeyRevision
       : 0,
@@ -927,4 +1037,33 @@ function getOwnerDocument(root: ParentNode): Document | null {
 
 function getPropertyKeySuggestionElements(container: HTMLElement): HTMLElement[] {
   return getSuggestionItems(container).map((item) => item.element);
+}
+
+function synchronizeKeySuggestionSnapshot(
+  container: HTMLElement,
+  snapshot: OriginalSuggestionSnapshot,
+): void {
+  const previousElements = snapshot.elements.map(({ element }) => element);
+  synchronizeSnapshotElements(container, snapshot);
+  const currentElements = new Set(snapshot.elements.map(({ element }) => element));
+
+  for (const element of previousElements) {
+    if (!currentElements.has(element)) {
+      clearPropertyTypeGroupDecoration(element);
+    }
+  }
+}
+
+function restoreKeySuggestionSnapshot(snapshot: OriginalSuggestionSnapshot): void {
+  restoreSnapshot(snapshot);
+
+  for (const { element } of snapshot.elements) {
+    clearPropertyTypeGroupDecoration(element);
+  }
+}
+
+function clearPropertyTypeGroupDecoration(element: HTMLElement): void {
+  element.classList.remove(PROPERTY_TYPE_GROUP_CLASS);
+  delete element.dataset.propertyOrderTypeGroup;
+  delete element.dataset.propertyOrderTypeLabel;
 }

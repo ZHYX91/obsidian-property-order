@@ -284,6 +284,15 @@ export class PropertyOrderSettingTab extends PluginSettingTab {
         },
       },
       {
+        name: this.t("settings.keyOrder.groupByType.name"),
+        desc: this.t("settings.keyOrder.groupByType.desc"),
+        control: {
+          type: "toggle",
+          key: "groupKeySuggestionsByType",
+          defaultValue: false,
+        },
+      },
+      {
         name: this.t("settings.keyOrder.recentHistory.name"),
         desc: this.t("settings.keyOrder.recentHistory.desc"),
         render: (setting) => {
