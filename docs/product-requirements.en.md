@@ -34,7 +34,8 @@ The enhancement must remain local, reversible, and fail-safe. Unrecognized host 
 
 ## Property-key suggestions
 
-- Support pinned, bottom, wildcard-hidden, name, recently used, and Markdown-note-count rules.
+- Support pinned, bottom, wildcard-hidden, name, recently used, and Markdown-note-count rules, plus optional grouping of the normal section by Obsidian property type.
+- When type grouping is enabled, normal candidates form Text, List, Number, Checkbox, Date, Date & time, Tags, and Automatic / unspecified groups in that order. The selected name, recent, or note-count sorter applies only inside each group; hidden filtering still happens first, pinned candidates remain before all groups, and bottom candidates remain after all groups. Group labels are presentation on existing native candidate nodes, not additional selectable candidates.
 - Name order handles numbers, Latin text, Chinese text by pinyin, then other characters. Note count sorts descending and uses the same name comparator for ties. The count is the number of cached Markdown frontmatter documents containing the property, not a count of user interactions.
 - Recently used is a strict MRU. Hidden rules filter first; pinned rules take priority in configured order; the remaining recorded property names follow newest confirmed use first; unrecorded names use name order; and bottom rules apply last. History entries absent from the current candidates do not participate in menu ordering.
 - A property's exact string moves to the MRU front only after a property-name commit and Metadata Cache confirmation that the name was added to the target note. Hover, keyboard navigation, cancellation, failure, and unconfirmed edits do not count. History stores at most 100 names and no timestamps.
@@ -60,7 +61,7 @@ The enhancement must remain local, reversible, and fail-safe. Unrecognized host 
 
 ## Settings
 
-- Settings currently use schema 6, with sequential migration and normalization of invalid values. The grouped value-suggestion model enforces at most one active behavior per exact property key; legacy rules that cannot be translated without changing semantics remain marked for explicit migration.
+- Settings currently use schema 7, with sequential migration and normalization of invalid values. Schema 6 to 7 adds opt-in property-type grouping for key suggestions and leaves it disabled by default. The grouped value-suggestion model enforces at most one active behavior per exact property key; legacy rules that cannot be translated without changing semantics remain marked for explicit migration.
 - General, Value order, Key suggestions, and Value suggestions remain four immediate-application tabs on the imperative settings surface used by every supported Obsidian version. Declarative settings remain disabled because they bypass this layout.
 - Value suggestions presents the five default-capable behaviors plus the exact-key Custom group. Ordinary groups use removable property chips; Custom uses a property list plus pinned/normal/bottom value editor. Settings-only chip order can switch between property-name and recently-added order. Selection-frequency counts provide an independent clear action.
 - Persistence failure keeps the in-memory state and presents a localized Notice, accessible unsaved status, and Retry action. Before each save and when Obsidian reports an external settings change, a three-way merge preserves external changes to keys untouched in the current UI and preserves unknown future-schema fields; current UI edits win for the keys they changed. Storage operations remain ordered across plugin replacement, and an unloaded instance cannot start a new save.
