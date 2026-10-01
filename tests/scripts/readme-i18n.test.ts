@@ -76,7 +76,7 @@ describe("README marketplace link contract", () => {
   });
 
   it("rejects a localized README that drops a current feature concept", async () => {
-    await replaceInReadme(
+    await replaceAllInReadme(
       "docs/i18n/README.zh-CN.md",
       "属性类型分组",
       "类型分类",
@@ -93,4 +93,11 @@ async function replaceInReadme(filePath: string, search: string, replacement: st
   const source = await readFile(absolutePath, "utf8");
   expect(source).toContain(search);
   await writeFile(absolutePath, source.replace(search, replacement));
+}
+
+async function replaceAllInReadme(filePath: string, search: string, replacement: string) {
+  const absolutePath = path.join(fixtureRoot, filePath);
+  const source = await readFile(absolutePath, "utf8");
+  expect(source).toContain(search);
+  await writeFile(absolutePath, source.split(search).join(replacement));
 }
