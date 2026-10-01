@@ -90,3 +90,11 @@ export class Notice {
     Notice.messages.push(message);
   }
 }
+
+
+export function normalizePath(path: string): string {
+  return path
+    .replaceAll("\\", "/")
+    .replace(/\/+/g, "/")
+    .replace(/^\.\//, "");
+}
