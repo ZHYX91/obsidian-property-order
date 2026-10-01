@@ -148,7 +148,7 @@ describe("PropertyTypeRegistry", () => {
   });
 
   it("deduplicates concurrent refreshes", async () => {
-    let resolveRead: ((content: string) => void) | null = null;
+    let resolveRead = (_content: string): void => undefined;
     const harness = createHarness();
     harness.read.mockImplementationOnce(() =>
       new Promise<string>((resolve) => {
@@ -163,7 +163,7 @@ describe("PropertyTypeRegistry", () => {
     expect(second).toBe(first);
     expect(harness.exists).toHaveBeenCalledTimes(1);
 
-    resolveRead?.(JSON.stringify({ types: { status: "text" } }));
+    resolveRead(JSON.stringify({ types: { status: "text" } }));
     await expect(first).resolves.toEqual({ changed: true, status: "loaded" });
     expect(harness.read).toHaveBeenCalledTimes(1);
   });
