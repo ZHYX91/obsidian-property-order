@@ -7,12 +7,16 @@ import { describe, expect, it } from "vitest";
 const projectRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../..");
 
 describe("performance benchmark configuration", () => {
-  it("keeps benchmarks explicit and outside the ordinary offline gate", () => {
+  it("keeps timing out of npm check while gating CI and release verification", () => {
     const packageJson = JSON.parse(
       readFileSync(path.join(projectRoot, "package.json"), "utf8"),
     ) as { scripts?: Record<string, string> };
     const ordinaryConfig = readFileSync(
       path.join(projectRoot, "vitest.config.mts"),
+      "utf8",
+    );
+    const ciWorkflow = readFileSync(
+      path.join(projectRoot, ".github/workflows/ci.yml"),
       "utf8",
     );
 
@@ -23,6 +27,8 @@ describe("performance benchmark configuration", () => {
     expect(packageJson.scripts?.["release:check"]).toBe(
       "npm run check && npm run release:validate-tag && npm run bench:usage",
     );
+    expect(ciWorkflow).toContain("Run suggestion usage regression benchmark");
+    expect(ciWorkflow).toContain("run: npm run bench:usage");
     expect(ordinaryConfig).toContain('"benchmarks/**"');
   });
 
@@ -43,6 +49,7 @@ describe("performance benchmark configuration", () => {
     );
     expect(performanceConfig).toContain('include: ["benchmarks/**/*.test.ts"]');
     expect(performanceConfig).toContain("mode === \"large\" ? 50_000 : 10_000");
+    expect(performanceConfig).toContain("mode === \"large\" ? 350 : 75");
     expect(performanceConfig).toContain("fileParallelism: false");
   });
 });

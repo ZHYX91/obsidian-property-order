@@ -35,7 +35,7 @@ Lint 使用当前 Obsidian API typings，兼容性仍以 `manifest.json` 为契�
 
 `npm run check` 通过 `npm run test:coverage` 执行完整 Vitest suite，并使用 V8 coverage 显式包含 `main.ts` 与 `src/**/*.ts`，使没有被任何测试导入的运行时代码仍以 0% 出现在源清单中。统一门禁通过 `vitest.config.mts` 强制全局覆盖率下限：statements 86%、branches 83%、functions 88%、lines 86%。报告用于发现遗漏文件和指导针对性测试；达到阈值仍不能替代真实宿主证据。
 
-`npm run bench:usage` 与 `npm run bench:usage:large` 是不进入 `npm run check` 的确定性 Metadata Cache 微基准，分别构造 10,000 与 50,000 篇缓存笔记，对真实 `getPropertyKeyUsage()` 与 `getPropertyValueUsage()` 预热后采样 25 次并报告 p50、p95、max 与缓存命中耗时。每次性能判断都应把操作系统、CPU、Node.js 与 npm 版本连同原始输出记录在交付证据中。该合成结果尚不足以证明真实 Obsidian 主线程、移动设备或内存表现，也不单独作为定时门禁；只有真实大 Vault 或重复回归数据越过产品预算时，才据此重新评估增量索引。
+`npm run bench:usage` 与 `npm run bench:usage:large` 是不进入 `npm run check` 的确定性 Metadata Cache 微基准，分别构造 10,000 与 50,000 篇缓存笔记，通过真实缓存键/值 usage 路径执行 25 次失效后重扫，并报告 p50、p95、max、缓存命中耗时、扫描次数和 Metadata Cache 读取次数。10,000 篇 quick 基准进入 CI 与发布核验，并使用故意留有较大余量的 75 ms p95 上限；可选的 50,000 篇基准使用 350 ms p95 上限。普通 Vitest coverage 另以确定性断言固定扫描预算：每次未缓存快照只能枚举一次 Markdown 文件，并且每篇笔记只能读取一次 Metadata Cache；缓存命中不得增加读取次数。这些上限只用于捕获意外重复扫描或超线性工作，不是产品延迟目标；合成结果仍不能证明真实 Obsidian 主线程、移动设备或内存表现。每次性能判断都应把操作系统、CPU、Node.js 与 npm 版本连同原始输出记录在交付证据中。只有真实大 Vault 或重复回归数据越过产品预算时，才据此重新评估增量索引。
 
 可注入的故障路径以自动测试为主证据，包括：设置保存拒绝、宿主 DOM 不匹配、选择同步失败、Escape/blur、组件消失、外部内容冲突和异步乱序。真实宿主用于确认 Obsidian 实际 DOM、输入、视觉和磁盘结果，不重复伪造难以稳定注入的失败。
 

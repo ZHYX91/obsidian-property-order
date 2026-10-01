@@ -11,6 +11,11 @@ follow the repository's Git tags; entries summarize the corresponding commit his
   existing name, recent-use, or note-count sorting inside each group and preserving pinned,
   hidden, and bottom rule precedence.
 
+### Changed
+
+- Gate the 10,000-note suggestion-usage microbenchmark in CI with broad p95 regression budgets,
+  deterministic one-read-per-note scan assertions, and richer cached frontmatter fixtures.
+
 ## [0.8.2] - 2026-10-01
 
 ### Fixed

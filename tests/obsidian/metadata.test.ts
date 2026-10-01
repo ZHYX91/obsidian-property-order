@@ -63,6 +63,49 @@ describe("getPropertyKeyUsage", () => {
     expect(getPropertyKeyUsage(app)).toEqual([]);
   });
 
+  it("uses one metadata-cache read per Markdown file for each uncached key snapshot", () => {
+    const files = Array.from({ length: 2_048 }, (_, index) => ({
+      path: `notes/${index}.md`,
+    })) as TFile[];
+    let enumerations = 0;
+    let cacheReads = 0;
+    const app = {
+      metadataCache: {
+        getFileCache: vi.fn((_file: TFile) => {
+          cacheReads += 1;
+          return {
+            frontmatter: {
+              aliases: ["one"],
+              project: "benchmark",
+              status: "active",
+              position: { start: { line: 0 }, end: { line: 3 } },
+            },
+          };
+        }),
+      },
+      vault: {
+        getMarkdownFiles: vi.fn(() => {
+          enumerations += 1;
+          return files;
+        }),
+      },
+    } as unknown as App;
+
+    getCachedPropertyKeyUsage(app);
+    getCachedPropertyKeyUsage(app);
+    expect({ cacheReads, enumerations }).toEqual({
+      cacheReads: files.length,
+      enumerations: 1,
+    });
+
+    invalidatePropertyKeyUsage(app);
+    getCachedPropertyKeyUsage(app);
+    expect({ cacheReads, enumerations }).toEqual({
+      cacheReads: files.length * 2,
+      enumerations: 2,
+    });
+  });
+
   it("shares cached usage until explicitly invalidated", () => {
     const file = { path: "note.md" } as TFile;
     let frontmatter: Record<string, boolean> = { alpha: true };
@@ -166,6 +209,47 @@ describe("getPropertyValueUsage", () => {
 
     expect(getPropertyValueUsage(app, "   ")).toEqual([]);
     expect(app.vault.getMarkdownFiles).not.toHaveBeenCalled();
+  });
+
+  it("uses one metadata-cache read per Markdown file for each uncached value snapshot", () => {
+    const files = Array.from({ length: 1_024 }, (_, index) => ({
+      path: `notes/${index}.md`,
+    })) as TFile[];
+    let enumerations = 0;
+    let cacheReads = 0;
+    const app = {
+      metadataCache: {
+        getFileCache: vi.fn((_file: TFile) => {
+          cacheReads += 1;
+          return {
+            frontmatter: {
+              status: ["shared", "active"],
+              project: "benchmark",
+            },
+          };
+        }),
+      },
+      vault: {
+        getMarkdownFiles: vi.fn(() => {
+          enumerations += 1;
+          return files;
+        }),
+      },
+    } as unknown as App;
+
+    getCachedPropertyValueUsage(app, "status");
+    getCachedPropertyValueUsage(app, "STATUS");
+    expect({ cacheReads, enumerations }).toEqual({
+      cacheReads: files.length,
+      enumerations: 1,
+    });
+
+    invalidatePropertyValueUsage(app);
+    getCachedPropertyValueUsage(app, "status");
+    expect({ cacheReads, enumerations }).toEqual({
+      cacheReads: files.length * 2,
+      enumerations: 2,
+    });
   });
 
   it("caches each property's value usage until value usage is invalidated", () => {
