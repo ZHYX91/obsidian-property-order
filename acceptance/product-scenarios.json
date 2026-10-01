@@ -66,6 +66,33 @@
         "Selection frequency and Markdown note count remain distinct; ordinary context-menu actions and existing value dragging remain usable",
         "No suggestions suppresses candidates only: manual typing remains available, unmodified Enter/Tab does not select a suppressed candidate, and restoring the grouped behavior restores suggestions"
       ]
+    },
+    {
+      "id": "key-suggestions-type-grouping-and-host-restore",
+      "title": "Property-type grouped key suggestions, keyboard order, and host restoration",
+      "surfaces": [
+        "desktop",
+        "android-emulator"
+      ],
+      "requiredCapabilities": {
+        "desktop": [],
+        "android-emulator": []
+      },
+      "steps": [
+        "Open Key Suggestions.md, use the acceptance provider to prepare key type grouping, and start adding a property through Obsidian Properties",
+        "Verify tags is pinned first, key_hidden is absent, key_bottom is last, and normal candidates are grouped as Text, List, Number, Checkbox, Date, Date & time, Tags when present, then Automatic / unspecified",
+        "Verify key_automatic appears under Automatic / unspecified because it exists in the Vault vocabulary but is deliberately absent from types.json",
+        "Navigate the visible candidates with Arrow keys, Home/End, PageUp/PageDown and Enter or touch; group labels must never become selectable stops or change the candidate count",
+        "Switch the inside-group sorter between Name, Recently used and Notes containing the property and verify type groups stay fixed while only members within a group reorder",
+        "Disable key suggestion enhancement, close and reopen the property-name editor, then verify native candidate order, visibility and selection behavior are restored without plugin group decoration"
+      ],
+      "expected": [
+        "The plugin reuses native candidate nodes and presents type labels without synthetic candidate rows",
+        "Hidden > pinned > grouped normal > bottom precedence is preserved and Automatic / unspecified is a normal non-error group",
+        "Keyboard and touch activation follow the final visible candidate order and never land on a visual group label",
+        "Disabling the feature or unloading the plugin restores native nodes, attributes, order and selection without stale type labels",
+        "The same scenario is checked on the minimum supported desktop host and the current supported desktop host; Android emulator verifies touch selection, rotation, narrow layout and cleanup"
+      ]
     }
   ]
 }
