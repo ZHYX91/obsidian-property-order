@@ -5,6 +5,12 @@ follow the repository's Git tags; entries summarize the corresponding commit his
 
 ## [Unreleased]
 
+### Added
+
+- Add optional Obsidian property-type grouping for native property-name suggestions while keeping
+  existing name, recent-use, or note-count sorting inside each group and preserving pinned,
+  hidden, and bottom rule precedence.
+
 ## [0.8.2] - 2026-10-01
 
 ### Fixed
