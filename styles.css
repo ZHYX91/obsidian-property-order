@@ -234,6 +234,7 @@ body.property-order-value-drag-enabled .metadata-property .multi-select-pill {
 }
 
 .property-order-custom-value-popup {
+  box-sizing: border-box;
   position: fixed;
   z-index: 10020;
   max-height: min(320px, 50vh);
