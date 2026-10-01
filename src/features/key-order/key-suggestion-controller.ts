@@ -80,6 +80,7 @@ interface DocumentEnhancementState {
   pendingRoots: Set<ParentNode>;
   rafId: number | null;
   recentTrackingCleanup: () => void;
+  propertyTypeRefreshTimerId: number | null;
   usageRefreshTimerId: number | null;
   view: Window;
 }
@@ -221,6 +222,9 @@ export class KeySuggestionOrderController {
     }
 
     for (const [targetDocument, state] of this.documentStates) {
+      if (!this.getSettings().groupKeySuggestionsByType) {
+        this.clearPendingPropertyTypeRefresh(state);
+      }
       if (enabled) {
         this.startDocumentObservation(targetDocument, state);
         this.scheduleSuggestionEnhancement(targetDocument, true);
@@ -281,6 +285,7 @@ export class KeySuggestionOrderController {
       pendingRoots: new Set(),
       rafId: null,
       recentTrackingCleanup: () => undefined,
+      propertyTypeRefreshTimerId: null,
       usageRefreshTimerId: null,
       view: targetWindow,
     };
@@ -354,6 +359,7 @@ export class KeySuggestionOrderController {
     }
 
     this.runDocumentCleanup(() => this.clearPendingUsageRefresh(state));
+    this.runDocumentCleanup(() => this.clearPendingPropertyTypeRefresh(state));
     this.runDocumentCleanup(() => this.restoreContainersForDocument(targetDocument));
   }
 
@@ -493,6 +499,43 @@ export class KeySuggestionOrderController {
     this.propertyTypeRefreshTask = task;
   }
 
+  private schedulePropertyTypeRefresh(
+    targetDocument: Document,
+    state: DocumentEnhancementState,
+  ): void {
+    const settings = this.getSettings();
+    if (!settings.enableNativeKeySuggestionOrder || !settings.groupKeySuggestionsByType) {
+      this.clearPendingPropertyTypeRefresh(state);
+      return;
+    }
+    if (state.propertyTypeRefreshTimerId != null) return;
+
+    state.propertyTypeRefreshTimerId = state.view.setTimeout(() => {
+      state.propertyTypeRefreshTimerId = null;
+      if (
+        !this.initialized ||
+        this.documentStates.get(targetDocument) !== state ||
+        !this.getSettings().enableNativeKeySuggestionOrder ||
+        !this.getSettings().groupKeySuggestionsByType
+      ) return;
+
+      const hasOpenMenu = Array.from(this.originalSuggestions.keys()).some(
+        (container) => container.ownerDocument === targetDocument &&
+          container.isConnected && isSuggestionElementVisible(container),
+      );
+      if (!hasOpenMenu) return;
+
+      this.requestPropertyTypeRefresh();
+      this.schedulePropertyTypeRefresh(targetDocument, state);
+    }, PROPERTY_TYPE_REFRESH_INTERVAL_MILLISECONDS);
+  }
+
+  private clearPendingPropertyTypeRefresh(state: DocumentEnhancementState): void {
+    if (state.propertyTypeRefreshTimerId == null) return;
+    state.view.clearTimeout(state.propertyTypeRefreshTimerId);
+    state.propertyTypeRefreshTimerId = null;
+  }
+
   private scheduleUsageRefresh(
     targetDocument: Document,
     state: DocumentEnhancementState,
@@ -579,6 +622,7 @@ export class KeySuggestionOrderController {
     this.clearPendingUsageRefresh(state);
 
     try {
+      this.clearPendingPropertyTypeRefresh(state);
       this.restoreContainersForDocument(targetDocument);
     } finally {
       this.startDocumentObservation(targetDocument, state);
@@ -738,6 +782,10 @@ export class KeySuggestionOrderController {
     }
 
     const snapshot = this.ensureCurrentSnapshot(container, items, itemParent);
+    const state = this.documentStates.get(container.ownerDocument);
+    if (state != null) {
+      this.schedulePropertyTypeRefresh(container.ownerDocument, state);
+    }
     const structuralSignature = createStructuralSignature(
       settings,
       items.map((item) => item.key),

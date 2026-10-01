@@ -123,6 +123,11 @@ Both multi-window controllers use each document as a resource owner. The plugin 
 
 All Obsidian Properties and suggestion-menu selectors live under `src/obsidian/`. While suggestion ordering is enabled, `key-suggestion-controller.ts` collects structural and visibility changes through one MutationObserver per document and coalesces enhancement into one animation frame.
 
+While a grouped property-name menu is visible, its document checks `types.json` once per second.
+The registry shares concurrent reads across windows and only reapplies grouping when the type map
+changes. Checks stop when no menu remains visible, grouping is disabled, or the document is closed.
+A read that finishes after enhancement is disabled or the plugin unloads cannot decorate candidates.
+
 The document-wide observer deliberately ignores character-data churn; a second observer watches text mutations only inside currently tracked property-name suggestion menus. Desktop initialization scans the current document to support a menu that was already open before the plugin was enabled.
 
 Android startup skips that eager whole-document scan and observes menus as they are mounted, avoiding main-thread contention while the WebView incrementally constructs the workspace. Observers are disconnected while the feature is disabled; re-enabling starts observation and explicitly scans the current document.
