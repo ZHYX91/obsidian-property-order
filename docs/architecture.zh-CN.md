@@ -9,9 +9,9 @@ translation_status: source
 
 ## 目标与非目标
 
-插件增强 Obsidian Properties 的三个 surface：顶层 YAML 列表属性中的值顺序、原生属性键候选以及原生属性值候选。它提供跨平台同属性拖拽、同笔记跨属性移动、三种 YAML 写回格式和原生键/值候选排序。
+插件增强 Obsidian Properties 的三个界面区域：顶层 YAML 列表属性中的值顺序、原生属性键候选以及原生属性值候选。它提供跨平台同属性拖拽、同笔记跨属性移动、三种 YAML 写回格式和原生键/值候选排序。
 
-不支持嵌套列表、对象列表、多行 flow sequence、源码模式拖拽或跨文件移动；这些结构必须 fail closed，不得修改笔记。模块化重构的目标是隔离解析、交互、DOM 和 Vault 边界，不是扩大产品范围或重写整个插件。
+不支持嵌套列表、对象列表、多行 flow sequence、源码模式拖拽或跨文件移动；遇到这些结构时必须安全拒绝处理，不得修改笔记。模块化重构的目标是隔离解析、交互、DOM 和 Vault 边界，不是扩大产品范围或重写整个插件。
 
 ## 分层与依赖方向
 
@@ -70,13 +70,41 @@ translation_status: source
 
 1. 从发起 pill、Properties 容器和 pane 捕获 source 属性、source 索引、精确 pill 节点、文件路径以及该 leaf 的公开 `MarkdownView.editor`。编辑器文本是唯一的内容与冲突基底；可见 pill 顺序必须与 YAML 一致，source 才可参与操作。
    点命中几何回退只查询该发起 pane，重叠或相邻 pane 不会因为全 document 扫描而成为目标。
-2. 由 `drop-targeting.ts` 在同一 pane 内解析一个明确状态：受支持列表、受支持的类型不匹配列表、已确认非列表或未知。正常列表使用 Obsidian 原生多值容器；标量或混合值会被 1.12.7 渲染为单个类型不匹配字段，此时只在原生列表图标和警告同时存在时接受该属性，不读取私有 `types.json`。单标量字段可作为唯一 source 或 target；混合数组字段无法表达具体 source 索引，因此拒绝猜测，只有可读且无歧义的逗号分隔显示与当前 YAML 完全一致时才可作为 append target。只有原生非列表证据并由标量存储形态佐证时才显示非列表 Notice；未知属性行静默取消。
+
+2. 由 `drop-targeting.ts` 在同一 pane 内解析一个明确状态：受支持列表、受支持的类型不匹配列表、已确认非列表或未知。正常列表使用 Obsidian 原生多值容器。
+
+   Obsidian 1.12.7 会把标量或混合存储显示成一个类型不匹配字段。插件只在原生列表图标和警告同时存在时把它当成列表证据，不读取私有 `types.json`。单标量字段可以作为唯一 source 或 target。
+
+   混合数组字段无法表达具体 source 索引，因此不能猜测来源；只有可读、无歧义的逗号分隔显示与当前 YAML 完全一致时，才允许作为 append target。只有原生非列表证据并由标量存储形态佐证时才显示“非列表”提示；未知属性行静默取消。
 3. 由 `drag-dom.ts` 管理预览、指示器、拒绝目标和 cursor class，但不得移动、删除或复制宿主的属性 pill；取消路径必须完全清理。经过拒绝目标不产生 Notice，只有在其上松手才由 controller 提示。
-4. 在 pointer release 和原生输入失焦后，重新验证 leaf、文件、编辑器、属性键、editor kind、精确 source/target 节点、可见值与当前 YAML，再开始规划。同属性重排生成一个精确属性 change；跨属性移动生成两个互不重叠的精确属性 change。所有 change 都以同一份原始编辑器文本为坐标基底，并通过公开 `editor.transaction()` 原子提交一次。`editor-transaction.ts` 把精确 origin `"set"` 隔离为 Obsidian 1.12.x 隐藏 frontmatter 过滤器的兼容细节；功能层不得复制这个字符串或依赖私有 transaction API。事务开始前必须再次核对所有权。等待一个宿主事件循环后，编辑器文本必须与完整规划结果逐字一致；如果内容已经精确应用后才失去所有权，结果必须归类为“内容已应用但未安排持久化”，不得误报为未写入的 aborted，并提示用户手动保存。文本不变是安全写入失败；出现第三种内容状态则报告 divergence，且不得自动追加回滚事务。显式 property-level null 视为空列表，对象、重复属性键和复杂结构仍 fail closed。
 
-编辑器仍是内容与冲突判断的唯一基底，因此尚未落盘的正文修改会被保留；同属性或跨属性的一次成功拖拽都只形成一个撤销步骤。controller 在 pointer release 时单次抑制该拖拽产生的尾随 click，并让 source/target 原生输入失焦，避免 Obsidian 的聚焦保护跳过控件重建。只有编辑器 buffer 精确匹配规划结果后，`editor-transaction.ts` 才可调用公开 `MarkdownView.setViewData(committedContent, false)`，以同一份已提交内容重建 Properties，确认该调用没有产生第二次文本变更，再调用公开 `MarkdownView.requestSave()` 安排持久化；在宿主事件循环后以及重建后都必须重新确认原 leaf、文件、view 和 editor 身份。写回返回精确提交后，controller 在第一次 Properties 等待前立即调用公开 `editor.focus()`，使 CodeMirror 接管平台撤销/重做；重建和对账结束后，仅当焦点仍在 `body`、拖拽开始前捕获的旧焦点 owner、已经断开的旧节点或本次受影响的 Properties 行内，且提交后的 pointer/焦点导航/window 用户意图 generation 没有推进时，才受守卫恢复一次。用户主动转焦会使该恢复资格失效；未产生精确提交的路径不得调用它。提交前的 drag/DOM 所有权与提交后的文档身份必须分离：window blur 或插件卸载可以清理拖拽 UI，但不得阻止已经精确提交且仍属于原文档的内容安排保存。`requestSave()` 失败属于独立的持久化调度失败：编辑器内容仍视为已提交并取得撤销焦点，同时提示用户先手动保存，不得误报为内容 divergence。原生属性 setter、Vault 直写和手工移动 pill 都不是写回或恢复手段。
+4. 在 pointer release 和原生输入失焦后，先重新验证 leaf、文件、编辑器、属性键、editor kind、精确 source/target 节点、可见值与当前 YAML，再开始规划。同属性重排生成一个精确属性 change；跨属性移动生成两个互不重叠的精确属性 change。
 
-随后 controller 根据当前有效 transaction 状态逐项证明受影响的 Properties 行：buffer 等于 committed content 时继续提交后对账，精确等于本次 transaction 的 original content 时视为合法的立即 undo；再次成为 committed content 可视为 redo。两种状态都只按当前 buffer 对账，不报告 divergence，也不重新应用 transaction；只有第三种内容才是 divergence。初始拖拽收尾结束后，controller 通过公开的 workspace `editor-change` 事件为每个 pane 保留精确的 original/committed 状态对，并只为同一 editor 后续发生的 undo/redo 安排受守卫的纯 UI 对账；该路径不得新建 transaction、重载 view、请求保存或拦截历史快捷键。内容进入第三种状态、pane/file/editor 被复用、DOM 断开、窗口关闭或 controller 卸载都会使状态对失效。若公开视图重建后仍陈旧，`metadata-editor-refresh.ts` 从同一 editor buffer 重新提取 frontmatter，以公开 `parseYaml` 创建全新属性对象，并只在 file、view、editor、document、pane、宿主 owner、宿主容器归属与内容身份全部匹配，且当前 DOM 中仍可解析的受影响列表行已失焦时调用一次隔离的 `metadataEditor.synchronize()` 能力。该适配器只能请求宿主重建 UI，调用前后都验证 editor 文本不变；controller 等待宿主后还必须再次验证 buffer，再对账正常多值编辑器或受支持的类型不匹配编辑器。能力缺失、抛错或对账失败时，每个原 pane 独立保留一个持久 Notice 与“刷新属性面板”操作：每次点击都重新选择当前精确匹配的 original 或 committed buffer 状态，再以该状态重试公开 `setViewData()`，必要时走同一受守卫适配器；操作期间发生合法 undo/redo 时重新开始当前状态的对账，不得误报 divergence。一个 pane 的成功、失败或关闭不得清除另一个 pane 的有效操作，layout 变化会只清理已经断开的 pane。成功后关闭对应提示，失败后才建议重新打开笔记。插件不得自动关闭或重开 leaf。写入不生效、活动 leaf/file/editor 改变、DOM 消失或被复用、`pointercancel`、Escape、window blur、noop drop 或内容冲突都必须安全取消。
+   所有 change 都以同一份原始编辑器文本为坐标基底，并通过一次公开的 `editor.transaction()` 原子提交。`editor-transaction.ts` 把精确 origin `"set"` 隔离为 Obsidian 1.12.x 的兼容细节；功能层不得复制这个字符串，也不得依赖私有 transaction API。
+
+   事务开始前必须再次核对所有权。等待一个宿主事件循环后，编辑器文本必须与完整规划结果逐字一致。如果内容已经成功应用后才失去所有权，应归类为“内容已应用但未安排持久化”，并提示用户手动保存，而不是误报为 aborted。
+
+   文本不变表示安全写入失败；出现第三种内容状态则报告 divergence，不自动追加回滚事务。显式 property-level null 视为空列表；对象、重复属性键和复杂结构仍安全拒绝处理。
+
+编辑器仍是内容与冲突判断的唯一基底，因此尚未落盘的正文修改会被保留；同属性或跨属性的一次成功拖拽都只形成一个撤销步骤。controller 在 pointer release 时单次抑制该拖拽产生的尾随 click，并让 source/target 原生输入失焦，避免 Obsidian 的聚焦保护跳过控件重建。
+
+只有编辑器 buffer 精确匹配规划结果后，`editor-transaction.ts` 才可调用公开 `MarkdownView.setViewData(committedContent, false)`，以同一份已提交内容重建 Properties，确认该调用没有产生第二次文本变更，再调用公开 `MarkdownView.requestSave()` 安排持久化；在宿主事件循环后以及重建后都必须重新确认原 leaf、文件、view 和 editor 身份。写回返回精确提交后，controller 在第一次 Properties 等待前立即调用公开 `editor.focus()`，使 CodeMirror 接管平台撤销/重做；重建和对账结束后，仅当焦点仍在 `body`、拖拽开始前捕获的旧焦点 owner、已经断开的旧节点或本次受影响的 Properties 行内，且提交后的 pointer/焦点导航/window 用户意图 generation 没有推进时，才受守卫恢复一次。
+
+用户主动转焦会使该恢复资格失效；未产生精确提交的路径不得调用它。提交前的 drag/DOM 所有权与提交后的文档身份必须分离：window blur 或插件卸载可以清理拖拽 UI，但不得阻止已经精确提交且仍属于原文档的内容安排保存。
+
+`requestSave()` 失败属于独立的持久化调度失败：编辑器内容仍视为已提交并取得撤销焦点，同时提示用户先手动保存，不得误报为内容 divergence。原生属性 setter、Vault 直写和手工移动 pill 都不是写回或恢复手段。
+
+随后 controller 根据当前有效 transaction 状态逐项证明受影响的 Properties 行：buffer 等于 committed content 时继续提交后对账，精确等于本次 transaction 的 original content 时视为合法的立即 undo；再次成为 committed content 可视为 redo。两种状态都只按当前 buffer 对账，不报告 divergence，也不重新应用 transaction；只有第三种内容才是 divergence。
+
+初始拖拽收尾结束后，controller 通过公开的 workspace `editor-change` 事件为每个 pane 保留精确的 original/committed 状态对，并只为同一 editor 后续发生的 undo/redo 安排受守卫的纯 UI 对账；该路径不得新建 transaction、重载 view、请求保存或拦截历史快捷键。内容进入第三种状态、pane/file/editor 被复用、DOM 断开、窗口关闭或 controller 卸载都会使状态对失效。
+
+若公开视图重建后仍陈旧，`metadata-editor-refresh.ts` 从同一 editor buffer 重新提取 frontmatter，以公开 `parseYaml` 创建全新属性对象，并只在 file、view、editor、document、pane、宿主 owner、宿主容器归属与内容身份全部匹配，且当前 DOM 中仍可解析的受影响列表行已失焦时调用一次隔离的 `metadataEditor.synchronize()` 能力。该适配器只能请求宿主重建 UI，调用前后都验证 editor 文本不变；controller 等待宿主后还必须再次验证 buffer，再对账正常多值编辑器或受支持的类型不匹配编辑器。
+
+能力缺失、抛错或对账失败时，每个原 pane 独立保留一个持久 Notice 与“刷新属性面板”操作：每次点击都重新选择当前精确匹配的 original 或 committed buffer 状态，再以该状态重试公开 `setViewData()`，必要时走同一受守卫适配器；操作期间发生合法 undo/redo 时重新开始当前状态的对账，不得误报 divergence。一个 pane 的成功、失败或关闭不得清除另一个 pane 的有效操作，layout 变化会只清理已经断开的 pane。
+
+成功后关闭对应提示，失败后才建议重新打开笔记。插件不得自动关闭或重开 leaf。
+
+写入不生效、活动 leaf/file/editor 改变、DOM 消失或被复用、`pointercancel`、Escape、window blur、noop drop 或内容冲突都必须安全取消。
 
 移动端的 `PropertyValueOrderController` 监听 Obsidian 原生属性值 `contextmenu`，通过公开的 `Menu.forEvent` 只追加一项操作，不抑制或替换宿主菜单。用户选择后，只把该 pill 置为 15 秒单次待拖动状态；下一次 touch/pen 按下走纯状态机的 `startOnMove` 路径，移动达到鼠标级阈值后开始拖拽，并只消费一次。点击其他位置、Escape、超时、插件卸载、DOM 失效和事务清理都会取消该状态。仅在已经待拖动的按压期间抑制第二次原生菜单和默认触摸移动。若无法取得共享菜单，辅助函数 fail open，不改变宿主行为。
 
@@ -94,11 +122,24 @@ translation_status: source
 
 设置禁用、菜单复用、窗口关闭或插件卸载时必须恢复原生状态并清理 observer、键盘 listener 和活动菜单引用。如果宿主选择状态无法同步，controller 立即恢复该菜单；菜单无法识别、DOM 结构不匹配或候选文本不可读时不修改任何节点。上述路径都以保留 Obsidian 原生输入、选择和关闭行为为 fail-open 结果。
 
-recent tracker 只捕获已增强属性名候选上的主指针按下、键盘 Enter/Tab 候选激活，以及属性名编辑器的 Enter、Tab、change 和 focusout 提交意图；普通 `input` 事件不会更新历史，因此输入过程中的中间草稿不算提交。hover、方向键浏览和单纯聚焦也不会直接写历史。与候选或显式按键 action 处于同一浏览器 task 的伴随 change/focusout 信号会被抑制，既避免把半成品草稿变成第二个 action，也不会遮蔽后续独立的 focusout 提交。每次意图都会重新解析所属 pane 和文件，从 Metadata Cache 快照当前提交前键集合，再等待该精确文件的 `changed` 事件。桥接后的 Tab 会携带精确的 `KeyboardEvent` 身份，document listener 因此不会再创建第二个 typed action；同一次 keydown 分发结束后的两个 microtask hop 还会快照编辑器最终解析出的值，让宿主安排的 microtask 先稳定下来，从而兼容原生候选索引滞后，同时不会接受无关缓存增量。只有新缓存确认精确属性名称已从不存在变为存在时，store 才把该名称移动到 MRU 首位。每个 document 保留最多十项短期待确认队列，使不同 pane 的快速连续提交不会互相覆盖；队列只保留弱 editor 身份，不强引用 DOM 节点。删除、超时、文件或 document 身份丢失、设置禁用、清除历史、插件卸载和未确认提交都会丢弃待确认项。短期 age guard 只存在内存，不写入历史。
+recent tracker 只捕获已增强属性名候选上的主指针按下、键盘 Enter/Tab 候选激活，以及属性名编辑器的 Enter、Tab、change 和 focusout 提交意图；普通 `input` 事件不会更新历史，因此输入过程中的中间草稿不算提交。hover、方向键浏览和单纯聚焦也不会直接写历史。
+
+与候选或显式按键 action 处于同一浏览器 task 的伴随 change/focusout 信号会被抑制，既避免把半成品草稿变成第二个 action，也不会遮蔽后续独立的 focusout 提交。每次意图都会重新解析所属 pane 和文件，从 Metadata Cache 快照当前提交前键集合，再等待该精确文件的 `changed` 事件。
+
+桥接后的 Tab 会携带精确的 `KeyboardEvent` 身份，document listener 因此不会再创建第二个 typed action；同一次 `keydown` 处理结束后，再等待两个 microtask 周期并记录编辑器最终解析出的值，让宿主安排的 microtask 先稳定下来，从而兼容原生候选索引滞后，同时不会接受无关缓存增量。只有新缓存确认精确属性名称已从不存在变为存在时，store 才把该名称移动到 MRU 首位。
+
+每个 document 保留最多十项短期待确认队列，使不同 pane 的快速连续提交不会互相覆盖；队列只保留弱 editor 身份，不强引用 DOM 节点。删除、超时、文件或 document 身份丢失、设置禁用、清除历史、插件卸载和未确认提交都会丢弃待确认项。
+
+短期 age guard 只存在内存，不写入历史。
 
 ## 设置与即时生效
 
-`src/shared/settings.ts` 当前 schema 版本为 7。加载过程按版本逐步迁移旧键，再归一化未知或非法值；schema 6 到 7 新增默认关闭的属性键候选类型分组，以保持旧用户的候选顺序；schema 5 到 6 新增按属性分组的属性值候选模型，并保留无损迁移仍需要的旧字段；可精确表达的非 recent 覆盖可直接转换，recent、通配符、置顶、置底或隐藏规则则明确标记为待迁移，不能静默改义；schema 3 到 4 只建立新增 `recent` 枚举的版本边界，不改变已有 `name` 或 `usage` 值。schema 4 到 5 新增独立且默认关闭的属性值候选设置。默认数组和每次归一化结果都使用独立引用。键候选排序模式只接受 `name`、`recent` 和 `usage`：`name` 依次排列数字、拉丁字母、按拼音排列的中文和其他字符；`recent` 使用严格 MRU，并让未记录候选回退到名称排序；`usage` 按包含该属性的缓存 Markdown 笔记数降序排列，并以同一名称比较器处理平局。`usage` 保留为兼容的持久化枚举名称，不表示交互次数。旧 `alphabetical` 值没有别名或迁移路径，会作为非法值回落到默认 `name`。迁移后的结果由插件持久化。
+
+`src/shared/settings.ts` 当前 schema 版本为 7。加载时先按版本逐步迁移旧设置，再归一化未知或非法值。schema 6 到 7 新增默认关闭的属性键候选类型分组，以保持旧用户的候选顺序；schema 5 到 6 新增按属性分组的属性值候选模型，并保留无损迁移仍需要的旧字段。
+
+可精确表达的非 recent 覆盖可以直接转换；recent、通配符、置顶、置底或隐藏规则如果迁移会改变含义，就明确标记为待迁移。schema 3 到 4 只建立 `recent` 枚举的版本边界；schema 4 到 5 新增独立且默认关闭的属性值候选设置。默认数组和每次归一化结果都使用独立引用。
+
+键候选排序只接受 `name`、`recent` 和 `usage`。`name` 依次排列数字、拉丁字母、按拼音排列的中文和其他字符；`recent` 使用严格 MRU，并让未记录候选回退到名称排序；`usage` 按包含该属性的缓存 Markdown 笔记数降序排列，并用同一名称比较器处理平局。`usage` 只是兼容的持久化枚举名称，不表示交互次数。旧 `alphabetical` 值没有迁移别名，会回落到默认 `name`。迁移结果由插件持久化。
 
 设置页与实际 Properties 候选菜单必须调用 `src/core/suggestions/property-names.ts` 的同一比较器。`order-keys.ts` 先应用隐藏规则，再按配置顺序展开置顶规则。启用属性类型分组时，只对普通候选分组，顺序固定为文本、列表、数字、复选框、日期、日期与时间、标签和 unknown；当前的 `name`、`recent` 或 `usage` 排序只在各组内部生效，置顶和置底候选始终位于类型组之外。普通区在 `recent` 下依次放置历史中仍存在的名称并以名称顺序排列未记录项，在 `usage` 下按笔记数与名称平局规则排列；置底规则最后应用。同文件导出的纯 `explainPropertyKeyRules()` 复用精确相同的通配匹配器，返回每类首个匹配规则与按“隐藏 > 置顶 > 置底”计算的最终位置，供设置页解释冲突。设置页的置顶、置底和隐藏列表复用一个具体的属性名称建议组件；该组件只负责过滤、排除已配置项和选择回调，不复制排序规则，也不扩展成与当前业务无关的通用框架。
 
@@ -108,7 +149,15 @@ recent store 使用 Obsidian 公开的 `App.loadLocalStorage()` / `App.saveLocal
 
 属性值选择次数使用另一份版本化 local-storage map，并分别限制属性数与精确值数。确认 tracker 只保存绑定到精确文件/属性/值的短期待确认意图，只有 Metadata Cache 证明该值数量增加后才递增次数。值按精确字符串身份保存，包括有意义的非 ASCII 首尾字符。次数状态不进入 `data.json`，也不参与 Sync；设备本地写入失败时保留本次会话计数，清除次数不会修改笔记或自定义预设配置。
 
-所有受支持 Obsidian 版本都使用自定义 General、Value order、Key suggestions、Value suggestions 四个选项卡；全部 imperative 控件继续读写 `propertyOrderSettings`。该页签界面提供 `tablist`/`tab`/`tabpanel`、本地化标签栏名称、`aria-selected`、roving `tabindex`、左右方向键、Home/End 和重渲染后的焦点保持。declarative definitions 保持为空，避免 Obsidian 绕过这套布局。选项卡在窄宽度下保持单行横向滚动，活动标签在初次布局和 viewport resize 后自动进入可视区，纵向溢出被隐藏；桌面精细指针下最小高度为 34px，粗指针下为 44px。Key suggestions 继续保留三组属性规则编辑器、“清除最近使用历史”和临时规则测试框。Value suggestions 改为一个默认行为下拉框、一个仅影响设置页的属性显示顺序下拉框、按需添加的六种互斥行为规则卡片（每张含行为选择、胶囊及输入框，局部更新保留滚动和焦点，Custom 编辑器位于卡片内）、可移除属性胶囊、由 Vault 已发现 key 与插件已配置 key 共同提供的惰性选择器、仅本设备保存的选择次数清除入口，以及左右两栏的 Custom 编辑器；右栏包含置顶/普通/置底三段。已属于其他分组的 key 仍可选择，确认后才原子移动。无法无损转换的 schema 5 旧规则以只读形式保留在显式迁移确认后方，并在确认前继续作为运行时权威。窄布局会纵向堆叠添加控件并把 Custom 两栏折叠为单列，但不改变持久化行为。
+所有受支持 Obsidian 版本都使用自定义 General、Value order、Key suggestions、Value suggestions 四个选项卡；所有命令式设置控件继续读写 `propertyOrderSettings`。该页签界面提供 `tablist`/`tab`/`tabpanel`、本地化标签栏名称、`aria-selected`、roving `tabindex`、左右方向键、Home/End 和重渲染后的焦点保持。
+
+declarative definitions 保持为空，避免 Obsidian 绕过这套布局。选项卡在窄宽度下保持单行横向滚动，活动标签在初次布局和 viewport resize 后自动进入可视区，纵向溢出被隐藏；桌面精细指针下最小高度为 34px，粗指针下为 44px。
+
+Key suggestions 继续保留三组属性规则编辑器、“清除最近使用历史”和临时规则测试框。Value suggestions 改为一个默认行为下拉框、一个仅影响设置页的属性显示顺序下拉框、按需添加的六种互斥行为规则卡片（每张含行为选择、胶囊及输入框，局部更新保留滚动和焦点，Custom 编辑器位于卡片内）、可移除属性胶囊、由 Vault 已发现 key 与插件已配置 key 共同提供的惰性选择器、仅本设备保存的选择次数清除入口，以及左右两栏的 Custom 编辑器；右栏包含置顶/普通/置底三段。
+
+已属于其他分组的 key 仍可选择，确认后才原子移动。无法无损转换的 schema 5 旧规则以只读形式保留在显式迁移确认后方，并在用户确认迁移前继续生效。
+
+窄布局会纵向堆叠添加控件并把 Custom 两栏折叠为单列，但不改变持久化行为。
 
 设置保存失败时，设置页保留当前内存快照，显示本地化 Notice 和带 `role="alert"` 的未保存状态，并提供重试按钮。重试必须保留失败批次是否需要刷新键候选的语义；成功后清除未保存状态。每次保存前重新读取 `data.json`，并相对上次持久化基线执行三方合并：当前设置界面修改过的键优先，外部并发修改的其他键保留，未来 schema 的未知字段保持原样。Obsidian 的公开 `onExternalSettingsChange()` hook 使用同一合并规则，并刷新设置 surface 与受影响的运行时状态。模块级存储队列保证旧实例的在途写入先完成、替代实例再读取；已卸载实例不得启动新保存，因此旧实例延迟写入不能覆盖替代实例已经读取并编辑的设置。
 

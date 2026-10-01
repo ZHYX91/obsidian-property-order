@@ -53,6 +53,14 @@ Simplified Chinese is the source language for stable paired documents. Keep thei
 heading levels, code-fence languages, table shapes, relative links, and required contract tokens in
 sync; `npm run check:docs-i18n` enforces those rules.
 
+Write each document for its intended reader:
+
+- README explains what users can do, how to configure it, and the practical limitations.
+- Product requirements describe observable product behavior and boundaries, not implementation steps.
+- UX specification describes visible interaction, accessibility, and recovery behavior.
+- Architecture owns internal APIs, state machines, adapters, lifecycle details, and compatibility mechanisms.
+- Testing strategy explains what evidence is required and how it is grouped; prefer readable categories over audit-style sentences that concatenate dozens of checks.
+
 Release preparation and publication are separate actions. Contributors may prepare version and
 documentation changes, but a pull request or local `npm run release:check` does not authorize a tag,
 GitHub Release, or Vault deployment. Maintainers follow the canonical

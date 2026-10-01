@@ -14,18 +14,16 @@ Cross-property drag is enabled by default and can be disabled in the Value order
 
 ## Features
 
-- Drag to reorder values inside a top-level YAML list property.
-- Follow logical insertion order in RTL and wrapped layouts, edge-scroll supported Properties regions, and announce pointer-drag state through a polite live status.
-- Move values between supported properties in the same note, with an option to disable it.
-- Treat empty or scalar YAML storage as a text list when Obsidian's native Properties UI assigns the list type, allowing safe moves in or out and normalizing every affected non-string item from its original token text.
-- Preserve the current list format by default, or write every affected property as bracket or bullet lists. Same-property reorders and cross-property moves each commit through one verified editor transaction.
-- Pin, move to the bottom, or hide native property-name suggestions.
-- Sort property-name suggestions by mixed-language name, strict recent-use order, or the number of Markdown notes containing each property, with optional Obsidian property-type grouping around the normal section.
-- Optionally manage property-value suggestions with one behavior per exact property key: name order, confirmed selection frequency, Markdown note count, native order, no suggestions, or custom candidates.
-- Custom candidates use pinned, normal, and bottom sections. Explicit preset values remain available even when no note currently exposes them, while normal candidates can still use native, name, frequency, or note-count ordering.
-- Advance property-name recent history and property-value selection counts only after Metadata Cache confirms the corresponding commit; hover, keyboard navigation, cancellation, and unconfirmed edits do not count.
-- Keep keyboard navigation aligned with the final visible suggestion order.
-- Fail closed for unsupported YAML and fail open when Obsidian's suggestion DOM is not recognized.
+- Reorder values by dragging inside a supported top-level YAML list.
+- Move values between supported list properties in the same note. Cross-property moves are enabled by default and can be turned off.
+- When Obsidian treats an empty value or scalar as a list property, Property Order can safely move values into or out of it. Non-text items are converted to text using their original YAML spelling.
+- Keep each property's current list format, or choose bracket lists or bullet lists. Every successful drag creates a single undoable edit.
+- Dragging works with wrapped and RTL layouts, can scroll supported Properties areas near the edge, and announces drag-state changes to screen readers.
+- Customize native property-name suggestions: pin, move to the bottom, hide, sort by name, recently used order, or note count, with optional property-type grouping.
+- Optionally manage property-value suggestions per property: native order, name order, confirmed selection frequency, note count, no suggestions, or custom candidates.
+- Custom candidates can be pinned, left in the normal section, or placed at the bottom. Explicit presets remain available even if no note currently uses them.
+- Recent-name history and value-selection counts change only after Obsidian confirms the edit. Hovering, navigating, cancelling, or leaving an edit unconfirmed does not count.
+- When Property Order cannot safely understand the YAML or Obsidian's suggestion UI, it leaves the note or native UI unchanged.
 
 ## Requirements and compatibility
 
@@ -52,27 +50,32 @@ Back up and preserve `Vault/.obsidian/plugins/property-order/data.json` when it 
 
 ## Settings
 
-Every supported Obsidian version uses the same accessible General, Value order, Key suggestions, and Value suggestions tabs. The active tab already names the current section, so content begins directly with its first setting instead of repeating that title.
+Every supported Obsidian version uses the same four settings tabs:
 
-- **General** controls the interface language and optional diagnostic notices. **Follow Obsidian** uses Obsidian's interface language.
-- **Value order** controls list writeback format, cross-property moves, and related drag behavior. Temporarily disabling value drag preserves the separate cross-property preference for the next time value drag is enabled.
-- **Key suggestions** configures pinned, bottom, hidden, name-sorted, recently used, and note-count-sorted native property-name suggestions. Optional type grouping places normal candidates into Text, List, Number, Checkbox, Date, Date & time, Tags, and Automatic / unspecified groups while keeping the selected sort inside each group; pinned and bottom rules stay outside those groups. Recent order is strict MRU: pinned rules remain first, confirmed recent names follow in newest-first order within their type group, names absent from history fall back to name order, and bottom rules remain last. Note count means the number of cached Markdown notes containing the property, not interaction frequency.
-- **Value suggestions** is opt-in. Unassigned properties follow one default behavior: native order, name order, confirmed selection frequency, Markdown note count, or no suggestions. Exact keys can be moved into one of six mutually exclusive groups: Name, Selection frequency, Note count, Native, No suggestions, or Custom candidates. Custom candidates expose pinned, normal, and bottom sections; pinned and bottom values may be typed explicitly, so a configured preset can remain selectable even when it has never appeared in the Vault.
-- Rule cards are added on demand. Each card contains a candidate-behavior dropdown, removable property chips, and its add input. Changing the behavior moves every key in that card and merges into an existing matching card. Updates preserve the page position and input focus. Property groups are shown as removable chips and can be ordered in settings by property name or most recently added. Adding a property accepts either a typed key or a Vault/configured-key suggestion. A key already in another group remains visible in the chooser and can be moved after confirmation.
-- Recent property-name history contains at most 100 exact names and stays device-local. Property-value selection frequency is also device-local and increments only after a confirmed candidate commit. Both are separate from `data.json` and are not synced. Note-count ordering scans cached frontmatter lazily only when needed and reuses invalidatable caches.
+- **General** controls the plugin language and optional diagnostic notices.
+- **Value order** controls list formatting, cross-property moves, and drag behavior. Turning value drag off does not erase the separate cross-property preference.
+- **Key suggestions** controls pinned, bottom, and hidden property names plus Name, Recently used, and Note count sorting. Optional property-type grouping organizes normal candidates into Text, List, Number, Checkbox, Date, Date & time, Tags, and Automatic / unspecified; the chosen sort still applies inside each group.
+- **Value suggestions** is opt-in. Unassigned properties use one default behavior, while exact property keys can be assigned to Name, Selection frequency, Note count, Native, No suggestions, or Custom candidates.
+- Custom candidate rules use Pinned, Normal, and Bottom sections. Preset values can be entered directly, so they can remain selectable even before they appear in a note.
+- Recent property-name history is limited to 100 names on the current device. Selection frequency is also device-local. Both are separate from `data.json`, are not synced, and can be cleared from settings.
 
 ## Limitations
 
-- Mobile reorder is deliberately armed from Obsidian's native long-press menu, so Edit, Remove from list, and Copy remain available. The armed action applies to one value and expires automatically.
-- Only top-level YAML properties that Obsidian identifies as text lists are supported for value dragging. Normal lists use native pills; guarded empty or scalar mismatch rows may be sources or targets, while an aligned, unambiguous mixed mismatch row may only receive an appended value.
+- Value dragging works only with top-level YAML properties that Obsidian presents as text lists.
 - Object lists, nested lists, multiline flow sequences, source-mode line dragging, and cross-file moves are not supported.
-- Custom preset candidates are limited to the Properties value editor. When no native value popup exists, Property Order can render a plugin-owned fallback popup for configured custom candidates; if the property editor cannot be identified safely, it fails open and leaves manual input unchanged.
-- Converting bullet lists to bracket lists may discard item comments and blank lines that bracket syntax cannot represent.
-- Direct keyboard value reordering is not provided. Pointer dragging provides polite screen-reader status announcements for drag start and target changes.
+- On mobile, you first choose **Reorder** or **Reorder or move** from Obsidian's native long-press menu, then drag that value. Native actions such as Edit, Remove from list, and Copy remain available.
+- Some type-mismatch rows can participate when Obsidian clearly identifies them as list properties. Ambiguous mixed-value rows are handled conservatively and may only accept an appended value.
+- Custom preset candidates apply only to the Properties value editor. If no native popup is available, Property Order can show its own small fallback popup; if it cannot identify the editor safely, manual input is left alone.
+- Converting bullet lists to bracket lists can discard comments or blank lines that bracket syntax cannot represent.
+- Property values cannot currently be reordered directly from the keyboard. Pointer dragging does provide screen-reader status announcements.
 
 ## Privacy and security
 
-Property Order reads and updates the current note through Obsidian's editor and Vault APIs. It does not require an account, upload note content, or call a remote service. Unsupported YAML is rejected before writeback, and supported drag changes are committed through one verified editor transaction. When note-count ordering is selected for property-name or property-value suggestions, the plugin enumerates Markdown files and reads cached frontmatter metadata to calculate counts; it does not read every note body. Property-name MRU and confirmed property-value selection counts are stored only in Obsidian's per-Vault local storage on the current device, separately from `data.json`, and can be cleared from settings.
+Property Order works locally. It does not require an account, upload note content, or call a remote service.
+
+When a drag changes YAML, the plugin uses Obsidian's editor APIs and verifies the result before scheduling a save. Unsupported structures are not written.
+
+For Note count sorting, Property Order enumerates Markdown files and reads cached frontmatter metadata; it does not read every note body. Recent property-name history and confirmed property-value selection counts are stored only in Obsidian's per-Vault local storage on the current device, separately from `data.json`, and can be cleared from settings.
 
 ## Development
 
