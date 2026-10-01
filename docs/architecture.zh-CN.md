@@ -31,6 +31,7 @@ translation_status: source
    - `pane-context.ts`：workspace leaf 与文件解析。
    - `editor-transaction.ts`：公开 editor transaction 的宿主兼容、精确核对、Properties 公开重载和持久化边界。
    - `metadata.ts`：通过公开的 Vault 文件枚举与 Metadata Cache 文件缓存，把 top-level frontmatter 转换为候选键/包含该属性的 Markdown 笔记数；设置页和候选控制器共享同一份可失效缓存。拖拽目标判定中，缓存存储形态只能佐证原生类型证据，不得单独定义属性类型。
+   - `property-types.ts`：只读的属性类型证据边界，仅用于候选呈现。它通过公开的 `Vault.configDir` 定位隐藏配置目录，用 `DataAdapter` 读取 `types.json`，只映射 Obsidian 已知的存储类型名与内置默认属性；不支持或未登记的类型保持为 `unknown`。该注册表不得授权属性值拖拽或 frontmatter 写入。
 4. `src/app/`：插件生命周期、设置持久化和设置页；已有属性名称通过 Obsidian 公开的 `AbstractInputSuggest` 呈现和筛选。
 5. `src/shared/`：跨层设置 schema、共享类型和 i18n。
 

@@ -32,6 +32,7 @@ Dependencies point inward toward the pure core:
    - `pane-context.ts`: workspace leaf and file resolution.
    - `editor-transaction.ts`: host compatibility, exact verification, public Properties reload, and persistence for public editor transactions.
    - `metadata.ts`: candidate-key and containing-Markdown-note-count conversion from top-level frontmatter through public Vault enumeration and per-file Metadata Cache APIs. The settings UI and suggestion controller share one invalidatable cache. During drag targeting, cached storage shape can only corroborate positive native type evidence; it never defines a property type by itself.
+   - `property-types.ts`: read-only property-type evidence for suggestion presentation. It resolves the hidden config path through the public `Vault.configDir`, reads `types.json` through `DataAdapter`, maps only Obsidian's known stored type names plus built-in defaults, and preserves unsupported or unregistered types as `unknown`. This registry never authorizes value dragging or frontmatter writes.
 4. `src/app/`: plugin lifecycle, settings persistence, and settings UI; existing property names are presented and filtered through Obsidian's public `AbstractInputSuggest` API.
 5. `src/shared/`: versioned settings, shared types, and i18n.
 
