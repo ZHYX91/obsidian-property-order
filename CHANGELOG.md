@@ -261,7 +261,10 @@ follow the repository's Git tags; entries summarize the corresponding commit his
 
 - Established the initial Property Order release baseline.
 
-[Unreleased]: https://github.com/ZHYX91/obsidian-property-order/compare/0.7.0...HEAD
+[Unreleased]: https://github.com/ZHYX91/obsidian-property-order/compare/0.8.2...HEAD
+[0.8.2]: https://github.com/ZHYX91/obsidian-property-order/releases/tag/0.8.2
+[0.8.1]: https://github.com/ZHYX91/obsidian-property-order/releases/tag/0.8.1
+[0.8.0]: https://github.com/ZHYX91/obsidian-property-order/releases/tag/0.8.0
 [0.7.0]: https://github.com/ZHYX91/obsidian-property-order/releases/tag/0.7.0
 [0.6.0]: https://github.com/ZHYX91/obsidian-property-order/releases/tag/0.6.0
 [0.5.3]: https://github.com/ZHYX91/obsidian-property-order/releases/tag/0.5.3

@@ -10,6 +10,7 @@ const config = {
     {
       label: "English",
       path: "README.md",
+      semanticPhrases: ["property-type grouping"],
       sections: [
         "Demo",
         "Features",
@@ -27,6 +28,7 @@ const config = {
     {
       label: "简体中文",
       path: "docs/i18n/README.zh-CN.md",
+      semanticPhrases: ["属性类型分组"],
       sections: [
         "演示",
         "功能特性",
@@ -215,6 +217,11 @@ export function checkReadmeI18n(projectRoot = defaultProjectRoot) {
     for (const token of config.requiredTokens) {
       if (!source.includes(token)) {
         errors.push(`${filePath} is missing required README contract token: ${token}`);
+      }
+    }
+    for (const phrase of language.semanticPhrases ?? []) {
+      if (!source.includes(phrase)) {
+        errors.push(`${filePath} is missing required README semantic phrase: ${phrase}`);
       }
     }
     validateTargets(projectRoot, filePath, source, errors);

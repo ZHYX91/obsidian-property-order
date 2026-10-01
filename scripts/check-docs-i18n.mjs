@@ -7,6 +7,10 @@ const defaultProjectRoot = path.resolve(path.dirname(fileURLToPath(import.meta.u
 export const stableDocumentPairs = [
   {
     requiredTokens: ["preserve", "flow", "block", "[]"],
+    semanticPhrases: [
+      { source: "schema 7", translation: "schema 7" },
+      { source: "属性类型分组", translation: "property-type grouping" },
+    ],
     source: "docs/product-requirements.zh-CN.md",
     translation: "docs/product-requirements.en.md",
   },
@@ -20,6 +24,10 @@ export const stableDocumentPairs = [
       "MarkdownView.setViewData(committedContent, false)",
       "MarkdownView.requestSave()",
     ],
+    semanticPhrases: [
+      { source: "schema 版本为 7", translation: "schema version 7" },
+      { source: "属性类型分组", translation: "property-type grouping" },
+    ],
     source: "docs/architecture.zh-CN.md",
     translation: "docs/architecture.en.md",
   },
@@ -31,6 +39,9 @@ export const stableDocumentPairs = [
       "aria-selected",
       "tabindex",
       'role="alert"',
+    ],
+    semanticPhrases: [
+      { source: "属性类型分组", translation: "property-type grouping" },
     ],
     source: "docs/ux-spec.zh-CN.md",
     translation: "docs/ux-spec.en.md",
@@ -110,6 +121,16 @@ export function checkDocsI18n(projectRoot = defaultProjectRoot) {
     for (const token of pair.requiredTokens) {
       validateRequiredToken(source.body, pair.source, token, errors);
       validateRequiredToken(translation.body, pair.translation, token, errors);
+    }
+
+    for (const phrase of pair.semanticPhrases ?? []) {
+      validateRequiredPhrase(source.body, pair.source, phrase.source, errors);
+      validateRequiredPhrase(
+        translation.body,
+        pair.translation,
+        phrase.translation,
+        errors,
+      );
     }
   }
 
@@ -448,6 +469,12 @@ function canonicalizeLocalizedPath(filePath) {
 function validateRequiredToken(body, filePath, token, errors) {
   if (!body.includes(`\`${token}\``)) {
     errors.push(`${filePath} must retain the stable contract token \`${token}\``);
+  }
+}
+
+function validateRequiredPhrase(body, filePath, phrase, errors) {
+  if (!body.includes(phrase)) {
+    errors.push(`${filePath} must retain the stable semantic phrase: ${phrase}`);
   }
 }
 
