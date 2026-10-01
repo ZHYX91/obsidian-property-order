@@ -71,7 +71,12 @@ Missing properties, unsupported values, index conflicts, and content conflicts r
 
 1. Capture the source property, source index, exact pill nodes, file path, and the leaf's public `MarkdownView.editor` from the initiating pill, Properties container, and pane. Editor text is the sole content and conflict base. Visible pill order and YAML must agree before the source can be used.
    Point-hit geometry fallback queries remain scoped to that originating pane, so an overlapping or adjacent pane cannot become the target through a document-wide scan.
-2. Let `drop-targeting.ts` resolve one explicit state in the same pane: supported list, supported type-mismatch list, confirmed non-list, or unknown. Normal lists use Obsidian's native multi-value container. Obsidian 1.12.7 renders scalar or mixed storage as one type-mismatch field, so that fallback is accepted only when both the native list icon and warning are present; private `types.json` is never read. A scalar mismatch field can be the sole source value or a target. A mixed array field cannot identify a source index and therefore fails closed; it can receive an append only when its readable, unambiguous comma-separated display exactly matches current YAML. A non-list Notice requires positive native non-list evidence corroborated by scalar storage; unknown rows cancel silently.
+
+2. Let `drop-targeting.ts` resolve one explicit state in the same pane: supported list, supported type-mismatch list, confirmed non-list, or unknown. Normal lists use Obsidian's native multi-value container.
+
+   Obsidian 1.12.7 renders scalar or mixed storage as one type-mismatch field. The plugin accepts that field as list evidence only when both the native list icon and warning are present; it never reads private `types.json`. A scalar mismatch field can be the sole source value or a target.
+
+   A mixed array field cannot identify a source index, so the plugin never guesses one. It may accept an append only when the readable comma-separated display maps unambiguously to the current YAML. A non-list Notice requires positive native non-list evidence corroborated by scalar storage; unknown rows cancel silently.
 3. Let `drag-dom.ts` own the preview, indicator, rejected target, and cursor class, but never move, remove, or copy host property pills. Every cancellation path must fully clean them up. Passing over a rejected target emits no Notice; the controller reports it only on release.
 
 4. After pointer release and native-input blur, revalidate the leaf, file, editor, property keys, editor kinds, exact source/target nodes, visible values, and current YAML before planning. Same-property reorder produces one exact property change; cross-property move produces two non-overlapping exact property changes.
