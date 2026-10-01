@@ -163,9 +163,10 @@ describe("PropertyTypeRegistry", () => {
     expect(second).toBe(first);
     expect(harness.exists).toHaveBeenCalledTimes(1);
 
+    await Promise.resolve();
+    expect(harness.read).toHaveBeenCalledTimes(1);
     resolveRead(JSON.stringify({ types: { status: "text" } }));
     await expect(first).resolves.toEqual({ changed: true, status: "loaded" });
-    expect(harness.read).toHaveBeenCalledTimes(1);
   });
 
   it("normalizes surrounding whitespace only at the plugin boundary", async () => {
