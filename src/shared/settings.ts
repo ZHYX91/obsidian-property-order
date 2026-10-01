@@ -12,7 +12,7 @@ import type {
   ValueSuggestionSortMode,
 } from "./types";
 
-export const CURRENT_SETTINGS_SCHEMA_VERSION = 6;
+export const CURRENT_SETTINGS_SCHEMA_VERSION = 7;
 
 export const DEFAULT_SETTINGS: PropertyOrderSettings = {
   schemaVersion: CURRENT_SETTINGS_SCHEMA_VERSION,
@@ -22,6 +22,7 @@ export const DEFAULT_SETTINGS: PropertyOrderSettings = {
   enableCrossPropertyDrag: true,
   enableNativeKeySuggestionOrder: true,
   keySuggestionSortMode: "name",
+  groupKeySuggestionsByType: false,
   pinnedPropertyKeys: [],
   bottomPropertyKeys: [],
   hiddenPropertyKeyPatterns: [],
@@ -89,6 +90,10 @@ export function normalizeSettings(value: unknown): PropertyOrderSettings {
     keySuggestionSortMode: isKeySuggestionSortMode(migratedValue.keySuggestionSortMode)
       ? migratedValue.keySuggestionSortMode
       : defaults.keySuggestionSortMode,
+    groupKeySuggestionsByType:
+      typeof migratedValue.groupKeySuggestionsByType === "boolean"
+        ? migratedValue.groupKeySuggestionsByType
+        : defaults.groupKeySuggestionsByType,
     pinnedPropertyKeys: normalizeStringList(migratedValue.pinnedPropertyKeys),
     bottomPropertyKeys: normalizeStringList(migratedValue.bottomPropertyKeys),
     hiddenPropertyKeyPatterns: normalizeStringList(migratedValue.hiddenPropertyKeyPatterns),
@@ -404,6 +409,7 @@ function getPersistedSettingKeys(): Array<Exclude<keyof PropertyOrderSettings, "
     "enableCrossPropertyDrag",
     "enableNativeKeySuggestionOrder",
     "keySuggestionSortMode",
+    "groupKeySuggestionsByType",
     "pinnedPropertyKeys",
     "bottomPropertyKeys",
     "hiddenPropertyKeyPatterns",
@@ -589,6 +595,17 @@ function migrateSettingsVersion(
       ...value,
       ...migrateLegacyValueSuggestionModel(value),
       schemaVersion: 6,
+    };
+  }
+
+  if (version === 6) {
+    return {
+      ...value,
+      groupKeySuggestionsByType:
+        typeof value.groupKeySuggestionsByType === "boolean"
+          ? value.groupKeySuggestionsByType
+          : false,
+      schemaVersion: 7,
     };
   }
 

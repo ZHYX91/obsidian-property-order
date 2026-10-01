@@ -9,6 +9,7 @@ export const PROPERTY_ORDER_CONTROL_KEYS = [
   "enableCrossPropertyDrag",
   "enableNativeKeySuggestionOrder",
   "enablePropertyValueDrag",
+  "groupKeySuggestionsByType",
   "keySuggestionSortMode",
   "language",
   "listWritebackFormat",
@@ -35,6 +36,10 @@ const CONTROL_MUTATIONS = {
   enablePropertyValueDrag: {
     refreshKeySuggestions: false,
     refreshMode: "state",
+  },
+  groupKeySuggestionsByType: {
+    refreshKeySuggestions: true,
+    refreshMode: "none",
   },
   keySuggestionSortMode: {
     refreshKeySuggestions: true,

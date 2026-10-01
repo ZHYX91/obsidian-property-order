@@ -1,8 +1,10 @@
-import type { PropertyKeyOrderOptions } from "../../shared/types";
+import type { PropertyKeyOrderOptions, PropertyType } from "../../shared/types";
 import { comparePropertyNames } from "./property-names";
 import { createWildcardMatcher } from "./wildcard";
 
 export interface OrderedPropertyKey {
+  group?: PropertyType;
+  groupStart?: true;
   key: string;
 }
 
@@ -15,6 +17,21 @@ export interface PropertyKeyRuleExplanation {
   pinnedPattern: string | null;
   placement: PropertyKeyRulePlacement;
 }
+
+const PROPERTY_TYPE_GROUP_ORDER = [
+  "text",
+  "list",
+  "number",
+  "checkbox",
+  "date",
+  "datetime",
+  "tags",
+  "unknown",
+] as const satisfies readonly PropertyType[];
+
+const PROPERTY_TYPE_GROUP_RANK = new Map<PropertyType, number>(
+  PROPERTY_TYPE_GROUP_ORDER.map((type, index) => [type, index]),
+);
 
 type PropertyKeyRules = Pick<
   PropertyKeyOrderOptions,
@@ -74,37 +91,35 @@ export function orderPropertyKeys(
   const usageByKey = new Map(options.usage.map((item) => [item.key, item.count]));
 
   middleKeys.sort((left, right) => {
-    if (options.sortMode === "recent") {
-      const leftRank = recentRankByKey.get(left);
-      const rightRank = recentRankByKey.get(right);
+    if (options.groupByType) {
+      const typeDelta = getPropertyTypeRank(getPropertyType(options, left)) -
+        getPropertyTypeRank(getPropertyType(options, right));
 
-      if (leftRank != null || rightRank != null) {
-        if (leftRank == null) {
-          return 1;
-        }
-
-        if (rightRank == null) {
-          return -1;
-        }
-
-        if (leftRank !== rightRank) {
-          return leftRank - rightRank;
-        }
+      if (typeDelta !== 0) {
+        return typeDelta;
       }
     }
 
-    if (options.sortMode === "usage") {
-      const usageDelta = (usageByKey.get(right) ?? 0) - (usageByKey.get(left) ?? 0);
-
-      if (usageDelta !== 0) {
-        return usageDelta;
-      }
-    }
-
-    return comparePropertyNames(left, right);
+    return compareMiddleKeys(left, right, options.sortMode, recentRankByKey, usageByKey);
   });
 
-  return [...pinnedKeys, ...middleKeys, ...bottomKeys].map((key) => ({ key }));
+  if (!options.groupByType) {
+    return [...pinnedKeys, ...middleKeys, ...bottomKeys].map((key) => ({ key }));
+  }
+
+  let previousGroup: PropertyType | null = null;
+  const groupedMiddleKeys = middleKeys.map((key): OrderedPropertyKey => {
+    const group = getPropertyType(options, key);
+    const groupStart = group !== previousGroup;
+    previousGroup = group;
+    return groupStart ? { group, groupStart: true, key } : { group, key };
+  });
+
+  return [
+    ...pinnedKeys.map((key) => ({ key })),
+    ...groupedMiddleKeys,
+    ...bottomKeys.map((key) => ({ key })),
+  ];
 }
 
 function dedupePreservingOrder(values: string[]): string[] {
@@ -164,3 +179,48 @@ function findMatchingPattern(patterns: string[], key: string): string | null {
   return null;
 }
 
+
+function compareMiddleKeys(
+  left: string,
+  right: string,
+  sortMode: PropertyKeyOrderOptions["sortMode"],
+  recentRankByKey: ReadonlyMap<string, number>,
+  usageByKey: ReadonlyMap<string, number>,
+): number {
+  if (sortMode === "recent") {
+    const leftRank = recentRankByKey.get(left);
+    const rightRank = recentRankByKey.get(right);
+
+    if (leftRank != null || rightRank != null) {
+      if (leftRank == null) {
+        return 1;
+      }
+      if (rightRank == null) {
+        return -1;
+      }
+      if (leftRank !== rightRank) {
+        return leftRank - rightRank;
+      }
+    }
+  }
+
+  if (sortMode === "usage") {
+    const usageDelta = (usageByKey.get(right) ?? 0) - (usageByKey.get(left) ?? 0);
+    if (usageDelta !== 0) {
+      return usageDelta;
+    }
+  }
+
+  return comparePropertyNames(left, right);
+}
+
+function getPropertyType(
+  options: Pick<PropertyKeyOrderOptions, "propertyTypes">,
+  key: string,
+): PropertyType {
+  return options.propertyTypes?.get(key) ?? "unknown";
+}
+
+function getPropertyTypeRank(type: PropertyType): number {
+  return PROPERTY_TYPE_GROUP_RANK.get(type) ?? PROPERTY_TYPE_GROUP_ORDER.length;
+}
