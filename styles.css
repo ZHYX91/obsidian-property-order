@@ -575,18 +575,14 @@ body.property-order-value-drag-enabled .metadata-property .multi-select-pill {
   }
 }
 
-.property-order-suggestion-type-group-start {
-  margin-block-start: var(--size-4-2);
-  position: relative;
-}
-
-.property-order-suggestion-type-group-start::before {
+.property-order-suggestion-type-group-label {
   color: var(--text-muted);
-  content: attr(data-property-order-type-label);
   display: block;
   font-size: var(--font-ui-smaller);
   font-weight: var(--font-semibold);
   line-height: var(--line-height-tight);
+  margin-block-start: var(--size-4-2);
   padding: var(--size-2-2) var(--size-2-3);
   pointer-events: none;
+  user-select: none;
 }

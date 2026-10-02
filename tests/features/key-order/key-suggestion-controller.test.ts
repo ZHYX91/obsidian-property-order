@@ -938,7 +938,7 @@ describe("KeySuggestionOrderController", () => {
     openedWindow.close();
   });
 
-  it("groups native key suggestions by Obsidian type without adding header nodes", async () => {
+  it("groups native key suggestions with separate display-only labels", async () => {
     const settings = createDefaultSettings();
     settings.groupKeySuggestionsByType = true;
     const readTypes = vi.fn(async () => JSON.stringify({
@@ -1014,11 +1014,75 @@ describe("KeySuggestionOrderController", () => {
       ["automatic", "unknown", "Automatic / unspecified"],
     ]);
 
+    const labels = Array.from(
+      menu.querySelectorAll<HTMLElement>(".property-order-suggestion-type-group-label"),
+    );
+    expect(labels.map((label) => [
+      label.textContent,
+      label.dataset.propertyOrderTypeGroup,
+      label.getAttribute("aria-hidden"),
+      label.nextElementSibling?.textContent?.trim(),
+    ])).toEqual([
+      ["Text", "text", "true", "alpha"],
+      ["List", "list", "true", "people"],
+      ["Number", "number", "true", "rating"],
+      ["Checkbox", "checkbox", "true", "done"],
+      ["Date", "date", "true", "due"],
+      ["Date & time", "datetime", "true", "modified"],
+      ["Tags", "tags", "true", "tags"],
+      ["Automatic / unspecified", "unknown", "true", "automatic"],
+    ]);
+    expect(labels.every((label) => !label.classList.contains("suggestion-item"))).toBe(true);
+
+    const editor = menu.closest<HTMLElement>(".metadata-property-key")!;
+    editor.tabIndex = 0;
+    editor.focus();
+    for (const item of menu.querySelectorAll<HTMLElement>(".suggestion-item")) {
+      item.classList.remove("is-selected");
+    }
+    const groupStarts = Array.from(
+      menu.querySelectorAll<HTMLElement>(".property-order-suggestion-type-group-start"),
+    );
+    groupStarts[0]?.classList.add("is-selected");
+    editor.dispatchEvent(
+      new KeyboardEvent("keydown", { bubbles: true, cancelable: true, key: "ArrowDown" }),
+    );
+    expect(menu.querySelector<HTMLElement>(".is-selected")?.textContent?.trim()).toBe("status");
+    editor.dispatchEvent(
+      new KeyboardEvent("keydown", { bubbles: true, cancelable: true, key: "ArrowDown" }),
+    );
+    expect(menu.querySelector<HTMLElement>(".is-selected")?.textContent?.trim()).toBe("people");
+
+    const activations: string[] = [];
+    const captureActivation = (event: Event): void => {
+      const target = event.target instanceof Element
+        ? event.target.closest<HTMLElement>(".suggestion-item")
+        : null;
+      if (target != null && menu.contains(target)) {
+        activations.push(target.textContent?.trim() ?? "");
+      }
+    };
+    menu.addEventListener("pointerdown", captureActivation);
+    menu.addEventListener("click", captureActivation);
+    labels[0]?.dispatchEvent(new Event("pointerdown", { bubbles: true }));
+    labels[0]?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    expect(activations).toEqual([]);
+    groupStarts[0]?.querySelector<HTMLElement>(".suggestion-title")?.dispatchEvent(
+      new Event("pointerdown", { bubbles: true }),
+    );
+    groupStarts[0]?.querySelector<HTMLElement>(".suggestion-title")?.dispatchEvent(
+      new MouseEvent("click", { bubbles: true }),
+    );
+    expect(activations).toEqual(["alpha", "alpha"]);
+
     settings.groupKeySuggestionsByType = false;
     controller.refresh();
     raf.flush();
     expect(
       menu.querySelectorAll(".property-order-suggestion-type-group-start"),
+    ).toHaveLength(0);
+    expect(
+      menu.querySelectorAll(".property-order-suggestion-type-group-label"),
     ).toHaveLength(0);
 
     cleanup();
@@ -1115,6 +1179,7 @@ describe("KeySuggestionOrderController", () => {
       await vi.advanceTimersByTimeAsync(2_000);
       expect(readTypes).toHaveBeenCalledTimes(3);
       expect(reopenedMenu.querySelector(".property-order-suggestion-type-group-start")).toBeNull();
+      expect(reopenedMenu.querySelector(".property-order-suggestion-type-group-label")).toBeNull();
     } finally {
       cleanup();
       vi.useRealTimers();
@@ -1149,6 +1214,7 @@ describe("KeySuggestionOrderController", () => {
     raf.flush();
     expect(allKeys(menu)).toEqual(nativeKeys);
     expect(menu.querySelector(".property-order-suggestion-type-group-start")).toBeNull();
+    expect(menu.querySelector(".property-order-suggestion-type-group-label")).toBeNull();
     expect(raf.pending()).toBe(0);
     cleanup();
   });
