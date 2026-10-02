@@ -278,6 +278,7 @@ function installSettingHarness(): void {
       setValue(value: string) {
         inputEl.value = value;
         return text;
+      },
     };
     inputEl.addEventListener("input", () => onChange?.(inputEl.value));
     configure(text);
