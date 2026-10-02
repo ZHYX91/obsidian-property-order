@@ -891,8 +891,9 @@ export class KeySuggestionOrderController {
         continue;
       }
 
-      const label = element.ownerDocument.createElement("div");
-      label.className = PROPERTY_TYPE_GROUP_LABEL_CLASS;
+      const label = itemParent.createDiv({
+        cls: PROPERTY_TYPE_GROUP_LABEL_CLASS,
+      });
       label.setAttribute("aria-hidden", "true");
       label.dataset.propertyOrderTypeGroup = item.group;
       label.textContent = t(PROPERTY_TYPE_LABEL_KEYS[item.group], settings.language);
