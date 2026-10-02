@@ -548,6 +548,17 @@ export class PropertyOrderSettingTab extends PluginSettingTab {
           });
       });
 
+    new Setting(containerEl)
+      .setName(this.t("settings.keyOrder.groupByType.name"))
+      .setDesc(this.t("settings.keyOrder.groupByType.desc"))
+      .addToggle((toggle) => {
+        toggle
+          .setValue(this.plugin.propertyOrderSettings.groupKeySuggestionsByType)
+          .onChange(async (value) => {
+            await this.applyImperativeControlValue("groupKeySuggestionsByType", value);
+          });
+      });
+
     const recentHistorySetting = new Setting(containerEl)
       .setName(this.t("settings.keyOrder.recentHistory.name"))
       .setDesc(this.t("settings.keyOrder.recentHistory.desc"));

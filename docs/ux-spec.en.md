@@ -71,5 +71,5 @@ This document mirrors the authoritative current interaction and presentation con
 
 - Settings controls, tabs, and error states have accessible names and semantics.
 - Key suggestions support keyboard navigation while retaining native host selection behavior.
-- Property-value reorder currently requires pointer input. Missing direct keyboard reorder and drag live-region feedback are published limitations, not claimed capabilities.
+- Property-value reorder currently requires pointer input, so direct keyboard reorder remains a published limitation. Drag operations expose a polite live-status region in the DOM; real screen-reader announcement quality remains host/assistive-technology acceptance evidence rather than something inferred from DOM tests alone.
 - The Android release matrix covers native-menu preservation, the armed one-shot drag, property-name suggestions, rotation, narrow layout, and lifecycle. Physical-device haptics, pen differences, and vendor input stacks remain outside automated evidence.

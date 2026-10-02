@@ -22,6 +22,10 @@ follow the repository's Git tags; entries summarize the corresponding commit his
 
 ### Fixed
 
+- Expose the optional property-type grouping control in the real four-tab Key suggestions settings
+  page and refresh open property-name menus when the setting changes.
+- Render property-type headings as separate non-candidate rows so their visual area cannot activate
+  the first suggestion in a group, while preserving native candidate indexes and keyboard order.
 - Keep open grouped property-name menus up to date when Obsidian property types change, and treat
   unsupported type names as unspecified even when they match JavaScript object properties.
 

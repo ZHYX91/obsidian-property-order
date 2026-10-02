@@ -56,6 +56,7 @@ const SUGGESTION_CONTENT_OBSERVER_OPTIONS: MutationObserverInit = {
 const USAGE_REFRESH_DEBOUNCE_MILLISECONDS = 150;
 const PROPERTY_TYPE_REFRESH_INTERVAL_MILLISECONDS = 1_000;
 const PROPERTY_TYPE_GROUP_CLASS = "property-order-suggestion-type-group-start";
+const PROPERTY_TYPE_GROUP_LABEL_CLASS = "property-order-suggestion-type-group-label";
 const PROPERTY_TYPE_LABEL_KEYS: Readonly<Record<PropertyType, TranslationKey>> = {
   text: "settings.keyOrder.type.text",
   list: "settings.keyOrder.type.list",
@@ -851,6 +852,8 @@ export class KeySuggestionOrderController {
       ]),
     );
 
+    clearPropertyTypeGroupLabels(itemParent);
+
     for (const item of items) {
       const elementSnapshot = snapshotsByElement.get(item.element);
 
@@ -881,6 +884,20 @@ export class KeySuggestionOrderController {
 
     for (const element of [...visibleElements, ...hiddenElements]) {
       itemParent.appendChild(element);
+    }
+
+    for (const { element, item } of orderedElements) {
+      if (item.groupStart !== true || item.group == null) {
+        continue;
+      }
+
+      const label = itemParent.createDiv({
+        cls: PROPERTY_TYPE_GROUP_LABEL_CLASS,
+      });
+      label.setAttribute("aria-hidden", "true");
+      label.dataset.propertyOrderTypeGroup = item.group;
+      label.textContent = t(PROPERTY_TYPE_LABEL_KEYS[item.group], settings.language);
+      element.before(label);
     }
 
     if (!synchronizeSuggestionSelection(
@@ -1103,10 +1120,19 @@ function synchronizeKeySuggestionSnapshot(
 }
 
 function restoreKeySuggestionSnapshot(snapshot: OriginalSuggestionSnapshot): void {
+  clearPropertyTypeGroupLabels(snapshot.parent);
   restoreSnapshot(snapshot);
 
   for (const { element } of snapshot.elements) {
     clearPropertyTypeGroupDecoration(element);
+  }
+}
+
+function clearPropertyTypeGroupLabels(parent: HTMLElement): void {
+  for (const child of Array.from(parent.children)) {
+    if (child.classList.contains(PROPERTY_TYPE_GROUP_LABEL_CLASS)) {
+      child.remove();
+    }
   }
 }
 
