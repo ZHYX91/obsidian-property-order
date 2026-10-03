@@ -2,7 +2,7 @@
   "name": "obsidian-property-order",
   "version": "0.9.0",
   "description": "Reorder property values and customize native property name and value suggestions.",
-  "main": "main.js",
+  "main": "dist/main.js",
   "scripts": {
     "dev": "node esbuild.config.mjs",
     "build": "node esbuild.config.mjs production",
