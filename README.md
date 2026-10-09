@@ -33,6 +33,10 @@ Cross-property drag is enabled by default and can be disabled in the Value order
 
 ## Installation
 
+### Community Plugins (recommended)
+
+In Obsidian, go to **Settings → Community plugins → Browse**, search **Property Order**, then choose **Install** and **Enable**. You can also open its [Community Plugins page](https://obsidian.md/plugins?id=property-order). Use the ZIP instructions below only if you need a manual installation.
+
 ### Manual installation
 
 Download `property-order-<version>.zip` from the [latest release](https://github.com/ZHYX91/obsidian-property-order/releases/latest) and extract it into `Vault/.obsidian/plugins/`. The archive contains the `property-order/` directory with `main.js`, `manifest.json`, and `styles.css`. Reload Obsidian, then enable Property Order under Community plugins.
@@ -47,6 +51,8 @@ Back up and preserve `Vault/.obsidian/plugins/property-order/data.json` when it 
 2. Open a note with top-level YAML list properties in Obsidian Properties.
 3. On desktop, drag a value directly. On mobile, long-press a value, choose **Reorder** (or **Reorder or move**), then drag that value.
 4. Configure Key suggestions for property-name candidates and, if desired, enable Value suggestions to order Obsidian's existing property-value candidates with global defaults and per-property rules.
+
+**Which suggestion setting?** When you add a new property and type its **name**, **Key suggestions** controls whether names such as `status` or `owner` are pinned, hidden, or reordered. After you choose `status` and edit its **value**, **Value suggestions** controls the existing value candidates (for example, `todo` or `done`), with optional user-defined presets. Value suggestions are disabled by default. Neither setting changes the note until you select or edit a value.
 
 ## Settings
 
