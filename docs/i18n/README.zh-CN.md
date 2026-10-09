@@ -33,6 +33,10 @@ Property Order 用于安全地重排 Obsidian Properties 中的列表值，并�
 
 ## 安装
 
+### 社区插件（推荐）
+
+在 Obsidian 中进入**设置 → 第三方插件 → 浏览**，搜索 **Property Order**，点击**安装**并**启用**；也可先查看 [Property Order 社区插件页面](https://obsidian.md/plugins?id=property-order)。无法使用社区市场时，再按下方步骤手动安装。
+
 ### 手动安装
 
 从[最新版本](https://github.com/ZHYX91/obsidian-property-order/releases/latest)下载 `property-order-<version>.zip`，解压到 `Vault/.obsidian/plugins/`。压缩包包含 `property-order/` 目录及其中的 `main.js`、`manifest.json` 和 `styles.css`。重新加载 Obsidian 后，在第三方插件中启用 Property Order。
@@ -47,6 +51,8 @@ Property Order 用于安全地重排 Obsidian Properties 中的列表值，并�
 2. 打开一篇含顶层 YAML 列表属性的笔记，并显示 Obsidian Properties；
 3. 桌面端直接拖动属性值；移动端长按属性值，选择“重排”或“重排或移动”，再拖动该值；
 4. 在“属性名候选”中配置新增属性时的名称候选；如有需要，再启用“属性值候选”，用全局默认和按属性规则调整 Obsidian 已有的值候选。
+
+**该选哪个设置？** 新建属性、输入**属性名**时，**属性名候选**决定 `status`、`owner` 等名称的置顶、隐藏和排序。选中 `status` 并输入**属性值**时，**属性值候选**才负责 `todo`、`done` 等已有值的排序，也可以配置额外的预设值。属性值候选默认关闭；仅调整候选规则不会修改笔记，实际选择或编辑值后才会写入。
 
 ## 设置
 
