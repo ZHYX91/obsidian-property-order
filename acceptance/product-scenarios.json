@@ -28,6 +28,7 @@
       },
       "steps": [
         "Reorder alpha and beta and move one value between po_source and po_target",
+        "On desktop open a second workspace window, arm the foreign-pointer condition and perform a real source drag; export the synthetic target pointerup/cancel evidence, verify source completion and one-step undo, and separately verify real focus-departure cancellation",
         "Use Undo and Redo without first focusing the note body",
         "Wait for persistence and compare the final YAML while preserving the body",
         "Repeat one guarded move while the acceptance controller changes the disposable fixture after the operation begins",
@@ -62,7 +63,8 @@
         "On desktop, exercise native-injected and fallback preset candidates with click, Enter and Tab; change the query, property or editor and verify old candidates cannot write to the previous editor",
         "On desktop, open a second note in a popout window, switch focus and trigger a background metadata refresh; Enter and Tab must affect only the focused editor",
         "Add a rule or preset and immediately continue drafting or select another property; confirm persistence does not clear the later draft, restore an old selection or steal focus, then reopen settings to verify saved values",
-        "Move a whole rule card with Recently added display order and confirm its properties appear before older members; newly configured preset property names remain available in the property chooser"
+        "Move a whole rule card with Recently added display order and confirm its properties appear before older members; newly configured preset property names remain available in the property chooser",
+        "With Value Suggestions.md active, arm the provider next-settings-save delay, then use the real settings UI to save one edit and continue a later draft or change the selected property during the 20-second pending write; record delay start/release/completion, draft text, selection, caret and focus before/after release, and persisted settings after reopening"
       ],
       "expected": [
         "General, Value order, Key suggestions and Value suggestions remain accessible at desktop and mobile widths",
@@ -92,7 +94,8 @@
         "Switch the inside-group sorter between Name, Recently used and Notes containing the property and verify type groups stay fixed while only members within a group reorder",
         "Disable key suggestion enhancement, close and reopen the property-name editor, then verify native candidate order, visibility and selection behavior are restored without plugin group decoration",
         "Change plugin language while a grouped property-name menu is open and verify headings refresh without making type labels selectable",
-        "Check the four settings tabs in a narrow right-to-left layout; the active tab must remain visible after tab changes and window resizing"
+        "Check the four settings tabs in a narrow right-to-left layout; the active tab must remain visible after tab changes and window resizing",
+        "With Key Suggestions.md active, schedule the provider language switch, open the native property-name menu within ten seconds, and verify headings refresh in the same menu with unchanged candidate nodes/count; use real keyboard or touch selection afterward and restore the desired language through settings"
       ],
       "expected": [
         "The plugin reuses native candidate nodes and presents type labels without synthetic candidate rows",
