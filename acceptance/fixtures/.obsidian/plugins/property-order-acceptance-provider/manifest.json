@@ -1,8 +1,8 @@
 {
   "id": "property-order-acceptance-provider",
   "name": "Property Order Acceptance Provider",
-  "version": "1.3.0",
-  "minAppVersion": "1.13.0",
+  "version": "1.4.0",
+  "minAppVersion": "1.12.7",
   "description": "Bundle-bound controls for the disposable Property Order acceptance fixture.",
   "author": "ZhengYX",
   "isDesktopOnly": false

@@ -4,7 +4,9 @@ import { readFileSync } from "node:fs";
 import path from "node:path";
 import vm from "node:vm";
 
-import { describe, expect, it, vi } from "vitest";
+import { Window as HappyDomWindow } from "happy-dom";
+
+import { afterEach, describe, expect, it, vi } from "vitest";
 
 interface ProviderCommand {
   callback?: () => void;
@@ -21,13 +23,22 @@ interface ProviderRibbon {
 
 class PluginHarness {
   app!: {
+    setting?: { containerEl: HTMLElement };
     plugins?: {
       getPlugin: (id: string) => unknown;
     };
+    vault?: {
+      getAbstractFileByPath: (path: string) => unknown;
+      read: (file: unknown) => Promise<string>;
+      modify: (file: unknown, content: string) => Promise<unknown>;
+      create: (path: string, content: string) => Promise<unknown>;
+    };
     workspace: {
       getActiveViewOfType: () => unknown;
+      iterateAllLeaves?: (callback: (leaf: { view: { containerEl: HTMLElement } }) => void) => void;
     };
   };
+  conditionEvents!: Array<{ event: string; observation?: Array<{ tabBar: { direction: string; scrollLeft: number; tabs: unknown[] }; focused: { value: string; selectionStart: number }; menus: Array<{ nodeId: number; candidateCount: number; candidates: Array<{ nodeId: number }> }> }> }>;
   commands: ProviderCommand[] = [];
   cleanups: Array<() => void> = [];
   ribbons: ProviderRibbon[] = [];
@@ -112,6 +123,228 @@ function createFixture() {
 }
 
 describe("Property Order acceptance provider", () => {
+  afterEach(() => vi.useRealTimers());
+
+  function conditionProvider(path = "Value Suggestions.md") {
+    const fixture = createFixture();
+    fixture.view.file.path = path;
+    const plugin = {
+      saveData: vi.fn(async (_value: unknown) => undefined),
+      saveSettings: vi.fn(async () => undefined),
+      propertyOrderSettings: { language: "en" },
+    };
+    const provider = new (loadProvider())();
+    provider.app = {
+      plugins: { getPlugin: () => plugin },
+      workspace: { getActiveViewOfType: () => fixture.view },
+    };
+    provider.onload();
+    const command = (id: string) => provider.commands.find((item) => item.id === id)?.callback?.();
+    return { command, plugin, provider };
+  }
+
+  it("delays only the next settings write and preserves its receiver and payload", async () => {
+    vi.useFakeTimers();
+    const { command, plugin } = conditionProvider();
+    const original = plugin.saveData;
+    command("arm-next-settings-save-delay");
+    const payload = { draft: "first" };
+    const pending = plugin.saveData(payload);
+    expect(original).not.toHaveBeenCalled();
+    await vi.advanceTimersByTimeAsync(19_999);
+    expect(original).not.toHaveBeenCalled();
+    await vi.advanceTimersByTimeAsync(1);
+    await pending;
+    expect(original).toHaveBeenCalledExactlyOnceWith(payload);
+    expect(original.mock.contexts[0]).toBe(plugin);
+    expect(plugin.saveData).toBe(original);
+    await plugin.saveData({ draft: "later" });
+    expect(original).toHaveBeenCalledTimes(2);
+  });
+
+  it("releases a pending save and restores interception on unload", async () => {
+    vi.useFakeTimers();
+    const { command, plugin, provider } = conditionProvider();
+    const original = plugin.saveData;
+    command("arm-next-settings-save-delay");
+    const pending = plugin.saveData("pending");
+    provider.cleanups.forEach((cleanup) => cleanup());
+    await pending;
+    expect(plugin.saveData).toBe(original);
+    expect(original).toHaveBeenCalledExactlyOnceWith("pending");
+    expect(vi.getTimerCount()).toBe(0);
+  });
+
+  it("expires unused interception without writing settings", async () => {
+    vi.useFakeTimers();
+    const { command, plugin } = conditionProvider();
+    const original = plugin.saveData;
+    command("arm-next-settings-save-delay");
+    await vi.advanceTimersByTimeAsync(30_000);
+    expect(plugin.saveData).toBe(original);
+    expect(original).not.toHaveBeenCalled();
+  });
+
+  it("switches language only after the scheduled interval through the refresh boundary", async () => {
+    vi.useFakeTimers();
+    const { command, plugin } = conditionProvider("Key Suggestions.md");
+    command("schedule-language-zh-CN");
+    expect(plugin.propertyOrderSettings.language).toBe("en");
+    await vi.advanceTimersByTimeAsync(10_000);
+    expect(plugin.propertyOrderSettings.language).toBe("zh-CN");
+    expect(plugin.saveSettings).toHaveBeenCalledExactlyOnceWith(true, true);
+  });
+
+  it("cancels pending language changes on unload and refuses other notes", async () => {
+    vi.useFakeTimers();
+    const { command, plugin, provider } = conditionProvider();
+    command("schedule-language-zh-CN");
+    provider.cleanups.forEach((cleanup) => cleanup());
+    await vi.advanceTimersByTimeAsync(10_000);
+    expect(plugin.propertyOrderSettings.language).toBe("en");
+    expect(plugin.saveSettings).not.toHaveBeenCalled();
+    const other = conditionProvider("Ordinary.md");
+    const original = other.plugin.saveData;
+    other.command("schedule-language-zh-CN");
+    other.command("arm-next-settings-save-delay");
+    expect(other.plugin.saveData).toBe(original);
+    expect(vi.getTimerCount()).toBe(0);
+  });
+
+  it("injects foreign releases once after a frame and only after the source drag activates", () => {
+    const fixture = createFixture();
+    const foreignWindow = new HappyDomWindow();
+    const provider = new (loadProvider())();
+    const callbacks: FrameRequestCallback[] = [];
+    const raf = vi.spyOn(window, "requestAnimationFrame").mockImplementation((callback) => {
+      callbacks.push(callback);
+      return callbacks.length;
+    });
+    provider.app = { workspace: {
+      getActiveViewOfType: () => fixture.view,
+      iterateAllLeaves: (callback) => callback({ view: {
+        containerEl: foreignWindow.document.body as unknown as HTMLElement,
+      } }),
+    } };
+    provider.onload();
+    const up = vi.fn();
+    const cancel = vi.fn();
+    foreignWindow.document.addEventListener("pointerup", up);
+    foreignWindow.document.addEventListener("pointercancel", cancel);
+    provider.commands.find(({ id }) => id === "arm-foreign-pointer-condition")?.callback?.();
+    document.dispatchEvent(new PointerEvent("pointermove", { pointerId: 17, pointerType: "mouse" }));
+    expect(up).not.toHaveBeenCalled();
+    callbacks.shift()?.(0);
+    expect(up).not.toHaveBeenCalled();
+    document.querySelector(".multi-select-pill")?.classList.add("property-order-dragging");
+    document.dispatchEvent(new PointerEvent("pointermove", { pointerId: 17, pointerType: "mouse" }));
+    callbacks.shift()?.(1);
+    expect(up).toHaveBeenCalledOnce();
+    expect(cancel).toHaveBeenCalledOnce();
+    expect(up.mock.calls[0]?.[0]).toMatchObject({ pointerId: 17 });
+    expect(up.mock.calls[0]?.[0].isTrusted).not.toBe(true);
+    document.dispatchEvent(new PointerEvent("pointermove", { pointerId: 17 }));
+    expect(callbacks).toHaveLength(0);
+    expect(fixture.setViewData).not.toHaveBeenCalled();
+    provider.cleanups.forEach((cleanup) => cleanup());
+    raf.mockRestore();
+    foreignWindow.close();
+  });
+
+  it("refuses foreign injection without a second document and cancels an armed frame on unload", () => {
+    const fixture = createFixture();
+    const provider = new (loadProvider())();
+    provider.app = { workspace: { getActiveViewOfType: () => fixture.view } };
+    provider.onload();
+    const command = provider.commands.find(({ id }) => id === "arm-foreign-pointer-condition");
+    const raf = vi.spyOn(window, "requestAnimationFrame").mockReturnValue(7);
+    const cancel = vi.spyOn(window, "cancelAnimationFrame");
+    command?.callback?.();
+    document.dispatchEvent(new PointerEvent("pointermove"));
+    expect(raf).not.toHaveBeenCalled();
+    const foreignWindow = new HappyDomWindow();
+    provider.app.workspace.iterateAllLeaves = (callback) => callback({ view: {
+      containerEl: foreignWindow.document.body as unknown as HTMLElement,
+    } });
+    command?.callback?.();
+    document.dispatchEvent(new PointerEvent("pointermove"));
+    expect(raf).toHaveBeenCalledOnce();
+    provider.cleanups.forEach((cleanup) => cleanup());
+    expect(cancel).toHaveBeenCalledWith(7);
+    document.dispatchEvent(new PointerEvent("pointermove"));
+    expect(raf).toHaveBeenCalledOnce();
+    raf.mockRestore();
+    cancel.mockRestore();
+    foreignWindow.close();
+  });
+
+  it("exports only condition evidence and refuses an unknown existing file", async () => {
+    const { command, provider } = conditionProvider();
+    const vault = {
+      getAbstractFileByPath: vi.fn<() => unknown>(() => null),
+      read: vi.fn(async () => "private existing content"),
+      modify: vi.fn(async () => undefined),
+      create: vi.fn(async (_path: string, _content: string) => undefined),
+    };
+    provider.app.vault = vault;
+    await command("export-condition-events");
+    expect(vault.create).toHaveBeenCalledOnce();
+    expect(vault.create.mock.calls[0]?.[0]).toBe("Acceptance Conditions.json");
+    expect(JSON.parse(vault.create.mock.calls[0]?.[1] ?? "{}")).toEqual({
+      kind: "property-order-acceptance-conditions", events: [],
+    });
+    vault.getAbstractFileByPath.mockReturnValue({ path: "Acceptance Conditions.json" });
+    await command("export-condition-events");
+    expect(vault.modify).not.toHaveBeenCalled();
+    expect(vault.create).toHaveBeenCalledOnce();
+  });
+
+  it("records delayed geometry, focus and stable menu identity without changing UI", async () => {
+    vi.useFakeTimers();
+    const { command, provider } = conditionProvider();
+    const root = document.createElement("div");
+    root.innerHTML = '<div class="property-order-settings-tabs" role="tablist" style="direction:rtl"><button class="property-order-settings-tab is-active" role="tab" aria-selected="true">General</button></div><input value="later draft"><div class="suggestion-container mod-property-key"><div class="suggestion-item">key</div></div>';
+    document.body.append(root);
+    const bar = root.querySelector<HTMLElement>("[role=tablist]")!;
+    bar.scrollLeft = -15;
+    const input = root.querySelector("input")!;
+    input.focus();
+    input.setSelectionRange(2, 4);
+    command("capture-settings-geometry");
+    await vi.advanceTimersByTimeAsync(9_999);
+    expect(provider.conditionEvents.filter(({ event }) => event === "read-only UI observation")).toHaveLength(0);
+    await vi.advanceTimersByTimeAsync(1);
+    const first = provider.conditionEvents.find(({ event }) => event === "read-only UI observation")?.observation?.[0];
+    expect(first?.tabBar).toMatchObject({ direction: "rtl", scrollLeft: -15 });
+    expect(first?.focused).toMatchObject({ value: "later draft", selectionStart: 2 });
+    command("schedule-readonly-snapshot");
+    await vi.advanceTimersByTimeAsync(3_000);
+    const last = provider.conditionEvents.at(-1)?.observation?.[0];
+    expect(last?.menus).toEqual(first?.menus);
+    expect(last?.menus[0]?.candidateCount).toBe(1);
+    expect(document.activeElement).toBe(input);
+    expect(input.value).toBe("later draft");
+    expect(bar.scrollLeft).toBe(-15);
+    command("capture-settings-geometry");
+    provider.cleanups.forEach((cleanup) => cleanup());
+    expect(vi.getTimerCount()).toBe(0);
+  });
+
+  it("observes a detached host settings document even without a workspace leaf", async () => {
+    vi.useFakeTimers();
+    const { command, provider } = conditionProvider();
+    const settingsWindow = new HappyDomWindow();
+    settingsWindow.document.body.innerHTML = '<div class="property-order-settings-tabs" role="tablist"><button role="tab" class="property-order-settings-tab is-active">General</button></div>';
+    provider.app.setting = { containerEl: settingsWindow.document.body as unknown as HTMLElement };
+    command("schedule-readonly-snapshot");
+    await vi.advanceTimersByTimeAsync(3_000);
+    const observation = provider.conditionEvents.at(-1)?.observation;
+    expect(observation).toHaveLength(2);
+    expect(observation?.[1]?.tabBar.tabs).toHaveLength(1);
+    provider.cleanups.forEach((cleanup) => cleanup());
+    settingsWindow.close();
+  });
+
   it("prepares grouped key suggestions through the plugin settings boundary", async () => {
     const fixture = createFixture();
     const saveSettings = vi.fn(async () => undefined);
