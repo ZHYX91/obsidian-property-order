@@ -1,6 +1,7 @@
 // @vitest-environment happy-dom
 
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { Window as HappyDomWindow } from "happy-dom";
 import type { Keymap } from "obsidian";
 
 import { registerSuggestionKeyboardBridge } from "../../../src/features/key-order/suggestion-keyboard-bridge";
@@ -157,6 +158,62 @@ describe("suggestion keyboard bridge", () => {
     cleanup();
     window.removeEventListener("keydown", hostCapture, true);
   });
+
+  it.each(["Enter", "Tab", "ArrowDown", "Escape"])(
+    "leaves another window's %s event alone even if this document owns the shared scope",
+    (key) => {
+      const container = createContainer();
+      const first = container.querySelector<HTMLElement>(".suggestion-item")!;
+      const click = vi.spyOn(first, "click");
+      const scopes: Array<{ handler: ((event: KeyboardEvent) => boolean | void) | null }> = [];
+      const keymap = {
+        pushScope: vi.fn((scope) => { scopes.push(scope); }),
+        popScope: vi.fn(() => { scopes.pop(); }),
+      };
+      const onActivationIntent = vi.fn();
+      const onEscapeIntent = vi.fn();
+      const keyboard = registerSuggestionKeyboardBridge({
+        keymap: keymap as unknown as Keymap,
+        getActiveContainer: () => container,
+        hasActiveContext: () => true,
+        onActivationIntent,
+        onEscapeIntent,
+        onSynchronizationFailure: vi.fn(),
+        supportsEmacsNavigation: false,
+        targetWindow: window,
+      });
+      listenerCleanups.add(keyboard);
+      keyboard.synchronizeScope(true);
+
+      const otherWindow = new HappyDomWindow();
+      const input = otherWindow.document.createElement("input");
+      otherWindow.document.body.appendChild(input);
+      input.focus();
+      otherWindow.addEventListener("keydown", (event) => {
+        scopes.at(-1)?.handler?.(event as unknown as KeyboardEvent);
+      }, true);
+
+      try {
+        const event = new otherWindow.KeyboardEvent("keydown", {
+          bubbles: true, cancelable: true, key,
+        });
+        input.dispatchEvent(event);
+        expect(event.defaultPrevented).toBe(false);
+        expect(click).not.toHaveBeenCalled();
+        expect(onActivationIntent).not.toHaveBeenCalled();
+        expect(onEscapeIntent).not.toHaveBeenCalled();
+        expect(keymap.popScope).not.toHaveBeenCalled();
+        expect(container.querySelector(".is-selected")).toBe(first);
+
+        window.dispatchEvent(new KeyboardEvent("keydown", {
+          bubbles: true, cancelable: true, key: "Enter",
+        }));
+        expect(click).toHaveBeenCalledOnce();
+      } finally {
+        otherWindow.close();
+      }
+    },
+  );
 
   it("ignores internal preset commit Enter events", () => {
     const container = createContainer(false);

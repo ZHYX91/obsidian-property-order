@@ -3,6 +3,7 @@ import { PLUGIN_HIDDEN_SUGGESTION_CLASS } from "./suggestion-visibility";
 
 export interface SuggestionElementSnapshot {
   ariaHiddenAttribute: string | null;
+  ariaSelectedAttribute: string | null;
   element: HTMLElement;
   hadPluginHiddenClass: boolean;
   hadSelectedClass: boolean;
@@ -52,6 +53,11 @@ export function restoreSnapshot(snapshot: OriginalSuggestionSnapshot): void {
     elementSnapshot.element.classList.toggle(
       "is-selected",
       elementSnapshot.hadSelectedClass,
+    );
+    restoreAttribute(
+      elementSnapshot.element,
+      "aria-selected",
+      elementSnapshot.ariaSelectedAttribute,
     );
   }
 
@@ -155,6 +161,7 @@ export function updateNativeAttributeSnapshot(
 export function createElementSnapshot(element: HTMLElement): SuggestionElementSnapshot {
   return {
     ariaHiddenAttribute: element.getAttribute("aria-hidden"),
+    ariaSelectedAttribute: element.getAttribute("aria-selected"),
     element,
     hadPluginHiddenClass: element.classList.contains(PLUGIN_HIDDEN_SUGGESTION_CLASS),
     hadSelectedClass: element.classList.contains("is-selected"),

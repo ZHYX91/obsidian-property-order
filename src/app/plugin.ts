@@ -468,6 +468,7 @@ function areKeySuggestionSettingsEqual(
   right: PropertyOrderSettings,
 ): boolean {
   return (
+    left.language === right.language &&
     left.enableNativeKeySuggestionOrder === right.enableNativeKeySuggestionOrder &&
     left.keySuggestionSortMode === right.keySuggestionSortMode &&
     left.groupKeySuggestionsByType === right.groupKeySuggestionsByType &&

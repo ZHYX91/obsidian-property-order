@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  getFrontmatterListPropertyScalars,
   getFrontmatterTextListPropertyValues,
   moveFrontmatterListPropertyValue,
   planFrontmatterListPropertyMove,
@@ -259,6 +260,81 @@ describe("Obsidian text-list normalization", () => {
         writebackFormat: "preserve",
       }),
     ).toBe(input);
+  });
+
+  it.each([
+    ["source", "\n"],
+    ["target", "\n"],
+    ["source", "\r\n"],
+    ["target", "\r\n"],
+    ["source", "\r"],
+    ["target", "\r"],
+  ])("rejects a multiline %s scalar with %j newlines", (propertyKey, newline) => {
+    const input = [
+      "---",
+      "source: alpha",
+      ...(propertyKey === "source" ? ["  continued"] : []),
+      "target: beta",
+      ...(propertyKey === "target" ? ["  continued"] : []),
+      "---",
+    ].join(newline);
+
+    expect(getFrontmatterListPropertyScalars(input, propertyKey, true)).toBeNull();
+    expect(getFrontmatterTextListPropertyValues(input, propertyKey)).toBeNull();
+    expect(
+      moveFrontmatterListPropertyValue(input, {
+        normalizeAsTextList: true,
+        sourcePropertyKey: "source",
+        targetPropertyKey: "target",
+        sourceIndex: 0,
+        targetSlot: 1,
+        writebackFormat: "preserve",
+      }),
+    ).toBeNull();
+    expect(
+      reorderFrontmatterListProperty(input, {
+        normalizeAsTextList: true,
+        propertyKey,
+        sourceIndex: 0,
+        targetSlot: 1,
+        writebackFormat: "preserve",
+      }),
+    ).toBeNull();
+  });
+
+  it("allows comments and blank lines after single-line scalar values", () => {
+    const input = [
+      "---",
+      "source: alpha",
+      "  # source comment",
+      "",
+      "target: beta",
+      "  # target comment",
+      "",
+      "---",
+    ].join("\n");
+
+    expect(
+      moveFrontmatterListPropertyValue(input, {
+        normalizeAsTextList: true,
+        sourcePropertyKey: "source",
+        targetPropertyKey: "target",
+        sourceIndex: 0,
+        targetSlot: 1,
+        writebackFormat: "preserve",
+      }),
+    ).toBe(
+      [
+        "---",
+        "source: []",
+        "  # source comment",
+        "",
+        "target: [beta, alpha]",
+        "  # target comment",
+        "",
+        "---",
+      ].join("\n"),
+    );
   });
 
   it("fails closed when the affected property key is duplicated", () => {

@@ -132,6 +132,9 @@ export function registerSuggestionKeyboardBridge(
   scope?.register(null, null, (event) => {
     // Obsidian's keymap captures before DOM listeners. Own the active popup's
     // scope so native internal selection cannot commit a different visible row.
+    // The app keymap is shared by popout windows. A pending scope from another
+    // document must never activate its editor in response to this window's key.
+    if (!isEventFromWindow(event, options.targetWindow)) return;
     if (Reflect.get(event, "propertyOrderPresetCommit") === true) return true;
     if (event.isComposing) return true;
     if (event.key === "Escape") {
@@ -190,8 +193,11 @@ export function synchronizeSuggestionSelection(
       ? selectedElement
       : visibleElements[0];
 
-  return targetElement.classList.contains(SELECTED_SUGGESTION_CLASS) ||
-    requestNativeSelection(targetElement, getSuggestionElements);
+  return requestNativeSelection(
+    targetElement,
+    getSuggestionElements,
+    !targetElement.classList.contains(SELECTED_SUGGESTION_CLASS),
+  );
 }
 
 function handleEnter(
@@ -358,16 +364,28 @@ function getVisiblePageSize(container: HTMLElement, selectedElement: HTMLElement
 function requestNativeSelection(
   element: HTMLElement,
   getSuggestionElements: SuggestionElementResolver,
+  scrollIntoView = true,
 ): boolean {
   const container = element.closest<HTMLElement>(
     ".suggestion-container, .suggestion, .menu",
   ) ?? element;
   for (const item of getSuggestionElements(container)) {
-    item.classList.toggle(SELECTED_SUGGESTION_CLASS, item === element);
+    const selected = item === element;
+    item.classList.toggle(SELECTED_SUGGESTION_CLASS, selected);
+    if (item.getAttribute("role") === "option" || item.hasAttribute("aria-selected")) {
+      item.setAttribute("aria-selected", String(selected));
+    }
   }
 
-  element.scrollIntoView?.({ block: "nearest" });
+  if (scrollIntoView) element.scrollIntoView?.({ block: "nearest" });
   return element.classList.contains(SELECTED_SUGGESTION_CLASS);
+}
+
+function isEventFromWindow(event: KeyboardEvent, targetWindow: Window): boolean {
+  const target = event.target;
+  if (target === targetWindow || target === targetWindow.document) return true;
+  return target != null &&
+    (target as Partial<Node>).ownerDocument === targetWindow.document;
 }
 
 function activateSuggestion(element: HTMLElement): boolean {

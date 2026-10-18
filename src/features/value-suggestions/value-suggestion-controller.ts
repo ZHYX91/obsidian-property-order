@@ -77,6 +77,7 @@ interface DocumentEnhancementState {
   rafId: number | null;
   recentTrackingCleanup: () => void;
   view: Window;
+  windowFocused: boolean;
 }
 
 interface CustomFallbackSession {
@@ -85,14 +86,21 @@ interface CustomFallbackSession {
   status: "active" | "closed";
 }
 
+interface ValueSuggestionOwner {
+  context: PropertyValueSuggestionContext;
+  query: string;
+}
+
 export class ValueSuggestionOrderController {
   private readonly activeContainers = new Map<Document, HTMLElement>();
+  private readonly containerOwners = new WeakMap<HTMLElement, ValueSuggestionOwner>();
   private readonly customFallbacks = new Map<Document, CustomValuePopupMount>();
   private readonly customFallbackSessions = new Map<Document, CustomFallbackSession>();
   private readonly documentStates = new Map<Document, DocumentEnhancementState>();
   private initialized = false;
   private readonly getSettings: () => PropertyOrderSettings;
   private readonly originalSuggestions = new Map<HTMLElement, OriginalSuggestionSnapshot>();
+  private readonly presetItemContexts = new WeakMap<HTMLElement, ValueSuggestionOwner>();
   private readonly plugin: Plugin;
   private readonly propertyValueFrequencyStore: PropertyValueFrequencyStore;
   private readonly recentValueStore: RecentPropertyValueStore;
@@ -287,6 +295,7 @@ export class ValueSuggestionOrderController {
       rafId: null,
       recentTrackingCleanup: () => undefined,
       view: targetWindow,
+      windowFocused: targetDocument.hasFocus(),
     };
     this.documentStates.set(targetDocument, state);
 
@@ -376,11 +385,13 @@ export class ValueSuggestionOrderController {
         }
       };
       const handleWindowBlur = (): void => {
+        state.windowFocused = false;
         this.closeCustomFallbackSession(targetDocument);
         this.hideCustomFallback(targetDocument);
         state.synchronizeKeyboardScope(false);
       };
       const handleWindowFocus = (): void => {
+        state.windowFocused = true;
         if (
           this.getSettings().enableNativeValueSuggestionOrder &&
           getActivePropertyValueSuggestionContext(targetDocument) != null
@@ -418,7 +429,8 @@ export class ValueSuggestionOrderController {
         targetWindow,
       });
       state.keyboardCleanup = keyboard;
-      state.synchronizeKeyboardScope = (active) => keyboard.synchronizeScope(active);
+      state.synchronizeKeyboardScope = (active) =>
+        keyboard.synchronizeScope(active && state.windowFocused);
 
       if (this.getSettings().enableNativeValueSuggestionOrder) {
         this.startDocumentObservation(targetDocument, state);
@@ -581,6 +593,13 @@ export class ValueSuggestionOrderController {
 
   private enhanceContainer(container: HTMLElement): void {
     const settings = this.getSettings();
+    const selectedPreset = getPropertyValueSuggestionItems(container).find(
+      ({ element }) => element.classList.contains(PLUGIN_PRESET_VALUE_ITEM_CLASS) &&
+        element.classList.contains("is-selected") && isSuggestionElementVisible(element),
+    );
+    const selectedPresetContext = selectedPreset == null
+      ? null
+      : this.presetItemContexts.get(selectedPreset.element);
     this.removePluginPresetItems(container);
     container.classList.remove(VALUE_SUGGESTIONS_SUPPRESSED_CLASS);
     const items = getPropertyValueSuggestionItems(container);
@@ -708,7 +727,9 @@ export class ValueSuggestionOrderController {
       };
     }
 
-    const query = getPropertyValueInputText(getPropertyValueInput(context)).toLocaleLowerCase();
+    const rawQuery = getPropertyValueInputText(getPropertyValueInput(context));
+    const owner: ValueSuggestionOwner = { context, query: rawQuery };
+    const query = rawQuery.toLocaleLowerCase();
     if (query.length > 0) {
       plannedValues = plannedValues.filter(
         (planned) =>
@@ -732,6 +753,7 @@ export class ValueSuggestionOrderController {
       container.dataset.propertyOrderValueEnhanced = "true";
       container.dataset.propertyOrderValueSignature = JSON.stringify(signaturePayload);
       this.activeContainers.delete(container.ownerDocument);
+      this.containerOwners.delete(container);
       return;
     }
 
@@ -741,6 +763,9 @@ export class ValueSuggestionOrderController {
       container.dataset.propertyOrderValueSignature === signature &&
       matchesAppliedState(snapshot.appliedState, items)
     ) {
+      // The host can reuse an unchanged list for another editor or query.
+      this.containerOwners.set(container, owner);
+      this.activeContainers.set(container.ownerDocument, container);
       return;
     }
 
@@ -756,7 +781,7 @@ export class ValueSuggestionOrderController {
         const nativeElement = elementsByValue.get(planned.value)?.shift();
         return nativeElement ??
           (planned.isPreset
-            ? this.createPresetValueItem(context, itemParent, planned.value)
+            ? this.createPresetValueItem(owner, itemParent, planned.value)
             : null);
       })
       .filter((element): element is HTMLElement => element != null);
@@ -790,6 +815,22 @@ export class ValueSuggestionOrderController {
       itemParent.appendChild(element);
     }
 
+    if (
+      selectedPreset != null &&
+      selectedPresetContext?.context.editor === context.editor &&
+      equalPropertyKey(selectedPresetContext.context.propertyKey, context.propertyKey) &&
+      selectedPresetContext.query === rawQuery
+    ) {
+      const preservedSelection = getPropertyValueSuggestionItems(container).find(
+        ({ element, key }) => key === selectedPreset.key && visibleElementSet.has(element),
+      )?.element;
+      if (preservedSelection != null) {
+        for (const element of [...visibleElements, ...hiddenElements]) {
+          element.classList.toggle("is-selected", element === preservedSelection);
+        }
+      }
+    }
+
     if (!synchronizeSuggestionSelection(
       container,
       snapshot.appliedState == null,
@@ -804,11 +845,12 @@ export class ValueSuggestionOrderController {
     );
     container.dataset.propertyOrderValueEnhanced = "true";
     container.dataset.propertyOrderValueSignature = signature;
+    this.containerOwners.set(container, owner);
     this.activeContainers.set(container.ownerDocument, container);
   }
 
   private createPresetValueItem(
-    context: PropertyValueSuggestionContext,
+    owner: ValueSuggestionOwner,
     itemParent: HTMLElement,
     value: string,
   ): HTMLElement {
@@ -817,6 +859,7 @@ export class ValueSuggestionOrderController {
     });
     item.dataset.propertyOrderPresetValue = "true";
     item.setAttribute("role", "option");
+    this.presetItemContexts.set(item, owner);
     const title = item.createDiv({ cls: "suggestion-title" });
     title.textContent = value;
 
@@ -828,8 +871,15 @@ export class ValueSuggestionOrderController {
       // native item index, so letting this bubble can commit a second value.
       event.preventDefault();
       event.stopImmediatePropagation();
-      if (commitCustomPropertyValueCandidate(context, value)) {
-        this.hideCustomFallback(context.editor.ownerDocument);
+      if (
+        !item.isConnected ||
+        !isSuggestionElementVisible(item) ||
+        !this.isSuggestionOwnerActive(owner)
+      ) {
+        return;
+      }
+      if (commitCustomPropertyValueCandidate(owner.context, value)) {
+        this.hideCustomFallback(owner.context.editor.ownerDocument);
       }
     });
     return item;
@@ -879,19 +929,41 @@ export class ValueSuggestionOrderController {
   }
 
   private getActiveContainer(targetDocument: Document): HTMLElement | null {
+    if (this.documentStates.get(targetDocument)?.windowFocused === false) {
+      return null;
+    }
     const container = this.activeContainers.get(targetDocument);
+    const owner = container == null ? null : this.containerOwners.get(container);
 
     if (
       container == null ||
       !container.isConnected ||
       !isSuggestionElementVisible(container) ||
-      container.dataset.propertyOrderValueEnhanced !== "true"
+      container.dataset.propertyOrderValueEnhanced !== "true" ||
+      owner == null ||
+      !this.isSuggestionOwnerActive(owner)
     ) {
       this.activeContainers.delete(targetDocument);
       return null;
     }
 
     return container;
+  }
+
+  private isSuggestionOwnerActive(owner: ValueSuggestionOwner): boolean {
+    const targetDocument = owner.context.editor.ownerDocument;
+    const current = getActivePropertyValueSuggestionContext(targetDocument);
+    // Focus and input changes schedule rendering for the next frame. Until
+    // then, an old row must not overwrite text or focus its previous editor.
+    // Keep transfers between inputs within the same property editor valid.
+    return this.getSettings().enableNativeValueSuggestionOrder &&
+      this.documentStates.get(targetDocument)?.windowFocused !== false &&
+      owner.context.editor.isConnected &&
+      current != null &&
+      current.editor === owner.context.editor &&
+      current.row === owner.context.row &&
+      equalPropertyKey(current.propertyKey, owner.context.propertyKey) &&
+      getPropertyValueInputText(getPropertyValueInput(current)) === owner.query;
   }
 
   private invalidateUsage(): void {
@@ -1055,6 +1127,11 @@ export class ValueSuggestionOrderController {
     const previousMount = this.customFallbacks.get(targetDocument) ?? null;
     const settings = this.getSettings();
 
+    if (this.documentStates.get(targetDocument)?.windowFocused === false) {
+      this.hideCustomFallback(targetDocument);
+      return;
+    }
+
     if (
       !settings.enableNativeValueSuggestionOrder ||
       settings.valueSuggestionLegacyMigrationPending
@@ -1125,19 +1202,31 @@ export class ValueSuggestionOrderController {
         ? getCachedPropertyValueUsage(this.plugin.app, context.propertyKey)
         : [],
     );
-    const mount = mountCustomValuePopup(
+    const owner: ValueSuggestionOwner = { context, query };
+    let mount: CustomValuePopupMount | null = null;
+    mount = mountCustomValuePopup(
       context,
       plan.candidates.map((candidate) => candidate.value),
       (value) => {
-        commitCustomPropertyValueCandidate(context, value);
-        this.closeCustomFallbackSession(targetDocument);
-        this.hideCustomFallback(targetDocument);
+        if (
+          mount == null ||
+          this.customFallbacks.get(targetDocument) !== mount ||
+          !mount.container.isConnected ||
+          !this.isSuggestionOwnerActive(owner)
+        ) {
+          return;
+        }
+        if (commitCustomPropertyValueCandidate(context, value)) {
+          this.closeCustomFallbackSession(targetDocument);
+          this.hideCustomFallback(targetDocument);
+        }
       },
       selectedValue,
     );
 
     if (mount != null) {
       this.customFallbacks.set(targetDocument, mount);
+      this.containerOwners.set(mount.container, owner);
       this.activeContainers.set(targetDocument, mount.container);
     }
   }
@@ -1210,6 +1299,7 @@ export class ValueSuggestionOrderController {
     }
 
     this.customFallbacks.delete(targetDocument);
+    this.containerOwners.delete(mount.container);
     if (this.activeContainers.get(targetDocument) === mount.container) {
       this.activeContainers.delete(targetDocument);
     }
@@ -1295,6 +1385,7 @@ export class ValueSuggestionOrderController {
   }
 
   private restoreContainer(container: HTMLElement): void {
+    this.containerOwners.delete(container);
     container.classList.remove(VALUE_SUGGESTIONS_SUPPRESSED_CLASS);
     this.removePluginPresetItems(container);
     const snapshot = this.originalSuggestions.get(container);

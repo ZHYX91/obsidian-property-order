@@ -446,6 +446,10 @@ export class PropertyValueOrderController {
   };
 
   private readonly handlePointerMove = (event: PointerEvent): void => {
+    if (!this.isPointerEventFromInteractionDocument(event)) {
+      return;
+    }
+
     if (!this.getSettings().enablePropertyValueDrag && this.interactionState.phase !== "idle") {
       this.applyActions(this.transition({ type: "abort" }));
       return;
@@ -474,6 +478,10 @@ export class PropertyValueOrderController {
   };
 
   private readonly handlePointerUp = async (event: PointerEvent): Promise<void> => {
+    if (!this.isPointerEventFromInteractionDocument(event)) {
+      return;
+    }
+
     const isMobileDirectPointer = this.mobileDirectPointerId === event.pointerId;
 
     if (isMobileDirectPointer) {
@@ -510,8 +518,19 @@ export class PropertyValueOrderController {
   };
 
   private readonly handlePointerCancel = (event: PointerEvent): void => {
+    if (!this.isPointerEventFromInteractionDocument(event)) {
+      return;
+    }
+
     this.applyActions(this.transition({ type: "cancel", pointerId: event.pointerId }));
   };
+
+  private isPointerEventFromInteractionDocument(event: PointerEvent): boolean {
+    const interactionDocument =
+      this.dragState?.document ?? this.pressedPill?.ownerDocument;
+
+    return interactionDocument == null || event.currentTarget === interactionDocument;
+  }
 
   private readonly handleTrailingClick = (event: MouseEvent): void => {
     const suppression = this.trailingClickSuppression;

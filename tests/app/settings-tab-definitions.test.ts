@@ -86,7 +86,7 @@ describe("PropertyOrderSettingTab declarative definitions", () => {
 
     await settingTab.setControlValue("language", "zh-CN");
     expect(settings.language).toBe("zh-CN");
-    expect(saveSettings).toHaveBeenLastCalledWith(false, false);
+    expect(saveSettings).toHaveBeenLastCalledWith(true, false);
     expect(update).toHaveBeenCalledTimes(1);
     expect(refreshDomState).not.toHaveBeenCalled();
 

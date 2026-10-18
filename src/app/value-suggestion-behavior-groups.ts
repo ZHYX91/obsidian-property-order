@@ -20,7 +20,7 @@ import { PropertyBehaviorSuggest } from "./property-behavior-suggest";
 export interface ValueSuggestionBehaviorGroupsOptions {
   app: App;
   containerEl: HTMLElement;
-  customOrderKeys: readonly string[];
+  getCustomOrderKeys: () => readonly string[];
   displayOrder: ValueSuggestionKeyDisplayOrder;
   getAssignments: () => readonly PropertyValueBehaviorAssignment[];
   onAssignmentsChange: (assignments: PropertyValueBehaviorAssignment[]) => Promise<void>;
@@ -68,10 +68,9 @@ export function renderValueSuggestionBehaviorGroups(
         .setValue(displayOrder)
         .onChange((value) => {
           if (value !== "name" && value !== "recent") return;
-          void options.onDisplayOrderChange(value).then(() => {
-            displayOrder = value;
-            refresh();
-          });
+          void options.onDisplayOrderChange(value);
+          displayOrder = value;
+          refresh();
         });
     });
   const cardList = options.containerEl.createDiv();
@@ -141,8 +140,10 @@ export function renderValueSuggestionBehaviorGroups(
       if (pending || closed) return;
       pending = true;
       try {
-        await options.onAssignmentsChange(next);
+        const pendingSave = options.onAssignmentsChange(next);
+        // Finish this interaction now; persistence must not alter a later draft or focus.
         if (!closed) after();
+        await pendingSave;
       } finally {
         pending = false;
       }
@@ -168,7 +169,7 @@ export function renderValueSuggestionBehaviorGroups(
       });
     };
     const suggester = new PropertyBehaviorSuggest(options.app, input, {
-      customOrderKeys: options.customOrderKeys,
+      getCustomOrderKeys: options.getCustomOrderKeys,
       getAlreadyHereLabel: () => options.t("settings.valueSuggestions.behavior.alreadyHere"),
       getAssignments: options.getAssignments,
       getAvailableKeys,
@@ -186,8 +187,13 @@ export function renderValueSuggestionBehaviorGroups(
     select.addEventListener("change", () => {
       const nextBehavior = behaviors.find((value) => value === select.value);
       if (nextBehavior == null || nextBehavior === behavior || pending) return;
-      const next = options.getAssignments().map((assignment) =>
-        assignment.behavior === behavior ? { ...assignment, behavior: nextBehavior } : assignment);
+      const current = options.getAssignments();
+      const next = [
+        ...current.filter((assignment) => assignment.behavior !== behavior),
+        ...current
+          .filter((assignment) => assignment.behavior === behavior)
+          .map((assignment) => ({ ...assignment, behavior: nextBehavior })),
+      ];
       void save(next, () => {
         preserveSettingsView(options.containerEl, () => {
           mountCard(nextBehavior);

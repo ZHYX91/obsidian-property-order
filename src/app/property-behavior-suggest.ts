@@ -11,7 +11,7 @@ import type {
 } from "../shared/types";
 
 export interface PropertyBehaviorSuggestOptions {
-  customOrderKeys: readonly string[];
+  getCustomOrderKeys: () => readonly string[];
   getAlreadyHereLabel: () => string;
   getAssignments: () => readonly PropertyValueBehaviorAssignment[];
   getAvailableKeys: () => readonly string[];
@@ -40,7 +40,7 @@ export class PropertyBehaviorSuggest extends AbstractInputSuggest<string> {
     const candidates = mergePropertyValueKeyCandidates(
       this.options.getAvailableKeys(),
       this.options.getAssignments(),
-      this.options.customOrderKeys,
+      this.options.getCustomOrderKeys(),
     );
 
     return candidates

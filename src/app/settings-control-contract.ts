@@ -46,7 +46,7 @@ const CONTROL_MUTATIONS = {
     refreshMode: "none",
   },
   language: {
-    refreshKeySuggestions: false,
+    refreshKeySuggestions: true,
     refreshMode: "structure",
   },
   listWritebackFormat: {

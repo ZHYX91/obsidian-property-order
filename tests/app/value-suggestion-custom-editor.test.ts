@@ -4,6 +4,7 @@ import { Setting, type App, type TFile } from "obsidian";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { renderCustomValueSuggestionEditor } from "../../src/app/value-suggestion-custom-editor";
+import { preserveSettingsView } from "../../src/app/settings-view-state";
 import type {
   PropertyValueBehaviorAssignment,
   PropertyValueCustomOrder,
@@ -321,6 +322,72 @@ describe("renderCustomValueSuggestionEditor", () => {
     bottomSection.dispatchEvent(secondDrop);
     expect(secondDrop.defaultPrevented).toBe(false);
   });
+
+  it.each(["status", "priority"])(
+    "keeps the current %s draft when an earlier preset save finishes",
+    async (nextPropertyKey) => {
+      const container = document.createElement("div");
+      document.body.appendChild(container);
+      let selectedPropertyKey = "status";
+      let orders = customOrders();
+      let finishSave: (() => void) | undefined;
+      const pendingSave = new Promise<void>((resolve) => {
+        finishSave = resolve;
+      });
+      const render = (propertyKey = selectedPropertyKey): void => {
+        selectedPropertyKey = propertyKey;
+        preserveSettingsView(container, () => {
+          const staging = document.createElement("div");
+          renderCustomValueSuggestionEditor({
+            app: createApp(),
+            assignments: customAssignments(),
+            containerEl: staging,
+            customOrders: orders,
+            displayOrder: "name",
+            getFrequency: () => [],
+            onCustomOrdersChange: async (nextOrders) => {
+              orders = nextOrders;
+              await pendingSave;
+            },
+            rerender: render,
+            selectedPropertyKey,
+            t: (key) => key,
+          });
+          container.replaceChildren(...Array.from(staging.childNodes));
+        });
+      };
+      const getInput = (): HTMLInputElement => {
+        const input = container.querySelector<HTMLInputElement>(
+          ".is-pinned .property-order-custom-value-add input",
+        );
+        if (input == null) throw new Error("Expected the preset input.");
+        return input;
+      };
+      render();
+      getInput().value = "saved-preset";
+      container.querySelector<HTMLButtonElement>(
+        ".is-pinned .property-order-custom-value-add button",
+      )?.click();
+      Array.from(container.querySelectorAll<HTMLButtonElement>(
+        ".property-order-custom-value-key",
+      )).find((button) => button.textContent === nextPropertyKey)?.click();
+      const draftInput = getInput();
+      draftInput.value = "unfinished draft";
+      draftInput.focus();
+      draftInput.setSelectionRange(3, 8);
+
+      finishSave?.();
+      await flushPersist();
+
+      expect(selectedPropertyKey).toBe(nextPropertyKey);
+      expect(getInput()).toBe(draftInput);
+      expect(getInput().value).toBe("unfinished draft");
+      expect(document.activeElement).toBe(draftInput);
+      expect([draftInput.selectionStart, draftInput.selectionEnd]).toEqual([3, 8]);
+      expect(orders.find((order) => order.propertyKey === "status")?.pinnedValues)
+        .toContain("saved-preset");
+    },
+  );
 
   it("falls back to the first custom key when the requested selection is absent", () => {
     const container = document.createElement("div");

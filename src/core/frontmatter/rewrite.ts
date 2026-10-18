@@ -252,7 +252,11 @@ function findCoercibleScalarProperty(
     const { rawValue, inlineComment } = splitInlineComment(trimYamlSeparationWhitespace(propertyLine.restText));
     const rawScalar = trimYamlSeparationWhitespace(rawValue);
 
-    if (rawScalar.length === 0 || !isSupportedBlockScalar(rawScalar)) {
+    if (
+      rawScalar.length === 0 ||
+      !isSupportedBlockScalar(rawScalar) ||
+      !hasSingleLineScalarValue(lines, index)
+    ) {
       return null;
     }
 
@@ -270,6 +274,23 @@ function findCoercibleScalarProperty(
   }
 
   return null;
+}
+
+function hasSingleLineScalarValue(lines: readonly string[], propertyLineIndex: number): boolean {
+  for (let index = propertyLineIndex + 1; index < lines.length; index += 1) {
+    const line = lines[index];
+    const trimmed = trimYamlSeparationWhitespace(line);
+
+    if (trimmed.length === 0 || trimmed.startsWith("#")) {
+      continue;
+    }
+
+    // Plain scalars can continue on later lines. Do not treat their first
+    // line as the full value, including when checking a drag for conflicts.
+    return !isBlockSequenceItem(line) && parseTopLevelPropertyLine(line) != null;
+  }
+
+  return true;
 }
 
 function toSafeFlowItem(rawScalar: string, scalar: FrontmatterScalar): ListItemToken {
@@ -438,7 +459,7 @@ function renderEmptyProperty(
       ),
     ];
 
-    if (writebackFormat === "preserve" && property.kind === "block") {
+    if (property.kind === "block") {
       renderedLines.push(...property.preambleLines, ...property.trailingLines);
     }
 

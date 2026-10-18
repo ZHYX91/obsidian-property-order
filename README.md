@@ -2,7 +2,7 @@
 
 [English](https://github.com/ZHYX91/obsidian-property-order/blob/main/README.md) · [简体中文](https://github.com/ZHYX91/obsidian-property-order/blob/main/docs/i18n/README.zh-CN.md)
 
-Property Order enhances Obsidian Properties with safe list-value reordering plus configurable native property-name and property-value suggestions.
+Property Order lets you drag list values in Obsidian Properties and choose which property names and values are suggested while you type.
 
 ## Demo
 
@@ -17,7 +17,7 @@ Cross-property drag is enabled by default and can be disabled in the Value order
 - Reorder values by dragging inside a supported top-level YAML list.
 - Move values between supported list properties in the same note. Cross-property moves are enabled by default and can be turned off.
 - When Obsidian treats an empty value or scalar as a list property, Property Order can safely move values into or out of it. Non-text items are converted to text using their original YAML spelling.
-- Keep each property's current list format, or choose bracket lists or bullet lists. Every successful drag creates a single undoable edit.
+- Keep each property's current list format, or choose bracket lists or one item per line. Every successful drag creates a single undoable edit.
 - Dragging works with wrapped and RTL layouts, can scroll supported Properties areas near the edge, and announces drag-state changes to screen readers.
 - Customize native property-name suggestions: pin, move to the bottom, hide, sort by name, recently used order, or note count, with optional property-type grouping.
 - Optionally manage property-value suggestions per property: native order, name order, confirmed selection frequency, note count, no suggestions, or custom candidates.
@@ -54,12 +54,14 @@ Back up and preserve `Vault/.obsidian/plugins/property-order/data.json` when it 
 
 **Which suggestion setting?** When you add a new property and type its **name**, **Key suggestions** controls whether names such as `status` or `owner` are pinned, hidden, or reordered. After you choose `status` and edit its **value**, **Value suggestions** controls the existing value candidates (for example, `todo` or `done`), with optional user-defined presets. Value suggestions are disabled by default. Neither setting changes the note until you select or edit a value.
 
+**Example: add common values for `status`.** Open **Value suggestions**, turn on **Customize property value suggestions**, and add a **Custom candidates** rule card. Add `status` to that card. Under **Pinned candidates**, enter `todo` and choose **Add preset candidate**; repeat for `doing` and `done`. These values will be offered when you edit `status`, filtered by what you type. Use **Move to normal** if you want a preset to follow the normal sorting order instead of staying pinned.
+
 ## Settings
 
 Every supported Obsidian version uses the same four settings tabs:
 
 - **General** controls the plugin language and optional diagnostic notices.
-- **Value order** controls list formatting, cross-property moves, and drag behavior. Turning value drag off does not erase the separate cross-property preference.
+- **Value order** controls the list format after dragging, cross-property moves, and drag behavior. Turning value drag off does not erase the separate cross-property preference.
 - **Key suggestions** controls pinned, bottom, and hidden property names plus Name, Recently used, and Note count sorting. Optional property-type grouping organizes normal candidates into Text, List, Number, Checkbox, Date, Date & time, Tags, and Automatic / unspecified; the chosen sort still applies inside each group.
 - **Value suggestions** is opt-in. Unassigned properties use one default behavior, while exact property keys can be assigned to Name, Selection frequency, Note count, Native, No suggestions, or Custom candidates.
 - Custom candidate rules use Pinned, Normal, and Bottom sections. Preset values can be entered directly, so they can remain selectable even before they appear in a note.
@@ -71,7 +73,7 @@ Every supported Obsidian version uses the same four settings tabs:
 - Object lists, nested lists, multiline flow sequences, source-mode line dragging, and cross-file moves are not supported.
 - On mobile, you first choose **Reorder** or **Reorder or move** from Obsidian's native long-press menu, then drag that value. Native actions such as Edit, Remove from list, and Copy remain available.
 - Some type-mismatch rows can participate when Obsidian clearly identifies them as list properties. Ambiguous mixed-value rows are handled conservatively and may only accept an appended value.
-- Custom preset candidates apply only to the Properties value editor. If no native popup is available, Property Order can show its own small fallback popup; if it cannot identify the editor safely, manual input is left alone.
+- Custom preset candidates apply only when editing values in Properties. If Obsidian does not show a suggestion popup, Property Order can show the presets beside the input. If it cannot identify the input safely, you can continue typing normally.
 - Converting bullet lists to bracket lists can discard comments or blank lines that bracket syntax cannot represent.
 - Property values cannot currently be reordered directly from the keyboard. Pointer dragging does provide screen-reader status announcements.
 
@@ -79,14 +81,14 @@ Every supported Obsidian version uses the same four settings tabs:
 
 Property Order works locally. It does not require an account, upload note content, or call a remote service.
 
-When a drag changes YAML, the plugin uses Obsidian's editor APIs and verifies the result before scheduling a save. Unsupported structures are not written.
+Dragging changes only the properties involved in the move. The plugin checks the result before asking Obsidian to save the note. It does not write structures it cannot handle safely.
 
 For Note count sorting, Property Order enumerates Markdown files and reads cached frontmatter metadata; it does not read every note body. Recent property-name history and confirmed property-value selection counts are stored only in Obsidian's per-Vault local storage on the current device, separately from `data.json`, and can be cleared from settings.
 
 ## Development
 
-Use Node.js 24.19.0 and npm 11.17.0. Install the exact dependency graph from the frozen lockfile,
-then run the complete repository gate:
+Use Node.js 24.19.0 and npm 11.17.0. Install the dependency versions recorded in `package-lock.json`,
+then run all repository checks:
 
 ```bash
 npm ci

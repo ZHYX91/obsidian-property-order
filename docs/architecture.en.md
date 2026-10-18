@@ -12,7 +12,7 @@ This document mirrors the authoritative current Chinese architecture. If the imp
 
 The plugin enhances three surfaces in Obsidian Properties: values in top-level YAML list properties, native property-key suggestions, and native property-value suggestions. It provides cross-platform same-property drag, same-note cross-property moves, three YAML writeback modes, and native key/value-suggestion ordering.
 
-Nested lists, object lists, multiline flow sequences, source-mode dragging, and cross-file moves remain out of scope and fail closed. The refactor isolates parsing, interaction, DOM, and Vault boundaries; it is not a product expansion or a ground-up rewrite.
+Nested lists, object lists, multiline flow sequences, source-mode dragging, and cross-file moves remain out of scope and fail closed. Separate modules own parsing, interaction, DOM, and Vault responsibilities.
 
 ## Layers and Dependency Direction
 
@@ -186,13 +186,15 @@ Property-value selection frequency uses a separate versioned local-storage map, 
 
 Every supported Obsidian version uses the custom General, Value order, Key suggestions, and Value suggestions tabs; all imperative controls continue to read and write `propertyOrderSettings`. The tab surface provides `tablist`/`tab`/`tabpanel`, a localized tab-list label, `aria-selected`, roving `tabindex`, Left/Right, Home/End, and focus retention after rerender.
 
-Declarative definitions remain empty so Obsidian cannot bypass this layout. Tabs stay on one horizontally scrollable row at narrow widths; the active tab is revealed after initial layout and viewport resize, and vertical overflow is hidden.
+Declarative definitions remain empty so Obsidian cannot bypass this layout. Tabs stay on one horizontally scrollable row at narrow widths; the active tab is revealed after initial layout and viewport resize, and vertical overflow is hidden. RTL scrolling permits negative `scrollLeft` values and clamps the range according to the actual layout direction.
 
 Tab minimum height is 34px for desktop fine pointers and 44px for coarse pointers. Key suggestions keeps its three property-rule editors, **Clear recent property history**, and transient rule-test field.
 
-Value suggestions instead renders one default-behavior dropdown, one settings-only property display-order dropdown, on-demand rule cards for six mutually exclusive behaviors, each containing a behavior dropdown, chips, and its add input; local updates preserve scroll and focus, and the Custom editor lives inside its card; removable property chips, a lazy chooser backed by Vault/configured keys, a device-local selection-frequency clear action, and a two-column Custom editor with pinned/normal/bottom sections. Keys already in another group remain selectable and require confirmation before an atomic move.
+Value suggestions provides one default-behavior dropdown, one settings-only property display-order dropdown, on-demand rule cards for six mutually exclusive behaviors, each containing a behavior dropdown, chips, and its add input; local updates preserve scroll and focus, and the Custom editor lives inside its card; removable property chips, a lazy chooser backed by Vault/configured keys, a device-local selection-frequency clear action, and a two-column Custom editor with pinned/normal/bottom sections. Keys already in another group remain selectable and require confirmation before an atomic move.
 
-Legacy schema-5 rules that cannot be translated losslessly are shown read-only behind an explicit migration confirmation and remain active at runtime until that confirmation. Narrow layouts stack add controls and collapse the Custom editor's two columns without changing stored behavior.
+Rule cards and the Custom editor update in-memory settings and refresh their UI synchronously with the user's action, then await persistence. A delayed save completion does not refresh editors or inputs, preserving any later draft, caret position, and property selection. Save failures still use the shared unsaved state and Retry action. Each property-name query reads preset property names from current settings rather than retaining the snapshot from when the page opened.
+
+Legacy schema-5 rules that cannot be translated losslessly are shown read-only and remain active until the user explicitly confirms switching to grouped settings. Narrow layouts stack add controls and collapse the Custom editor's two columns without changing stored behavior.
 
 If settings persistence fails, the UI retains the current in-memory snapshot, shows a localized Notice and an unsaved banner with `role="alert"`, and offers Retry. A retry preserves whether the failed batch requires key-suggestion refresh; successful persistence clears the unsaved state.
 
