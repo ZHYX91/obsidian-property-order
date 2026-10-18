@@ -5,6 +5,14 @@ follow the repository's Git tags; entries summarize the corresponding commit his
 
 ## [Unreleased]
 
+## [0.9.2] - 2026-10-18
+
+### Fixed
+
+- Own Obsidian's keyboard scope while a property-name suggestion menu is active so native
+  navigation cannot skip visible candidates or submit a stale selection. Release the scope on
+  editor or window blur, disable, and unload; background refreshes cannot acquire it.
+
 ## [0.9.1] - 2026-10-18
 
 ### Fixed

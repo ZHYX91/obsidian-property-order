@@ -21,6 +21,7 @@ import {
   findSuggestionContainers,
   getSuggestionItemParent,
   getSuggestionItems,
+  hasActivePropertyKeySuggestionContext,
   hasPropertyKeySuggestionContext,
   isPropertyKeySuggestionContainer,
   resolveSuggestionContainer,
@@ -73,6 +74,7 @@ interface EnhancementCycle {
 }
 
 interface DocumentEnhancementState {
+  contextCleanup: () => void;
   contentObserver: MutationObserver;
   forceEnhancement: boolean;
   keyboardCleanup: () => void;
@@ -81,9 +83,11 @@ interface DocumentEnhancementState {
   pendingRoots: Set<ParentNode>;
   rafId: number | null;
   recentTrackingCleanup: () => void;
+  synchronizeKeyboardScope: (active: boolean) => void;
   propertyTypeRefreshTimerId: number | null;
   usageRefreshTimerId: number | null;
   view: Window;
+  windowFocused: boolean;
 }
 
 export class KeySuggestionOrderController {
@@ -278,6 +282,7 @@ export class KeySuggestionOrderController {
       this.handleMutations(targetDocument, mutations);
     });
     const state: DocumentEnhancementState = {
+      contextCleanup: () => undefined,
       contentObserver,
       forceEnhancement: false,
       keyboardCleanup: () => undefined,
@@ -286,9 +291,11 @@ export class KeySuggestionOrderController {
       pendingRoots: new Set(),
       rafId: null,
       recentTrackingCleanup: () => undefined,
+      synchronizeKeyboardScope: () => undefined,
       propertyTypeRefreshTimerId: null,
       usageRefreshTimerId: null,
       view: targetWindow,
+      windowFocused: targetDocument.hasFocus(),
     };
     // Register the per-document owner before its first observer/listener is
     // attached so plugin rollback can always find and dispose partial setup.
@@ -296,7 +303,9 @@ export class KeySuggestionOrderController {
 
     try {
       state.recentTrackingCleanup = this.recentKeyTracker.registerDocument(targetDocument);
-      state.keyboardCleanup = registerSuggestionKeyboardBridge({
+      const keyboard = registerSuggestionKeyboardBridge({
+        keymap: this.plugin.app.keymap,
+        parentScope: this.plugin.app.scope,
         getActiveContainer: () => this.getActiveContainer(targetDocument),
         getSuggestionElements: getPropertyKeySuggestionElements,
         onActivationIntent: (element, activation, event) => {
@@ -310,6 +319,42 @@ export class KeySuggestionOrderController {
         supportsEmacsNavigation: Platform.isMacOS || Platform.isIosApp,
         targetWindow,
       });
+      state.keyboardCleanup = keyboard;
+      state.synchronizeKeyboardScope = (active) =>
+        keyboard.synchronizeScope(active && state.windowFocused);
+
+      const synchronizeFocus = (): void => {
+        const container = this.getActiveContainer(targetDocument);
+        if (container != null && hasActivePropertyKeySuggestionContext(container) &&
+          this.getSettings().enableNativeKeySuggestionOrder) {
+          this.scheduleSuggestionEnhancement(targetDocument);
+        } else {
+          state.synchronizeKeyboardScope(false);
+        }
+      };
+      const handleFocusOut = (): void => {
+        targetWindow.queueMicrotask(() => {
+          if (this.documentStates.get(targetDocument) === state) synchronizeFocus();
+        });
+      };
+      const handleWindowBlur = (): void => {
+        state.windowFocused = false;
+        state.synchronizeKeyboardScope(false);
+      };
+      const handleWindowFocus = (): void => {
+        state.windowFocused = true;
+        synchronizeFocus();
+      };
+      targetDocument.addEventListener("focusin", synchronizeFocus, true);
+      targetDocument.addEventListener("focusout", handleFocusOut, true);
+      targetWindow.addEventListener("blur", handleWindowBlur);
+      targetWindow.addEventListener("focus", handleWindowFocus);
+      state.contextCleanup = () => {
+        targetDocument.removeEventListener("focusin", synchronizeFocus, true);
+        targetDocument.removeEventListener("focusout", handleFocusOut, true);
+        targetWindow.removeEventListener("blur", handleWindowBlur);
+        targetWindow.removeEventListener("focus", handleWindowFocus);
+      };
 
       if (this.getSettings().enableNativeKeySuggestionOrder) {
         this.startDocumentObservation(targetDocument, state);
@@ -349,6 +394,7 @@ export class KeySuggestionOrderController {
     this.runDocumentCleanup(() => state.observer.disconnect());
     this.runDocumentCleanup(() => state.contentObserver.disconnect());
     state.observing = false;
+    this.runDocumentCleanup(state.contextCleanup);
     this.runDocumentCleanup(state.keyboardCleanup);
     this.runDocumentCleanup(state.recentTrackingCleanup);
     state.pendingRoots.clear();
@@ -614,6 +660,7 @@ export class KeySuggestionOrderController {
     state.observing = false;
     state.pendingRoots.clear();
     state.forceEnhancement = false;
+    state.synchronizeKeyboardScope(false);
 
     if (state.rafId != null) {
       state.view.cancelAnimationFrame(state.rafId);
@@ -690,6 +737,9 @@ export class KeySuggestionOrderController {
         for (const pendingRoot of roots) {
           this.enhanceSuggestions(pendingRoot, cycle, forceCurrentCycle);
         }
+        const container = this.getActiveContainer(targetDocument);
+        state.synchronizeKeyboardScope(container != null &&
+          hasActivePropertyKeySuggestionContext(container));
       } finally {
         this.startDocumentObservation(targetDocument, state);
       }
@@ -1013,6 +1063,7 @@ export class KeySuggestionOrderController {
 
     if (this.activeContainers.get(container.ownerDocument) === container) {
       this.activeContainers.delete(container.ownerDocument);
+      state?.synchronizeKeyboardScope(false);
     }
   }
 
