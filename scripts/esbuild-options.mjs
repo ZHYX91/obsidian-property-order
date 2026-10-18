@@ -10,6 +10,7 @@ export function createEsbuildOptions({
     entryPoints: ["main.ts"],
     external: ["obsidian", "electron", "@codemirror/state", "@codemirror/view"],
     format: "cjs",
+    charset: "utf8",
     target: "es2020",
     logLevel: "info",
     minifyIdentifiers: production,

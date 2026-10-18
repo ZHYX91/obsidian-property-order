@@ -1,5 +1,6 @@
-import type { CachedMetadata, Plugin, TFile } from "obsidian";
+import type { CachedMetadata, Editor, Plugin, TFile } from "obsidian";
 
+import { getFrontmatterListPropertyScalars } from "../../core/frontmatter";
 import {
   getPropertyValueSuggestionContext,
   getPropertyValueSuggestionItems,
@@ -13,7 +14,7 @@ const MAX_PENDING_USES_PER_DOCUMENT = 10;
 const PENDING_CONFIRMATION_MAX_AGE_MILLISECONDS = 5_000;
 
 interface PendingPropertyValueUse {
-  beforeValues: readonly string[];
+  beforeCount: number;
   createdAt: number;
   file: TFile;
   propertyKey: string;
@@ -86,10 +87,9 @@ export class RecentPropertyValueTracker {
         }
 
         const currentValues = getFrontmatterValues(cache, pending.propertyKey);
-        const beforeCount = countValue(pending.beforeValues, pending.value);
         const currentCount = countValue(currentValues, pending.value);
 
-        if (currentCount <= beforeCount) {
+        if (currentCount <= pending.beforeCount) {
           remaining.push(pending);
           continue;
         }
@@ -149,11 +149,15 @@ export class RecentPropertyValueTracker {
     const file = paneContext?.file ?? null;
     const cache = file == null ? null : this.plugin.app.metadataCache.getFileCache(file);
 
-    if (file == null || cache == null) {
+    if (paneContext == null || file == null || cache == null) {
       return;
     }
 
-    const beforeValues = getFrontmatterValues(cache, context.propertyKey);
+    const editorValues = getEditorFrontmatterValues(
+      paneContext.editor,
+      context.propertyKey,
+      cache,
+    );
     const value = item.key;
 
     if (value.length === 0) {
@@ -161,19 +165,28 @@ export class RecentPropertyValueTracker {
     }
 
     const pending: PendingPropertyValueUse = {
-      beforeValues,
+      // A lagging pane must not make an existing cached value look newly added.
+      beforeCount: Math.max(
+        countValue(getFrontmatterValues(cache, context.propertyKey), value),
+        countValue(editorValues ?? [], value),
+      ),
       createdAt: Date.now(),
       file,
       propertyKey: context.propertyKey,
       value,
     };
-    // One property editor can only have one current activation intent. A later
-    // candidate activation supersedes an older unconfirmed value for the same
-    // file/property so a stale intent cannot consume a later cache change.
+    // A second list selection can precede the first Metadata Cache update.
+    // Retain an earlier intent only when the current pane's source already
+    // contains its added value; cancelled or unreadable intents still yield
+    // to the new activation. Only Metadata Cache can confirm either intent.
     const queue = this.getLivePendingQueue(itemElement.ownerDocument, pending.createdAt).filter(
       (candidate) =>
         candidate.file !== pending.file ||
-        candidate.propertyKey !== pending.propertyKey,
+        !equalPropertyKey(candidate.propertyKey, pending.propertyKey) ||
+        (
+          editorValues != null &&
+          countValue(editorValues, candidate.value) > candidate.beforeCount
+        ),
     );
     queue.push(pending);
     this.setPendingQueue(
@@ -214,6 +227,31 @@ export class RecentPropertyValueTracker {
       this.pendingByDocument.set(targetDocument, queue);
     }
   }
+}
+
+function getEditorFrontmatterValues(
+  editor: Editor,
+  propertyKey: string,
+  cache: CachedMetadata,
+): string[] | null {
+  try {
+    const content = editor.getValue();
+    const cachedKey = Object.keys(cache.frontmatter ?? {}).find(
+      (key) => key !== "position" && equalPropertyKey(key, propertyKey),
+    );
+    const scalars = getFrontmatterListPropertyScalars(content, propertyKey, true) ??
+      (cachedKey != null && cachedKey !== propertyKey
+        ? getFrontmatterListPropertyScalars(content, cachedKey, true)
+        : null);
+    return scalars?.filter((scalar) => scalar.kind !== "null")
+      .map((scalar) => scalar.value) ?? null;
+  } catch {
+    return null;
+  }
+}
+
+function equalPropertyKey(left: string, right: string): boolean {
+  return left.trim().toLocaleLowerCase() === right.trim().toLocaleLowerCase();
 }
 
 function getFrontmatterValues(cache: CachedMetadata, propertyKey: string): string[] {

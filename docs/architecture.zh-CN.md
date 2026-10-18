@@ -33,7 +33,7 @@ translation_status: source
    - `metadata.ts`：通过公开的 Vault 文件枚举与 Metadata Cache 文件缓存，把 top-level frontmatter 转换为候选键/包含该属性的 Markdown 笔记数；设置页和候选控制器共享同一份可失效缓存。拖拽目标判定中，缓存存储形态只能佐证原生类型证据，不得单独定义属性类型。
    - `property-types.ts`：只读的属性类型证据边界，仅用于候选呈现。它通过公开的 `Vault.configDir` 定位隐藏配置目录，用 `DataAdapter` 读取 `types.json`，只映射 Obsidian 已知的存储类型名与内置默认属性；不支持或未登记的类型保持为 `unknown`。该注册表不得授权属性值拖拽或 frontmatter 写入。
 4. `src/app/`：插件生命周期、设置持久化和设置页；已有属性名称通过 Obsidian 公开的 `AbstractInputSuggest` 呈现和筛选。
-5. `src/shared/`：跨层设置 schema、共享类型和 i18n。
+5. `src/shared/`：跨层设置 schema、共享类型、语言目录和完整界面词典。
 
 当前项目不为文件数量而额外引入抽象端口目录；`writeback.ts`、`pane-context.ts` 和两个 DOM adapter 已分别形成 Vault、pane 与 Properties surface 的可测试边界。若未来增加端口接口，也必须保持上述依赖方向。
 
@@ -112,13 +112,13 @@ translation_status: source
 
 浮动预览锁定 source pill 的实际渲染宽高，并以单行省略方式显示；定位使用预览自身 document 的 visual viewport，缺失时回退到该 window 的 layout viewport。过大的预览会缩小，每次移动都限制在 viewport 边距内，因此窄桌面窗口和次级窗口不会把预览挤成屏外竖条。`drag-dom.ts` 按计算后的 inline direction 处理插入几何，包括 RTL 换行；它只滚动命中点下可滚动祖先或 pane root，每帧步长最多 20 像素。document 所有的 polite live status 播报拖拽开始与目标变化，每条取消路径都与预览、指示器和 cursor 状态一起清除该 status。
 
-两个多窗口 controller 都以 document 为资源所有者；插件必须在 controller 首次初始化前把幂等 disposer 登记到运行时回滚栈，controller 也必须在首次挂载 observer 或事件 listener 前登记对应 document owner。初始化中途失败、窗口关闭或插件卸载时，资源按逆序释放，单项 cleanup 异常不得阻断其余 document 的恢复。
+三个功能控制器都以各自的 document 为资源所有者；插件必须在 controller 首次初始化前把幂等 disposer 登记到运行时回滚栈，controller 也必须在首次挂载 observer 或事件 listener 前登记对应 document owner。初始化中途失败、窗口关闭或插件卸载时，资源按逆序释放，单项 cleanup 异常不得阻断其余 document 的恢复。
 
 ## 属性键候选的 fail-open 契约
 
 所有 Obsidian Properties/候选菜单选择器集中在 `src/obsidian/`。候选排序开启时，`key-suggestion-controller.ts` 通过每个 document 的 MutationObserver 收集结构和可见性变化，并在一个 animation frame 内合并增强。全 document observer 明确忽略字符内容变化；第二个 observer 只观察当前已跟踪属性名称候选菜单内部的文本变化。桌面端初始化时扫描当前 document，以兼容插件启用前已经打开的菜单；Android 启动期不执行整页首扫，只观察之后实际挂载的候选菜单，避免在 WebView 增量装载工作区时占用主线程。功能关闭时 observers 会断开；重新开启时先观察再显式扫描当前 document。只有 adapter 同时确认 Properties 上下文、支持的菜单容器以及候选项共同父节点时，controller 才能排序。
 
-增强复用原节点，并记录原生顺序和可见性。只有候选本身及全部祖先均未被 HTML `hidden`/`aria-hidden`、插件隐藏 class 或计算样式 `display: none` / `visibility: hidden|collapse` 隐藏时，才进入可见导航顺序。键盘桥只在已增强菜单对应的属性名编辑器仍持有焦点时工作，按可见 DOM 顺序处理 ArrowUp/Down、Home/End、PageUp/PageDown 和 macOS/iOS 的 Ctrl+P/N。桥接直接维护可见 DOM 项的原生 `is-selected` class，不派发合成 mousemove，也不读取或修改 Obsidian 私有数组；Enter 直接激活当前可见 DOM 项，全部隐藏时会被阻止。
+增强复用原节点，并记录原生顺序和可见性。只有候选本身及全部祖先均未被 HTML `hidden`/`aria-hidden`、插件隐藏 class 或计算样式 `display: none` / `visibility: hidden|collapse` 隐藏时，才进入可见导航顺序。键盘桥只在已增强菜单对应的属性名编辑器仍持有焦点时工作，按可见 DOM 顺序处理不带修饰键的 ArrowUp/Down、Home/End、PageUp/PageDown；macOS/iOS 另支持 Ctrl+P/N。带 Shift、Alt、Meta 或其他 Ctrl 组合的导航键交回原生编辑器，保留文本选择与光标移动。桥接直接维护可见 DOM 项的原生 `is-selected` class，不派发合成 mousemove，也不读取或修改 Obsidian 私有数组；Enter 直接激活当前可见 DOM 项，全部隐藏时会被阻止。
 
 属性名与属性值候选都在前台编辑器活动时取得 Obsidian 键盘 scope，先于宿主原生按键处理执行可见顺序导航。编辑器或窗口失焦时释放 scope；后台刷新不得重新取得它。
 
@@ -143,6 +143,14 @@ recent tracker 只捕获已增强属性名候选上的主指针按下、键盘 E
 
 可精确表达的非 recent 覆盖可以直接转换；recent、通配符、置顶、置底或隐藏规则如果迁移会改变含义，就明确标记为待迁移。schema 3 到 4 只建立 `recent` 枚举的版本边界；schema 4 到 5 新增独立且默认关闭的属性值候选设置。默认数组和每次归一化结果都使用独立引用。
 
+界面和完整 README 支持 12 种语言：英语、简体中文、繁体中文、德语、法语、西班牙语、葡萄牙语、俄语、日语、韩语、越南语和阿拉伯语（`ar`）。工程文档继续维护简体中文源文与英文配对翻译。
+
+`src/shared/locale-catalog.ts` 统一提供语言 ID、自称名称和顺序，供设置菜单、设置校验和 README 检查器共用。每份 `src/shared/locales/` 词典都必须完整实现 `TranslationDictionary`，包含英文源词典的全部键，并保留每条文案中占位符的名称与数量；不能用展开英语词典或缺键回退代替翻译。
+
+用户显式选择的插件语言优先。“跟随 Obsidian”通过公开的 `getLanguage()` 读取宿主界面语言，再归一化大小写、下划线和地区别名。中文的 `Hans` / `Hant` 脚本标记优先于地区：`zh-Hans-TW` 使用简体中文，`zh-Hant-CN` 使用繁体中文；没有脚本标记时，`TW`、`HK`、`MO` 使用繁体中文，其他中文地区使用简体中文。不支持的语言回退到英语。已有的 `auto`、`en`、`zh-CN` 和 `zh-TW` 持久化 ID 保持不变，新增语言不需要改变设置 schema。
+
+命令式设置页每次渲染都在插件自有的 `.property-order-settings-content` 容器上设置 `lang` 和 `dir`。语言来自 `getResolvedLocaleCode()`，解析为 `ar` 时使用 RTL，其他支持语言使用 LTR；宿主可复用的设置容器和 document 属性保持不变。页签导航按最近的显式方向处理左右键，Home/End 仍选择逻辑首项与末项。重绘或关闭设置页时，现有清理流程移除该内容容器，并释放页签的动画帧和 resize listener；异步保存不向宿主容器写入语言或方向。
+
 键候选排序只接受 `name`、`recent` 和 `usage`。`name` 依次排列数字、拉丁字母、按拼音排列的中文和其他字符；`recent` 使用严格 MRU，并让未记录候选回退到名称排序；`usage` 按包含该属性的缓存 Markdown 笔记数降序排列，并用同一名称比较器处理平局。`usage` 只是兼容的持久化枚举名称，不表示交互次数。旧 `alphabetical` 值没有迁移别名，会回落到默认 `name`。迁移结果由插件持久化。
 
 设置页与实际 Properties 候选菜单必须调用 `src/core/suggestions/property-names.ts` 的同一比较器。`order-keys.ts` 先应用隐藏规则，再按配置顺序展开置顶规则。启用属性类型分组时，只对普通候选分组，顺序固定为文本、列表、数字、复选框、日期、日期与时间、标签和 unknown；当前的 `name`、`recent` 或 `usage` 排序只在各组内部生效，置顶和置底候选始终位于类型组之外。普通区在 `recent` 下依次放置历史中仍存在的名称并以名称顺序排列未记录项，在 `usage` 下按笔记数与名称平局规则排列；置底规则最后应用。同文件导出的纯 `explainPropertyKeyRules()` 复用精确相同的通配匹配器，返回每类首个匹配规则与按“隐藏 > 置顶 > 置底”计算的最终位置，供设置页解释冲突。设置页的置顶、置底和隐藏列表复用一个具体的属性名称建议组件；该组件只负责过滤、排除已配置项和选择回调，不复制排序规则，也不扩展成与当前业务无关的通用框架。
@@ -151,21 +159,27 @@ recent tracker 只捕获已增强属性名候选上的主指针按下、键盘 E
 
 recent store 使用 Obsidian 公开的 `App.loadLocalStorage()` / `App.saveLocalStorage()`，以 namespaced key 在当前 Vault、当前设备保存一个版本化的精确字符串数组。数组顺序本身就是严格 MRU，最多 100 项，不保存时间戳；重复确认只把精确同名项移到首位，当前候选中不存在的陈旧项被排序器忽略。读取失败、未知版本或畸形数据按空历史 fail open；后台 MRU 写入失败时保留本次会话的内存顺序，不影响原生属性编辑。只有 Metadata Cache 确认成功提交且顺序实际变化时才写入这一小数组；该状态不进入 `data.json`，不参与 Obsidian Sync。“清除最近使用历史”先取消待确认意图，再清除当前 Vault、当前设备的内存历史并立即刷新候选，不修改设置、笔记或其他 Vault；如果 local-storage 删除失败，界面会提示旧的已保存历史可能在重启后恢复。
 
-属性值选择次数使用另一份版本化 local-storage map，并分别限制属性数与精确值数。确认 tracker 只保存绑定到精确文件/属性/值的短期待确认意图，只有 Metadata Cache 证明该值数量增加后才递增次数。值按精确字符串身份保存，包括有意义的非 ASCII 首尾字符。次数状态不进入 `data.json`，也不参与 Sync；设备本地写入失败时保留本次会话计数，清除次数不会修改笔记或自定义预设配置。
+属性值选择次数使用另一份版本化 local-storage map，并分别限制属性数与精确值数。确认 tracker 保存绑定到精确文件、属性和值的短期待确认意图；只有 Metadata Cache 证明该值数量增加，且该属性使用选择次数排序或 Custom 普通区使用该排序时，才递增次数。
+
+每个新意图的提交前基线取 Metadata Cache 与当前 pane 编辑器中该精确值数量的较大值，即 `max(cacheCount, editorCount)`；编辑器内容无法核对时只使用缓存数量。这既覆盖尚未进入缓存的本地新增，也避免把陈旧编辑器中较低的数量误当作新基线。同一列表连续选择时，只保留当前 pane 文本已能证明落地的较早意图，等待后续缓存事件确认；未落入文本或无法核对的旧意图被新选择替换。待确认队列按 document 管理，这一规则不保证解决所有跨编辑器或跨窗口的并发计数问题。
+
+值保留精确字符串身份，包括有意义的非 ASCII 首尾字符。次数状态不进入 `data.json`，也不参与 Sync；设备本地写入失败时保留本次会话计数，清除次数不会修改笔记或自定义预设配置。
 
 所有受支持 Obsidian 版本都使用自定义 General、Value order、Key suggestions、Value suggestions 四个选项卡；所有命令式设置控件继续读写 `propertyOrderSettings`。该页签界面提供 `tablist`/`tab`/`tabpanel`、本地化标签栏名称、`aria-selected`、roving `tabindex`、左右方向键、Home/End 和重渲染后的焦点保持。
 
 declarative definitions 保持为空，避免 Obsidian 绕过这套布局。选项卡在窄宽度下保持单行横向滚动，活动标签在初次布局和 viewport resize 后自动进入可视区，纵向溢出被隐藏；RTL 滚动允许负的 `scrollLeft`，按实际布局方向限制范围。桌面精细指针下最小高度为 34px，粗指针下为 44px。
 
-Key suggestions 提供三组属性规则编辑器、“清除最近使用历史”和临时规则测试框。Value suggestions 提供一个默认行为下拉框、一个仅影响设置页的属性显示顺序下拉框、按需添加的六种互斥行为规则卡片（每张含行为选择、胶囊及输入框，局部更新保留滚动和焦点，Custom 编辑器位于卡片内）、可移除属性胶囊、由 Vault 已发现 key 与插件已配置 key 共同提供的惰性选择器、仅本设备保存的选择次数清除入口，以及左右两栏的 Custom 编辑器；右栏包含置顶/普通/置底三段。
+Key suggestions 提供三组属性规则编辑器、“清除最近使用历史”和临时规则测试框。
 
-规则卡片和 Custom 编辑器在用户操作时更新内存设置并同步刷新界面，随后等待持久化结果。延迟保存完成不会重新刷新编辑器或输入框，避免覆盖后来输入的草稿、光标位置或当前选中的属性；保存失败仍沿用统一的未保存状态和重试入口。属性名选择器每次查询都从当前设置读取预设属性名，避免只保留打开页面时的快照。
+Value suggestions 提供默认行为选择和“本页属性排列”。后者只排列规则卡片中的属性胶囊与 Custom 的属性列表，不改变笔记中的属性顺序或值候选顺序。六种互斥行为的规则卡片按需添加，每张都有行为选择、可移除胶囊和属性输入框。输入框按需读取 Vault 已发现 key 与插件当前已配置 key；局部更新保留滚动和焦点。Custom 编辑器放在自己的规则卡片内，一侧选择属性，另一侧编辑置顶、普通、置底三段候选。选择次数的清除入口只处理本设备记录。
+
+规则卡片、Custom 编辑器，以及需要重绘页面的开关和语言选项，都在用户操作时更新内存设置并同步刷新界面，随后等待持久化结果。保存尚未完成时，规则卡片仍按当前内存状态接受后续行为切换与属性添加。延迟保存完成不会重新刷新编辑器或输入框，避免覆盖后来输入的草稿、光标位置或当前选中的属性；保存失败仍沿用统一的未保存状态和重试入口。属性名选择器每次查询都从当前设置读取预设属性名，避免只保留打开页面时的快照。
 
 已属于其他分组的 key 仍可选择，确认后才原子移动。无法无损转换的 schema 5 旧规则在确认迁移前以只读方式展示，并继续生效。
 
 窄布局会纵向堆叠添加控件并把 Custom 两栏折叠为单列，但不改变持久化行为。
 
-设置保存失败时，设置页保留当前内存快照，显示本地化 Notice 和带 `role="alert"` 的未保存状态，并提供重试按钮。重试必须保留失败批次是否需要刷新键候选的语义；成功后清除未保存状态。每次保存前重新读取 `data.json`，并相对上次持久化基线执行三方合并：当前设置界面修改过的键优先，外部并发修改的其他键保留，未来 schema 的未知字段保持原样。Obsidian 的公开 `onExternalSettingsChange()` hook 使用同一合并规则，并刷新设置 surface 与受影响的运行时状态。模块级存储队列保证旧实例的在途写入先完成、替代实例再读取；已卸载实例不得启动新保存，因此旧实例延迟写入不能覆盖替代实例已经读取并编辑的设置。
+设置保存失败时，设置页保留当前内存快照，显示本地化 Notice 和带 `role="alert"` 的未保存状态，并提供重试按钮。重试保留失败批次所需的属性名或属性值候选刷新；成功后清除未保存状态。每次保存前重新读取 `data.json`，并相对上次持久化基线执行三方合并：当前设置界面修改过的键优先，外部并发修改的其他键保留，未来 schema 的未知字段保持原样。Obsidian 的公开 `onExternalSettingsChange()` hook 使用同一合并规则，并刷新设置 surface 与受影响的运行时状态。模块级存储队列保证旧实例的在途写入先完成、替代实例再读取；已卸载实例不得启动新保存，因此旧实例延迟写入不能覆盖替代实例已经读取并编辑的设置。
 
 controller 不缓存会影响后续交互的旧设置：value drag 在下一次指针事件读取当前设置；key-order 设置变化后立即重新增强或恢复菜单，无需重载插件。
 
@@ -175,12 +189,12 @@ controller 不缓存会影响后续交互的旧设置：value drag 在下一次�
 - 产品边界：[`product-requirements.zh-CN.md`](product-requirements.zh-CN.md)。
 - UX 契约：[`ux-spec.zh-CN.md`](ux-spec.zh-CN.md)。
 - 自动门禁、真实宿主矩阵与验证边界：[`testing-strategy.zh-CN.md`](testing-strategy.zh-CN.md)。
-- 发布前必须通过 `npm run check`；该命令依次执行 Obsidian 官方 ESLint、确定性文本格式、README 与稳定双语文档门禁、`npm run typecheck`、`npm run test:coverage`、`npm run build` 和 `npm run check:release`。最终检查要求可重现 bundle，并把生产 `main.js` 限制在 320,000 B 以内。
-- 插件语言设为“自动”时，通过 `getLanguage()` 跟随 Obsidian 当前界面语言；用户显式选择的插件语言始终优先。最低支持的 Obsidian 版本为 1.12.7，所有已发布版本的兼容关系继续以 `versions.json` 为准。
+- 发布前必须通过 `npm run check`；该命令依次执行 Obsidian 官方 ESLint、确定性文本格式、README 与稳定双语文档门禁、`npm run typecheck`、`npm run test:coverage`、`npm run build` 和 `npm run check:release`。最终检查要求可重现 bundle，并把生产 `main.js` 限制在 450,000 B 以内。12 份界面词典随同一个 `main.js` 离线打包；构建保留 UTF-8 字符，避免非 ASCII 转义增加体积。此回归预算包含完整词典的成本，不是 Obsidian 平台限制。
+- 插件语言设为“跟随 Obsidian”时，通过 `getLanguage()` 跟随 Obsidian 当前界面语言；用户显式选择的插件语言始终优先。最低支持的 Obsidian 版本为 1.12.7，所有已发布版本的兼容关系继续以 `versions.json` 为准。
 - 生产构建把 `main.js`、`manifest.json` 和 `styles.css` 直接生成到 `dist/` 顶层，使源码构建审查与本地发布检查使用同一套标准路径。`.node-version`、`package.json` 的 `engines.node`/`packageManager` 与运行时门禁共同固定 Node.js 24.19.0 和 npm 11.17.0。仓库内 release-core runtime 与相邻 lock 精确绑定共同实现；薄适配器只声明插件身份、样式策略和远端，独立 clone 不依赖私有 workspace。
 - 仓库内 release-core 3.1 runtime 与薄适配器统一管理确定性的 Candidate Bundle 和生成的独立工作流。获授权的稳定版本 tag push 或该 tag 上的手动 publish 派发共用流水线；手动 verify 模式保持只读。CI 安装锁定依赖，执行一次 release:check，验证 Bundle 源码，并固定 artifact ID/digest。发布核对精确事件、源码、tag、传输字节和 SLSA 构建证明；先下载验证草稿，再发布 immutable Release，最后下载回验。产品验收可选且单独报告，独立克隆无需外部编排。
 - 首次 attestation 前的只读 GitHub 预检与发布后核验都读取 immutable 稳定 Release、托管字节、附件 metadata digest、provenance 与远端标签。既有同标签 Release 只有全部身份已经精确一致时才是零写入 no-op；任何冲突必须在远端写入前失败并提升版本。数字版本标签 ruleset 与仓库级 immutable Releases 仍是管理员控制的外部前置，workflow 只记录并依赖，不读取或修改管理设置。
 
 声称 DOM 交互与视觉宿主验收完成时，必须具备测试策略规定的证据；宿主验收对发布保持可选。明确列入产品非目标的能力不作为未完成发布项。
 
-属性值候选复用属性名称候选的原生快照生命周期。一个外层原生弹窗只拥有一份宿主快照；每次重新取原生快照前先移除插件自有预设项，避免把插件节点误当宿主证据。分组行为解析先查精确 key，再回退到一个全局默认。命中 `none` 时先恢复原生快照，再隐藏全部候选并清除选中状态，同时保留属性值编辑器。`custom` 从原生标签、缓存词汇、保留的预设值、笔记数以及仅本设备保存的已确认选择次数规划“置顶 + 普通 + 置底”；原生不存在的预设值使用插件自有节点，但激活后仍通过当前聚焦的原生属性值编辑器提交。没有可识别原生弹窗时，由 document 所有的回退弹窗呈现同一份自定义计划，并服从最终可见键盘顺序；焦点离开、Escape、停用、窗口关闭或卸载都会移除。笔记数缓存失效只为当前确实需要笔记数的原生弹窗所在 document 安排刷新；无关的 `body` child-list 变化不会触发重扫。只有显式 migration-pending 标记仍存在时，schema 5 旧规则才继续作为运行时权威。
+属性值候选复用属性名称候选的原生快照生命周期。一个外层原生弹窗只拥有一份宿主快照；同步属性值节点时使用保留精确值的解析器，纯空白值也必须保留节点与原生顺序。每次重新取原生快照前先移除插件自有预设项，避免把插件节点误当宿主证据。分组行为解析先查精确 key，再回退到一个全局默认。命中 `none` 时先恢复原生快照，再隐藏全部候选并清除选中状态，同时保留属性值编辑器。`custom` 从原生标签、缓存词汇、保留的预设值、笔记数以及仅本设备保存的已确认选择次数规划“置顶 + 普通 + 置底”；原生不存在的预设值使用插件自有节点，但激活后仍通过当前聚焦的原生属性值编辑器提交。没有可识别原生弹窗时，由 document 所有的回退弹窗呈现同一份自定义计划，并服从最终可见键盘顺序；焦点离开、Escape、停用、窗口关闭或卸载都会移除。笔记数缓存失效只为当前确实需要笔记数的原生弹窗所在 document 安排刷新；无关的 `body` child-list 变化不会触发重扫。只有显式 migration-pending 标记仍存在时，schema 5 旧规则才继续作为运行时权威。

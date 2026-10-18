@@ -274,6 +274,31 @@ function getNavigationAction(
   event: KeyboardEvent,
   supportsEmacsNavigation: boolean,
 ): NavigationAction | null {
+  if (
+    supportsEmacsNavigation &&
+    event.ctrlKey &&
+    !event.altKey &&
+    !event.metaKey &&
+    !event.shiftKey
+  ) {
+    const normalizedKey = event.key.toLowerCase();
+
+    if (normalizedKey === "n") {
+      return "next";
+    }
+
+    if (normalizedKey === "p") {
+      return "previous";
+    }
+  }
+
+  // Modified navigation belongs to the property editor, including selecting
+  // text with Shift+Home/End. Only the explicit Emacs shortcuts above apply
+  // to candidates while a modifier is held.
+  if (event.altKey || event.ctrlKey || event.metaKey || event.shiftKey) {
+    return null;
+  }
+
   if (event.key === "ArrowDown" || event.key === "Down") {
     return "next";
   }
@@ -296,24 +321,6 @@ function getNavigationAction(
 
   if (event.key === "PageUp" || event.key === "Prior") {
     return "page-previous";
-  }
-
-  if (
-    supportsEmacsNavigation &&
-    event.ctrlKey &&
-    !event.altKey &&
-    !event.metaKey &&
-    !event.shiftKey
-  ) {
-    const normalizedKey = event.key.toLowerCase();
-
-    if (normalizedKey === "n") {
-      return "next";
-    }
-
-    if (normalizedKey === "p") {
-      return "previous";
-    }
   }
 
   return null;

@@ -39,6 +39,34 @@ describe("README marketplace link contract", () => {
     expect(checkReadmeI18n(fixtureRoot)).toEqual([]);
   });
 
+  it.each(["vi-VN", "ar"])("rejects supported UI language %s without its complete README", async (locale) => {
+    await rm(path.join(fixtureRoot, `docs/i18n/README.${locale}.md`));
+
+    expect(checkReadmeI18n(fixtureRoot)).toContain(
+      `Missing README file: docs/i18n/README.${locale}.md`,
+    );
+  });
+
+  it("rejects incomplete language navigation in another translation", async () => {
+    await replaceInReadme(
+      "docs/i18n/README.ja-JP.md",
+      " · [Tiếng Việt](README.vi-VN.md)",
+      "",
+    );
+
+    expect(checkReadmeI18n(fixtureRoot)).toContain(
+      "docs/i18n/README.ja-JP.md must place its canonical language navigation after the title",
+    );
+  });
+
+  it("rejects a translated README missing an installation section", async () => {
+    await replaceInReadme("docs/i18n/README.de-DE.md", "## Installation\n", "");
+
+    expect(checkReadmeI18n(fixtureRoot)).toContain(
+      "docs/i18n/README.de-DE.md must use the configured H2 section order",
+    );
+  });
+
   it("rejects a repository-relative target in the English marketplace README", async () => {
     await replaceInReadme(
       "README.md",

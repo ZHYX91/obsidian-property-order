@@ -2,6 +2,7 @@ import type { ListWritebackFormat } from "../../shared/types";
 import {
   isValidQuotedScalar,
   parseScalar,
+  renderInlineComment,
   serializeNormalizedScalar,
   splitInlineComment,
   trimEndYamlSeparationWhitespace,
@@ -112,7 +113,7 @@ export function toBlockItemToken(
       ...item,
       lineIndent,
       dashSpace,
-      originalLine: `${lineIndent}-${dashSpace}${rawValue}${item.inlineComment}`,
+      originalLine: `${lineIndent}-${dashSpace}${rawValue}${renderInlineComment(item.inlineComment)}`,
       rawValue,
     };
   }
@@ -178,7 +179,9 @@ export function renderBlockProperty(
       renderedLines.push(...item.continuationLines);
     } else {
       const renderedValue = serializeNormalizedScalar(item.scalar);
-      renderedLines.push(`${item.lineIndent}-${item.dashSpace}${renderedValue}${item.inlineComment}`);
+      renderedLines.push(
+        `${item.lineIndent}-${item.dashSpace}${renderedValue}${renderInlineComment(item.inlineComment)}`,
+      );
       renderedLines.push(...item.continuationLines);
     }
   }

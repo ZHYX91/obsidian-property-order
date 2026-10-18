@@ -566,6 +566,7 @@ export class ValueSuggestionOrderController {
           container,
           snapshot,
           (element) => !element.classList.contains(PLUGIN_PRESET_VALUE_ITEM_CLASS),
+          getPropertyValueSuggestionItems,
         );
       }
     }

@@ -10,7 +10,8 @@ import {
 
 import { explainPropertyKeyRules } from "../core/suggestions/order-keys";
 import { getPropertyNameSuggestions } from "../core/suggestions/property-names";
-import { t, type TranslationKey } from "../shared/i18n";
+import { getResolvedLocaleCode, t, type TranslationKey } from "../shared/i18n";
+import { SUPPORTED_LOCALES } from "../shared/locale-catalog";
 import { getCachedPropertyKeyUsage } from "../obsidian/metadata";
 import { isValueSuggestionDefaultBehavior } from "../shared/settings";
 import type {
@@ -129,7 +130,7 @@ export class PropertyOrderSettingTab extends PluginSettingTab {
       value,
     );
     const surfaceGeneration = this.settingsSurfaceGeneration;
-    await this.persistSettings(mutation.refreshKeySuggestions, surfaceGeneration);
+    await this.persistSettings(mutation.refreshKeySuggestions);
 
     if (this.isSettingsSurfaceCurrent(surfaceGeneration)) {
       this.applyDeclarativeRefresh(mutation);
@@ -176,9 +177,7 @@ export class PropertyOrderSettingTab extends PluginSettingTab {
           defaultValue: "auto",
           options: {
             auto: this.t("settings.language.auto"),
-            "zh-CN": this.t("settings.language.zhCn"),
-            "zh-TW": this.t("settings.language.zhTw"),
-            en: this.t("settings.language.en"),
+            ...Object.fromEntries(SUPPORTED_LOCALES.map(({ id, label }) => [id, label])),
           },
         },
       },
@@ -331,14 +330,13 @@ export class PropertyOrderSettingTab extends PluginSettingTab {
       name,
       desc: description,
       render: (setting) => {
-        const surfaceGeneration = this.settingsSurfaceGeneration;
         const lifecycle = configureKeyListSetting(
           setting,
           this.plugin.propertyOrderSettings[key],
           async (values) => {
             this.plugin.propertyOrderSettings[key] = values;
             this.refreshRuleDiagnostics();
-            await this.persistSettings(true, surfaceGeneration);
+            await this.persistSettings(true);
           },
           this.app,
           getAvailableNames(),
@@ -402,6 +400,13 @@ export class PropertyOrderSettingTab extends PluginSettingTab {
     this.resetRenderedSettings();
     this.beginSettingsSurfaceRender();
 
+    // Keep language and text direction on plugin-owned content, not the reusable host container.
+    const localizedContainerEl = containerEl.createDiv();
+    localizedContainerEl.className = "property-order-settings-content";
+    const locale = getResolvedLocaleCode(this.plugin.propertyOrderSettings.language);
+    localizedContainerEl.lang = locale;
+    localizedContainerEl.dir = locale === "ar" ? "rtl" : "ltr";
+
     const tabs = [
       { id: "general", label: this.t("settings.tab.general") },
       { id: "valueDrag", label: this.t("settings.tab.valueOrder") },
@@ -409,7 +414,7 @@ export class PropertyOrderSettingTab extends PluginSettingTab {
       { id: "valueSuggestions", label: this.t("settings.tab.valueSuggestions") },
     ] satisfies Array<{ id: SettingsTabId; label: string }>;
     const { activeTabEl, cleanup, panelEl } = createSettingsTabLayout(
-      containerEl,
+      localizedContainerEl,
       tabs,
       this.activeTab,
       this.t("settings.tabsLabel"),
@@ -441,11 +446,11 @@ export class PropertyOrderSettingTab extends PluginSettingTab {
       .setName(this.t("settings.language.name"))
       .setDesc(this.t("settings.language.desc"))
       .addDropdown((dropdown) => {
+        dropdown.addOption("auto", this.t("settings.language.auto"));
+        for (const { id, label } of SUPPORTED_LOCALES) {
+          dropdown.addOption(id, label);
+        }
         dropdown
-          .addOption("auto", this.t("settings.language.auto"))
-          .addOption("zh-CN", this.t("settings.language.zhCn"))
-          .addOption("zh-TW", this.t("settings.language.zhTw"))
-          .addOption("en", this.t("settings.language.en"))
           .setValue(this.plugin.propertyOrderSettings.language)
           .onChange(async (value) => {
             await this.applyImperativeControlValue("language", value);
@@ -564,7 +569,6 @@ export class PropertyOrderSettingTab extends PluginSettingTab {
       .setDesc(this.t("settings.keyOrder.recentHistory.desc"));
     this.addClearRecentPropertyKeysButton(recentHistorySetting);
 
-    const surfaceGeneration = this.settingsSurfaceGeneration;
     this.trackKeyListSetting(
       addKeyListSetting(
         containerEl,
@@ -574,7 +578,7 @@ export class PropertyOrderSettingTab extends PluginSettingTab {
         async (values) => {
           this.plugin.propertyOrderSettings.pinnedPropertyKeys = values;
           this.refreshRuleDiagnostics();
-          await this.persistSettings(true, surfaceGeneration);
+          await this.persistSettings(true);
         },
         this.app,
         availableNames,
@@ -590,7 +594,7 @@ export class PropertyOrderSettingTab extends PluginSettingTab {
         async (values) => {
           this.plugin.propertyOrderSettings.bottomPropertyKeys = values;
           this.refreshRuleDiagnostics();
-          await this.persistSettings(true, surfaceGeneration);
+          await this.persistSettings(true);
         },
         this.app,
         availableNames,
@@ -606,7 +610,7 @@ export class PropertyOrderSettingTab extends PluginSettingTab {
         async (values) => {
           this.plugin.propertyOrderSettings.hiddenPropertyKeyPatterns = values;
           this.refreshRuleDiagnostics();
-          await this.persistSettings(true, surfaceGeneration);
+          await this.persistSettings(true);
         },
         this.app,
         availableNames,
@@ -633,11 +637,11 @@ export class PropertyOrderSettingTab extends PluginSettingTab {
           .setValue(settingsAtRender.enableNativeValueSuggestionOrder)
           .onChange(async (value) => {
             this.plugin.propertyOrderSettings.enableNativeValueSuggestionOrder = value;
-            await this.persistSettings(false, surfaceGeneration, true);
-
+            const pendingSave = this.persistSettings(false, true);
             if (this.isSettingsSurfaceCurrent(surfaceGeneration)) {
               this.render(null);
             }
+            await pendingSave;
           });
       });
 
@@ -660,11 +664,15 @@ export class PropertyOrderSettingTab extends PluginSettingTab {
       const legacyRules = details.createEl("pre");
       legacyRules.className = "property-order-legacy-value-rules";
       legacyRules.textContent = [
-        `default = ${settingsAtRender.valueSuggestionSortMode}`,
-        ...settingsAtRender.valueSuggestionSortOverrides.map((rule) => `behavior: ${rule}`),
-        ...settingsAtRender.pinnedPropertyValues.map((rule) => `pinned: ${rule}`),
-        ...settingsAtRender.bottomPropertyValues.map((rule) => `bottom: ${rule}`),
-        ...settingsAtRender.hiddenPropertyValuePatterns.map((rule) => `hidden: ${rule}`),
+        `${this.t("settings.valueSuggestions.sortMode.name")}: ${this.getLegacyValueSuggestionModeLabel(settingsAtRender.valueSuggestionSortMode)}`,
+        ...settingsAtRender.valueSuggestionSortOverrides.map((rule) =>
+          `${this.t("settings.valueSuggestions.sortOverrides.name")}: ${this.formatLegacyValueSuggestionRule(rule)}`),
+        ...settingsAtRender.pinnedPropertyValues.map((rule) =>
+          `${this.t("settings.valueSuggestions.pinned.name")}: ${rule}`),
+        ...settingsAtRender.bottomPropertyValues.map((rule) =>
+          `${this.t("settings.valueSuggestions.bottom.name")}: ${rule}`),
+        ...settingsAtRender.hiddenPropertyValuePatterns.map((rule) =>
+          `${this.t("settings.valueSuggestions.hidden.name")}: ${rule}`),
       ].join("\n");
 
       const adoptButton = migrationEl.createEl("button");
@@ -681,7 +689,7 @@ export class PropertyOrderSettingTab extends PluginSettingTab {
         }
 
         this.plugin.propertyOrderSettings.valueSuggestionLegacyMigrationPending = false;
-        void this.persistSettings(false, surfaceGeneration, true).then(() => {
+        void this.persistSettings(false, true).then(() => {
           if (this.isSettingsSurfaceCurrent(surfaceGeneration)) {
             this.render(null);
           }
@@ -708,7 +716,7 @@ export class PropertyOrderSettingTab extends PluginSettingTab {
             }
 
             this.plugin.propertyOrderSettings.valueSuggestionDefaultBehavior = value;
-            await this.persistSettings(false, surfaceGeneration, true);
+            await this.persistSettings(false, true);
           });
       });
 
@@ -741,7 +749,7 @@ export class PropertyOrderSettingTab extends PluginSettingTab {
             this.plugin.getPropertyValueFrequency(propertyKey),
           onCustomOrdersChange: async (orders) => {
             this.plugin.propertyOrderSettings.valueSuggestionCustomOrders = orders;
-            await this.persistSettings(false, surfaceGeneration, true);
+            await this.persistSettings(false, true);
           },
           rerender: (selectedPropertyKey) => {
             this.selectedCustomValuePropertyKey =
@@ -770,12 +778,12 @@ export class PropertyOrderSettingTab extends PluginSettingTab {
       onAssignmentsChange: async (assignments) => {
         this.plugin.propertyOrderSettings.valueSuggestionPropertyAssignments =
           assignments;
-        await this.persistSettings(false, surfaceGeneration, true);
+        await this.persistSettings(false, true);
       },
       onDisplayOrderChange: async (displayOrder) => {
         this.plugin.propertyOrderSettings.valueSuggestionKeyDisplayOrder =
           displayOrder;
-        await this.persistSettings(false, surfaceGeneration, false);
+        await this.persistSettings();
       },
       renderCustomEditor: renderCustom,
       t: (key) => this.t(key),
@@ -803,6 +811,25 @@ export class PropertyOrderSettingTab extends PluginSettingTab {
       "note-count": this.t("settings.valueSuggestions.sortMode.usage"),
       none: this.t("settings.valueSuggestions.sortMode.none"),
     };
+  }
+
+  private getLegacyValueSuggestionModeLabel(mode: string): string {
+    const labels: Record<string, TranslationKey> = {
+      native: "settings.valueSuggestions.sortMode.native",
+      name: "settings.valueSuggestions.sortMode.nameOption",
+      recent: "settings.valueSuggestions.sortMode.recent",
+      usage: "settings.valueSuggestions.sortMode.usage",
+      none: "settings.valueSuggestions.sortMode.none",
+    };
+    return Object.prototype.hasOwnProperty.call(labels, mode) ? this.t(labels[mode]) : mode;
+  }
+
+  private formatLegacyValueSuggestionRule(rule: string): string {
+    const separator = rule.indexOf("=");
+    if (separator < 0) return rule;
+    const mode = rule.slice(separator + 1).trim();
+    const label = this.getLegacyValueSuggestionModeLabel(mode);
+    return label === mode ? rule : `${rule} (${label})`;
   }
 
   private configureRuleDiagnosticSetting(setting: Setting): SettingsCleanup {
@@ -946,14 +973,14 @@ export class PropertyOrderSettingTab extends PluginSettingTab {
       value,
     );
     const surfaceGeneration = this.settingsSurfaceGeneration;
-    await this.persistSettings(mutation.refreshKeySuggestions, surfaceGeneration);
-
+    const pendingSave = this.persistSettings(mutation.refreshKeySuggestions);
     if (
       mutation.refreshMode !== "none" &&
       this.isSettingsSurfaceCurrent(surfaceGeneration)
     ) {
       this.render(null);
     }
+    await pendingSave;
   }
 
   private applyDeclarativeRefresh(mutation: SettingsControlMutation): void {
@@ -966,7 +993,6 @@ export class PropertyOrderSettingTab extends PluginSettingTab {
 
   private async persistSettings(
     refreshKeySuggestions = false,
-    surfaceGeneration = this.settingsSurfaceGeneration,
     refreshValueSuggestions = false,
   ): Promise<boolean> {
     const shouldRefreshKeySuggestions =
@@ -982,16 +1008,16 @@ export class PropertyOrderSettingTab extends PluginSettingTab {
       this.hasUnsavedSettings = false;
       this.pendingUnsavedKeySuggestionRefresh = false;
       this.pendingUnsavedValueSuggestionRefresh = false;
-      this.updateSaveStatus(surfaceGeneration);
+      this.updateSaveStatus();
       return true;
     } catch (error) {
       this.hasUnsavedSettings = true;
       this.pendingUnsavedKeySuggestionRefresh = shouldRefreshKeySuggestions;
       this.pendingUnsavedValueSuggestionRefresh = shouldRefreshValueSuggestions;
       console.error("Property Order: failed to save settings", error);
-      this.updateSaveStatus(surfaceGeneration);
+      this.updateSaveStatus();
 
-      if (this.isSettingsSurfaceCurrent(surfaceGeneration)) {
+      if (this.settingsSurfaceVisible) {
         new Notice(this.t("notice.settingsSaveFailed"));
       }
       return false;
@@ -1034,12 +1060,11 @@ export class PropertyOrderSettingTab extends PluginSettingTab {
     const messageEl = this.saveStatusEl.createSpan();
     messageEl.textContent = this.t("settings.saveStatus.failed");
     const retryButton = this.saveStatusEl.createEl("button");
-    const retrySurfaceGeneration = this.settingsSurfaceGeneration;
     retryButton.type = "button";
     retryButton.textContent = this.t("settings.saveStatus.retry");
     retryButton.addEventListener("click", () => {
       retryButton.disabled = true;
-      void this.persistSettings(false, retrySurfaceGeneration);
+      void this.persistSettings();
     });
     this.saveStatusEl.append(messageEl, retryButton);
   }

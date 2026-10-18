@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { parse as parseYaml } from "yaml";
 
 import {
   getFrontmatterListPropertyScalars,
@@ -7,6 +8,7 @@ import {
   planFrontmatterListPropertyMove,
   reorderFrontmatterListProperty,
 } from "../../src/core/frontmatter";
+import { extractFrontmatterBounds } from "../../src/core/frontmatter/bounds";
 
 describe("Obsidian text-list normalization", () => {
   it("extracts the original text identity used to align Properties with YAML", () => {
@@ -152,6 +154,85 @@ describe("Obsidian text-list normalization", () => {
         "---",
       ].join("\n"),
     );
+  });
+
+  it.each(["preserve", "block"] as const)(
+    "keeps a commented empty value valid when moving between block lists in %s format",
+    (writebackFormat) => {
+      const input = [
+        "---",
+        "source:",
+        "  - # keep this comment",
+        "target:",
+        "  - beta",
+        "---",
+        "Body",
+      ].join("\n");
+
+      const output = moveFrontmatterListPropertyValue(input, {
+        normalizeAsTextList: true,
+        sourcePropertyKey: "source",
+        targetPropertyKey: "target",
+        sourceIndex: 0,
+        targetSlot: 1,
+        writebackFormat,
+      });
+
+      expect(output).toBe(
+        [
+          "---",
+          "source:",
+          "target:",
+          "  - beta",
+          '  - "" # keep this comment',
+          "---",
+          "Body",
+        ].join("\n"),
+      );
+      const frontmatter = extractFrontmatterBounds(output ?? "");
+      expect(parseYaml(frontmatter?.body ?? "")).toEqual({
+        source: null,
+        target: ["beta", ""],
+      });
+    },
+  );
+
+  it("keeps a commented empty target value valid when forcing block format", () => {
+    const input = [
+      "---",
+      "source: [alpha, beta]",
+      "target:",
+      "  - # keep this comment",
+      "---",
+      "Body",
+    ].join("\n");
+
+    const output = moveFrontmatterListPropertyValue(input, {
+      normalizeAsTextList: true,
+      sourcePropertyKey: "source",
+      targetPropertyKey: "target",
+      sourceIndex: 0,
+      targetSlot: 1,
+      writebackFormat: "block",
+    });
+
+    expect(output).toBe(
+      [
+        "---",
+        "source:",
+        "  - beta",
+        "target:",
+        '  - "" # keep this comment',
+        "  - alpha",
+        "---",
+        "Body",
+      ].join("\n"),
+    );
+    const frontmatter = extractFrontmatterBounds(output ?? "");
+    expect(parseYaml(frontmatter?.body ?? "")).toEqual({
+      source: ["beta"],
+      target: ["", "alpha"],
+    });
   });
 
   it("normalizes both properties even when the moved value is already a string", () => {

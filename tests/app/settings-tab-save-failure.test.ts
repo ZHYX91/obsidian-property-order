@@ -11,7 +11,6 @@ interface TestableSettingTab {
   mountSaveStatus(parentEl: HTMLElement): HTMLElement;
   persistSettings(
     refreshKeySuggestions?: boolean,
-    surfaceGeneration?: number,
     refreshValueSuggestions?: boolean,
   ): Promise<boolean>;
 }

@@ -2,48 +2,133 @@ import { existsSync, readFileSync, readdirSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
+import { SUPPORTED_LOCALES } from "../src/shared/locale-catalog.ts";
+
 const scriptPath = fileURLToPath(import.meta.url);
 const defaultProjectRoot = path.resolve(path.dirname(scriptPath), "..");
+const contentByLocale = {
+  en: {
+    semanticPhrases: ["property-type grouping"],
+    sections: [
+      "Demo",
+      "Features",
+      "Requirements and compatibility",
+      "Installation",
+      "Usage",
+      "Settings",
+      "Limitations",
+      "Privacy and security",
+      "Development",
+      "Support",
+      "License",
+    ],
+  },
+  "zh-CN": {
+    semanticPhrases: ["属性类型分组"],
+    sections: [
+      "演示",
+      "功能特性",
+      "使用要求与兼容性",
+      "安装",
+      "使用",
+      "设置",
+      "限制",
+      "隐私与安全",
+      "开发",
+      "支持",
+      "许可证",
+    ],
+  },
+  "zh-TW": {
+    semanticPhrases: ["屬性類型分組"],
+    sections: [
+      "示範", "功能特色", "使用需求與相容性", "安裝", "使用方式", "設定",
+      "限制", "隱私與安全", "開發", "支援", "授權條款",
+    ],
+  },
+  "de-DE": {
+    semanticPhrases: ["Gruppierung nach Eigenschaftstyp"],
+    sections: [
+      "Demonstration", "Funktionen", "Voraussetzungen und Kompatibilität", "Installation",
+      "Verwendung", "Einstellungen", "Einschränkungen", "Datenschutz und Sicherheit",
+      "Entwicklung", "Hilfe", "Lizenz",
+    ],
+  },
+  "fr-FR": {
+    semanticPhrases: ["regroupement par type de propriété"],
+    sections: [
+      "Démonstration", "Fonctionnalités", "Prérequis et compatibilité", "Installation",
+      "Utilisation", "Paramètres", "Limites", "Confidentialité et sécurité",
+      "Développement", "Assistance", "Licence",
+    ],
+  },
+  "es-ES": {
+    semanticPhrases: ["agrupación por tipo de propiedad"],
+    sections: [
+      "Demostración", "Funciones", "Requisitos y compatibilidad", "Instalación",
+      "Uso", "Ajustes", "Limitaciones", "Privacidad y seguridad",
+      "Desarrollo", "Ayuda", "Licencia",
+    ],
+  },
+  "pt-BR": {
+    semanticPhrases: ["agrupamento por tipo de propriedade"],
+    sections: [
+      "Demonstração", "Recursos", "Requisitos e compatibilidade", "Instalação",
+      "Uso", "Configurações", "Limitações", "Privacidade e segurança",
+      "Desenvolvimento", "Suporte", "Licença",
+    ],
+  },
+  "ru-RU": {
+    semanticPhrases: ["группировка по типу свойства"],
+    sections: [
+      "Демонстрация", "Возможности", "Требования и совместимость", "Установка",
+      "Использование", "Настройки", "Ограничения", "Конфиденциальность и безопасность",
+      "Разработка", "Поддержка", "Лицензия",
+    ],
+  },
+  "ja-JP": {
+    semanticPhrases: ["プロパティの種類ごとに候補をまとめる"],
+    sections: [
+      "デモ", "機能", "動作要件と互換性", "インストール", "使い方", "設定",
+      "制限", "プライバシーとセキュリティ", "開発", "サポート", "ライセンス",
+    ],
+  },
+  "ko-KR": {
+    semanticPhrases: ["속성 유형별로 후보 묶기"],
+    sections: [
+      "데모", "기능", "요구 사항 및 호환성", "설치", "사용법", "설정",
+      "제한 사항", "개인정보 보호 및 보안", "개발", "지원", "라이선스",
+    ],
+  },
+  "vi-VN": {
+    semanticPhrases: ["Nhóm gợi ý theo kiểu thuộc tính"],
+    sections: [
+      "Minh họa", "Tính năng", "Yêu cầu và khả năng tương thích", "Cài đặt",
+      "Cách sử dụng", "Các mục cài đặt", "Giới hạn", "Quyền riêng tư và bảo mật",
+      "Phát triển", "Hỗ trợ", "Giấy phép",
+    ],
+  },
+  ar: {
+    semanticPhrases: ["تجميع الاقتراحات حسب نوع الخاصية"],
+    sections: [
+      "عرض توضيحي", "الميزات", "المتطلبات والتوافق", "التثبيت", "الاستخدام", "الإعدادات",
+      "القيود", "الخصوصية والأمان", "التطوير", "الدعم", "الترخيص",
+    ],
+  },
+};
 const config = {
   repository: "ZHYX91/obsidian-property-order",
-  languages: [
-    {
-      label: "English",
-      path: "README.md",
-      semanticPhrases: ["property-type grouping"],
-      sections: [
-        "Demo",
-        "Features",
-        "Requirements and compatibility",
-        "Installation",
-        "Usage",
-        "Settings",
-        "Limitations",
-        "Privacy and security",
-        "Development",
-        "Support",
-        "License",
-      ],
-    },
-    {
-      label: "简体中文",
-      path: "docs/i18n/README.zh-CN.md",
-      semanticPhrases: ["属性类型分组"],
-      sections: [
-        "演示",
-        "功能特性",
-        "使用要求与兼容性",
-        "安装",
-        "使用",
-        "设置",
-        "限制",
-        "隐私与安全",
-        "开发",
-        "支持",
-        "许可证",
-      ],
-    },
-  ],
+  languages: SUPPORTED_LOCALES.map(({ id, label }) => {
+    const content = contentByLocale[id];
+    if (!content) {
+      throw new Error(`Missing README section contract for locale: ${id}`);
+    }
+    return {
+      label,
+      path: id === "en" ? "README.md" : `docs/i18n/README.${id}.md`,
+      ...content,
+    };
+  }),
   requiredTokens: [
     "https://github.com/ZHYX91/obsidian-property-order/releases/latest",
     "`main.js`",

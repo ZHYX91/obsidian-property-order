@@ -159,6 +159,90 @@ describe("suggestion keyboard bridge", () => {
     window.removeEventListener("keydown", hostCapture, true);
   });
 
+  it.each([
+    { label: "Shift+Home", key: "Home", shiftKey: true },
+    { label: "Shift+End", key: "End", shiftKey: true },
+    { label: "Ctrl+Shift+Home", key: "Home", ctrlKey: true, shiftKey: true },
+    { label: "Shift+ArrowDown", key: "ArrowDown", shiftKey: true },
+    { label: "Ctrl+ArrowUp", key: "ArrowUp", ctrlKey: true },
+    { label: "Meta+ArrowDown", key: "ArrowDown", metaKey: true },
+    { label: "Alt+ArrowUp", key: "ArrowUp", altKey: true },
+    { label: "Ctrl+PageDown", key: "PageDown", ctrlKey: true },
+  ])("leaves $label in the focused editor through the host scope", (shortcut) => {
+    const container = createContainer();
+    const selected = container.querySelector<HTMLElement>(".is-selected");
+    const input = document.createElement("input");
+    input.value = "property text";
+    document.body.appendChild(input);
+    input.focus();
+    const onEditorKeyDown = vi.fn();
+    input.addEventListener("keydown", onEditorKeyDown);
+
+    const scopes: Array<{ handler: ((event: KeyboardEvent) => boolean | void) | null }> = [];
+    const hostCapture = (event: KeyboardEvent): void => {
+      if (scopes.at(-1)?.handler?.(event) === false) {
+        event.stopImmediatePropagation();
+      }
+    };
+    window.addEventListener("keydown", hostCapture, true);
+    listenerCleanups.add(() => window.removeEventListener("keydown", hostCapture, true));
+    const keymap = {
+      pushScope: vi.fn((scope) => { scopes.push(scope); }),
+      popScope: vi.fn(() => { scopes.pop(); }),
+    };
+    const onActivationIntent = vi.fn();
+    const keyboard = registerSuggestionKeyboardBridge({
+      keymap: keymap as unknown as Keymap,
+      getActiveContainer: () => container,
+      hasActiveContext: () => true,
+      onActivationIntent,
+      onSynchronizationFailure: vi.fn(),
+      supportsEmacsNavigation: true,
+      targetWindow: window,
+    });
+    listenerCleanups.add(keyboard);
+    keyboard.synchronizeScope(true);
+
+    const event = new KeyboardEvent("keydown", {
+      ...shortcut,
+      bubbles: true,
+      cancelable: true,
+    });
+    input.dispatchEvent(event);
+
+    expect(event.defaultPrevented).toBe(false);
+    expect(onEditorKeyDown).toHaveBeenCalledOnce();
+    expect(onEditorKeyDown).toHaveBeenCalledWith(event);
+    expect(onActivationIntent).not.toHaveBeenCalled();
+    expect(container.querySelector(".is-selected")).toBe(selected);
+  });
+
+  it("keeps the explicit Ctrl+N/P candidate shortcuts", () => {
+    const container = createContainer();
+    const keyboard = registerSuggestionKeyboardBridge({
+      getActiveContainer: () => container,
+      hasActiveContext: () => true,
+      onSynchronizationFailure: vi.fn(),
+      supportsEmacsNavigation: true,
+      targetWindow: window,
+    });
+    listenerCleanups.add(keyboard);
+
+    const next = new KeyboardEvent("keydown", {
+      bubbles: true, cancelable: true, ctrlKey: true, key: "n",
+    });
+    window.dispatchEvent(next);
+    expect(next.defaultPrevented).toBe(true);
+    expect(container.querySelector(".is-selected")?.textContent).toBe("beta");
+
+    const previous = new KeyboardEvent("keydown", {
+      bubbles: true, cancelable: true, ctrlKey: true, key: "p",
+    });
+    window.dispatchEvent(previous);
+    expect(previous.defaultPrevented).toBe(true);
+    expect(container.querySelector(".is-selected")?.textContent).toBe("alpha");
+  });
+
   it.each(["Enter", "Tab", "ArrowDown", "Escape"])(
     "leaves another window's %s event alone even if this document owns the shared scope",
     (key) => {
