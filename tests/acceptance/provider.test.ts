@@ -345,6 +345,63 @@ describe("Property Order acceptance provider", () => {
     settingsWindow.close();
   });
 
+  it("requests real window focus only after drag activation and removes observers on unload", () => {
+    const fixture = createFixture();
+    const targetWindow = new HappyDomWindow();
+    const provider = new (loadProvider())();
+    const sourceWindow = fixture.view.containerEl!.ownerDocument.defaultView!;
+    const listeners = vi.spyOn(sourceWindow, "addEventListener");
+    const callbacks: FrameRequestCallback[] = [];
+    const raf = vi.spyOn(window, "requestAnimationFrame").mockImplementation((callback) => {
+      callbacks.push(callback);
+      return callbacks.length;
+    });
+    const focus = vi.spyOn(targetWindow, "focus").mockImplementation(() => undefined);
+    provider.app = { workspace: {
+      getActiveViewOfType: () => fixture.view,
+      iterateAllLeaves: (callback) => callback({ view: {
+        containerEl: targetWindow.document.body as unknown as HTMLElement,
+      } }),
+    } };
+    provider.onload();
+    provider.commands.find(({ id }) => id === "arm-next-drag-focus-switch")?.callback?.();
+    document.dispatchEvent(new PointerEvent("pointermove", { pointerId: 7 }));
+    callbacks.shift()?.(0);
+    expect(focus).not.toHaveBeenCalled();
+    document.querySelector(".multi-select-pill")?.classList.add("property-order-dragging");
+    document.dispatchEvent(new PointerEvent("pointermove", { pointerId: 7 }));
+    expect(focus).not.toHaveBeenCalled();
+    callbacks.shift()?.(1);
+    expect(focus).toHaveBeenCalledOnce();
+    expect(provider.conditionEvents.some(({ event }) => event === "source window blur observed")).toBe(false);
+    // Unit-only stimulus validates observation, not a trusted host blur claim.
+    const blurListener = listeners.mock.calls.find(([type]) => type === "blur")?.[1] as EventListener;
+    blurListener({ target: sourceWindow, isTrusted: false } as unknown as Event);
+    document.querySelector(".multi-select-pill")?.classList.remove("property-order-dragging");
+    callbacks.shift()?.(2);
+    document.dispatchEvent(new PointerEvent("pointerup", { pointerId: 7 }));
+    expect(provider.conditionEvents.map(({ event }) => event)).toContain("source drag after blur frame");
+    expect(provider.conditionEvents.map(({ event }) => event)).toContain("source pointerup after focus request");
+    expect(fixture.setViewData).not.toHaveBeenCalled();
+    provider.cleanups.forEach((cleanup) => cleanup());
+    const count = provider.conditionEvents.length;
+    fixture.view.containerEl!.ownerDocument.defaultView!.dispatchEvent(new Event("blur"));
+    document.dispatchEvent(new PointerEvent("pointermove", { pointerId: 7 }));
+    expect(provider.conditionEvents).toHaveLength(count);
+    expect(focus).toHaveBeenCalledOnce();
+    listeners.mockRestore();
+    raf.mockRestore();
+    focus.mockRestore();
+    targetWindow.close();
+  });
+
+  it("refuses a drag focus switch without a second workspace window", () => {
+    const { command, provider } = conditionProvider("Property Order.md");
+    command("arm-next-drag-focus-switch");
+    expect(provider.conditionEvents.at(-1)?.event).toBe("focus switch refused: second workspace window required");
+    provider.cleanups.forEach((cleanup) => cleanup());
+  });
+
   it("prepares grouped key suggestions through the plugin settings boundary", async () => {
     const fixture = createFixture();
     const saveSettings = vi.fn(async () => undefined);
