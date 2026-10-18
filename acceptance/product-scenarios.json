@@ -30,7 +30,9 @@
         "Reorder alpha and beta and move one value between po_source and po_target",
         "Use Undo and Redo without first focusing the note body",
         "Wait for persistence and compare the final YAML while preserving the body",
-        "Repeat one guarded move while the acceptance controller changes the disposable fixture after the operation begins"
+        "Repeat one guarded move while the acceptance controller changes the disposable fixture after the operation begins",
+        "Open Edit Safety.md, choose one item per line in Value order, move the last po_comment_source item into po_comment_target, and verify standalone source comments and the moved item comment are retained",
+        "Attempt to move into or out of po_multiline and verify the unsupported multi-line scalar is not truncated or written"
       ],
       "expected": [
         "The editor, visible Properties view, and disk YAML converge after one host turn",
@@ -56,7 +58,11 @@
         "Open status candidates and verify planned and deferred remain selectable even though no fixture note previously contains them; select one through the visible candidate UI and verify the committed YAML",
         "Select priority candidates in a controlled order, wait for Metadata Cache confirmation, and verify Selection frequency changes only after confirmed commits while Note count remains a different ordering source",
         "Check that ordinary context menus retain their actions and disabling enhancement restores native behavior",
-        "Use the acceptance provider to prepare status No suggestions, type a value into status, and confirm manual typing remains available; press Enter and Tab without intentionally selecting a candidate and confirm neither commits a suppressed candidate; restore the grouped behaviors and confirm suggestions return"
+        "Use the acceptance provider to prepare status No suggestions, type a value into status, and confirm manual typing remains available; press Enter and Tab without intentionally selecting a candidate and confirm neither commits a suppressed candidate; restore the grouped behaviors and confirm suggestions return",
+        "On desktop, exercise native-injected and fallback preset candidates with click, Enter and Tab; change the query, property or editor and verify old candidates cannot write to the previous editor",
+        "On desktop, open a second note in a popout window, switch focus and trigger a background metadata refresh; Enter and Tab must affect only the focused editor",
+        "Add a rule or preset and immediately continue drafting or select another property; confirm persistence does not clear the later draft, restore an old selection or steal focus, then reopen settings to verify saved values",
+        "Move a whole rule card with Recently added display order and confirm its properties appear before older members; newly configured preset property names remain available in the property chooser"
       ],
       "expected": [
         "General, Value order, Key suggestions and Value suggestions remain accessible at desktop and mobile widths",
@@ -84,7 +90,9 @@
         "Verify key_automatic appears under Automatic / unspecified because it exists in the Vault vocabulary but is deliberately absent from types.json",
         "Navigate the visible candidates with Arrow keys, Home/End, PageUp/PageDown and Enter or touch; group labels must never become selectable stops or change the candidate count",
         "Switch the inside-group sorter between Name, Recently used and Notes containing the property and verify type groups stay fixed while only members within a group reorder",
-        "Disable key suggestion enhancement, close and reopen the property-name editor, then verify native candidate order, visibility and selection behavior are restored without plugin group decoration"
+        "Disable key suggestion enhancement, close and reopen the property-name editor, then verify native candidate order, visibility and selection behavior are restored without plugin group decoration",
+        "Change plugin language while a grouped property-name menu is open and verify headings refresh without making type labels selectable",
+        "Check the four settings tabs in a narrow right-to-left layout; the active tab must remain visible after tab changes and window resizing"
       ],
       "expected": [
         "The plugin reuses native candidate nodes and presents type labels without synthetic candidate rows",

@@ -5,6 +5,8 @@ follow the repository's Git tags; entries summarize the corresponding commit his
 
 ## [Unreleased]
 
+## [0.9.1] - 2026-10-18
+
 ### Fixed
 
 - Reject multi-line scalar values during cross-property drag validation so a concurrent edit
