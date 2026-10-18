@@ -15,6 +15,7 @@ module.exports = class PropertyOrderAcceptanceProvider extends Plugin {
     this.saveDelayCleanup = null;
     this.languageTimerCleanup = null;
     this.foreignPointerCleanup = null;
+    this.focusSwitchCleanup = null;
     this.observationTimers = new Map();
     this.observationIds = new WeakMap();
     this.nextObservationId = 1;
@@ -31,6 +32,11 @@ module.exports = class PropertyOrderAcceptanceProvider extends Plugin {
         callback: () => this.scheduleObservation(delay),
       });
     }
+    this.addCommand({
+      id: "arm-next-drag-focus-switch",
+      name: "Acceptance: focus another workspace window during next drag",
+      callback: () => this.armNextDragFocusSwitch(),
+    });
     this.addCommand({
       id: "arm-foreign-pointer-condition",
       name: "Acceptance: inject foreign-window pointer release during next drag",
@@ -51,6 +57,7 @@ module.exports = class PropertyOrderAcceptanceProvider extends Plugin {
     this.register(() => {
       for (const [timer, window] of this.observationTimers) window.clearTimeout(timer);
       this.observationTimers.clear();
+      this.focusSwitchCleanup?.();
       this.foreignPointerCleanup?.();
       this.saveDelayCleanup?.("unloaded");
       this.languageTimerCleanup?.();
@@ -422,6 +429,96 @@ module.exports = class PropertyOrderAcceptanceProvider extends Plugin {
     }, ARM_TIMEOUT_MS);
     this.foreignPointerCleanup = cleanup;
     this.recordCondition("foreign pointer condition armed: synthetic target release only");
+  }
+
+  armNextDragFocusSwitch() {
+    this.focusSwitchCleanup?.();
+    const fixture = this.resolveFixture();
+    if (fixture == null) return;
+    const sourceDocument = fixture.document;
+    const sourceWindow = sourceDocument.defaultView;
+    let targetWindow = null;
+    this.app.workspace.iterateAllLeaves?.((leaf) => {
+      const document = leaf.view.containerEl?.ownerDocument;
+      if (document && document !== sourceDocument && document.defaultView) targetWindow ??= document.defaultView;
+    });
+    if (!sourceWindow || !targetWindow || targetWindow.closed) {
+      this.recordCondition("focus switch refused: second workspace window required");
+      return;
+    }
+    let active = true;
+    let requested = false;
+    let frame = null;
+    let afterBlurFrame = null;
+    let timeout = null;
+    const isDragging = () => fixture.view.containerEl.querySelector(".property-order-dragging") != null;
+    const cleanup = () => {
+      active = false;
+      sourceDocument.removeEventListener("pointermove", onMove, true);
+      sourceDocument.removeEventListener("pointerup", onUp, true);
+      sourceWindow.removeEventListener("blur", onBlur, true);
+      targetWindow.removeEventListener("focus", onTargetFocus, true);
+      if (frame != null) sourceWindow.cancelAnimationFrame(frame);
+      if (afterBlurFrame != null) sourceWindow.cancelAnimationFrame(afterBlurFrame);
+      if (timeout != null) sourceWindow.clearTimeout(timeout);
+      if (this.focusSwitchCleanup === cleanup) this.focusSwitchCleanup = null;
+    };
+    const onBlur = (event) => {
+      if (!requested || event.target !== sourceWindow) return;
+      this.recordCondition("source window blur observed", {
+        isTrusted: event.isTrusted === true,
+        dragActiveBefore: isDragging(),
+      });
+      afterBlurFrame = sourceWindow.requestAnimationFrame(() => {
+        afterBlurFrame = null;
+        if (!active) return;
+        this.recordCondition("source drag after blur frame", {
+          dragActiveAfter: isDragging(),
+          sourceHasFocus: sourceDocument.hasFocus(),
+          targetHasFocus: targetWindow.document.hasFocus(),
+        });
+      });
+    };
+    const onTargetFocus = (event) => {
+      if (!requested || event.target !== targetWindow) return;
+      this.recordCondition("target window focus observed", { isTrusted: event.isTrusted === true });
+    };
+    const onUp = (event) => {
+      if (!requested) return;
+      this.recordCondition("source pointerup after focus request", {
+        isTrusted: event.isTrusted === true,
+        pointerId: event.pointerId,
+        dragActive: isDragging(),
+      });
+    };
+    const onMove = (event) => {
+      if (!active || requested || frame != null) return;
+      frame = sourceWindow.requestAnimationFrame(() => {
+        frame = null;
+        if (!active || !isDragging()) return;
+        requested = true;
+        this.recordCondition("workspace focus switch requested during source drag", {
+          sourceEventTrusted: event.isTrusted === true,
+          pointerId: event.pointerId,
+          sourceTitle: sourceDocument.title,
+          targetTitle: targetWindow.document.title,
+          distinctDocuments: sourceDocument !== targetWindow.document,
+          dragActiveBefore: isDragging(),
+        });
+        // This asks the real host to transfer focus. It never synthesizes blur.
+        targetWindow.focus();
+      });
+    };
+    sourceDocument.addEventListener("pointermove", onMove, true);
+    sourceDocument.addEventListener("pointerup", onUp, true);
+    sourceWindow.addEventListener("blur", onBlur, true);
+    targetWindow.addEventListener("focus", onTargetFocus, true);
+    timeout = sourceWindow.setTimeout(() => {
+      cleanup();
+      this.recordCondition("focus switch observation ended");
+    }, ARM_TIMEOUT_MS);
+    this.focusSwitchCleanup = cleanup;
+    this.recordCondition("next drag workspace focus switch armed");
   }
 
   async exportConditionEvents() {
