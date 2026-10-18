@@ -13,6 +13,7 @@ export interface SettingsTabLayout {
 
 export interface SettingsTabScrollLayout {
   readonly clientWidth: number;
+  readonly rightToLeft?: boolean;
   readonly scrollWidth: number;
   readonly scrollLeft: number;
   readonly tabOffsetLeft: number;
@@ -90,6 +91,7 @@ export function createSettingsTabLayout(
     const activeTabRect = activeTabEl.getBoundingClientRect();
     tabBarEl.scrollLeft = getSettingsTabScrollLeft({
       clientWidth: tabBarEl.clientWidth,
+      rightToLeft: isRightToLeft(tabBarEl),
       scrollWidth: tabBarEl.scrollWidth,
       scrollLeft: tabBarEl.scrollLeft,
       tabOffsetLeft: activeTabRect.left - tabBarRect.left + tabBarEl.scrollLeft,
@@ -115,17 +117,23 @@ export function createSettingsTabLayout(
 export function getSettingsTabScrollLeft(layout: SettingsTabScrollLayout): number {
   const clientWidth = finiteNonNegative(layout.clientWidth);
   const scrollWidth = finiteNonNegative(layout.scrollWidth);
-  const maxScrollLeft = Math.max(0, scrollWidth - clientWidth);
-  const current = clamp(finiteNonNegative(layout.scrollLeft), 0, maxScrollLeft);
+  const overflowWidth = Math.max(0, scrollWidth - clientWidth);
+  const minScrollLeft = layout.rightToLeft ? -overflowWidth : 0;
+  const maxScrollLeft = layout.rightToLeft ? 0 : overflowWidth;
+  const current = clamp(
+    Number.isFinite(layout.scrollLeft) ? layout.scrollLeft : 0,
+    minScrollLeft,
+    maxScrollLeft,
+  );
   const tabStart = Number.isFinite(layout.tabOffsetLeft) ? layout.tabOffsetLeft : 0;
   const tabEnd = tabStart + finiteNonNegative(layout.tabOffsetWidth);
 
   if (tabStart < current) {
-    return clamp(tabStart, 0, maxScrollLeft);
+    return clamp(tabStart, minScrollLeft, maxScrollLeft);
   }
 
   if (tabEnd > current + clientWidth) {
-    return clamp(tabEnd - clientWidth, 0, maxScrollLeft);
+    return clamp(tabEnd - clientWidth, minScrollLeft, maxScrollLeft);
   }
 
   return current;

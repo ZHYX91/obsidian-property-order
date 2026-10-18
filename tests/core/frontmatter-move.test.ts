@@ -328,6 +328,48 @@ describe("moveFrontmatterListPropertyValue", () => {
     );
   });
 
+  it.each(["\n", "\r\n", "\r"])(
+    "keeps standalone source comments when block formatting empties a list with %j newlines",
+    (newline) => {
+      const input = [
+        "---",
+        "source: # source",
+        "  # before",
+        "  - alpha # move with alpha",
+        "  # after",
+        "",
+        "target:",
+        "  - beta",
+        "---",
+        "Body",
+      ].join(newline);
+
+      const output = moveFrontmatterListPropertyValue(input, {
+        normalizeAsTextList: true,
+        sourcePropertyKey: "source",
+        targetPropertyKey: "target",
+        sourceIndex: 0,
+        targetSlot: 1,
+        writebackFormat: "block",
+      });
+
+      expect(output).toBe(
+        [
+          "---",
+          "source: # source",
+          "  # before",
+          "  # after",
+          "",
+          "target:",
+          "  - beta",
+          "  - alpha # move with alpha",
+          "---",
+          "Body",
+        ].join(newline),
+      );
+    },
+  );
+
   it("moves a value into an empty flow list target", () => {
     const input = ["---", "aliases: [alpha, beta]", "related: []", "---"].join("\n");
 

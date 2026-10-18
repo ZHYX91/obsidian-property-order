@@ -1167,6 +1167,46 @@ describe("PropertyValueOrderController", () => {
     openedWindow.close();
   });
 
+  it("does not start a drag from a pointer move in another workspace window", () => {
+    const raf = installRafHarness();
+    const harness = createHarness();
+    const openedWindow = new HappyDomWindow();
+    harness.openWorkspaceWindow(openedWindow as unknown as Window);
+
+    dispatchPointer(harness.pill, "pointerdown", 10);
+    dispatchPointer(openedWindow.document as unknown as Document, "pointermove", 250);
+    raf.flush();
+
+    expect(document.querySelector(".property-order-drag-preview")).toBeNull();
+    expect(harness.editor.transaction).not.toHaveBeenCalled();
+    harness.cleanup();
+    openedWindow.close();
+  });
+
+  it.each(["pointerup", "pointercancel"] as const)(
+    "keeps another workspace window's %s out of the active drag",
+    async (type) => {
+      const raf = installRafHarness();
+      const harness = createHarness();
+      const openedWindow = new HappyDomWindow();
+      harness.openWorkspaceWindow(openedWindow as unknown as Window);
+
+      dispatchPointer(harness.pill, "pointerdown", 10);
+      dispatchPointer(document, "pointermove", 250);
+      raf.flush();
+      dispatchPointer(openedWindow.document as unknown as Document, type, 250);
+      await new Promise<void>((resolve) => window.setTimeout(resolve, 0));
+
+      expect(harness.editor.transaction).not.toHaveBeenCalled();
+      expect(document.querySelector(".property-order-drag-preview")).not.toBeNull();
+      dispatchPointer(document, "pointerup", 250);
+      await waitForDragFinish();
+      expect(harness.editor.transaction).toHaveBeenCalledOnce();
+      harness.cleanup();
+      openedWindow.close();
+    },
+  );
+
   it("cancels an active drag when its own window loses focus", () => {
     installRafHarness();
     const harness = createHarness();
@@ -1305,7 +1345,7 @@ describe("PropertyValueOrderController", () => {
 
     await vi.waitFor(() => expect(noticeSpy).toHaveBeenCalledTimes(1));
     expect(noticeSpy).toHaveBeenCalledWith(
-      "Property Order: failed to reorder property values.",
+      "Property Order: could not reorder property values. Try again.",
     );
     expect(harness.editor.getContent()).toBe("---\nflow: [alpha, beta]\n---\n");
     expect(Array.from(harness.container.children)).toEqual(originalPills);
@@ -2673,6 +2713,52 @@ describe("PropertyValueOrderController", () => {
     );
     expect(target.container.contains(harness.pill)).toBe(false);
     expect(noticeSpy).not.toHaveBeenCalled();
+    harness.cleanup();
+  });
+
+  it("does not overwrite a scalar source that gains a continuation during dragging", async () => {
+    const raf = installRafHarness();
+    const harness = createHarness();
+    harness.container.querySelectorAll<HTMLElement>(".multi-select-pill")[1]?.remove();
+    harness.frontmatter.flow = "alpha";
+    harness.frontmatter.target = ["beta"];
+    harness.editor.setContent("---\nflow: alpha\ntarget: [beta]\n---\n");
+    addScalarBackedListProperty(harness, "target", "beta");
+
+    dispatchPointer(harness.pill, "pointerdown", 10);
+    dispatchPointer(document, "pointermove", 550);
+    raf.flush();
+    const changedContent = "---\nflow: alpha\n  continuation\ntarget: [beta]\n---\n";
+    harness.editor.setContent(changedContent);
+    harness.editorChange();
+    dispatchPointer(document, "pointerup", 550);
+
+    await waitForDragFinish();
+    expect(harness.editor.transaction).not.toHaveBeenCalled();
+    expect(harness.leaf.view.requestSave).not.toHaveBeenCalled();
+    expect(harness.editor.getContent()).toBe(changedContent);
+    harness.cleanup();
+  });
+
+  it("does not overwrite a scalar target that gains a continuation during dragging", async () => {
+    const raf = installRafHarness();
+    const harness = createHarness();
+    harness.frontmatter.target = "gamma";
+    harness.editor.setContent("---\nflow: [alpha, beta]\ntarget: gamma\n---\n");
+    addScalarBackedListProperty(harness, "target", "gamma");
+
+    dispatchPointer(harness.pill, "pointerdown", 10);
+    dispatchPointer(document, "pointermove", 550);
+    raf.flush();
+    const changedContent = "---\nflow: [alpha, beta]\ntarget: gamma\n  continuation\n---\n";
+    harness.editor.setContent(changedContent);
+    harness.editorChange();
+    dispatchPointer(document, "pointerup", 550);
+
+    await waitForDragFinish();
+    expect(harness.editor.transaction).not.toHaveBeenCalled();
+    expect(harness.leaf.view.requestSave).not.toHaveBeenCalled();
+    expect(harness.editor.getContent()).toBe(changedContent);
     harness.cleanup();
   });
 

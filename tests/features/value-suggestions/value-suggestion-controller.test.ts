@@ -1451,6 +1451,40 @@ describe("ValueSuggestionOrderController", () => {
     expect(keymap.pushScope).toHaveBeenCalledTimes(2);
   });
 
+  it("keeps an unfocused native popup out of the shared keyboard scope after metadata refresh", () => {
+    const raf = installRafHarness();
+    const file = { path: "one.md" } as TFile;
+    const metadataEvents = new Map<string, (...args: never[]) => void>();
+    const keymap = { popScope: vi.fn(), pushScope: vi.fn() };
+    const settings = createDefaultSettings();
+    settings.enableNativeValueSuggestionOrder = true;
+    settings.valueSuggestionDefaultBehavior = "note-count";
+    createValueMenu(["a", "b"]);
+    const controller = createController(settings, createApp({
+      files: [file],
+      frontmatterByFile: new Map([[file, { status: "a" }]]),
+      keymap,
+      metadataEvents,
+    }));
+    controller.initialize();
+    raf.flush();
+    expect(keymap.pushScope).toHaveBeenCalledOnce();
+
+    window.dispatchEvent(new Event("blur"));
+    expect(keymap.popScope).toHaveBeenCalledOnce();
+    metadataEvents.get("changed")?.(
+      file as never, {} as never, { frontmatter: { status: "b" } } as never,
+    );
+    raf.flush();
+    expect(keymap.pushScope).toHaveBeenCalledOnce();
+    expect(asTestable(controller).getActiveContainer(document)).toBeNull();
+
+    window.dispatchEvent(new Event("focus"));
+    raf.flush();
+    expect(keymap.pushScope).toHaveBeenCalledTimes(2);
+    expect(asTestable(controller).getActiveContainer(document)).not.toBeNull();
+  });
+
   it("removes the fallback when its editor is detached without a focus event", async () => {
     const raf = installRafHarness();
     const settings = createDefaultSettings();
@@ -1874,6 +1908,197 @@ describe("ValueSuggestionOrderController", () => {
 
     expect(container.querySelector(".is-selected")?.textContent).toBe("b");
     controller.dispose();
+  });
+
+  it("preserves an injected preset selection across metadata refresh and commits that exact value", () => {
+    const raf = installRafHarness();
+    const file = { path: "one.md" } as TFile;
+    const metadataEvents = new Map<string, (...args: never[]) => void>();
+    const settings = createDefaultSettings();
+    settings.enableNativeValueSuggestionOrder = true;
+    settings.valueSuggestionPropertyAssignments = [{ propertyKey: "status", behavior: "custom" }];
+    settings.valueSuggestionCustomOrders = [{
+      propertyKey: "status", pinnedValues: ["alpha"], bottomValues: [" alpha"],
+      middleValues: [], middleSortMode: "note-count",
+    }];
+    const { container, editor } = createValueMenu(["native"]);
+    const controller = createController(settings, createApp({
+      files: [file],
+      frontmatterByFile: new Map([[file, { status: "native" }]]),
+      metadataEvents,
+    }));
+    controller.initialize();
+    raf.flush();
+    editor.dispatchEvent(new KeyboardEvent("keydown", {
+      bubbles: true, cancelable: true, key: "End",
+    }));
+    expect(container.querySelector(".is-selected")?.textContent).toBe(" alpha");
+
+    metadataEvents.get("changed")?.(
+      file as never, {} as never, { frontmatter: { status: "native", unrelated: true } } as never,
+    );
+    raf.flush();
+    expect(container.querySelector(".is-selected")?.textContent).toBe(" alpha");
+    expect(container.querySelector('[aria-selected="true"]')?.textContent).toBe(" alpha");
+    editor.dispatchEvent(new KeyboardEvent("keydown", {
+      bubbles: true, cancelable: true, key: "Enter",
+    }));
+    expect(editor.value).toBe(" alpha");
+  });
+
+  it("does not preserve an injected preset selection across different queries or property editors", () => {
+    const settings = createDefaultSettings();
+    settings.enableNativeValueSuggestionOrder = true;
+    settings.valueSuggestionPropertyAssignments = [
+      { propertyKey: "status", behavior: "custom" },
+      { propertyKey: "priority", behavior: "custom" },
+    ];
+    settings.valueSuggestionCustomOrders = ["status", "priority"].map((propertyKey) => ({
+      propertyKey, pinnedValues: ["a"], bottomValues: ["aa"],
+      middleValues: [], middleSortMode: "native" as const,
+    }));
+    const { container, editor } = createValueMenu(["native"]);
+    const controller = createController(settings);
+    const selectLast = (): void => {
+      for (const item of container.querySelectorAll(".suggestion-item")) {
+        item.classList.toggle("is-selected", item.textContent === "aa");
+      }
+    };
+    asTestable(controller).enhanceContainer(container);
+    selectLast();
+    editor.value = "a";
+    asTestable(controller).enhanceContainer(container);
+    expect(container.querySelector(".is-selected")?.textContent).toBe("a");
+
+    selectLast();
+    const next = createValueMenu([], "priority");
+    next.container.remove();
+    asTestable(controller).enhanceContainer(container);
+    expect(container.querySelector(".is-selected")?.textContent).toBe("a");
+
+    selectLast();
+    settings.valueSuggestionCustomOrders[1].bottomValues = [];
+    asTestable(controller).enhanceContainer(container);
+    expect(container.querySelector(".is-selected")?.textContent).toBe("a");
+  });
+
+  describe.each(["native", "fallback"] as const)("%s preset activation ownership", (popup) => {
+    function createPresetPopup(query = "") {
+      const raf = installRafHarness();
+      const settings = createDefaultSettings();
+      settings.enableNativeValueSuggestionOrder = true;
+      settings.valueSuggestionPropertyAssignments = [
+        { propertyKey: "status", behavior: "custom" },
+        { propertyKey: "priority", behavior: "custom" },
+      ];
+      settings.valueSuggestionCustomOrders = [
+        { propertyKey: "status", pinnedValues: ["planned", " planned "],
+          bottomValues: [], middleValues: [], middleSortMode: "native" },
+        { propertyKey: "priority", pinnedValues: ["high"],
+          bottomValues: [], middleValues: [], middleSortMode: "native" },
+      ];
+      const { container, editor, row } = createValueMenu(["native"]);
+      editor.value = query;
+      if (popup === "fallback") container.remove();
+      const controller = createController(settings);
+      controller.initialize();
+      raf.flush();
+      const selected = document.querySelector<HTMLElement>(".suggestion-item.is-selected");
+      expect(selected?.textContent).toBe("planned");
+      return { controller, editor, raf, row, selected: selected! };
+    }
+
+    const changes = ["another property", "same property editor", "renamed property", "query"] as const;
+    const activations = ["Enter", "Tab", "click"] as const;
+    const cases = changes.flatMap((change) => activations.map((activation) => ({
+      activation, change,
+    })));
+
+    it.each(cases)("ignores $activation after $change changes before the pending frame", ({ activation, change }) => {
+      const { controller, editor, raf, row, selected } = createPresetPopup(
+        change === "query" ? "plan" : "",
+      );
+      let activeEditor = editor;
+      let expectedValue = "planned";
+      if (change === "another property" || change === "same property editor") {
+        const next = createValueMenu([], change === "another property" ? "priority" : "status");
+        next.container.remove();
+        activeEditor = next.editor;
+        if (change === "another property") expectedValue = "high";
+      } else if (change === "renamed property") {
+        row.dataset.propertyKey = "priority";
+        controller.refresh();
+        expectedValue = "high";
+      } else {
+        // Whitespace is part of both the query and the preset's exact value.
+        editor.value = " plan";
+        editor.dispatchEvent(new Event("input", { bubbles: true }));
+        expectedValue = " planned ";
+      }
+      expect(raf.pending()).toBe(1);
+      const previousValue = editor.value;
+      const activeValue = activeEditor.value;
+
+      const activate = (item: HTMLElement): void => {
+        if (activation === "click") {
+          item.click();
+        } else {
+          activeEditor.dispatchEvent(new KeyboardEvent("keydown", {
+            bubbles: true, cancelable: true, key: activation,
+          }));
+        }
+      };
+      activate(selected);
+
+      expect(editor.value).toBe(previousValue);
+      expect(activeEditor.value).toBe(activeValue);
+      expect(document.activeElement).toBe(activeEditor);
+
+      raf.flush();
+      const refreshed = document.querySelector<HTMLElement>(".suggestion-item.is-selected");
+      expect(refreshed?.textContent).toBe(expectedValue);
+      activate(refreshed!);
+      expect(activeEditor.value).toBe(expectedValue);
+      expect(document.activeElement).toBe(activeEditor);
+      if (activeEditor !== editor) expect(editor.value).toBe(previousValue);
+    });
+
+    it("ignores a detached preset item after the popup refreshes in the same context", () => {
+      const { controller, editor, raf, selected } = createPresetPopup("plan");
+      controller.refresh();
+      raf.flush();
+      expect(selected.isConnected).toBe(false);
+
+      selected.click();
+
+      expect(editor.value).toBe("plan");
+      expect(document.activeElement).toBe(editor);
+      document.querySelector<HTMLElement>(".suggestion-item.is-selected")?.click();
+      expect(editor.value).toBe("planned");
+    });
+  });
+
+  it.each(["editor", "query"] as const)("rebinds an unchanged native popup after its %s changes", (change) => {
+    const raf = installRafHarness();
+    const settings = createDefaultSettings();
+    settings.enableNativeValueSuggestionOrder = true;
+    settings.valueSuggestionDefaultBehavior = "name";
+    const { container, editor } = createValueMenu(["b", "a"]);
+    const controller = createController(settings);
+    controller.initialize();
+    raf.flush();
+    if (change === "editor") {
+      const next = createValueMenu([], "status");
+      next.container.remove();
+    } else {
+      editor.value = "a";
+      editor.dispatchEvent(new Event("input", { bubbles: true }));
+    }
+    expect(asTestable(controller).getActiveContainer(document)).toBeNull();
+
+    raf.flush();
+
+    expect(asTestable(controller).getActiveContainer(document)).toBe(container);
   });
 
   it("recomputes usage ordering after metadata changes without new candidate labels", () => {

@@ -25,7 +25,7 @@ describe("settings control contract", () => {
     expect(isPropertyOrderControlKey("unknown")).toBe(false);
 
     expect(applyPropertyOrderControlValue(settings, "language", "zh-CN")).toEqual({
-      refreshKeySuggestions: false,
+      refreshKeySuggestions: true,
       refreshMode: "structure",
     });
     expect(applyPropertyOrderControlValue(settings, "enablePropertyValueDrag", false)).toEqual({

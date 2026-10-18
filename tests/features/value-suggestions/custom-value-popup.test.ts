@@ -7,6 +7,7 @@ import {
   commitCustomPropertyValueCandidate,
   mountCustomValuePopup,
 } from "../../../src/features/value-suggestions/custom-value-popup";
+import { registerSuggestionKeyboardBridge } from "../../../src/features/key-order/suggestion-keyboard-bridge";
 import type { PropertyValueSuggestionContext } from "../../../src/obsidian/native-suggest-dom";
 
 function createContext(
@@ -197,6 +198,33 @@ describe("custom value fallback popup", () => {
 
     mount.cleanup();
     mount.cleanup();
+  });
+
+  it("keeps aria-selected aligned with exact keyboard selection in a fallback", () => {
+    const { context, input } = createContext();
+    const mount = mountCustomValuePopup(context, ["alpha", " alpha", " "], () => undefined)!;
+    const keyboard = registerSuggestionKeyboardBridge({
+      getActiveContainer: () => mount.container,
+      hasActiveContext: () => true,
+      onSynchronizationFailure: vi.fn(),
+      supportsEmacsNavigation: false,
+      targetWindow: window,
+    });
+
+    try {
+      for (const value of [" alpha", " ", "alpha"]) {
+        input.dispatchEvent(new KeyboardEvent("keydown", {
+          bubbles: true, cancelable: true, key: "ArrowDown",
+        }));
+        const selected = mount.container.querySelector(".is-selected");
+        expect(selected?.textContent).toBe(value);
+        expect(Array.from(mount.container.querySelectorAll('[aria-selected="true"]')))
+          .toEqual([selected]);
+      }
+    } finally {
+      keyboard();
+      mount.cleanup();
+    }
   });
 
   it("commits through the focused native editor input path", () => {

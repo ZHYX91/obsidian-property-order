@@ -26,7 +26,7 @@ import {
   resolveSuggestionContainer,
   type SuggestionItem,
 } from "../../obsidian/native-suggest-dom";
-import { t, type TranslationKey } from "../../shared/i18n";
+import { getResolvedLocaleCode, t, type TranslationKey } from "../../shared/i18n";
 import type {
   PropertyKeyUsage,
   PropertyOrderSettings,
@@ -1064,6 +1064,9 @@ function createStructuralSignature(
     groupByType: settings.groupKeySuggestionsByType,
     hidden: settings.hiddenPropertyKeyPatterns,
     keys,
+    language: settings.groupKeySuggestionsByType
+      ? getResolvedLocaleCode(settings.language)
+      : null,
     pinned: settings.pinnedPropertyKeys,
     propertyTypeRevision: settings.groupKeySuggestionsByType
       ? propertyTypeRevision

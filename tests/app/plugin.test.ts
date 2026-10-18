@@ -350,6 +350,54 @@ describe("PropertyOrderPlugin settings persistence", () => {
     expect(refreshSettings).toHaveBeenCalledOnce();
   });
 
+  it("refreshes open key menus when external settings change only the language", async () => {
+    const initialSettings = {
+      ...createDefaultSettings(),
+      groupKeySuggestionsByType: true,
+      language: "en" as const,
+    };
+    const { loadData, plugin } = createPlugin(initialSettings);
+    await plugin.loadSettings();
+    const refresh = vi.fn();
+    (
+      plugin as unknown as {
+        keySuggestionOrderController: { refresh(): void };
+      }
+    ).keySuggestionOrderController = { refresh };
+    loadData.mockResolvedValueOnce({ ...initialSettings, language: "zh-CN" });
+
+    await plugin.onExternalSettingsChange();
+
+    expect(plugin.propertyOrderSettings.language).toBe("zh-CN");
+    expect(refresh).toHaveBeenCalledOnce();
+  });
+
+  it("refreshes key menu labels when a save merges an external language change", async () => {
+    const initialSettings = {
+      ...createDefaultSettings(),
+      groupKeySuggestionsByType: true,
+      language: "en" as const,
+    };
+    const { loadData, plugin } = createPlugin(initialSettings);
+    await plugin.loadSettings();
+    const refresh = vi.fn();
+    (
+      plugin as unknown as {
+        keySuggestionOrderController: { refresh(): void };
+      }
+    ).keySuggestionOrderController = { refresh };
+    plugin.propertyOrderSettings.showDiagnostics = true;
+    loadData.mockResolvedValueOnce({ ...initialSettings, language: "zh-CN" });
+
+    await plugin.saveSettings();
+
+    expect(plugin.propertyOrderSettings).toMatchObject({
+      language: "zh-CN",
+      showDiagnostics: true,
+    });
+    expect(refresh).toHaveBeenCalledOnce();
+  });
+
   it("serializes a new instance load behind an older instance's in-flight save", async () => {
     const initialSettings = createDefaultSettings();
     const { plugin: oldPlugin, saveData: oldSaveData } = createPlugin(initialSettings);

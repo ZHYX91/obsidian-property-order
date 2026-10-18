@@ -364,6 +364,39 @@ describe("writePropertyValueDrop", () => {
     expect(fixture.transactions).toHaveLength(0);
   });
 
+  it.each(["source", "target"])(
+    "cancels when the %s scalar gains a continuation line during dragging",
+    async (propertyKey) => {
+      const expectedContent = ["---", "source: alpha", "target: beta", "---"].join("\n");
+      const latestContent = [
+        "---",
+        "source: alpha",
+        ...(propertyKey === "source" ? ["  continued"] : []),
+        "target: beta",
+        ...(propertyKey === "target" ? ["  continued"] : []),
+        "---",
+      ].join("\n");
+      const fixture = createEditorWithCurrentContent(latestContent);
+      const requestSave = vi.fn();
+
+      const result = await writeTestPropertyValueDrop(
+        {
+          editor: fixture.editor,
+          expectedContent,
+          sourceContext: createContext("source", 0),
+          target: createTarget("target", "move", "append"),
+          writebackFormat: "preserve",
+        },
+        { requestSave },
+      );
+
+      expect(result).toEqual({ status: "conflict" });
+      expect(fixture.getContent()).toBe(latestContent);
+      expect(fixture.transactions).toHaveLength(0);
+      expect(requestSave).not.toHaveBeenCalled();
+    },
+  );
+
   it("rebases the property rewrite onto the editor's latest content in one transaction", async () => {
     const expectedContent = ["---", "tags: [alpha, beta]", "---", "old body"].join("\n");
     const latestContent = ["---", "tags: [alpha, beta]", "---", "latest body"].join("\n");
@@ -474,6 +507,56 @@ describe("writePropertyValueDrop", () => {
     expect(
       fixture.transactions[0]?.transaction.changes?.map((change) => change.from.line),
     ).toEqual([1, 2]);
+  });
+
+  it("preserves standalone comments when a block-format transaction empties the source", async () => {
+    const content = [
+      "---",
+      "source: # source",
+      "  # before",
+      "  - alpha # move with alpha",
+      "  # after",
+      "",
+      "target: [beta]",
+      "---",
+      "Unsaved body text",
+    ].join("\n");
+    const expectedContent = [
+      "---",
+      "source: # source",
+      "  # before",
+      "  # after",
+      "",
+      "target:",
+      "  - beta",
+      "  - alpha # move with alpha",
+      "---",
+      "Unsaved body text",
+    ].join("\n");
+    const fixture = createEditorWithCurrentContent(content);
+    const requestSave = vi.fn();
+
+    const result = await writeTestPropertyValueDrop(
+      {
+        editor: fixture.editor,
+        expectedContent: content,
+        sourceContext: createContext("source", 0),
+        target: createTarget("target", "move", "append"),
+        writebackFormat: "block",
+      },
+      { requestSave },
+    );
+
+    expect(result).toEqual({
+      status: "written",
+      changedPropertyKeys: ["source", "target"],
+      committedContent: expectedContent,
+      previousContent: content,
+    });
+    expect(fixture.getContent()).toBe(expectedContent);
+    expect(fixture.transactions).toHaveLength(1);
+    expect(fixture.transactions[0]?.transaction.changes).toHaveLength(2);
+    expect(requestSave).toHaveBeenCalledOnce();
   });
 
   it.each([

@@ -105,10 +105,13 @@ export function renderCustomValueSuggestionEditor(
 
   const persist = async (nextOrder: PropertyValueCustomOrder): Promise<void> => {
     order = nextOrder;
-    await options.onCustomOrdersChange(
+    const pendingSave = options.onCustomOrdersChange(
       upsertPropertyValueCustomOrder(options.customOrders, nextOrder),
     );
+    // Reflect the active settings immediately. A delayed save must not replace
+    // a newer draft or switch back to a property the user has already left.
     options.rerender(selectedPropertyKey);
+    await pendingSave;
   };
 
   let draggedValue: string | null = null;

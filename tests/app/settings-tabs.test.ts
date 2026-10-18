@@ -150,6 +150,38 @@ describe("createSettingsTabLayout", () => {
 
     expect(focus).toHaveBeenCalledWith({ preventScroll: true });
   });
+
+  it("reveals an active tab clipped on the left of a narrow RTL tab bar", () => {
+    const container = document.createElement("div");
+    container.dir = "rtl";
+    document.body.appendChild(container);
+    const layout = createSettingsTabLayout(
+      container,
+      tabs,
+      "keyOrder",
+      "Property Order settings categories",
+      vi.fn(),
+    );
+    const tabBar = container.querySelector<HTMLElement>("[role=tablist]");
+    if (tabBar == null) throw new Error("Expected the settings tab bar.");
+    Object.defineProperties(tabBar, {
+      clientWidth: { value: 240 },
+      scrollWidth: { value: 480 },
+    });
+    vi.spyOn(tabBar, "getBoundingClientRect").mockReturnValue({
+      left: 0,
+      width: 240,
+    } as DOMRect);
+    vi.spyOn(layout.activeTabEl, "getBoundingClientRect").mockReturnValue({
+      left: -120,
+      width: 100,
+    } as DOMRect);
+
+    window.dispatchEvent(new Event("resize"));
+
+    expect(tabBar.scrollLeft).toBe(-120);
+    layout.cleanup();
+  });
 });
 
 describe("getSettingsTabScrollLeft", () => {
@@ -195,5 +227,32 @@ describe("getSettingsTabScrollLeft", () => {
       tabOffsetLeft: -10,
       tabOffsetWidth: 40,
     })).toBe(0);
+  });
+
+  it("keeps and adjusts negative scroll positions in RTL layouts", () => {
+    expect(getSettingsTabScrollLeft({
+      clientWidth: 240,
+      scrollWidth: 480,
+      scrollLeft: -100,
+      tabOffsetLeft: -80,
+      tabOffsetWidth: 60,
+      rightToLeft: true,
+    })).toBe(-100);
+    expect(getSettingsTabScrollLeft({
+      clientWidth: 240,
+      scrollWidth: 480,
+      scrollLeft: 0,
+      tabOffsetLeft: -120,
+      tabOffsetWidth: 100,
+      rightToLeft: true,
+    })).toBe(-120);
+    expect(getSettingsTabScrollLeft({
+      clientWidth: 240,
+      scrollWidth: 480,
+      scrollLeft: -240,
+      tabOffsetLeft: 40,
+      tabOffsetWidth: 100,
+      rightToLeft: true,
+    })).toBe(-100);
   });
 });

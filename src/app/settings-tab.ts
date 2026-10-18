@@ -760,9 +760,10 @@ export class PropertyOrderSettingTab extends PluginSettingTab {
     const behaviorLifecycle = renderValueSuggestionBehaviorGroups({
       app: this.app,
       containerEl,
-      customOrderKeys: settingsAtRender.valueSuggestionCustomOrders.map(
-        (order) => order.propertyKey,
-      ),
+      getCustomOrderKeys: () =>
+        this.plugin.propertyOrderSettings.valueSuggestionCustomOrders.map(
+          (order) => order.propertyKey,
+        ),
       displayOrder: settingsAtRender.valueSuggestionKeyDisplayOrder,
       getAssignments: () =>
         this.plugin.propertyOrderSettings.valueSuggestionPropertyAssignments,

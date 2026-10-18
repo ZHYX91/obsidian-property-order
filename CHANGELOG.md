@@ -5,6 +5,31 @@ follow the repository's Git tags; entries summarize the corresponding commit his
 
 ## [Unreleased]
 
+## [0.9.1] - 2026-10-18
+
+### Fixed
+
+- Reject multi-line scalar values during cross-property drag validation so a concurrent edit
+  cannot move a truncated value or leave invalid YAML. Preserve source comments and blank lines
+  when moving the last item out of a block list with one-item-per-line formatting.
+- Keep drag pointer events and suggestion keyboard shortcuts in their own window. Background
+  suggestion refreshes no longer take over the active window's keyboard scope.
+- Prevent stale preset candidates from submitting to a property after focus or its query changes.
+- Refresh open property-type headings after language changes, preserve custom preset selection
+  within the same editor and query, and synchronize screen-reader selection state with the
+  visible candidate.
+- Keep delayed settings saves from replacing newer drafts, changing the selected property, or
+  stealing focus. Read newly configured preset property names in autocomplete immediately and
+  apply Recently added order consistently when moving a whole rule card.
+- Keep the active settings tab visible in narrow right-to-left layouts.
+
+### Changed
+
+- Explain drag formats, suggestion controls, saved selection counts, and recovery actions in
+  plain English, Simplified Chinese, and Traditional Chinese. Add a practical custom-preset
+  example and align the paired documentation with the current four-tab settings interface.
+- Pin the patched `source-map-js` development dependency to 1.2.2.
+
 ## [0.9.0] - 2026-10-02
 
 ### Added

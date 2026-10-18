@@ -2,6 +2,9 @@
   "types": {
     "po_source": "multitext",
     "po_target": "multitext",
+    "po_comment_source": "multitext",
+    "po_comment_target": "multitext",
+    "po_multiline": "multitext",
     "status": "multitext",
     "priority": "multitext",
     "key_text": "text",

@@ -6,6 +6,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { KeySuggestionOrderController } from "../../../src/features/key-order/key-suggestion-controller";
 import { RecentPropertyKeyTracker } from "../../../src/features/key-order/recent-property-key-tracker";
+import { t } from "../../../src/shared/i18n";
 import { createDefaultSettings } from "../../../src/shared/settings";
 import type { PropertyOrderSettings } from "../../../src/shared/types";
 
@@ -1097,6 +1098,67 @@ describe("KeySuggestionOrderController", () => {
       "automatic",
       "alpha",
     ]);
+  });
+
+  it.each(["name", "recent", "usage"] as const)(
+    "refreshes open type headings and preserves selection in %s mode after a language change",
+    (sortMode) => {
+      const settings = createDefaultSettings();
+      settings.groupKeySuggestionsByType = true;
+      settings.keySuggestionSortMode = sortMode;
+      settings.language = "en";
+      const menu = createMenu(["tags", "aliases"]);
+      const raf = installRafHarness();
+      const controller = createController(settings);
+      const cleanup = controller.initialize();
+
+      try {
+        raf.flush();
+        const editor = menu.closest<HTMLElement>(".metadata-property-key")!;
+        editor.tabIndex = 0;
+        editor.focus();
+        editor.dispatchEvent(new KeyboardEvent("keydown", {
+          bubbles: true, cancelable: true, key: "ArrowDown",
+        }));
+        const selected = menu.querySelector(".is-selected");
+        expect(selected?.textContent).toBe("tags");
+
+        for (const language of ["zh-CN", "zh-TW", "en"] as const) {
+          settings.language = language;
+          controller.refresh();
+          raf.flush();
+          expect(Array.from(
+            menu.querySelectorAll(".property-order-suggestion-type-group-label"),
+            (label) => label.textContent,
+          )).toEqual([
+            t("settings.keyOrder.type.list", language),
+            t("settings.keyOrder.type.tags", language),
+          ]);
+          expect(menu.querySelector(".is-selected")).toBe(selected);
+        }
+      } finally {
+        cleanup();
+      }
+    },
+  );
+
+  it("restores native aria selection when suggestion enhancement is removed", () => {
+    const settings = createDefaultSettings();
+    const menu = createMenu(["b", "a"]);
+    const items = Array.from(menu.querySelectorAll<HTMLElement>(".suggestion-item"));
+    items.forEach((item, index) => {
+      item.setAttribute("role", "option");
+      item.setAttribute("aria-selected", String(index === 0));
+    });
+    const raf = installRafHarness();
+    const controller = createController(settings);
+    const cleanup = controller.initialize();
+
+    raf.flush();
+    expect(menu.querySelector('[aria-selected="true"]')?.textContent).toBe("a");
+    cleanup();
+    expect(menu.querySelector('[aria-selected="true"]')?.textContent).toBe("b");
+    expect(items.map((item) => item.getAttribute("aria-selected"))).toEqual(["true", "false"]);
   });
 
   it("refreshes an open grouped menu when stored Obsidian property types change", async () => {

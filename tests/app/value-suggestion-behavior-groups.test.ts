@@ -70,7 +70,7 @@ describe("PropertyBehaviorSuggest", () => {
     document.body.appendChild(input);
     const onSelect = vi.fn(() => Promise.resolve());
     const suggest = new PropertyBehaviorSuggest({} as App, input, {
-      customOrderKeys: ["manual_only"],
+      getCustomOrderKeys: () => ["manual_only"],
       getAlreadyHereLabel: () => "Already here",
       getAssignments: () => assignments,
       getAvailableKeys: () => ["status", "priority", "项目"],
@@ -139,7 +139,7 @@ describe("PropertyBehaviorSuggest", () => {
     const failure = new Error("save failed");
     const error = vi.spyOn(console, "error").mockImplementation(() => undefined);
     const suggest = new PropertyBehaviorSuggest({} as App, input, {
-      customOrderKeys: [],
+      getCustomOrderKeys: () => [],
       getAlreadyHereLabel: () => "Already here",
       getAssignments: () => [],
       getAvailableKeys: () => [],
@@ -157,6 +157,32 @@ describe("PropertyBehaviorSuggest", () => {
       "Property Order: failed to update property value behavior",
       failure,
     );
+  });
+
+  it("offers newly configured presets after their property leaves a behavior group", () => {
+    let customOrderKeys: string[] = [];
+    let assignments: PropertyValueBehaviorAssignment[] = [];
+    const input = document.createElement("input");
+    const options = {
+      getCustomOrderKeys: () => customOrderKeys,
+      getAlreadyHereLabel: () => "Already here",
+      getAssignments: () => assignments,
+      getAvailableKeys: () => [],
+      getBehaviorLabel: (behavior: ValueSuggestionBehavior) => behavior,
+      getFollowDefaultLabel: () => "Default",
+      onSelect: async () => undefined,
+      targetBehavior: "name" as const,
+    };
+    const suggest = new PropertyBehaviorSuggest({} as App, input, options) as unknown as {
+      getSuggestions(query: string): string[];
+    };
+    expect(suggest.getSuggestions("")).toEqual([]);
+    assignments = [{ behavior: "custom", propertyKey: "new_custom" }];
+    expect(suggest.getSuggestions("")).toEqual(["new_custom"]);
+    customOrderKeys = ["new_custom"];
+    assignments = [];
+
+    expect(suggest.getSuggestions("")).toEqual(["new_custom"]);
   });
 });
 
@@ -198,7 +224,7 @@ describe("renderValueSuggestionBehaviorGroups", () => {
     const lifecycle = renderValueSuggestionBehaviorGroups({
       app: createApp(),
       containerEl: container,
-      customOrderKeys: ["manual_custom"],
+      getCustomOrderKeys: () => ["manual_custom"],
       displayOrder: "name",
       getAssignments: () => assignments,
       onAssignmentsChange,
@@ -285,7 +311,7 @@ describe("renderValueSuggestionBehaviorGroups", () => {
     renderValueSuggestionBehaviorGroups({
       app: createApp(),
       containerEl: container,
-      customOrderKeys: [],
+      getCustomOrderKeys: () => [],
       displayOrder: "recent",
       getAssignments: () => assignments,
       onAssignmentsChange,
@@ -323,7 +349,7 @@ describe("renderValueSuggestionBehaviorGroups", () => {
     ];
     const container = document.body.createDiv();
     renderValueSuggestionBehaviorGroups({
-      app: createApp(), containerEl: container, customOrderKeys: [], displayOrder: "name",
+      app: createApp(), containerEl: container, getCustomOrderKeys: () => [], displayOrder: "name",
       getAssignments: () => assignments,
       onAssignmentsChange: async (next) => { assignments = next; },
       onDisplayOrderChange: async () => undefined, t: (key) => key,
@@ -345,6 +371,115 @@ describe("renderValueSuggestionBehaviorGroups", () => {
     add.querySelector<HTMLButtonElement>("button")!.click();
     expect(container.querySelector('[data-behavior="custom"]')).not.toBeNull();
     expect(assignments).toHaveLength(3);
+  });
+
+  it("keeps a later rule draft and focus when an earlier card save finishes", async () => {
+    let assignments: PropertyValueBehaviorAssignment[] = [
+      { behavior: "name", propertyKey: "status" },
+    ];
+    let finishSave: (() => void) | undefined;
+    const pendingSave = new Promise<void>((resolve) => {
+      finishSave = resolve;
+    });
+    const container = document.body.createDiv();
+    const otherInput = document.body.createEl("input");
+    const lifecycle = renderValueSuggestionBehaviorGroups({
+      app: createApp(),
+      containerEl: container,
+      getCustomOrderKeys: () => [],
+      displayOrder: "name",
+      getAssignments: () => assignments,
+      onAssignmentsChange: async (next) => {
+        assignments = next;
+        await pendingSave;
+      },
+      onDisplayOrderChange: async () => undefined,
+      t: (key) => key,
+    });
+    const input = container.querySelector<HTMLInputElement>(
+      '[data-behavior="name"] .property-order-value-behavior-input',
+    );
+    const addButton = container.querySelector<HTMLButtonElement>(
+      '[data-behavior="name"] .property-order-value-behavior-add button',
+    );
+    if (input == null || addButton == null) throw new Error("Expected rule controls.");
+    input.value = "project";
+    addButton.click();
+    input.value = "next-property";
+    otherInput.focus();
+
+    finishSave?.();
+    await Promise.resolve();
+    await Promise.resolve();
+
+    expect(input.value).toBe("next-property");
+    expect(document.activeElement).toBe(otherInput);
+    expect(assignments).toContainEqual({ behavior: "name", propertyKey: "project" });
+    lifecycle.close();
+  });
+
+  it("places keys moved by a whole card before older members in recently added order", async () => {
+    let assignments: PropertyValueBehaviorAssignment[] = [
+      { behavior: "name", propertyKey: "status" },
+      { behavior: "frequency", propertyKey: "priority" },
+    ];
+    const container = document.body.createDiv();
+    const lifecycle = renderValueSuggestionBehaviorGroups({
+      app: createApp(),
+      containerEl: container,
+      getCustomOrderKeys: () => [],
+      displayOrder: "recent",
+      getAssignments: () => assignments,
+      onAssignmentsChange: async (next) => { assignments = next; },
+      onDisplayOrderChange: async () => undefined,
+      t: (key) => key,
+    });
+    const select = container.querySelector<HTMLSelectElement>('[data-behavior="name"] select');
+    if (select == null) throw new Error("Expected the card behavior selector.");
+    select.value = "frequency";
+    select.dispatchEvent(new Event("change"));
+    await Promise.resolve();
+
+    expect(Array.from(container.querySelectorAll<HTMLElement>(
+      '[data-behavior="frequency"] .property-order-value-behavior-chip > span',
+    ), (element) => element.textContent)).toEqual(["status", "priority"]);
+    lifecycle.close();
+  });
+
+  it("keeps a custom draft when a display-order save finishes", async () => {
+    let finishSave: (() => void) | undefined;
+    const pendingSave = new Promise<void>((resolve) => {
+      finishSave = resolve;
+    });
+    const container = document.body.createDiv();
+    const lifecycle = renderValueSuggestionBehaviorGroups({
+      app: createApp(),
+      containerEl: container,
+      getCustomOrderKeys: () => [],
+      displayOrder: "name",
+      getAssignments: () => [{ behavior: "custom", propertyKey: "status" }],
+      onAssignmentsChange: async () => undefined,
+      onDisplayOrderChange: () => pendingSave,
+      renderCustomEditor: (target) => {
+        target.replaceChildren();
+        const input = target.createEl("input");
+        input.className = "custom-draft";
+      },
+      t: (key) => key,
+    });
+    dropdowns[0]?.onChange?.("recent");
+    const draft = container.querySelector<HTMLInputElement>(".custom-draft");
+    if (draft == null) throw new Error("Expected a custom draft input.");
+    draft.value = "next preset";
+    draft.focus();
+    finishSave?.();
+    await Promise.resolve();
+    await Promise.resolve();
+
+    expect(container.querySelector(".custom-draft")).toBe(draft);
+    expect(draft.value).toBe("next preset");
+    expect(document.activeElement).toBe(draft);
+    lifecycle.close();
   });
 
   it("maps every behavior to a localized label", () => {
