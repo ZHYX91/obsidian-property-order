@@ -120,6 +120,8 @@ translation_status: source
 
 增强复用原节点，并记录原生顺序和可见性。只有候选本身及全部祖先均未被 HTML `hidden`/`aria-hidden`、插件隐藏 class 或计算样式 `display: none` / `visibility: hidden|collapse` 隐藏时，才进入可见导航顺序。键盘桥只在已增强菜单对应的属性名编辑器仍持有焦点时工作，按可见 DOM 顺序处理 ArrowUp/Down、Home/End、PageUp/PageDown 和 macOS/iOS 的 Ctrl+P/N。桥接直接维护可见 DOM 项的原生 `is-selected` class，不派发合成 mousemove，也不读取或修改 Obsidian 私有数组；Enter 直接激活当前可见 DOM 项，全部隐藏时会被阻止。
 
+属性名与属性值候选都在前台编辑器活动时取得 Obsidian 键盘 scope，先于宿主原生按键处理执行可见顺序导航。编辑器或窗口失焦时释放 scope；后台刷新不得重新取得它。
+
 设置禁用、菜单复用、窗口关闭或插件卸载时必须恢复原生状态并清理 observer、键盘 listener 和活动菜单引用。如果宿主选择状态无法同步，controller 立即恢复该菜单；菜单无法识别、DOM 结构不匹配或候选文本不可读时不修改任何节点。上述路径都以保留 Obsidian 原生输入、选择和关闭行为为 fail-open 结果。
 
 recent tracker 只捕获已增强属性名候选上的主指针按下、键盘 Enter/Tab 候选激活，以及属性名编辑器的 Enter、Tab、change 和 focusout 提交意图；普通 `input` 事件不会更新历史，因此输入过程中的中间草稿不算提交。hover、方向键浏览和单纯聚焦也不会直接写历史。

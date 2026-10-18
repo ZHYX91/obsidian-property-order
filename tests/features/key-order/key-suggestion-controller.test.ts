@@ -1,7 +1,7 @@
 // @vitest-environment happy-dom
 
 import { Window as HappyDomWindow } from "happy-dom";
-import { Platform, type App, type Plugin, type TFile } from "obsidian";
+import { Platform, type App, type Keymap, type Plugin, type TFile } from "obsidian";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { KeySuggestionOrderController } from "../../../src/features/key-order/key-suggestion-controller";
@@ -1279,6 +1279,87 @@ describe("KeySuggestionOrderController", () => {
     expect(menu.querySelector(".property-order-suggestion-type-group-label")).toBeNull();
     expect(raf.pending()).toBe(0);
     cleanup();
+  });
+
+  it("owns host capture before navigating the visible order and releases scope on blur and disable", async () => {
+    const settings = createDefaultSettings();
+    settings.pinnedPropertyKeys = ["tags"];
+    settings.bottomPropertyKeys = ["key_bottom"];
+    const menu = createMenu(["key_bottom", "tags", "key_automatic", "po_unrelated"]);
+    const editor = menu.closest<HTMLElement>(".metadata-property-key")!;
+    editor.tabIndex = 0;
+    editor.focus();
+    vi.spyOn(document, "hasFocus").mockReturnValue(true);
+    type HostScope = { handler: ((event: KeyboardEvent) => boolean | void) | null };
+    let scope: HostScope | null = null;
+    const keymap = {
+      pushScope: vi.fn((value: HostScope) => { scope = value; }),
+      popScope: vi.fn(() => { scope = null; }),
+    };
+    const nativeNavigation = vi.fn();
+    // Obsidian's native keymap captures on window before plugin DOM listeners.
+    const hostCapture = (event: KeyboardEvent): void => {
+      if (scope?.handler?.(event) === false) {
+        event.preventDefault();
+        event.stopPropagation();
+      } else if (["ArrowUp", "ArrowDown", "Enter", "Tab"].includes(event.key)) {
+        nativeNavigation();
+        for (const item of menu.querySelectorAll(".suggestion-item")) {
+          item.classList.toggle("is-selected", item.textContent === "tags");
+        }
+      }
+    };
+    window.addEventListener("keydown", hostCapture, true);
+    const raf = installRafHarness();
+    const controller = createController(settings, { keymap: keymap as unknown as Keymap });
+    const cleanup = controller.initialize();
+    const selected = () => menu.querySelector(".is-selected")?.textContent;
+    const press = (key: string) => editor.dispatchEvent(new KeyboardEvent("keydown", {
+      bubbles: true, cancelable: true, key,
+    }));
+    try {
+      raf.flush();
+      expect(keymap.pushScope).toHaveBeenCalled();
+      press("End");
+      expect(selected()).toBe("key_bottom");
+      press("ArrowUp");
+      expect(selected()).toBe("po_unrelated");
+      press("ArrowUp");
+      expect(selected()).toBe("key_automatic");
+      press("ArrowDown");
+      expect(selected()).toBe("po_unrelated");
+      const click = vi.spyOn(menu.querySelector<HTMLElement>(".is-selected")!, "click");
+      press("Enter");
+      expect(click).toHaveBeenCalledOnce();
+      expect(nativeNavigation).not.toHaveBeenCalled();
+
+      window.dispatchEvent(new Event("blur"));
+      expect(scope).toBeNull();
+      // Background metadata refresh must not take the foreground window's scope.
+      const pushes = keymap.pushScope.mock.calls.length;
+      controller.refresh();
+      raf.flush();
+      expect(keymap.pushScope).toHaveBeenCalledTimes(pushes);
+      window.dispatchEvent(new Event("focus"));
+      raf.flush();
+      expect(scope).not.toBeNull();
+      const outside = document.createElement("button");
+      document.body.appendChild(outside);
+      outside.focus();
+      await Promise.resolve();
+      expect(scope).toBeNull();
+      editor.focus();
+      raf.flush();
+      expect(scope).not.toBeNull();
+      settings.enableNativeKeySuggestionOrder = false;
+      controller.refresh();
+      expect(scope).toBeNull();
+      expect(allKeys(menu)).toEqual(["key_bottom", "tags", "key_automatic", "po_unrelated"]);
+    } finally {
+      cleanup();
+      window.removeEventListener("keydown", hostCapture, true);
+    }
+    expect(scope).toBeNull();
   });
 
   it("bridges native keyboard selection onto the visible DOM order", () => {
