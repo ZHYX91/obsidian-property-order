@@ -1,26 +1,29 @@
 // @vitest-environment happy-dom
 
-import { Setting, type App } from "obsidian";
+import { Notice, Setting, type App } from "obsidian";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import PropertyOrderPlugin from "../../src/app/plugin";
 import { PropertyOrderSettingTab } from "../../src/app/settings-tab";
+import { SUPPORTED_LOCALES } from "../../src/shared/locale-catalog";
 import { createDefaultSettings } from "../../src/shared/settings";
 import type { PropertyOrderSettings } from "../../src/shared/types";
 
 interface DropdownHarness {
   onChange?: (value: string) => Promise<void> | void;
-  options: Set<string>;
+  options: Map<string, string>;
   value?: string;
 }
 
 interface ToggleHarness {
+  disabled?: boolean;
   onChange?: (value: boolean) => Promise<void> | void;
   value?: boolean;
 }
 
 const dropdowns: DropdownHarness[] = [];
 const toggles: ToggleHarness[] = [];
+const settingTabs: PropertyOrderSettingTab[] = [];
 
 beforeEach(() => {
   document.body.replaceChildren();
@@ -44,10 +47,10 @@ beforeEach(() => {
       setValue(value: string): unknown;
     }) => void,
   ) {
-    const harness: DropdownHarness = { options: new Set() };
+    const harness: DropdownHarness = { options: new Map() };
     const dropdown = {
-      addOption(value: string) {
-        harness.options.add(value);
+      addOption(value: string, label: string) {
+        harness.options.set(value, label);
         return dropdown;
       },
       onChange(callback: (value: string) => Promise<void> | void) {
@@ -67,11 +70,16 @@ beforeEach(() => {
     this: Setting,
     configure: (toggle: {
       onChange(callback: (value: boolean) => Promise<void> | void): unknown;
+      setDisabled(value: boolean): unknown;
       setValue(value: boolean): unknown;
     }) => void,
   ) {
     const harness: ToggleHarness = {};
     const toggle = {
+      setDisabled(value: boolean) {
+        harness.disabled = value;
+        return toggle;
+      },
       onChange(callback: (value: boolean) => Promise<void> | void) {
         harness.onChange = callback;
         return toggle;
@@ -106,10 +114,69 @@ beforeEach(() => {
 });
 
 afterEach(() => {
+  for (const tab of settingTabs.splice(0)) tab.hide();
   vi.restoreAllMocks();
 });
 
 describe("Value suggestion settings persistence", () => {
+  it("offers every UI language by its native name and saves a new language choice", async () => {
+    const harness = await createHarness({ language: "zh-CN" }, "general");
+    const dropdown = dropdowns.find((candidate) => candidate.options.has("auto"));
+    expect([...dropdown?.options ?? []]).toEqual([
+      ["auto", "跟随 Obsidian"],
+      ...SUPPORTED_LOCALES.map(({ id, label }) => [id, label]),
+    ]);
+
+    await dropdown?.onChange?.("vi-VN");
+
+    expect(harness.plugin.propertyOrderSettings.language).toBe("vi-VN");
+    expect(harness.persisted().language).toBe("vi-VN");
+    expect(harness.container.querySelector('[role="tab"][aria-selected="true"]')?.textContent)
+      .toBe("Chung");
+  });
+
+  it("explains legacy modes in the UI language while preserving literal rule text", async () => {
+    const rules = ["TQ_* = usage", "status=   unexpected", "name = constructor"];
+    const harness = await createHarness({
+      language: "zh-CN",
+      valueSuggestionLegacyMigrationPending: true,
+      valueSuggestionSortMode: "recent",
+      valueSuggestionSortOverrides: rules,
+    });
+    const content = harness.container.querySelector(".property-order-legacy-value-rules")?.textContent;
+
+    expect(content).toContain("TQ_* = usage (按包含该值的笔记数排序)");
+    expect(content).toContain("status=   unexpected");
+    expect(content).toContain("name = constructor");
+    expect(content).not.toContain("behavior:");
+    expect(harness.plugin.propertyOrderSettings.valueSuggestionSortOverrides).toEqual(rules);
+    expect(harness.persisted().valueSuggestionLegacyMigrationPending).toBe(true);
+  });
+
+  it("scopes Arabic direction to plugin settings and restores LTR after a language change", async () => {
+    const harness = await createHarness({ language: "ar" }, "general");
+    const hostDirection = harness.container.getAttribute("dir");
+    const content = harness.container.querySelector<HTMLElement>(".property-order-settings-content");
+    expect(content?.lang).toBe("ar");
+    expect(content?.dir).toBe("rtl");
+
+    const active = harness.container.querySelector<HTMLElement>('[role="tab"][aria-selected="true"]');
+    active?.dispatchEvent(new KeyboardEvent("keydown", { key: "ArrowLeft", bubbles: true }));
+    const next = harness.container.querySelector<HTMLElement>('[role="tab"][aria-selected="true"]');
+    expect(next?.id).toBe("property-order-settings-tab-valueDrag");
+    expect(document.activeElement).toBe(next);
+    next?.dispatchEvent(new KeyboardEvent("keydown", { key: "Home", bubbles: true }));
+
+    const language = dropdowns.filter((candidate) => candidate.options.has("auto")).at(-1);
+    await language?.onChange?.("en");
+
+    const restored = harness.container.querySelector<HTMLElement>(".property-order-settings-content");
+    expect(restored?.lang).toBe("en");
+    expect(restored?.dir).toBe("ltr");
+    expect(harness.persisted().language).toBe("en");
+    expect(harness.container.getAttribute("dir")).toBe(hostDirection);
+  });
+
   it("persists consecutive default behavior changes on one rendered page", async () => {
     const harness = await createHarness();
     const dropdown = getDefaultBehaviorDropdown();
@@ -145,9 +212,52 @@ describe("Value suggestion settings persistence", () => {
     expect(harness.plugin.propertyOrderSettings.enableNativeValueSuggestionOrder).toBe(false);
     expect(harness.persisted().enableNativeValueSuggestionOrder).toBe(false);
   });
+
+  it.each([false, true])("preserves a later draft when a toggle save finishes (failure: %s)", async (fails) => {
+    const harness = await createHarness();
+    await addNameRule(harness.container, harness.persisted);
+    let finishSave: (() => void) | undefined;
+    const saveGate = new Promise<void>((resolve) => { finishSave = resolve; });
+    const originalSave = vi.mocked(harness.plugin.saveData).getMockImplementation();
+    vi.mocked(harness.plugin.saveData).mockImplementationOnce(async (value) => {
+      await saveGate;
+      if (fails) throw new Error("storage unavailable");
+      await originalSave?.(value);
+    });
+    vi.spyOn(console, "error").mockImplementation(() => undefined);
+    const pending = toggles[0]?.onChange?.(false);
+    const draft = harness.container.querySelector<HTMLInputElement>(".property-order-value-behavior-input");
+    if (draft == null) throw new Error("Expected the rule input after toggling.");
+    draft.value = "unfinished owner";
+    draft.focus();
+    draft.setSelectionRange(3, 9);
+    finishSave?.();
+    await pending;
+
+    expect(harness.container.querySelector(".property-order-value-behavior-input")).toBe(draft);
+    expect(draft.value).toBe("unfinished owner");
+    expect(document.activeElement).toBe(draft);
+    expect([draft.selectionStart, draft.selectionEnd]).toEqual([3, 9]);
+    expect(harness.plugin.propertyOrderSettings.enableNativeValueSuggestionOrder).toBe(false);
+    const status = harness.container.querySelector<HTMLElement>(".property-order-settings-save-status");
+    expect(status?.hidden).toBe(!fails);
+    if (fails) {
+      expect(status?.getAttribute("role")).toBe("alert");
+      expect(status?.querySelector("button")?.textContent).toBe("Retry save");
+      const mockNotice = Notice as typeof Notice & { messages: string[] };
+      expect(mockNotice.messages.at(-1)).toBe("Property Order: failed to save settings. Try again.");
+      status?.querySelector<HTMLButtonElement>("button")?.click();
+      await vi.waitFor(() => expect(status?.hidden).toBe(true));
+      expect(draft.value).toBe("unfinished owner");
+      expect(harness.persisted().enableNativeValueSuggestionOrder).toBe(false);
+    }
+  });
 });
 
-async function createHarness(): Promise<{
+async function createHarness(
+  initialSettings: Partial<PropertyOrderSettings> = {},
+  activeTab: "general" | "valueSuggestions" = "valueSuggestions",
+): Promise<{
   container: HTMLElement;
   persisted(): PropertyOrderSettings;
   plugin: PropertyOrderPlugin;
@@ -168,6 +278,7 @@ async function createHarness(): Promise<{
 
   let persisted = createDefaultSettings();
   persisted.enableNativeValueSuggestionOrder = true;
+  Object.assign(persisted, initialSettings);
   vi.spyOn(plugin, "loadData").mockImplementation(async () => cloneSettings(persisted));
   vi.spyOn(plugin, "saveData").mockImplementation(async (value: unknown) => {
     persisted = cloneSettings(value as PropertyOrderSettings);
@@ -175,19 +286,16 @@ async function createHarness(): Promise<{
   await plugin.loadSettings();
 
   const settingTab = new PropertyOrderSettingTab(app, plugin);
+  settingTabs.push(settingTab);
   Reflect.set(settingTab.containerEl, "empty", function (this: HTMLElement) {
     this.replaceChildren();
   });
   document.body.appendChild(settingTab.containerEl);
-  const container = document.body.createDiv();
-  (
-    settingTab as unknown as {
-      displayValueSuggestionSettings(containerEl: HTMLElement): void;
-    }
-  ).displayValueSuggestionSettings(container);
+  Reflect.set(settingTab, "activeTab", activeTab);
+  settingTab.display();
 
   return {
-    container,
+    container: settingTab.containerEl,
     persisted: () => persisted,
     plugin,
   };

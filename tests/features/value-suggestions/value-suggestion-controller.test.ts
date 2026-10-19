@@ -1582,6 +1582,39 @@ describe("ValueSuggestionOrderController", () => {
     controller.dispose();
   });
 
+  it.each([" ", "\u00a0", "\u3000"])(
+    "preserves whitespace-only candidate %j identity and native order after an appended row",
+    (value) => {
+      const raf = installRafHarness();
+      const settings = createDefaultSettings();
+      settings.enableNativeValueSuggestionOrder = true;
+      settings.valueSuggestionDefaultBehavior = "name";
+      const { container, editor } = createValueMenu(["z", value, "a"]);
+      const originalElements = Array.from(container.children);
+      const controller = createController(settings);
+      controller.initialize();
+      raf.flush();
+      expect(visibleValues(container)).toEqual(["a", "z", value]);
+
+      editor.dispatchEvent(new KeyboardEvent("keydown", {
+        bubbles: true, cancelable: true, key: "End",
+      }));
+      expect(container.querySelector(".is-selected")).toBe(originalElements[1]);
+
+      const added = container.createDiv({ cls: "suggestion-item" });
+      added.createDiv({ cls: "suggestion-title", text: "b" });
+      controller.refresh();
+      raf.flush();
+      expect(visibleValues(container)).toEqual(["a", "b", "z", value]);
+      expect(container.querySelector(".is-selected")).toBe(originalElements[1]);
+
+      settings.enableNativeValueSuggestionOrder = false;
+      controller.refresh();
+      expect(visibleValues(container)).toEqual(["z", value, "a", "b"]);
+      expect(Array.from(container.children)).toEqual([...originalElements, added]);
+    },
+  );
+
   it("hides duplicate native labels after exact-value de-duplication", () => {
     const settings = createDefaultSettings();
     settings.enableNativeValueSuggestionOrder = true;

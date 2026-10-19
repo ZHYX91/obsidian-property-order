@@ -8,6 +8,7 @@ import {
   getBehaviorLabel,
   renderValueSuggestionBehaviorGroups,
 } from "../../src/app/value-suggestion-behavior-groups";
+import { getTranslation } from "../../src/shared/i18n";
 import type {
   PropertyValueBehaviorAssignment,
   ValueSuggestionBehavior,
@@ -25,6 +26,9 @@ beforeEach(() => {
   dropdowns.length = 0;
 
   Reflect.set(Setting.prototype, "setName", function (this: Setting) {
+    return this;
+  });
+  Reflect.set(Setting.prototype, "setDesc", function (this: Setting) {
     return this;
   });
   Reflect.set(Setting.prototype, "addDropdown", function (
@@ -297,6 +301,52 @@ describe("renderValueSuggestionBehaviorGroups", () => {
     expect(close).toHaveBeenCalledTimes(3);
   });
 
+  it.each(["status $&", "status $`", "status $'", "{property}", "{from}", "{to}"])(
+    "preserves the literal property name %s in removal labels and move confirmation",
+    async (propertyKey) => {
+      let assignments: PropertyValueBehaviorAssignment[] = [
+        { behavior: "none", propertyKey },
+        { behavior: "name", propertyKey: "status" },
+      ];
+      const confirm = vi.fn(() => true);
+      Reflect.set(window, "confirm", confirm);
+      const container = document.body.createDiv();
+      const lifecycle = renderValueSuggestionBehaviorGroups({
+        app: createApp(),
+        containerEl: container,
+        getCustomOrderKeys: () => [],
+        displayOrder: "name",
+        getAssignments: () => assignments,
+        onAssignmentsChange: async (next) => { assignments = next; },
+        onDisplayOrderChange: async () => undefined,
+        t: (key) => getTranslation("en", key),
+      });
+      const remove = container.querySelector<HTMLButtonElement>(
+        '[data-behavior="none"] .property-order-value-behavior-chip-remove',
+      );
+      expect(remove?.getAttribute("aria-label")).toBe(`Remove ${propertyKey}`);
+
+      const input = container.querySelector<HTMLInputElement>(
+        '[data-behavior="name"] .property-order-value-behavior-input',
+      );
+      const addButton = container.querySelector<HTMLButtonElement>(
+        '[data-behavior="name"] .property-order-value-behavior-add button',
+      );
+      if (input == null || addButton == null) throw new Error("Expected name-group add controls.");
+      input.value = propertyKey;
+      addButton.click();
+      await Promise.resolve();
+      await Promise.resolve();
+
+      expect(confirm).toHaveBeenCalledExactlyOnceWith(
+        `Move “${propertyKey}” from “No suggestions” to “Name”? This changes how its value suggestions are shown.`,
+      );
+      expect(assignments).toContainEqual({ behavior: "name", propertyKey });
+      expect(assignments).not.toContainEqual({ behavior: "none", propertyKey });
+      lifecycle.close();
+    },
+  );
+
   it("does not move an assigned key when confirmation is cancelled", async () => {
     let assignments: PropertyValueBehaviorAssignment[] = [
       { behavior: "none", propertyKey: "id" },
@@ -415,6 +465,52 @@ describe("renderValueSuggestionBehaviorGroups", () => {
     expect(input.value).toBe("next-property");
     expect(document.activeElement).toBe(otherInput);
     expect(assignments).toContainEqual({ behavior: "name", propertyKey: "project" });
+    lifecycle.close();
+  });
+
+  it("applies a rule-card mode change while an earlier property save is pending", async () => {
+    let assignments: PropertyValueBehaviorAssignment[] = [
+      { behavior: "name", propertyKey: "status" },
+    ];
+    let finishSave: (() => void) | undefined;
+    const pendingSave = new Promise<void>((resolve) => { finishSave = resolve; });
+    const container = document.body.createDiv();
+    const lifecycle = renderValueSuggestionBehaviorGroups({
+      app: createApp(),
+      containerEl: container,
+      getCustomOrderKeys: () => [],
+      displayOrder: "name",
+      getAssignments: () => assignments,
+      onAssignmentsChange: async (next) => { assignments = next; await pendingSave; },
+      onDisplayOrderChange: async () => undefined,
+      t: (key) => key,
+    });
+    const card = container.querySelector<HTMLElement>('[data-behavior="name"]');
+    const input = card?.querySelector<HTMLInputElement>("input");
+    const select = card?.querySelector<HTMLSelectElement>("select");
+    if (input == null || select == null) throw new Error("Expected the name rule card.");
+    input.value = "owner";
+    card?.querySelector<HTMLButtonElement>(".property-order-value-behavior-add button")?.click();
+    select.value = "none";
+    select.dispatchEvent(new Event("change"));
+
+    const nextCard = container.querySelector<HTMLElement>('[data-behavior="none"]');
+    expect(nextCard?.querySelector("select")?.value).toBe("none");
+    expect(container.querySelector('[data-behavior="name"]')).toBeNull();
+    expect(assignments).toEqual([
+      { behavior: "none", propertyKey: "status" },
+      { behavior: "none", propertyKey: "owner" },
+    ]);
+    const nextInput = nextCard?.querySelector<HTMLInputElement>("input");
+    if (nextInput == null) throw new Error("Expected the moved rule card input.");
+    nextInput.value = "priority";
+    nextCard?.querySelector<HTMLButtonElement>(".property-order-value-behavior-add button")?.click();
+    finishSave?.();
+    await Promise.resolve();
+    await Promise.resolve();
+
+    expect(assignments).toContainEqual({ behavior: "none", propertyKey: "priority" });
+    expect(nextCard?.querySelector("select")?.value).toBe("none");
     lifecycle.close();
   });
 

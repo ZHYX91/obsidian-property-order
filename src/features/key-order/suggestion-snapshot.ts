@@ -112,8 +112,9 @@ export function synchronizeSnapshotElements(
   container: HTMLElement,
   snapshot: OriginalSuggestionSnapshot,
   includeElement: (element: HTMLElement) => boolean = () => true,
+  getCurrentItems: (container: HTMLElement) => SuggestionItem[] = getSuggestionItems,
 ): void {
-  const currentElements = getSuggestionItems(container)
+  const currentElements = getCurrentItems(container)
     .map((item) => item.element)
     .filter(
       (element) =>

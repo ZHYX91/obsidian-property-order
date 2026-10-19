@@ -14,6 +14,7 @@ import type {
   ValueSuggestionKeyDisplayOrder,
 } from "../shared/types";
 import type { TranslationKey } from "../shared/i18n";
+import { formatTranslation } from "../shared/translation-format";
 import { preserveSettingsView } from "./settings-view-state";
 import { PropertyBehaviorSuggest } from "./property-behavior-suggest";
 
@@ -61,6 +62,7 @@ export function renderValueSuggestionBehaviorGroups(
   };
   new Setting(options.containerEl)
     .setName(options.t("settings.valueSuggestions.keyDisplayOrder.name"))
+    .setDesc(options.t("settings.valueSuggestions.keyDisplayOrder.desc"))
     .addDropdown((dropdown) => {
       dropdown
         .addOption("name", options.t("settings.valueSuggestions.keyDisplayOrder.byName"))
@@ -135,28 +137,26 @@ export function renderValueSuggestionBehaviorGroups(
     addButton.type = "button";
     addButton.textContent = options.t("settings.valueSuggestions.addProperty.button");
     const custom = section.createDiv();
-    let pending = false;
     const save = async (next: PropertyValueBehaviorAssignment[], after: () => void): Promise<void> => {
-      if (pending || closed) return;
-      pending = true;
-      try {
-        const pendingSave = options.onAssignmentsChange(next);
-        // Finish this interaction now; persistence must not alter a later draft or focus.
-        if (!closed) after();
-        await pendingSave;
-      } finally {
-        pending = false;
-      }
+      if (closed) return;
+      const pendingSave = options.onAssignmentsChange(next);
+      // In-memory edits are immediate; the plugin queues persistence separately.
+      if (!closed) after();
+      await pendingSave;
     };
     const addProperty = async (rawKey: string): Promise<void> => {
       const key = rawKey.trim();
-      if (!key || pending || closed) return;
+      if (!key || closed) return;
       const current = getPropertyValueBehavior(options.getAssignments(), key);
       if (current != null && current !== behavior &&
-        section.ownerDocument.defaultView?.confirm(options.t("settings.valueSuggestions.moveConfirm")
-          .replace("{property}", key)
-          .replace("{from}", getBehaviorLabel(options.t, current))
-          .replace("{to}", getBehaviorLabel(options.t, behavior))) !== true) return;
+        section.ownerDocument.defaultView?.confirm(formatTranslation(
+          options.t("settings.valueSuggestions.moveConfirm"),
+          {
+            property: key,
+            from: getBehaviorLabel(options.t, current),
+            to: getBehaviorLabel(options.t, behavior),
+          },
+        )) !== true) return;
       if (current === behavior) {
         input.value = "";
         input.focus({ preventScroll: true });
@@ -186,7 +186,7 @@ export function renderValueSuggestionBehaviorGroups(
     });
     select.addEventListener("change", () => {
       const nextBehavior = behaviors.find((value) => value === select.value);
-      if (nextBehavior == null || nextBehavior === behavior || pending) return;
+      if (nextBehavior == null || nextBehavior === behavior || closed) return;
       const current = options.getAssignments();
       const next = [
         ...current.filter((assignment) => assignment.behavior !== behavior),
@@ -222,7 +222,10 @@ export function renderValueSuggestionBehaviorGroups(
           const remove = chip.createEl("button");
           remove.type = "button";
           remove.className = "property-order-value-behavior-chip-remove";
-          remove.setAttribute("aria-label", options.t("settings.valueSuggestions.card.remove").replace("{property}", key));
+          remove.setAttribute("aria-label", formatTranslation(
+            options.t("settings.valueSuggestions.card.remove"),
+            { property: key },
+          ));
           remove.textContent = "×";
           remove.addEventListener("click", () => void save(
             removePropertyValueBehavior(options.getAssignments(), key),

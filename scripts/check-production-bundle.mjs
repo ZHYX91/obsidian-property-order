@@ -7,8 +7,9 @@ import esbuild from "esbuild";
 
 import { createEsbuildOptions } from "./esbuild-options.mjs";
 
-export const PRODUCTION_MAIN_JS_BUDGET_BYTES = 320_000;
-export const PRODUCTION_MAIN_JS_REFERENCE_BYTES = 267_789;
+// Complete locale dictionaries ship offline in the single runtime asset.
+export const PRODUCTION_MAIN_JS_BUDGET_BYTES = 450_000;
+export const PRODUCTION_MAIN_JS_REFERENCE_BYTES = 402_889;
 
 export async function checkProductionBundle(
   projectRoot = process.cwd(),

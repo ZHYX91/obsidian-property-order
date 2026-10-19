@@ -8,29 +8,30 @@ import { RecentPropertyValueTracker } from "../../../src/features/value-suggesti
 function createValueSuggestion(
   value = "draft",
   propertyKey = "status",
+  targetDocument = document,
 ): { container: HTMLElement; editor: HTMLInputElement; item: HTMLElement; row: HTMLElement } {
-  const pane = document.createElement("div");
+  const pane = targetDocument.createElement("div");
   pane.className = "workspace-leaf-content";
-  const row = document.createElement("div");
+  const row = targetDocument.createElement("div");
   row.className = "metadata-property";
   row.dataset.propertyKey = propertyKey;
-  const editor = document.createElement("input");
+  const editor = targetDocument.createElement("input");
   editor.className = "metadata-property-value";
   row.appendChild(editor);
   pane.appendChild(row);
-  document.body.appendChild(pane);
+  targetDocument.body.appendChild(pane);
 
-  const container = document.createElement("div");
+  const container = targetDocument.createElement("div");
   container.className = "suggestion-container";
   container.dataset.propertyOrderValueEnhanced = "true";
-  const item = document.createElement("div");
+  const item = targetDocument.createElement("div");
   item.className = "suggestion-item";
-  const title = document.createElement("div");
+  const title = targetDocument.createElement("div");
   title.className = "suggestion-title";
   title.textContent = value;
   item.appendChild(title);
   container.appendChild(item);
-  document.body.appendChild(container);
+  targetDocument.body.appendChild(container);
   editor.focus();
   return { container, editor, item, row };
 }
@@ -39,22 +40,29 @@ function createPlugin(
   paneElement: HTMLElement,
   file: TFile,
   getCache: () => CachedMetadata | null,
+  getContent: () => string = () => "",
 ): Plugin {
-  const view = Object.create(MarkdownView.prototype) as MarkdownView;
-  Object.assign(view, {
+  return createMultiPanePlugin(file, getCache, [{ paneElement, getContent }]);
+}
+
+function createMultiPanePlugin(
+  file: TFile,
+  getCache: () => CachedMetadata | null,
+  panes: Array<{ paneElement: HTMLElement; getContent: () => string }>,
+): Plugin {
+  const leaves = panes.map(({ paneElement, getContent }) => ({
     containerEl: paneElement,
-    contentEl: paneElement,
-    editor: {
-      getValue: vi.fn(() => ""),
-      offsetToPos: vi.fn(() => ({ ch: 0, line: 0 })),
-      transaction: vi.fn(),
-    },
-    file,
-  });
-  const leaf = {
-    containerEl: paneElement,
-    view,
-  };
+    view: Object.assign(Object.create(MarkdownView.prototype) as MarkdownView, {
+      containerEl: paneElement,
+      contentEl: paneElement,
+      editor: {
+        getValue: vi.fn(getContent),
+        offsetToPos: vi.fn(() => ({ ch: 0, line: 0 })),
+        transaction: vi.fn(),
+      },
+      file,
+    }),
+  }));
 
   return {
     app: {
@@ -62,7 +70,7 @@ function createPlugin(
         getFileCache: vi.fn(() => getCache()),
       },
       workspace: {
-        iterateAllLeaves: vi.fn((callback: (leaf: unknown) => void) => callback(leaf)),
+        iterateAllLeaves: vi.fn((callback: (leaf: unknown) => void) => leaves.forEach(callback)),
       },
     },
   } as unknown as Plugin;
@@ -229,6 +237,259 @@ describe("RecentPropertyValueTracker", () => {
     cache = { frontmatter: { status: ["draft", "done"] } } as CachedMetadata;
     tracker.handleMetadataChanged(file, cache);
     expect(onConfirmed).toHaveBeenCalledWith("status", "done");
+    tracker.dispose();
+  });
+
+  it.each([
+    ["draft", "done"],
+    ["\u00a0draft\u00a0", " done "],
+  ])("confirms both committed list selections %j and %j after one cache update", (first, second) => {
+    const file = { path: "note.md" } as TFile;
+    let cache = { frontmatter: { Status: [] } } as CachedMetadata;
+    let content = "---\nStatus: []\n---\nUnsaved body";
+    const suggestion = createValueSuggestion(first, "status");
+    const secondItem = suggestion.container.createDiv({ cls: "suggestion-item" });
+    secondItem.createDiv({ cls: "suggestion-title", text: second });
+    const plugin = createPlugin(
+      suggestion.row.parentElement as HTMLElement,
+      file,
+      () => cache,
+      () => content,
+    );
+    const onConfirmed = vi.fn();
+    const tracker = new RecentPropertyValueTracker({
+      getEnabled: () => true,
+      onConfirmed,
+      plugin,
+    });
+
+    tracker.captureSuggestionActivation(suggestion.item);
+    content = `---\nStatus: ${JSON.stringify([first])}\n---\nUnsaved body`;
+    tracker.captureSuggestionActivation(secondItem);
+    content = `---\nStatus: ${JSON.stringify([first, second])}\n---\nUnsaved body`;
+    expect(onConfirmed).not.toHaveBeenCalled();
+
+    cache = { frontmatter: { Status: [first, second] } } as CachedMetadata;
+    tracker.handleMetadataChanged(file, cache);
+    expect(onConfirmed.mock.calls).toEqual([["status", first], ["status", second]]);
+    tracker.handleMetadataChanged(file, cache);
+    expect(onConfirmed).toHaveBeenCalledTimes(2);
+    tracker.dispose();
+  });
+
+  it("does not confirm a second selection when the same value was only added once", () => {
+    const file = { path: "note.md" } as TFile;
+    let cache = { frontmatter: { status: [] } } as CachedMetadata;
+    let content = "---\nstatus: []\n---";
+    const suggestion = createValueSuggestion("draft");
+    const plugin = createPlugin(
+      suggestion.row.parentElement as HTMLElement,
+      file,
+      () => cache,
+      () => content,
+    );
+    const onConfirmed = vi.fn();
+    const tracker = new RecentPropertyValueTracker({ getEnabled: () => true, onConfirmed, plugin });
+
+    tracker.captureSuggestionActivation(suggestion.item);
+    content = "---\nstatus: [draft]\n---";
+    tracker.captureSuggestionActivation(suggestion.item);
+    cache = { frontmatter: { status: ["draft"] } } as CachedMetadata;
+    tracker.handleMetadataChanged(file, cache);
+    expect(onConfirmed.mock.calls).toEqual([["status", "draft"]]);
+    tracker.dispose();
+  });
+
+  it.each([
+    { values: ["draft", "done", "draft"] },
+    { values: ["draft", "draft"] },
+  ])("confirms every added occurrence in successive selections: $values", ({ values }) => {
+    const file = { path: "note.md" } as TFile;
+    let cache = { frontmatter: { status: [] } } as CachedMetadata;
+    let content = "---\nstatus: []\n---";
+    const suggestion = createValueSuggestion("draft");
+    const doneItem = suggestion.container.createDiv({ cls: "suggestion-item" });
+    doneItem.createDiv({ cls: "suggestion-title", text: "done" });
+    const plugin = createPlugin(
+      suggestion.row.parentElement as HTMLElement,
+      file,
+      () => cache,
+      () => content,
+    );
+    const onConfirmed = vi.fn();
+    const tracker = new RecentPropertyValueTracker({ getEnabled: () => true, onConfirmed, plugin });
+
+    for (const [index, value] of values.entries()) {
+      tracker.captureSuggestionActivation(value === "draft" ? suggestion.item : doneItem);
+      content = `---\nstatus: ${JSON.stringify(values.slice(0, index + 1))}\n---`;
+    }
+    expect(onConfirmed).not.toHaveBeenCalled();
+
+    cache = { frontmatter: { status: values } } as CachedMetadata;
+    tracker.handleMetadataChanged(file, cache);
+    expect(onConfirmed.mock.calls).toEqual(values.map((value) => ["status", value]));
+    tracker.handleMetadataChanged(file, cache);
+    expect(onConfirmed).toHaveBeenCalledTimes(values.length);
+    tracker.dispose();
+  });
+
+  it("does not count an unchanged cached value when the pane source is behind", () => {
+    const file = { path: "note.md" } as TFile;
+    let cache = { frontmatter: { status: ["draft"] } } as CachedMetadata;
+    const suggestion = createValueSuggestion("draft");
+    const plugin = createPlugin(
+      suggestion.row.parentElement as HTMLElement,
+      file,
+      () => cache,
+      () => "---\nstatus: []\n---",
+    );
+    const onConfirmed = vi.fn();
+    const tracker = new RecentPropertyValueTracker({ getEnabled: () => true, onConfirmed, plugin });
+
+    tracker.captureSuggestionActivation(suggestion.item);
+    cache = { frontmatter: { status: ["draft"], other: "changed" } } as CachedMetadata;
+    tracker.handleMetadataChanged(file, cache);
+    expect(onConfirmed).not.toHaveBeenCalled();
+
+    cache = { frontmatter: { status: ["draft", "draft"], other: "changed" } } as CachedMetadata;
+    tracker.handleMetadataChanged(file, cache);
+    expect(onConfirmed.mock.calls).toEqual([["status", "draft"]]);
+    tracker.dispose();
+  });
+
+  it.each([
+    "---\nstatus: []\n---",
+    "---\nstatus:\n  nested: draft\n---",
+    null,
+  ])("lets an uncommitted or unreadable earlier intent yield to the next selection: %j", (source) => {
+    const file = { path: "note.md" } as TFile;
+    let cache = { frontmatter: { status: [] } } as CachedMetadata;
+    const suggestion = createValueSuggestion("draft");
+    const secondItem = suggestion.container.createDiv({ cls: "suggestion-item" });
+    secondItem.createDiv({ cls: "suggestion-title", text: "done" });
+    const plugin = createPlugin(
+      suggestion.row.parentElement as HTMLElement,
+      file,
+      () => cache,
+      () => {
+        if (source == null) throw new Error("editor is unavailable");
+        return source;
+      },
+    );
+    const onConfirmed = vi.fn();
+    const tracker = new RecentPropertyValueTracker({ getEnabled: () => true, onConfirmed, plugin });
+
+    tracker.captureSuggestionActivation(suggestion.item);
+    tracker.captureSuggestionActivation(secondItem);
+    cache = { frontmatter: { status: ["draft", "done"] } } as CachedMetadata;
+    tracker.handleMetadataChanged(file, cache);
+    expect(onConfirmed.mock.calls).toEqual([["status", "done"]]);
+    tracker.dispose();
+  });
+
+  it.each([1, 2, 3])("shares %i added occurrences across two window queues", (addedCount) => {
+    const frame = document.createElement("iframe");
+    document.body.appendChild(frame);
+    const peerDocument = frame.contentDocument;
+    if (peerDocument == null) throw new Error("Expected the peer window document.");
+    const first = createValueSuggestion("draft", "status");
+    const second = createValueSuggestion("draft", "Status", peerDocument);
+    const file = { path: "note.md" } as TFile;
+    let cache = { frontmatter: { status: [] } } as CachedMetadata;
+    const plugin = createMultiPanePlugin(file, () => cache, [first, second].map((suggestion) => ({
+      paneElement: suggestion.row.parentElement as HTMLElement,
+      getContent: () => "---\nstatus: []\n---",
+    })));
+    const onConfirmed = vi.fn();
+    const tracker = new RecentPropertyValueTracker({ getEnabled: () => true, onConfirmed, plugin });
+    tracker.registerDocument(document);
+    const closePeer = tracker.registerDocument(peerDocument);
+    tracker.captureSuggestionActivation(first.item);
+    tracker.captureSuggestionActivation(second.item);
+
+    cache = { frontmatter: { status: Array<string>(addedCount).fill("draft") } } as CachedMetadata;
+    tracker.handleMetadataChanged(file, cache);
+    expect(onConfirmed).toHaveBeenCalledTimes(Math.min(addedCount, 2));
+    tracker.handleMetadataChanged(file, cache);
+    cache = { frontmatter: { status: [...Array<string>(addedCount).fill("draft"), "done"] } } as CachedMetadata;
+    tracker.handleMetadataChanged(file, cache);
+    expect(onConfirmed).toHaveBeenCalledTimes(Math.min(addedCount, 2));
+    closePeer();
+    tracker.dispose();
+  });
+
+  it("retains a committed source selection when a stale peer pane becomes active", () => {
+    const first = createValueSuggestion("draft");
+    const second = createValueSuggestion("done");
+    const file = { path: "note.md" } as TFile;
+    let cache = { frontmatter: { status: [] } } as CachedMetadata;
+    let firstContent = "---\nstatus: []\n---";
+    const plugin = createMultiPanePlugin(file, () => cache, [
+      { paneElement: first.row.parentElement as HTMLElement, getContent: () => firstContent },
+      { paneElement: second.row.parentElement as HTMLElement, getContent: () => "---\nstatus: []\n---" },
+    ]);
+    const onConfirmed = vi.fn();
+    const tracker = new RecentPropertyValueTracker({ getEnabled: () => true, onConfirmed, plugin });
+    first.editor.focus();
+    tracker.captureSuggestionActivation(first.item);
+    firstContent = "---\nstatus: [draft]\n---";
+    second.editor.focus();
+    tracker.captureSuggestionActivation(second.item);
+    expect(onConfirmed).not.toHaveBeenCalled();
+
+    cache = { frontmatter: { status: ["draft", "done"] } } as CachedMetadata;
+    tracker.handleMetadataChanged(file, cache);
+    expect(onConfirmed.mock.calls).toEqual([["status", "draft"], ["status", "done"]]);
+    tracker.dispose();
+  });
+
+  it("keeps activation order across interleaved window queues", () => {
+    const frame = document.createElement("iframe");
+    document.body.appendChild(frame);
+    const peerDocument = frame.contentDocument;
+    if (peerDocument == null) throw new Error("Expected the peer window document.");
+    const first = createValueSuggestion("draft");
+    const review = first.container.createDiv({ cls: "suggestion-item" });
+    review.createDiv({ cls: "suggestion-title", text: "review" });
+    const second = createValueSuggestion("done", "status", peerDocument);
+    const file = { path: "note.md" } as TFile;
+    let cache = { frontmatter: { status: [] } } as CachedMetadata;
+    let firstContent = "---\nstatus: []\n---";
+    const plugin = createMultiPanePlugin(file, () => cache, [
+      { paneElement: first.row.parentElement as HTMLElement, getContent: () => firstContent },
+      { paneElement: second.row.parentElement as HTMLElement, getContent: () => "---\nstatus: []\n---" },
+    ]);
+    const onConfirmed = vi.fn();
+    const tracker = new RecentPropertyValueTracker({ getEnabled: () => true, onConfirmed, plugin });
+    tracker.captureSuggestionActivation(first.item);
+    firstContent = "---\nstatus: [draft]\n---";
+    tracker.captureSuggestionActivation(second.item);
+    tracker.captureSuggestionActivation(review);
+
+    cache = { frontmatter: { status: ["draft", "done", "review"] } } as CachedMetadata;
+    tracker.handleMetadataChanged(file, cache);
+    expect(onConfirmed.mock.calls).toEqual([
+      ["status", "draft"], ["status", "done"], ["status", "review"],
+    ]);
+    tracker.dispose();
+  });
+
+  it("can count a later removal and re-addition after competing intents were consumed", () => {
+    const suggestion = createValueSuggestion("draft");
+    const file = { path: "note.md" } as TFile;
+    let cache = { frontmatter: { status: [] } } as CachedMetadata;
+    const plugin = createPlugin(suggestion.row.parentElement as HTMLElement, file, () => cache);
+    const onConfirmed = vi.fn();
+    const tracker = new RecentPropertyValueTracker({ getEnabled: () => true, onConfirmed, plugin });
+    tracker.captureSuggestionActivation(suggestion.item);
+    cache = { frontmatter: { status: ["draft"] } } as CachedMetadata;
+    tracker.handleMetadataChanged(file, cache);
+    cache = { frontmatter: { status: [] } } as CachedMetadata;
+    tracker.handleMetadataChanged(file, cache);
+    tracker.captureSuggestionActivation(suggestion.item);
+    cache = { frontmatter: { status: ["draft"] } } as CachedMetadata;
+    tracker.handleMetadataChanged(file, cache);
+    expect(onConfirmed).toHaveBeenCalledTimes(2);
     tracker.dispose();
   });
 

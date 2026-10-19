@@ -1,3 +1,5 @@
+import { isSupportedPluginLocale } from "./locale-catalog";
+
 import type {
   KeySuggestionSortMode,
   ListWritebackFormat,
@@ -247,7 +249,7 @@ export function isValueSuggestionKeyDisplayOrder(
 }
 
 export function isPluginLanguage(value: unknown): value is PluginLanguage {
-  return value === "auto" || value === "en" || value === "zh-CN" || value === "zh-TW";
+  return value === "auto" || isSupportedPluginLocale(value);
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {

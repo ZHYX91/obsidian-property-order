@@ -14,13 +14,15 @@ translation_status: source
 1. 核对当前 Node.js/npm 与 `.node-version`、`engines.node`、`packageManager` 的精确版本契约；
 2. 对插件入口与源码执行 Obsidian 官方 `eslint-plugin-obsidianmd` 推荐规则集及已记录的兼容性例外，强制 `src/core/` 禁止导入 Obsidian runtime 和上层模块，并对测试、Node 脚本和工具配置执行适合各自环境的静态规则；所有已启用 warning 均阻断；
 3. 源码、文档与配置的确定性 UTF-8/LF 格式契约，禁止 BOM、NUL、尾随空白和缺失末尾换行；
-4. README 导航与全部稳定中英文文档的 frontmatter、标题层级、关键 token、表格形状和相对链接契约；
+4. 12 种语言 README 的导航、完整章节与链接契约，以及全部稳定中英文文档的 frontmatter、标题层级、关键 token、表格形状和相对链接契约；
 5. TypeScript 严格类型检查；
 6. 带 V8 coverage 的当前完整 Vitest suite；
 7. production bundle；
 8. bundle 可重现性以及静态资产、manifest、lockfile 和版本契约审计。
 
-Lint 使用当前 Obsidian API typings，兼容性仍以 `manifest.json` 为契约。只有在多窗口支持需要目标 `ownerDocument` 时才保留原生 DOM 创建。所有受支持 Obsidian 版本都使用 imperative 四页签设置界面。自动契约必须证明 declarative definitions 保持为空、保留自定义规则编辑器，并且设置界面构造期间不遍历 Vault。
+Lint 使用当前 Obsidian API typings，兼容性仍以 `manifest.json` 为契约。只有在多窗口支持需要目标 `ownerDocument` 时才保留原生 DOM 创建。所有受支持 Obsidian 版本都使用 imperative 四页签设置界面。自动契约必须证明公开的 declarative definitions 保持为空，并保留自定义规则编辑器。
+
+需要列出已有属性名或值的设置页可以读取 Metadata Cache；共享缓存尚未建立或已经失效时，可以枚举 Markdown 文件并读取其缓存元数据。测试分别核对冷缓存的扫描预算、缓存命中不增加扫描或读取，以及临时规则测试不遍历 Vault。
 
 测试按职责分布在 `tests/core/`、`tests/features/`、`tests/obsidian/`、`tests/shared/`、`tests/app/` 和 `tests/scripts/`。自动回归按领域覆盖：
 
@@ -29,10 +31,11 @@ Lint 使用当前 Obsidian API typings，兼容性仍以 `manifest.json` 为契�
 - **提交、保存与恢复**：一次原子 editor transaction、1.12.x 的精确 `"set"` origin、提交前后所有权变化、部分应用与 divergence、只抑制本次拖拽产生的尾随 click、`setViewData()` 后再次核对身份、精确验证后才调用 `requestSave()`，以及保存调度失败的独立提示。
 - **Properties 对账**：正常列表和类型不匹配列表的 UI 对账；受守卫的 `metadataEditor.synchronize()` 成功、缺失、抛错、宿主归属错误和同步后文本变化；刷新按钮的失效条件；多个 pane 的恢复操作互不干扰。恢复路径不得使用原生属性 setter、Vault 直写或手工修改宿主 pill DOM。
 - **撤销与焦点**：精确提交后让 editor 接管撤销/重做；宿主重建丢焦时只在安全条件下恢复；用户主动转焦后不抢回；noop、拒绝、冲突或未生效事务不强制聚焦；保存调度失败但 buffer 已提交时仍可撤销。
-- **属性名候选**：Properties/候选 DOM adapter、限定原 pane 的几何回退、隐藏祖先和计算样式下的可见顺序、键盘导航、全部隐藏、菜单复用、置顶/隐藏/置底优先级、属性类型组顺序、只用于显示的组标题、严格 MRU、笔记数平局、停用/卸载后的原生恢复，以及 DOM 不匹配时保留宿主行为。
+- **属性名候选**：Properties/候选 DOM adapter、限定原 pane 的几何回退、隐藏祖先和计算样式下的可见顺序、无修饰键导航、macOS/iOS Ctrl+P/N、Shift+Home 等文本选择快捷键保持原生行为、全部隐藏、菜单复用、置顶/隐藏/置底优先级、属性类型组顺序、只用于显示的组标题、严格 MRU、笔记数平局、停用/卸载后的原生恢复，以及 DOM 不匹配时保留宿主行为。
 - **最近使用记录**：点击和键盘/输入提交意图、Metadata Cache 确认、hover/浏览/取消/失败不记录、文件与 document 身份、超时/删除/卸载清理；recent store 的精确大小写、去重前移、100 项上限、无时间戳格式、损坏/读取失败回退、写入失败时继续当前会话、Vault/设备隔离和清除。名称与 recent 模式不得为了排序遍历 Vault。
-- **属性值候选**：每个精确 key 只有一个行为、默认回退、跨分组移动、选择次数与笔记数、Custom 的置顶/普通/置底、预设值精确身份、移除预设不修改笔记、原生弹窗注入、无原生弹窗时的回退弹窗、最终可见键盘顺序、`none` 下保留手动输入、生命周期清理和旧规则迁移。
+- **属性值候选**：每个精确 key 只有一个行为、默认回退、跨分组移动、选择次数与笔记数、连续选择的缓存合并确认、跨窗口共享新增出现次数及激活顺序、切换陈旧 pane 时保留来源编辑器佐证、编辑器领先或落后缓存时的精确值数量基线、Custom 的置顶/普通/置底、预设值精确身份、移除预设不修改笔记、原生弹窗注入、无原生弹窗时的回退弹窗、最终可见键盘顺序、`none` 下保留手动输入、生命周期清理和旧规则迁移。
 - **设置**：schema 迁移、非法值归一化、即时生效、保存失败与 Retry、外部设置变化的三方合并、跨实例存储串行化、卸载后拒绝新保存、值拖拽偏好保留、规则卡片和选择器状态、延迟保存不覆盖后续草稿/属性选择/光标、焦点/滚动保持、清除入口和窄屏布局（包括 RTL 负 `scrollLeft`）。
+- **语言与 README**：共享 `locale-catalog` 的 12 种语言、每份词典的完整键集合与占位符名称和数量、显式语言优先、宿主地区别名和中文 `Hans` / `Hant` 优先、阿拉伯语局部 RTL 与切回其他语言后的 LTR、左右键及 Home/End 页签导航、宿主容器语言和方向不变及关闭清理、旧 `auto` / `en` / `zh-CN` / `zh-TW` 及新增 ID 的保存与重载、完整 README 章节、统一导航和根绝对链接/译文相对链接。工程文档继续检查现有简体中文与英文配对契约。
 - **发布工具链**：精确 Node.js/npm 与 lockfile root、发布 job 权限隔离、默认分支与标签身份、Candidate Bundle 只读传输与 SHA-256、ZIP 输入校验、精确源码 checkout、禁止写权限 job 重新安装依赖或构建、发布串行化、Release 版本/说明预检、四个发布资产的字节与 provenance、HTTP 重试分类和幂等发布。
 
 `npm run check` 通过 `npm run test:coverage` 执行完整 Vitest suite，并使用 V8 coverage 显式包含 `main.ts` 与 `src/**/*.ts`，使没有被任何测试导入的运行时代码仍以 0% 出现在源清单中。统一门禁通过 `vitest.config.mts` 强制全局覆盖率下限：statements 86%、branches 83%、functions 88%、lines 86%。报告用于发现遗漏文件和指导针对性测试；达到阈值仍不能替代真实宿主证据。
@@ -47,11 +50,23 @@ Lint 使用当前 Obsidian API typings，兼容性仍以 `manifest.json` 为契�
 
 ## 隔离 Vault
 
-使用安装精确候选包的临时 Vault。仓库提供 `acceptance/fixtures/Property Order.md`、`Key Suggestions.md`、`Key Type Vocabulary.md` 和 `acceptance/product-scenarios.json`；核对它们与候选绑定的哈希，安装三个候选资产，并仅启用 Property Order。普通或生产 Vault 永远不是合法目标。
+使用安装精确候选包的临时 Vault。仓库提供 `acceptance/fixtures/Property Order.md`、`Key Suggestions.md`、`Key Type Vocabulary.md`、`Value Suggestions.md` 和 `acceptance/product-scenarios.json`；核对它们与候选绑定的哈希，并安装三个候选资产。常规回归只启用 Property Order；需要下述受控条件时，再启用仓库提供的 fixture provider。普通或生产 Vault 永远不是合法目标。
 
-可选的 fixture provider 只提供显式受控条件。命名样本处于活动状态时，其下一次设置保存命令将一次存储写入延迟 20 秒；未使用的待触发状态在 30 秒后过期。语言命令在十秒后通过插件设置及刷新边界应用指定语言，以便先打开原生菜单。带时间戳的内存 `conditionEvents` 和 Notice 标识待触发、开始、释放、完成、取消和失败，均不生成验收结论。卸载时恢复存储拦截、释放待完成写入并取消尚未执行的语言计时器。已应用语言仍是样本设置，通过正常设置界面恢复。自动测试验证时序与清理；最低及当前真实宿主证据仍须记录可见界面编辑、后续草稿/选中项/焦点、菜单身份和候选数，以及持久化结果。provider 不为此检查选择候选或编辑设置草稿。
+可选的 fixture provider 为验收提供显式受控条件。下面的保存延迟、语言切换和观察命令不会替验收者选择候选或填写设置草稿，也不生成通过结论。
 
-异文档 pointer move/up/cancel 隔离由使用合成事件的控制器回归覆盖，包括异文档事件后通过来源文档完成拖动。显式异文档指针条件命令要求存在第二个工作区文档，在来源指针移动后一帧确认来源拖动活动，再向另一文档注入不可信 pointerup/cancel，不调用产品操作。记录可信来源输入、不同文档身份、合成目标输入、来源拖动继续及最终真实释放/撤销，并结合真实宿主焦点离开及清理证据。显式下一次拖动切换焦点条件只在来源拖动激活后，对另一真实工作区窗口请求 `focus()`。它记录实际来源 blur 和目标 focus 的可信性、来源 pointerup 时序，以及 blur 前和后一帧的拖动状态；不派发 blur，也不调用产品取消操作。单独焦点请求不构成证明：必须有活动拖动期间的可信宿主 blur、磁盘无写入，以及随后一次成功真实拖动。只读观察命令等待三秒或十秒后记录标签方向、滚动及矩形、全部标签文本、限定设置范围的草稿/选中项/光标/焦点，以及稳定的菜单和候选节点身份及数量。保存延迟和语言切换事件也自动采集这些观察。观察不会滚动、选择标签、编辑字段或判定通过；卸载会取消待执行观察。显式导出命令将条件事件写入 `Acceptance Conditions.json`，拒绝覆盖未知已有文件。合成事件不能证明操作系统窗口之间的物理按住指针移动。
+**保存延迟。** 命名样本处于活动状态时，执行命令可让下一次设置存储写入等待 20 秒；计时从实际写入调用开始，只影响一次写入。30 秒内没有触发的待用条件自动过期。卸载 provider 会恢复原保存方法并放行等待中的写入，不取消或撤销该保存。
+
+**语言与观察。** provider 的语言命令在 10 秒后通过插件设置及刷新入口切换到英语或简体中文，以便验收者先打开原生属性名候选菜单。卸载会取消尚未执行的语言计时器；已经应用的语言仍保留为样本设置，通过正常设置界面恢复。
+
+只读观察命令等待 3 秒或 10 秒后采集界面；活动文件必须是 `Property Order.md`、`Key Suggestions.md` 或 `Value Suggestions.md`，否则不采集。观察范围包括工作区文档和没有 leaf 的独立设置文档，记录页签方向、滚动位置和矩形、全部页签标签、设置范围内的草稿、选中项、光标与焦点，以及同会话中属性名候选菜单和候选节点的身份与数量。保存延迟的开始、释放和完成，以及语言应用与保存事件会自动采集相同观察；语言改变前另记录一次快照。观察不会滚动页面、切换页签、编辑字段或判断通过，卸载会取消待执行观察。
+
+**异文档指针。** 控制器自动回归使用合成事件验证异文档 pointer move/up/cancel 隔离，并验证事件发生后仍可从来源文档完成拖动。provider 的显式条件命令要求第二个工作区文档：来源 pointermove 后等待一帧，确认拖拽仍活动，再向另一文档注入不可信的 pointerup 和 pointercancel，不调用产品操作。记录来源输入的可信性、不同文档身份、合成目标事件及注入后来源拖拽是否仍活动；最终真实释放和撤销仍须单独记录。合成事件不能证明操作系统窗口之间物理按住指针移动的行为。
+
+**真实焦点切换。** 显式“下一次拖动切换焦点”条件只在来源拖拽激活并等待一帧后，对另一真实工作区窗口请求 `focus()`。它记录实际来源 blur 和目标 focus 的可信性、来源 pointerup 的时序，以及 blur 时和后一帧的拖拽状态；不派发 blur，也不调用产品取消操作。单独的焦点请求不足以证明取消成功：必须同时记录活动拖拽期间的可信宿主 blur、磁盘无写入，以及随后一次成功的真实拖拽。异文档合成输入证据也应结合这些真实焦点与清理证据。
+
+**事件与导出。** 带时间戳的内存 `conditionEvents` 和 Notice 标识待触发、开始、释放、完成、取消和失败。显式导出命令将事件写入 `Acceptance Conditions.json`；仅允许替换标记为 `property-order-acceptance-conditions` 的已有文件，其他已有文件拒绝覆盖。导出只包含条件事件，不绑定候选哈希，也不判定验收是否通过。
+
+自动测试验证这些条件的时序与清理。最低及当前真实宿主的证据仍须记录可见界面编辑、后续草稿、选中项和焦点、属性名菜单身份与候选数，以及持久化结果。provider 日志和自动测试不能替代真实界面与磁盘结果。
 
 仓库不提供会直接安装夹具、重置 Vault 或注入冲突的 CLI，以免误操作真实 Vault。需要验证写入冲突时，验收控制器只在明确选中的临时夹具中记录初始身份、启动操作、执行指定外部修改，并记录修改前后的字节和可见拒绝结果。竞态边界仍以自动化单元测试为主要证据；真实宿主验收负责确认 Obsidian 的实际 DOM、交互、持久化、撤销/重做和安全拒绝行为。
 
@@ -109,12 +124,12 @@ Android 模拟器必须验证：
 - Value suggestions 命中 `none` 时，桌面真实宿主验收必须确认手动输入仍可用，且未修改的 Enter/Tab 不会提交已抑制的原生候选。
 - 厂商输入栈、真实触感、物理 pen 等真机专属行为不属于本项目的验收声明。
 - 键盘属性值重排继续作为明确的产品非目标。自动 DOM 覆盖验证 polite 拖拽状态节点的创建与清理；只有真实宿主验收记录后才声明辅助技术的实际播报质量。
-- 语言契约必须证明“自动”通过公开的 `getLanguage()` API 读取 Obsidian 当前界面语言。最低支持的 Obsidian 版本为 1.12.7，已发布版本的兼容关系以 `versions.json` 为准。
+- 语言契约必须证明“跟随 Obsidian”通过公开的 `getLanguage()` API 读取宿主当前界面语言，显式选择始终优先；地区别名按支持语言归一化，中文 `Hans` / `Hant` 先于地区判断简繁。12 份界面词典与完整 README 必须同步维护，原 `en`、`zh-CN`、`zh-TW` ID 保持兼容。最低支持的 Obsidian 版本为 1.12.7，已发布版本的兼容关系以 `versions.json` 为准。
 - CR-only 字节保持由自动测试固定；Obsidian 1.12.7 不暴露相应 Properties UI，因此不要求不存在的真实 UI 路径。
 
 ## CI 与 Release
 
-CI 与 Release workflow 都从 `.node-version` 使用 Node.js 24.19.0，并通过 `packageManager` 要求 npm 11.17.0；在 `npm ci` 前先核对精确运行时，随后执行 `npm run check`。其中发布产物门会独立重现 bundle，并要求生产 `main.js` 不超过 320,000 B；这是项目回归预算，不是 Obsidian 平台限制。
+CI 与 Release workflow 都从 `.node-version` 使用 Node.js 24.19.0，并通过 `packageManager` 要求 npm 11.17.0；在 `npm ci` 前先核对精确运行时，随后执行 `npm run check`。发布产物检查会独立重现 bundle，并要求生产 `main.js` 不超过 450,000 B。12 份完整界面词典随这个文件离线打包，增加了固定体积；生产构建使用 UTF-8 字符，避免非 ASCII 转义带来的额外膨胀。预算包含这些词典，是项目的回归警戒线，不是 Obsidian 平台限制。
 
 CI 上传 `dist/` 顶层的 `main.js`、`manifest.json` 与 `styles.css`。Release workflow 只接受与 `manifest.json` 完全一致、无 `v` 前缀的 `x.y.z` 版本，重新执行完整门禁后发布：
 

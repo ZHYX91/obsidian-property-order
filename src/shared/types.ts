@@ -1,3 +1,5 @@
+import type { ResolvedPluginLocale } from "./locale-catalog";
+
 export type ListWritebackFormat = "preserve" | "flow" | "block";
 export type KeySuggestionSortMode = "name" | "recent" | "usage";
 export type PropertyType =
@@ -23,7 +25,7 @@ export type ValueSuggestionMiddleSortMode = Exclude<
   "none"
 >;
 export type ValueSuggestionKeyDisplayOrder = "name" | "recent";
-export type PluginLanguage = "auto" | "en" | "zh-CN" | "zh-TW";
+export type PluginLanguage = "auto" | ResolvedPluginLocale;
 
 export interface PropertyValueBehaviorAssignment {
   behavior: ValueSuggestionBehavior;

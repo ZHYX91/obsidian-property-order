@@ -1,12 +1,12 @@
 # Property Order
 
-[English](https://github.com/ZHYX91/obsidian-property-order/blob/main/README.md) · [简体中文](https://github.com/ZHYX91/obsidian-property-order/blob/main/docs/i18n/README.zh-CN.md)
+[English](https://github.com/ZHYX91/obsidian-property-order/blob/main/README.md) · [简体中文](https://github.com/ZHYX91/obsidian-property-order/blob/main/docs/i18n/README.zh-CN.md) · [繁體中文](https://github.com/ZHYX91/obsidian-property-order/blob/main/docs/i18n/README.zh-TW.md) · [Deutsch](https://github.com/ZHYX91/obsidian-property-order/blob/main/docs/i18n/README.de-DE.md) · [Français](https://github.com/ZHYX91/obsidian-property-order/blob/main/docs/i18n/README.fr-FR.md) · [Español](https://github.com/ZHYX91/obsidian-property-order/blob/main/docs/i18n/README.es-ES.md) · [Português](https://github.com/ZHYX91/obsidian-property-order/blob/main/docs/i18n/README.pt-BR.md) · [Русский](https://github.com/ZHYX91/obsidian-property-order/blob/main/docs/i18n/README.ru-RU.md) · [日本語](https://github.com/ZHYX91/obsidian-property-order/blob/main/docs/i18n/README.ja-JP.md) · [한국어](https://github.com/ZHYX91/obsidian-property-order/blob/main/docs/i18n/README.ko-KR.md) · [Tiếng Việt](https://github.com/ZHYX91/obsidian-property-order/blob/main/docs/i18n/README.vi-VN.md) · [العربية](https://github.com/ZHYX91/obsidian-property-order/blob/main/docs/i18n/README.ar.md)
 
 Property Order lets you drag list values in Obsidian Properties and choose which property names and values are suggested while you type.
 
 ## Demo
 
-Move a value between supported top-level YAML list properties on desktop:
+On desktop, drag an item from one list property to another in the same note:
 
 ![Move a value between properties](https://raw.githubusercontent.com/ZHYX91/obsidian-property-order/main/docs/assets/property-order-cross-property-drag.gif)
 
@@ -54,17 +54,18 @@ Back up and preserve `Vault/.obsidian/plugins/property-order/data.json` when it 
 
 **Which suggestion setting?** When you add a new property and type its **name**, **Key suggestions** controls whether names such as `status` or `owner` are pinned, hidden, or reordered. After you choose `status` and edit its **value**, **Value suggestions** controls the existing value candidates (for example, `todo` or `done`), with optional user-defined presets. Value suggestions are disabled by default. Neither setting changes the note until you select or edit a value.
 
-**Example: add common values for `status`.** Open **Value suggestions**, turn on **Customize property value suggestions**, and add a **Custom candidates** rule card. Add `status` to that card. Under **Pinned candidates**, enter `todo` and choose **Add preset candidate**; repeat for `doing` and `done`. These values will be offered when you edit `status`, filtered by what you type. Use **Move to normal** if you want a preset to follow the normal sorting order instead of staying pinned.
+**Example: add common values for `status`.** Open **Value suggestions**, turn on **Customize property value suggestions**, and add a **Custom candidates** rule card. Add `status` to that card. Under **Pinned candidates**, enter `todo` and choose **Add preset candidate**; repeat for `doing` and `done`. These values will be offered when you edit `status`, filtered by what you type. To include a preset in the normal sorting order, click **↔ (Move to normal)** beside it.
 
 ## Settings
 
 Every supported Obsidian version uses the same four settings tabs:
 
-- **General** controls the plugin language and optional diagnostic notices.
+- **General** controls the plugin language and optional diagnostic notices. The interface and README are available in English, Simplified Chinese, Traditional Chinese, German, French, Spanish, Brazilian Portuguese, Russian, Japanese, Korean, Vietnamese, and Arabic. **Follow Obsidian** selects the matching language, or English if that language is unavailable.
 - **Value order** controls the list format after dragging, cross-property moves, and drag behavior. Turning value drag off does not erase the separate cross-property preference.
 - **Key suggestions** controls pinned, bottom, and hidden property names plus Name, Recently used, and Note count sorting. Optional property-type grouping organizes normal candidates into Text, List, Number, Checkbox, Date, Date & time, Tags, and Automatic / unspecified; the chosen sort still applies inside each group.
 - **Value suggestions** is opt-in. Unassigned properties use one default behavior, while exact property keys can be assigned to Name, Selection frequency, Note count, Native, No suggestions, or Custom candidates.
 - Custom candidate rules use Pinned, Normal, and Bottom sections. Preset values can be entered directly, so they can remain selectable even before they appear in a note.
+- **Property order in these settings** only changes the property order in rule cards and the custom editor. It does not reorder properties in notes or their value suggestions.
 - Recent property-name history is limited to 100 names on the current device. Selection frequency is also device-local. Both are separate from `data.json`, are not synced, and can be cleared from settings.
 
 ## Limitations

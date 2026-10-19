@@ -5,6 +5,39 @@ follow the repository's Git tags; entries summarize the corresponding commit his
 
 ## [Unreleased]
 
+## [0.10.0] - 2026-10-19
+
+### Added
+
+- Provide complete UI and README translations for English, Simplified Chinese, Traditional
+  Chinese, German, French, Spanish, Brazilian Portuguese, Russian, Japanese, Korean,
+  Vietnamese, and Arabic. Use one language catalog for settings and README navigation, recognize regional
+  host language variants, and check all translation keys, placeholders, sections, and links.
+- Apply right-to-left direction to Arabic plugin settings, including tab navigation, without
+  changing the surrounding Obsidian interface.
+
+### Fixed
+
+- Keep inline comments separated from empty list items when converting them to text, including
+  cross-property moves and one-item-per-line output, so the resulting YAML remains valid.
+- Preserve text-editing shortcuts such as Shift+Home while a suggestion menu is open.
+- Restore the exact native order and selected node for whitespace-only value candidates after
+  native menu updates and disabling enhancement.
+- Confirm consecutive list-value selections after a combined Metadata Cache update. Share each
+  added occurrence across window queues to prevent duplicate counts, preserve activation order,
+  and check the original editor when switching to a stale peer before cache confirmation.
+- Refresh settings immediately when a toggle or language changes, so delayed save results keep
+  later drafts, focus, and selection. Continue applying rule-card changes while saves are pending.
+- Keep special characters and placeholder-like text in property names literal in confirmation
+  prompts and remove-button accessibility labels.
+
+### Changed
+
+- Explain settings-only property order, value sorting, unsaved changes, and legacy rules in
+  clearer language. Preserve the original rule text alongside localized explanations.
+- Align the paired engineering documents with current behavior and split dense testing guidance
+  into readable paragraphs. Bundle multilingual text as UTF-8 and budget for all offline locales.
+
 ## [0.9.2] - 2026-10-18
 
 ### Fixed
