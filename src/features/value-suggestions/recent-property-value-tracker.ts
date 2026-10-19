@@ -7,7 +7,7 @@ import {
   isPropertyValueSuggestionContainer,
   resolvePropertyValueSuggestionContainer,
 } from "../../obsidian/native-suggest-dom";
-import { resolvePaneFileContext } from "../../obsidian/pane-context";
+import { resolvePaneFileContext, type PaneFileContext } from "../../obsidian/pane-context";
 import { isSuggestionElementVisible } from "../key-order/suggestion-visibility";
 
 const MAX_PENDING_USES_PER_DOCUMENT = 10;
@@ -18,6 +18,8 @@ interface PendingPropertyValueUse {
   createdAt: number;
   file: TFile;
   propertyKey: string;
+  sequence: number;
+  source: PaneFileContext;
   value: string;
 }
 
@@ -33,6 +35,7 @@ export class RecentPropertyValueTracker {
   private readonly onConfirmed: (propertyKey: string, value: string) => void;
   private readonly pendingByDocument = new Map<Document, PendingPropertyValueUse[]>();
   private readonly plugin: Plugin;
+  private nextActivationSequence = 0;
 
   constructor(options: RecentPropertyValueTrackerOptions) {
     this.getEnabled = options.getEnabled;
@@ -72,6 +75,8 @@ export class RecentPropertyValueTracker {
     }
 
     const now = Date.now();
+    const confirmed: PendingPropertyValueUse[] = [];
+    const claimedOccurrences = new Map<string, Map<string, Set<number>>>();
 
     for (const [targetDocument, queue] of this.pendingByDocument) {
       const remaining: PendingPropertyValueUse[] = [];
@@ -94,14 +99,34 @@ export class RecentPropertyValueTracker {
           continue;
         }
 
-        try {
-          this.onConfirmed(pending.propertyKey, pending.value);
-        } catch (error) {
-          console.error("Property Order: failed to record a recent property value", error);
+        // All documents observe the same cache change. Each newly present
+        // occurrence can confirm only one activation, including across popouts.
+        const key = pending.propertyKey.trim().toLocaleLowerCase();
+        const byValue = claimedOccurrences.get(key) ?? new Map<string, Set<number>>();
+        claimedOccurrences.set(key, byValue);
+        const claimed = byValue.get(pending.value) ?? new Set<number>();
+        byValue.set(pending.value, claimed);
+        let occurrence = pending.beforeCount + 1;
+        while (claimed.has(occurrence)) occurrence += 1;
+        if (occurrence <= currentCount) {
+          claimed.add(occurrence);
+          confirmed.push(pending);
         }
+        // A competing intent with no remaining occurrence is consumed too:
+        // it must not claim an unrelated addition in a later metadata event.
       }
 
       this.setPendingQueue(targetDocument, remaining);
+    }
+
+    // Clear consumed intents before callbacks and preserve activation order
+    // when one cache update confirms selections from interleaved windows.
+    for (const pending of confirmed.sort((left, right) => left.sequence - right.sequence)) {
+      try {
+        this.onConfirmed(pending.propertyKey, pending.value);
+      } catch (error) {
+        console.error("Property Order: failed to record a recent property value", error);
+      }
     }
   }
 
@@ -173,19 +198,21 @@ export class RecentPropertyValueTracker {
       createdAt: Date.now(),
       file,
       propertyKey: context.propertyKey,
+      sequence: this.nextActivationSequence++,
+      source: paneContext,
       value,
     };
     // A second list selection can precede the first Metadata Cache update.
-    // Retain an earlier intent only when the current pane's source already
-    // contains its added value; cancelled or unreadable intents still yield
-    // to the new activation. Only Metadata Cache can confirm either intent.
+    // Check each earlier intent's own pane; a newly active peer can lag behind
+    // that pane. Cancelled, switched-file or unreadable source intents still
+    // yield to the next activation. Only Metadata Cache confirms a selection.
     const queue = this.getLivePendingQueue(itemElement.ownerDocument, pending.createdAt).filter(
       (candidate) =>
         candidate.file !== pending.file ||
         !equalPropertyKey(candidate.propertyKey, pending.propertyKey) ||
         (
-          editorValues != null &&
-          countValue(editorValues, candidate.value) > candidate.beforeCount
+          countValue(getPendingEditorValues(candidate, cache) ?? [], candidate.value) >
+            candidate.beforeCount
         ),
     );
     queue.push(pending);
@@ -227,6 +254,15 @@ export class RecentPropertyValueTracker {
       this.pendingByDocument.set(targetDocument, queue);
     }
   }
+}
+
+function getPendingEditorValues(
+  pending: PendingPropertyValueUse,
+  cache: CachedMetadata,
+): string[] | null {
+  const { source } = pending;
+  if (source.view.file !== pending.file || source.view.editor !== source.editor) return null;
+  return getEditorFrontmatterValues(source.editor, pending.propertyKey, cache);
 }
 
 function getEditorFrontmatterValues(
