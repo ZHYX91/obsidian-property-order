@@ -1,5 +1,4 @@
 import { describe, expect, it } from "vitest";
-import { parse as parseYaml } from "yaml";
 
 import {
   getFrontmatterListPropertyScalars,
@@ -8,7 +7,7 @@ import {
   planFrontmatterListPropertyMove,
   reorderFrontmatterListProperty,
 } from "../../src/core/frontmatter";
-import { extractFrontmatterBounds } from "../../src/core/frontmatter/bounds";
+import { expectFrontmatterPropertyChanges } from "../helpers/frontmatter-oracle";
 
 describe("Obsidian text-list normalization", () => {
   it("extracts the original text identity used to align Properties with YAML", () => {
@@ -189,8 +188,7 @@ describe("Obsidian text-list normalization", () => {
           "Body",
         ].join("\n"),
       );
-      const frontmatter = extractFrontmatterBounds(output ?? "");
-      expect(parseYaml(frontmatter?.body ?? "")).toEqual({
+      expectFrontmatterPropertyChanges(input, output ?? "", {
         source: null,
         target: ["beta", ""],
       });
@@ -228,8 +226,7 @@ describe("Obsidian text-list normalization", () => {
         "Body",
       ].join("\n"),
     );
-    const frontmatter = extractFrontmatterBounds(output ?? "");
-    expect(parseYaml(frontmatter?.body ?? "")).toEqual({
+    expectFrontmatterPropertyChanges(input, output ?? "", {
       source: ["beta"],
       target: ["", "alpha"],
     });

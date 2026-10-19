@@ -10,6 +10,8 @@ This document mirrors the authoritative current automated gates, real-host matri
 
 ## Automated gate
 
+YAML writeback regressions use `tests/helpers/frontmatter-oracle.ts` and the independent `yaml` parser to compare the before/after data and unchanged body. Exact source assertions still protect comments and formatting. Root flow mappings, including column-zero nested keys, are tested through the production writeback path and real pointer events; refusal must perform no editor transaction or save request.
+
 Run `npm run check` before delivery. It performs, in order:
 
 1. the exact current Node.js/npm contract against `.node-version`, `engines.node`, and `packageManager`;

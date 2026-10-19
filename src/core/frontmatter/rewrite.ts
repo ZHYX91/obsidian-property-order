@@ -398,6 +398,18 @@ export function findProperty(
 }
 
 function hasExactlyOneTopLevelProperty(lines: readonly string[], propertyKey: string): boolean {
+  const root = lines.find((line) => !/^[ \t]*(?:#.*)?$/.test(line));
+  // This rewriter owns column-zero keys in a block mapping. A flow root can
+  // contain identical-looking lines at any nesting depth; converting one of
+  // them to a block list can also make the surrounding YAML invalid.
+  if (
+    root == null ||
+    /^[&*!|>%]|^[-?](?:[ \t]|$)/.test(root) ||
+    parseTopLevelPropertyLine(root) == null
+  ) {
+    return false;
+  }
+
   let count = 0;
 
   for (const line of lines) {

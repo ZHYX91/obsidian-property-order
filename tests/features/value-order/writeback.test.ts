@@ -6,6 +6,11 @@ import { describe, expect, it, vi } from "vitest";
 import type { PropertyPillContext } from "../../../src/obsidian/properties-dom";
 import type { DropTarget } from "../../../src/features/value-order/types";
 import { writePropertyValueDrop } from "../../../src/features/value-order/writeback";
+import { FLOW_ROOT_DOCUMENTS } from "../../fixtures/frontmatter-roots";
+import {
+  expectFrontmatterPropertyChanges,
+  parseFrontmatterDocument,
+} from "../../helpers/frontmatter-oracle";
 
 type WritebackOptions = Parameters<typeof writePropertyValueDrop>[0];
 
@@ -128,6 +133,44 @@ function positionToOffset(
 }
 
 describe("writePropertyValueDrop", () => {
+  describe.each(["preserve", "block", "flow"] as const)("YAML ownership in %s format", (writebackFormat) => {
+    it.each(FLOW_ROOT_DOCUMENTS)("refuses $name without editing or saving", async ({ source }) => {
+      expect(parseFrontmatterDocument(source).data).toMatchObject({ flow: ["alpha", "beta"] });
+      const fixture = createEditorWithCurrentContent(source);
+      const requestSave = vi.fn();
+      const result = await writeTestPropertyValueDrop({
+        editor: fixture.editor,
+        expectedContent: source,
+        sourceContext: createContext("flow", 0),
+        target: createTarget("flow", "reorder", 2),
+        writebackFormat,
+      }, { requestSave });
+
+      expect(result.status).toBe("diagnostic");
+      expect(fixture.transactions).toEqual([]);
+      expect(requestSave).not.toHaveBeenCalled();
+      expect(fixture.getContent()).toBe(source);
+    });
+
+    it("changes only the intended property in a supported block mapping", async () => {
+      const source = "---\nobject: {flow: [nested, values]}\nflow: [alpha, beta]\n---\nBody\n";
+      const fixture = createEditorWithCurrentContent(source);
+      const requestSave = vi.fn();
+      const result = await writeTestPropertyValueDrop({
+        editor: fixture.editor,
+        expectedContent: source,
+        sourceContext: createContext("flow", 0),
+        target: createTarget("flow", "reorder", 2),
+        writebackFormat,
+      }, { requestSave });
+
+      expect(result.status).toBe("written");
+      expect(fixture.transactions).toHaveLength(1);
+      expect(requestSave).toHaveBeenCalledOnce();
+      expectFrontmatterPropertyChanges(source, fixture.getContent(), { flow: ["beta", "alpha"] });
+    });
+  });
+
   it("reports failure when the host editor ignores the transaction", async () => {
     const content = ["---", "tags: [alpha, beta]", "---"].join("\n");
     const fixture = createEditorWithCurrentContent(content, false);

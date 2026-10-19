@@ -9,6 +9,8 @@ translation_status: source
 
 ## 自动门禁
 
+YAML 写回回归使用 `tests/helpers/frontmatter-oracle.ts` 与独立的 `yaml` 解析器，比较修改前后的数据并确认正文不变；精确源码断言继续保护注释和格式。根 flow mapping（包括其中顶格书写的嵌套键）同时通过生产写回路径和实际 pointer 事件测试；拒绝操作时不得产生 editor transaction 或保存请求。
+
 交付前运行 `npm run check`，顺序执行：
 
 1. 核对当前 Node.js/npm 与 `.node-version`、`engines.node`、`packageManager` 的精确版本契约；

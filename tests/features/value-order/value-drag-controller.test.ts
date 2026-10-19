@@ -101,6 +101,8 @@ import { getFrontmatterTextListPropertyValues } from "../../../src/core/frontmat
 import { TOUCH_LONG_PRESS_MS } from "../../../src/core/interaction/pointer-drag";
 import { createDefaultSettings } from "../../../src/shared/settings";
 import type { PropertyOrderSettings } from "../../../src/shared/types";
+import { FLOW_ROOT_DOCUMENTS } from "../../fixtures/frontmatter-roots";
+import { parseFrontmatterDocument } from "../../helpers/frontmatter-oracle";
 
 interface ControllerHarness {
   cleanup(): void;
@@ -599,6 +601,24 @@ async function waitForDragFinish(): Promise<void> {
 }
 
 describe("PropertyValueOrderController", () => {
+  it.each(FLOW_ROOT_DOCUMENTS)("does not start a drag against $name", async ({ source }) => {
+    const harness = createHarness();
+    try {
+      harness.editor.setContent(source);
+      Object.assign(harness.frontmatter, parseFrontmatterDocument(source).data);
+      dispatchPointer(harness.pill, "pointerdown", 10);
+      dispatchPointer(document, "pointermove", 250);
+      dispatchPointer(document, "pointerup", 250);
+      await waitForDragFinish();
+
+      expect(harness.editor.getContent()).toBe(source);
+      expect(harness.editor.transaction).not.toHaveBeenCalled();
+      expect(harness.leaf.view.requestSave).not.toHaveBeenCalled();
+    } finally {
+      harness.cleanup();
+    }
+  });
+
   beforeEach(() => {
     document.body.replaceChildren();
     noticeSpy.mockReset();
