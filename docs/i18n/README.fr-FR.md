@@ -1,6 +1,6 @@
 # Property Order
 
-[English](../../README.md) · [简体中文](README.zh-CN.md) · [繁體中文](README.zh-TW.md) · [Deutsch](README.de-DE.md) · [Français](README.fr-FR.md) · [Español](README.es-ES.md) · [Português](README.pt-BR.md) · [Русский](README.ru-RU.md) · [日本語](README.ja-JP.md) · [한국어](README.ko-KR.md) · [Tiếng Việt](README.vi-VN.md) · [العربية](README.ar.md)
+[English](../../README.md) · [简体中文](README.zh-CN.md) · [繁體中文](README.zh-TW.md) · [日本語](README.ja-JP.md) · [한국어](README.ko-KR.md) · [Deutsch](README.de-DE.md) · [Français](README.fr-FR.md) · [Español](README.es-ES.md) · [Português (Brasil)](README.pt-BR.md) · [Русский](README.ru-RU.md) · [Tiếng Việt](README.vi-VN.md) · [العربية](README.ar.md)
 
 Property Order permet de faire glisser les valeurs de listes dans le panneau des propriétés d’Obsidian et de choisir les noms et les valeurs de propriétés suggérés pendant la saisie.
 
@@ -70,6 +70,7 @@ Toutes les versions prises en charge d’Obsidian utilisent les mêmes quatre on
 
 ## Limites
 
+- Le frontmatter doit utiliser des lignes de propriétés ordinaires au premier niveau. Le glissement ne prend pas en charge un document YAML entièrement entouré de `{ ... }`.
 - Le glissement des valeurs fonctionne uniquement avec les propriétés YAML de premier niveau qu’Obsidian affiche sous forme de listes de texte.
 - Les listes d’objets, les listes imbriquées, les listes entre crochets écrites sur plusieurs lignes, le déplacement de lignes en mode source et les déplacements entre fichiers ne sont pas pris en charge.
 - Sur mobile, choisissez d’abord **Réordonner** ou **Réordonner ou déplacer** dans le menu d’appui long d’Obsidian, puis faites glisser la valeur. Les actions d’origine pour modifier, retirer de la liste et copier restent disponibles.

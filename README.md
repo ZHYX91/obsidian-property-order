@@ -1,6 +1,6 @@
 # Property Order
 
-[English](https://github.com/ZHYX91/obsidian-property-order/blob/main/README.md) · [简体中文](https://github.com/ZHYX91/obsidian-property-order/blob/main/docs/i18n/README.zh-CN.md) · [繁體中文](https://github.com/ZHYX91/obsidian-property-order/blob/main/docs/i18n/README.zh-TW.md) · [Deutsch](https://github.com/ZHYX91/obsidian-property-order/blob/main/docs/i18n/README.de-DE.md) · [Français](https://github.com/ZHYX91/obsidian-property-order/blob/main/docs/i18n/README.fr-FR.md) · [Español](https://github.com/ZHYX91/obsidian-property-order/blob/main/docs/i18n/README.es-ES.md) · [Português](https://github.com/ZHYX91/obsidian-property-order/blob/main/docs/i18n/README.pt-BR.md) · [Русский](https://github.com/ZHYX91/obsidian-property-order/blob/main/docs/i18n/README.ru-RU.md) · [日本語](https://github.com/ZHYX91/obsidian-property-order/blob/main/docs/i18n/README.ja-JP.md) · [한국어](https://github.com/ZHYX91/obsidian-property-order/blob/main/docs/i18n/README.ko-KR.md) · [Tiếng Việt](https://github.com/ZHYX91/obsidian-property-order/blob/main/docs/i18n/README.vi-VN.md) · [العربية](https://github.com/ZHYX91/obsidian-property-order/blob/main/docs/i18n/README.ar.md)
+[English](https://github.com/ZHYX91/obsidian-property-order/blob/main/README.md) · [简体中文](https://github.com/ZHYX91/obsidian-property-order/blob/main/docs/i18n/README.zh-CN.md) · [繁體中文](https://github.com/ZHYX91/obsidian-property-order/blob/main/docs/i18n/README.zh-TW.md) · [日本語](https://github.com/ZHYX91/obsidian-property-order/blob/main/docs/i18n/README.ja-JP.md) · [한국어](https://github.com/ZHYX91/obsidian-property-order/blob/main/docs/i18n/README.ko-KR.md) · [Deutsch](https://github.com/ZHYX91/obsidian-property-order/blob/main/docs/i18n/README.de-DE.md) · [Français](https://github.com/ZHYX91/obsidian-property-order/blob/main/docs/i18n/README.fr-FR.md) · [Español](https://github.com/ZHYX91/obsidian-property-order/blob/main/docs/i18n/README.es-ES.md) · [Português (Brasil)](https://github.com/ZHYX91/obsidian-property-order/blob/main/docs/i18n/README.pt-BR.md) · [Русский](https://github.com/ZHYX91/obsidian-property-order/blob/main/docs/i18n/README.ru-RU.md) · [Tiếng Việt](https://github.com/ZHYX91/obsidian-property-order/blob/main/docs/i18n/README.vi-VN.md) · [العربية](https://github.com/ZHYX91/obsidian-property-order/blob/main/docs/i18n/README.ar.md)
 
 Property Order lets you drag list values in Obsidian Properties and choose which property names and values are suggested while you type.
 
@@ -70,6 +70,7 @@ Every supported Obsidian version uses the same four settings tabs:
 
 ## Limitations
 
+- The frontmatter must use ordinary top-level property lines. A whole document enclosed in `{ ... }` is not supported for dragging.
 - Value dragging works only with top-level YAML properties that Obsidian presents as text lists.
 - Object lists, nested lists, multiline flow sequences, source-mode line dragging, and cross-file moves are not supported.
 - On mobile, you first choose **Reorder** or **Reorder or move** from Obsidian's native long-press menu, then drag that value. Native actions such as Edit, Remove from list, and Copy remain available.

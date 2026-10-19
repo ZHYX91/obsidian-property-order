@@ -51,7 +51,31 @@ export class PluginSettingTab {
 }
 
 export class Setting {
-  constructor(_containerEl: HTMLElement) {}
+  readonly settingEl: HTMLDivElement;
+  readonly controlEl: HTMLDivElement;
+  readonly descEl: HTMLDivElement;
+
+  constructor(containerEl: HTMLElement) {
+    this.settingEl = containerEl.ownerDocument.createElement("div");
+    this.settingEl.className = "setting-item";
+    this.descEl = containerEl.ownerDocument.createElement("div");
+    this.controlEl = containerEl.ownerDocument.createElement("div");
+    this.controlEl.className = "setting-item-control";
+    Reflect.set(this.controlEl, "createEl", function (
+      this: HTMLElement,
+      tag: string,
+      options: { attr?: Record<string, string>; cls?: string; text?: string } = {},
+    ) {
+      const element = this.ownerDocument.createElement(tag);
+      if (options.cls != null) element.className = options.cls;
+      if (options.text != null) element.textContent = options.text;
+      for (const [key, value] of Object.entries(options.attr ?? {})) element.setAttribute(key, value);
+      this.appendChild(element);
+      return element;
+    });
+    this.settingEl.append(this.descEl, this.controlEl);
+    containerEl.appendChild(this.settingEl);
+  }
 }
 
 export class AbstractInputSuggest<T> {

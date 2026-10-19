@@ -1,6 +1,6 @@
 # Property Order
 
-[English](../../README.md) · [简体中文](README.zh-CN.md) · [繁體中文](README.zh-TW.md) · [Deutsch](README.de-DE.md) · [Français](README.fr-FR.md) · [Español](README.es-ES.md) · [Português](README.pt-BR.md) · [Русский](README.ru-RU.md) · [日本語](README.ja-JP.md) · [한국어](README.ko-KR.md) · [Tiếng Việt](README.vi-VN.md) · [العربية](README.ar.md)
+[English](../../README.md) · [简体中文](README.zh-CN.md) · [繁體中文](README.zh-TW.md) · [日本語](README.ja-JP.md) · [한국어](README.ko-KR.md) · [Deutsch](README.de-DE.md) · [Français](README.fr-FR.md) · [Español](README.es-ES.md) · [Português (Brasil)](README.pt-BR.md) · [Русский](README.ru-RU.md) · [Tiếng Việt](README.vi-VN.md) · [العربية](README.ar.md)
 
 Mit Property Order kannst du Listenwerte in Obsidians Eigenschaftenansicht ziehen und festlegen, welche Eigenschaftsnamen und Werte beim Tippen vorgeschlagen werden.
 
@@ -70,6 +70,7 @@ Alle unterstützten Obsidian-Versionen verwenden dieselben vier Einstellungsregi
 
 ## Einschränkungen
 
+- Frontmatter muss normale Eigenschaftszeilen auf oberster Ebene verwenden. Ein vollständig in `{ ... }` eingeschlossenes YAML-Dokument unterstützt kein Ziehen.
 - Das Ziehen von Werten funktioniert nur mit YAML-Eigenschaften auf oberster Ebene, die Obsidian als Textlisten darstellt.
 - Objektlisten, verschachtelte Listen, über mehrere Zeilen geschriebene Listen in eckigen Klammern, das Ziehen von Zeilen im Quelltextmodus und das Verschieben zwischen Dateien werden nicht unterstützt.
 - Auf Mobilgeräten wählst du zuerst **Neu anordnen** oder **Neu anordnen oder verschieben** im ursprünglichen Menü für langes Drücken und ziehst danach den Wert. Obsidians Aktionen zum Bearbeiten, Entfernen aus der Liste und Kopieren bleiben verfügbar.

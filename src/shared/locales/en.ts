@@ -1,4 +1,7 @@
 const translations = {
+  "settings.support.name": "Help and support",
+  "settings.support.guide": "User guide",
+  "settings.support.issue": "Report an issue",
   "settings.tabsLabel": "Property Order settings categories",
   "settings.tab.general": "General",
   "settings.tab.valueDrag": "Value drag",

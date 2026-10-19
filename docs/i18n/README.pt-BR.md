@@ -1,6 +1,6 @@
 # Property Order
 
-[English](../../README.md) · [简体中文](README.zh-CN.md) · [繁體中文](README.zh-TW.md) · [Deutsch](README.de-DE.md) · [Français](README.fr-FR.md) · [Español](README.es-ES.md) · [Português](README.pt-BR.md) · [Русский](README.ru-RU.md) · [日本語](README.ja-JP.md) · [한국어](README.ko-KR.md) · [Tiếng Việt](README.vi-VN.md) · [العربية](README.ar.md)
+[English](../../README.md) · [简体中文](README.zh-CN.md) · [繁體中文](README.zh-TW.md) · [日本語](README.ja-JP.md) · [한국어](README.ko-KR.md) · [Deutsch](README.de-DE.md) · [Français](README.fr-FR.md) · [Español](README.es-ES.md) · [Português (Brasil)](README.pt-BR.md) · [Русский](README.ru-RU.md) · [Tiếng Việt](README.vi-VN.md) · [العربية](README.ar.md)
 
 O Property Order permite arrastar valores de listas no painel Propriedades do Obsidian e escolher quais nomes e valores de propriedades são sugeridos enquanto você digita.
 
@@ -70,6 +70,7 @@ Todas as versões compatíveis do Obsidian usam as mesmas quatro abas de configu
 
 ## Limitações
 
+- O frontmatter deve usar linhas de propriedades comuns no nível superior. Não é possível arrastar valores quando todo o documento YAML está entre `{ ... }`.
 - O arraste de valores funciona apenas com propriedades YAML de nível superior que o Obsidian apresenta como listas de texto.
 - Listas de objetos, listas aninhadas, listas entre colchetes distribuídas em várias linhas, arraste de linhas no modo de código-fonte e movimento entre arquivos não são compatíveis.
 - No celular, primeiro selecione **Reordenar** ou **Reordenar ou mover** no menu nativo de toque longo do Obsidian e depois arraste o valor. As ações nativas, como Editar, Remover da lista e Copiar, continuam disponíveis.

@@ -1,6 +1,6 @@
 # Property Order
 
-[English](../../README.md) · [简体中文](README.zh-CN.md) · [繁體中文](README.zh-TW.md) · [Deutsch](README.de-DE.md) · [Français](README.fr-FR.md) · [Español](README.es-ES.md) · [Português](README.pt-BR.md) · [Русский](README.ru-RU.md) · [日本語](README.ja-JP.md) · [한국어](README.ko-KR.md) · [Tiếng Việt](README.vi-VN.md) · [العربية](README.ar.md)
+[English](../../README.md) · [简体中文](README.zh-CN.md) · [繁體中文](README.zh-TW.md) · [日本語](README.ja-JP.md) · [한국어](README.ko-KR.md) · [Deutsch](README.de-DE.md) · [Français](README.fr-FR.md) · [Español](README.es-ES.md) · [Português (Brasil)](README.pt-BR.md) · [Русский](README.ru-RU.md) · [Tiếng Việt](README.vi-VN.md) · [العربية](README.ar.md)
 
 Property Order 讓你在 Obsidian 的屬性面板中拖曳清單值，並設定輸入屬性名稱和屬性值時顯示的候選。
 
@@ -70,6 +70,7 @@ Property Order 讓你在 Obsidian 的屬性面板中拖曳清單值，並設定�
 
 ## 限制
 
+- frontmatter 必須使用一般的頂層屬性行。將整段 YAML 放在 `{ ... }` 中的寫法暫不支援拖曳。
 - 屬性值拖曳只支援 Obsidian 顯示為文字清單的頂層 YAML 屬性。
 - 不支援物件清單、巢狀清單、跨多行的中括號清單、原始碼模式中的行拖曳，或跨檔案移動。
 - 行動版需先從 Obsidian 原生長按選單選擇「重排」或「重排或移動」，再拖曳該值。「編輯」「從清單中移除」「複製」等原生操作仍然可用。

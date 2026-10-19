@@ -1,6 +1,9 @@
 import type { TranslationDictionary } from "../i18n";
 
 const translations = {
+  "settings.support.name": "Ajuda e suporte",
+  "settings.support.guide": "Guia de uso",
+  "settings.support.issue": "Relatar um problema",
   "settings.tabsLabel": "Categorias das configurações do Property Order",
   "settings.tab.general": "Geral",
   "settings.tab.valueDrag": "Arrastar valores",

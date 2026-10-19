@@ -197,7 +197,7 @@ body.property-order-value-drag-enabled .metadata-property .multi-select-pill {
   box-sizing: border-box;
   box-shadow: none !important;
   color: var(--text-muted) !important;
-  cursor: pointer;
+  cursor: var(--cursor, default);
   flex: 0 0 auto;
   font-family: inherit !important;
   font-size: var(--font-ui-small) !important;
@@ -478,6 +478,15 @@ body.property-order-value-drag-enabled .metadata-property .multi-select-pill {
   padding: 0 5px !important;
 }
 
+.property-order-settings-content :is(button, a) {
+  cursor: var(--cursor, default);
+}
+
+.property-order-settings-support .setting-item-control {
+  flex-wrap: wrap;
+  gap: var(--size-4-3);
+}
+
 .property-order-custom-value-add {
   align-items: center;
   display: flex;
@@ -504,6 +513,22 @@ body.property-order-value-drag-enabled .metadata-property .multi-select-pill {
 @media (pointer: coarse) {
   .property-order-settings-tabs > button.property-order-settings-tab {
     min-block-size: 44px;
+  }
+
+  .property-order-custom-value-item {
+    flex-wrap: wrap;
+  }
+
+  .property-order-custom-value-actions {
+    flex: 1 1 100%;
+    flex-wrap: wrap;
+    min-width: 0;
+  }
+
+  .property-order-custom-value-actions button {
+    flex: 0 0 44px;
+    min-height: 44px;
+    min-width: 44px;
   }
 }
 

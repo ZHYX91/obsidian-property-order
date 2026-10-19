@@ -1,6 +1,6 @@
 # Property Order
 
-[English](../../README.md) · [简体中文](README.zh-CN.md) · [繁體中文](README.zh-TW.md) · [Deutsch](README.de-DE.md) · [Français](README.fr-FR.md) · [Español](README.es-ES.md) · [Português](README.pt-BR.md) · [Русский](README.ru-RU.md) · [日本語](README.ja-JP.md) · [한국어](README.ko-KR.md) · [Tiếng Việt](README.vi-VN.md) · [العربية](README.ar.md)
+[English](../../README.md) · [简体中文](README.zh-CN.md) · [繁體中文](README.zh-TW.md) · [日本語](README.ja-JP.md) · [한국어](README.ko-KR.md) · [Deutsch](README.de-DE.md) · [Français](README.fr-FR.md) · [Español](README.es-ES.md) · [Português (Brasil)](README.pt-BR.md) · [Русский](README.ru-RU.md) · [Tiếng Việt](README.vi-VN.md) · [العربية](README.ar.md)
 
 Property Order 让你在 Obsidian 的属性面板中拖动列表值，并设置输入属性名和属性值时显示的候选。
 
@@ -70,6 +70,7 @@ Property Order 让你在 Obsidian 的属性面板中拖动列表值，并设置�
 
 ## 限制
 
+- frontmatter 必须使用普通的顶层属性行。将整段 YAML 放在 `{ ... }` 中的写法暂不支持拖动。
 - 属性值拖拽只支持 Obsidian 显示为文本列表的顶层 YAML 属性；
 - 不支持对象列表、嵌套列表、跨多行书写的中括号列表、源码模式行拖拽或跨文件移动；
 - 移动端需要先从 Obsidian 原生长按菜单选择“重排”或“重排或移动”，再拖动该值；“编辑 / 从列表中移除 / 复制”等原生操作仍然保留；
