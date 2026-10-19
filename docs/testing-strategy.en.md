@@ -71,9 +71,9 @@ Automated tests verify timing and cleanup for these conditions. Minimum and curr
 
 The repository does not provide a CLI that installs fixtures, resets a Vault, or injects conflicts, which reduces the risk of touching a real Vault by mistake. When a write-conflict scenario is needed, the acceptance controller operates only on an explicitly selected disposable fixture: it records the starting identity, begins the product action, performs the specified external edit, and records the before/after bytes plus the visible rejection. Automated unit tests remain the main evidence for race boundaries; real-host testing confirms Obsidian's actual DOM, interaction, persistence, undo/redo, and safe refusal behavior.
 
-## Optional host regression
+## Representative host regression by change
 
-Select the relevant scenarios for the change. Missing, skipped, or failed host checks do not block explicitly authorized publication.
+Select representative acceptance on the exact candidate by change impact. Desktop interaction, settings or lifecycle changes require relevant real-host scenarios; mobile interaction or shared runtime behavior affecting mobile requires relevant Android emulator scenarios. Documentation-only or host-independent logic changes may omit hosts with a recorded reason. Confirmed serious product defects affecting a release block that release. Missing host/tool evidence stays unverified and is assessed by risk; it does not automatically block publication or add a separate approval step. Claim acceptance only for observed passing scope. The full host matrix is not required for every release, and CI does not automatically enforce host coverage.
 
 Desktop Obsidian verifies:
 
@@ -153,7 +153,7 @@ CI installs locked dependencies, runs release:check once, source-verifies the Bu
 
 The tagged release tooling is trusted executable code; Candidate Bundle verification does not isolate the publisher from malicious changes to that tooling. Publication verifies the exact event, source, tag, transported bytes, and SLSA build provenance, then verifies draft downloads before immutable publication and hosted downloads afterward.
 
-Product acceptance is optional and reported separately. An independent clone needs no external orchestration.
+Representative product acceptance is selected by change impact and reported separately. Confirmed serious product defects affecting a release block that release. Missing host/tool evidence stays unverified and is assessed by risk; it does not automatically block publication or add a separate approval step. Claim acceptance only for observed passing scope. Full host coverage is not required for every release, and CI does not automatically enforce host coverage. An independent clone needs no external orchestration.
 
 After publication, GitHub is queried again for an immutable stable Release. Exact four-asset inventory, metadata digests, downloaded bytes, ZIP internal/external equivalence, remote tag, and per-asset provenance must all match. A same-tag no-op is accepted only on complete identity; every conflict requires a higher version. Tag rulesets and immutable Releases remain maintainer-recorded prerequisites outside the workflow, and automated gates do not change administrator settings.
 
