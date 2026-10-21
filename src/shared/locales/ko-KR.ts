@@ -1,6 +1,9 @@
 import type { TranslationDictionary } from "../i18n";
 
 const translations = {
+  "settings.support.name": "도움말 및 지원",
+  "settings.support.guide": "사용 안내서",
+  "settings.support.issue": "문제 보고",
   "settings.tabsLabel": "Property Order 설정 분류",
   "settings.tab.general": "일반",
   "settings.tab.valueDrag": "값 드래그",

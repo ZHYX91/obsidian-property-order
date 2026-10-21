@@ -1,6 +1,6 @@
 # Property Order
 
-[English](../../README.md) · [简体中文](README.zh-CN.md) · [繁體中文](README.zh-TW.md) · [Deutsch](README.de-DE.md) · [Français](README.fr-FR.md) · [Español](README.es-ES.md) · [Português](README.pt-BR.md) · [Русский](README.ru-RU.md) · [日本語](README.ja-JP.md) · [한국어](README.ko-KR.md) · [Tiếng Việt](README.vi-VN.md) · [العربية](README.ar.md)
+[English](../../README.md) · [简体中文](README.zh-CN.md) · [繁體中文](README.zh-TW.md) · [日本語](README.ja-JP.md) · [한국어](README.ko-KR.md) · [Deutsch](README.de-DE.md) · [Français](README.fr-FR.md) · [Español](README.es-ES.md) · [Português (Brasil)](README.pt-BR.md) · [Русский](README.ru-RU.md) · [Tiếng Việt](README.vi-VN.md) · [العربية](README.ar.md)
 
 Property Order は、Obsidian のプロパティ表示でリストの値をドラッグして並べ替えたり、入力中に表示されるプロパティ名や値の候補を設定したりできるプラグインです。
 
@@ -70,6 +70,7 @@ Obsidian の **設定 → コミュニティプラグイン → 閲覧** を開�
 
 ## 制限
 
+- frontmatter は通常のトップレベルのプロパティ行で記述してください。YAML 全体を `{ ... }` で囲む形式ではドラッグできません。
 - 値のドラッグは、Obsidian がテキストのリストとして表示するトップレベルの YAML プロパティに限られます。
 - オブジェクトのリスト、入れ子のリスト、複数行にまたがる角括弧形式のリスト、ソースモードでの行ドラッグ、ファイル間の移動には対応していません。
 - モバイルでは、Obsidian の長押しメニューで **並べ替え** または **並べ替え・移動** を選んでから値をドラッグします。編集、リストから削除、コピーなどの元の操作も使えます。

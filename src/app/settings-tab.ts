@@ -465,6 +465,21 @@ export class PropertyOrderSettingTab extends PluginSettingTab {
           await this.applyImperativeControlValue("showDiagnostics", value);
         });
       });
+    const support = new Setting(containerEl)
+      .setName(this.t("settings.support.name"))
+      .setClass("property-order-settings-support");
+    const locale = getResolvedLocaleCode(this.plugin.propertyOrderSettings.language);
+    const guide = locale === "en" ? "README.md" : `docs/i18n/README.${locale}.md`;
+    for (const [label, href] of [
+      [this.t("settings.support.guide"), `https://github.com/ZHYX91/obsidian-property-order/blob/main/${guide}`],
+      [this.t("settings.support.issue"), "https://github.com/ZHYX91/obsidian-property-order/issues/new/choose"],
+    ]) {
+      support.controlEl.createEl("a", {
+        text: label,
+        attr: { href },
+        cls: "external-link",
+      });
+    }
   }
 
   private displayValueDragSettings(containerEl: HTMLElement): void {

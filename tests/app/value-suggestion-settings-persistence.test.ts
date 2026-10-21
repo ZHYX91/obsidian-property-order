@@ -36,7 +36,8 @@ beforeEach(() => {
   Reflect.set(Setting.prototype, "setDesc", function (this: Setting) {
     return this;
   });
-  Reflect.set(Setting.prototype, "setClass", function (this: Setting) {
+  Reflect.set(Setting.prototype, "setClass", function (this: Setting, className: string) {
+    this.settingEl.classList.add(className);
     return this;
   });
   Reflect.set(Setting.prototype, "addDropdown", function (
@@ -126,6 +127,8 @@ describe("Value suggestion settings persistence", () => {
       ["auto", "跟随 Obsidian"],
       ...SUPPORTED_LOCALES.map(({ id, label }) => [id, label]),
     ]);
+    expect(harness.container.querySelector<HTMLAnchorElement>(".property-order-settings-support a")?.href)
+      .toBe("https://github.com/ZHYX91/obsidian-property-order/blob/main/docs/i18n/README.zh-CN.md");
 
     await dropdown?.onChange?.("vi-VN");
 
@@ -133,6 +136,11 @@ describe("Value suggestion settings persistence", () => {
     expect(harness.persisted().language).toBe("vi-VN");
     expect(harness.container.querySelector('[role="tab"][aria-selected="true"]')?.textContent)
       .toBe("Chung");
+    expect([...harness.container.querySelectorAll<HTMLAnchorElement>(".property-order-settings-support a")].map((link) => link.href))
+      .toEqual([
+        "https://github.com/ZHYX91/obsidian-property-order/blob/main/docs/i18n/README.vi-VN.md",
+        "https://github.com/ZHYX91/obsidian-property-order/issues/new/choose",
+      ]);
   });
 
   it("explains legacy modes in the UI language while preserving literal rule text", async () => {

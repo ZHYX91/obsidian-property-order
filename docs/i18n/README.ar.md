@@ -1,6 +1,6 @@
 # Property Order
 
-[English](../../README.md) · [简体中文](README.zh-CN.md) · [繁體中文](README.zh-TW.md) · [Deutsch](README.de-DE.md) · [Français](README.fr-FR.md) · [Español](README.es-ES.md) · [Português](README.pt-BR.md) · [Русский](README.ru-RU.md) · [日本語](README.ja-JP.md) · [한국어](README.ko-KR.md) · [Tiếng Việt](README.vi-VN.md) · [العربية](README.ar.md)
+[English](../../README.md) · [简体中文](README.zh-CN.md) · [繁體中文](README.zh-TW.md) · [日本語](README.ja-JP.md) · [한국어](README.ko-KR.md) · [Deutsch](README.de-DE.md) · [Français](README.fr-FR.md) · [Español](README.es-ES.md) · [Português (Brasil)](README.pt-BR.md) · [Русский](README.ru-RU.md) · [Tiếng Việt](README.vi-VN.md) · [العربية](README.ar.md)
 
 يتيح لك Property Order سحب قيم القوائم في لوحة الخصائص في Obsidian، واختيار أسماء الخصائص والقيم التي تُقترح أثناء الكتابة.
 
@@ -70,6 +70,7 @@
 
 ## القيود
 
+- يجب أن تستخدم الترويسة أسطر خصائص عادية في المستوى الأعلى. لا يُدعم السحب إذا كان مستند YAML بأكمله محاطًا بـ `{ ... }`.
 - يعمل سحب القيم فقط مع خصائص YAML في المستوى الأعلى التي يعرضها Obsidian بوصفها قوائم نصية.
 - لا تُدعم قوائم الكائنات، أو القوائم المتداخلة، أو القوائم بين أقواس الممتدة على عدة أسطر، أو سحب الأسطر في وضع المصدر، أو النقل بين الملفات.
 - على الهاتف، اختر أولًا **إعادة الترتيب** أو **إعادة الترتيب أو النقل** من قائمة Obsidian التي تظهر بالضغط المطول، ثم اسحب تلك القيمة. تظل الأوامر الأصلية، مثل التعديل والإزالة من القائمة والنسخ، متاحة.

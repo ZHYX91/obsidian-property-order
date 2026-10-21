@@ -1,6 +1,6 @@
 # Property Order
 
-[English](../../README.md) · [简体中文](README.zh-CN.md) · [繁體中文](README.zh-TW.md) · [Deutsch](README.de-DE.md) · [Français](README.fr-FR.md) · [Español](README.es-ES.md) · [Português](README.pt-BR.md) · [Русский](README.ru-RU.md) · [日本語](README.ja-JP.md) · [한국어](README.ko-KR.md) · [Tiếng Việt](README.vi-VN.md) · [العربية](README.ar.md)
+[English](../../README.md) · [简体中文](README.zh-CN.md) · [繁體中文](README.zh-TW.md) · [日本語](README.ja-JP.md) · [한국어](README.ko-KR.md) · [Deutsch](README.de-DE.md) · [Français](README.fr-FR.md) · [Español](README.es-ES.md) · [Português (Brasil)](README.pt-BR.md) · [Русский](README.ru-RU.md) · [Tiếng Việt](README.vi-VN.md) · [العربية](README.ar.md)
 
 Property Order를 사용하면 Obsidian의 속성 화면에서 목록 값을 드래그하고, 입력 중에 표시할 속성 이름과 값 후보를 설정할 수 있습니다.
 
@@ -70,6 +70,7 @@ Obsidian의 **설정 → 커뮤니티 플러그인 → 탐색**에서 **Property
 
 ## 제한 사항
 
+- frontmatter는 일반적인 최상위 속성 행으로 작성해야 합니다. YAML 전체를 `{ ... }`로 감싼 형식에서는 드래그할 수 없습니다.
 - 값 드래그는 Obsidian이 텍스트 목록으로 표시하는 최상위 YAML 속성에서만 작동합니다.
 - 객체 목록, 중첩 목록, 여러 줄에 걸친 대괄호 목록, 소스 모드의 줄 드래그, 파일 간 이동은 지원하지 않습니다.
 - 모바일에서는 Obsidian의 길게 누르기 메뉴에서 **순서 변경** 또는 **순서 변경 또는 이동**을 선택한 뒤 값을 드래그해야 합니다. 편집, 목록에서 제거, 복사 같은 기본 작업은 계속 사용할 수 있습니다.

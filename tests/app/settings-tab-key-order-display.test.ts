@@ -109,14 +109,8 @@ function installSettingHarness(): void {
     if (panel == null) {
       throw new Error("Expected an active imperative settings panel.");
     }
-    const row = document.createElement("div");
-    row.className = "setting-item";
-    panel.appendChild(row);
+    const row = Reflect.get(setting, "settingEl") as HTMLElement;
     rows.set(setting, row);
-    Reflect.set(setting, "settingEl", row);
-    const descEl = document.createElement("div");
-    row.appendChild(descEl);
-    Reflect.set(setting, "descEl", descEl);
     return row;
   };
 

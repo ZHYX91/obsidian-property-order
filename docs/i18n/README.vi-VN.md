@@ -1,6 +1,6 @@
 # Property Order
 
-[English](../../README.md) · [简体中文](README.zh-CN.md) · [繁體中文](README.zh-TW.md) · [Deutsch](README.de-DE.md) · [Français](README.fr-FR.md) · [Español](README.es-ES.md) · [Português](README.pt-BR.md) · [Русский](README.ru-RU.md) · [日本語](README.ja-JP.md) · [한국어](README.ko-KR.md) · [Tiếng Việt](README.vi-VN.md) · [العربية](README.ar.md)
+[English](../../README.md) · [简体中文](README.zh-CN.md) · [繁體中文](README.zh-TW.md) · [日本語](README.ja-JP.md) · [한국어](README.ko-KR.md) · [Deutsch](README.de-DE.md) · [Français](README.fr-FR.md) · [Español](README.es-ES.md) · [Português (Brasil)](README.pt-BR.md) · [Русский](README.ru-RU.md) · [Tiếng Việt](README.vi-VN.md) · [العربية](README.ar.md)
 
 Property Order cho phép bạn kéo các giá trị danh sách trong phần Thuộc tính của Obsidian, đồng thời chọn những tên và giá trị thuộc tính được gợi ý khi nhập.
 
@@ -70,6 +70,7 @@ Mọi phiên bản Obsidian được hỗ trợ đều sử dụng cùng bốn t
 
 ## Giới hạn
 
+- Frontmatter phải dùng các dòng thuộc tính thông thường ở cấp cao nhất. Không hỗ trợ kéo giá trị khi toàn bộ tài liệu YAML nằm trong `{ ... }`.
 - Kéo giá trị chỉ hoạt động với thuộc tính YAML cấp cao nhất được Obsidian hiển thị dưới dạng danh sách văn bản.
 - Không hỗ trợ danh sách đối tượng, danh sách lồng nhau, danh sách ngoặc vuông viết trên nhiều dòng, kéo dòng trong chế độ nguồn hoặc di chuyển giữa các tệp.
 - Trên thiết bị di động, cần chọn **Sắp xếp lại** hoặc **Sắp xếp lại hoặc di chuyển** từ menu nhấn giữ của Obsidian rồi mới kéo. Các thao tác gốc như Sửa, Xóa khỏi danh sách và Sao chép vẫn dùng được.

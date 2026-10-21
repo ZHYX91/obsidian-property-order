@@ -104,6 +104,31 @@
         "Disabling the feature or unloading the plugin restores native nodes, attributes, order and selection without stale type labels",
         "The same scenario is checked on the minimum supported desktop host and the current supported desktop host; Android emulator verifies touch selection, rotation, narrow layout and cleanup"
       ]
+    },
+    {
+      "id": "yaml-root-safety-and-settings",
+      "title": "YAML root refusal, supported writeback and localized settings",
+      "surfaces": [
+        "desktop",
+        "android-emulator"
+      ],
+      "requiredCapabilities": {
+        "desktop": [],
+        "android-emulator": [
+          "touch.drag",
+          "touch.longPress"
+        ]
+      },
+      "steps": [
+        "Open Safety Flow Root.md in Properties view and attempt to reorder alpha and beta; verify the note remains byte-identical.",
+        "Open Safety Block Root.md and reorder alpha and beta; verify only the top-level flow list changes, nested flow and body stay intact, and one undo restores the original.",
+        "Inspect General help links in English and Simplified Chinese; check compact actions at narrow width, including Android touch targets."
+      ],
+      "expected": [
+        "Unsupported flow-root YAML is never rewritten.",
+        "Supported block-root writeback and undo preserve nested data and body.",
+        "Localized help and settings actions remain visible and usable."
+      ]
     }
   ]
 }

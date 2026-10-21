@@ -5,6 +5,11 @@ follow the repository's Git tags; entries summarize the corresponding commit his
 
 ## [Unreleased]
 
+## [0.10.1] - 2026-10-21
+
+- Refuse unsupported YAML root forms before property-value drag or writeback, preserving nested properties and the note body.
+- Add localized guide and issue links, follow host cursor preferences, and improve compact settings actions on touch screens.
+
 ## [0.10.0] - 2026-10-19
 
 ### Added
