@@ -67,9 +67,9 @@ describe("settings snapshots behind an external read", () => {
     await Promise.all([external, saving]);
     expect(test.stored()).toMatchObject({ language: "zh-CN", enablePropertyValueDrag: true, pinnedPropertyKeys: ["latest"] });
     expect(test.plugin.propertyOrderSettings).toMatchObject({ enablePropertyValueDrag: true, pinnedPropertyKeys: ["latest"] });
-    test.plugin.propertyOrderSettings.language = "ja";
+    test.plugin.propertyOrderSettings.language = "en";
     await test.plugin.saveSettings();
-    expect(test.stored()).toMatchObject({ language: "ja", enablePropertyValueDrag: true, pinnedPropertyKeys: ["latest"] });
+    expect(test.stored()).toMatchObject({ language: "en", enablePropertyValueDrag: true, pinnedPropertyKeys: ["latest"] });
   });
 
   it("preserves a later local change while the preceding save is reading", async () => {
@@ -80,12 +80,12 @@ describe("settings snapshots behind an external read", () => {
     test.plugin.propertyOrderSettings.language = "zh-CN";
     const first = test.plugin.saveSettings();
     await reading.promise;
-    test.plugin.propertyOrderSettings.language = "ja";
+    test.plugin.propertyOrderSettings.language = "en";
     const second = test.plugin.saveSettings();
     saveRead.resolve(test.stored());
     await Promise.all([first, second]);
-    expect(test.stored()).toMatchObject({ language: "ja" });
-    expect(test.plugin.propertyOrderSettings.language).toBe("ja");
+    expect(test.stored()).toMatchObject({ language: "en" });
+    expect(test.plugin.propertyOrderSettings.language).toBe("en");
   });
 });
 
