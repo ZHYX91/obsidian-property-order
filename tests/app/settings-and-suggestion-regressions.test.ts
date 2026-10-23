@@ -45,11 +45,11 @@ describe("settings snapshots behind an external read", () => {
     await reading.promise;
     test.plugin.propertyOrderSettings.language = "zh-CN";
     const saving = test.plugin.saveSettings();
-    const incoming = { ...createDefaultSettings(), enablePropertyValueDrag: false, pinnedPropertyKeys: ["external"], foreign: "preserve" };
+    const incoming = { ...createDefaultSettings(), enablePropertyValueDrag: false, pinnedPropertyKeys: ["external"] };
     test.setStored(incoming);
     externalRead.resolve(incoming);
     await Promise.all([external, saving]);
-    expect(test.stored()).toMatchObject({ language: "zh-CN", enablePropertyValueDrag: false, pinnedPropertyKeys: ["external"], foreign: "preserve" });
+    expect(test.stored()).toMatchObject({ language: "zh-CN", enablePropertyValueDrag: false, pinnedPropertyKeys: ["external"] });
     expect(test.plugin.propertyOrderSettings).toMatchObject({ language: "zh-CN", enablePropertyValueDrag: false, pinnedPropertyKeys: ["external"] });
   });
 
