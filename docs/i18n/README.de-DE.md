@@ -2,7 +2,7 @@
 
 [English](../../README.md) · [简体中文](README.zh-CN.md) · [繁體中文](README.zh-TW.md) · [日本語](README.ja-JP.md) · [한국어](README.ko-KR.md) · [Deutsch](README.de-DE.md) · [Français](README.fr-FR.md) · [Español](README.es-ES.md) · [Português (Brasil)](README.pt-BR.md) · [Русский](README.ru-RU.md) · [Tiếng Việt](README.vi-VN.md) · [العربية](README.ar.md)
 
-Mit Property Order kannst du Listenwerte in Obsidians Eigenschaftenansicht ziehen und festlegen, welche Eigenschaftsnamen und Werte beim Tippen vorgeschlagen werden.
+Mit Property Order kannst du Listenwerte in Obsidians Eigenschaftenansicht ziehen und festlegen, welche Eigenschaftsnamen und Werte beim Tippen vorgeschlagen werden. Das Plugin sortiert Listenwerte und Eingabevorschläge, nicht die Eigenschaftsfelder selbst in der Notiz.
 
 ## Demonstration
 
@@ -52,6 +52,11 @@ Sichere und behalte `Vault/.obsidian/plugins/property-order/data.json`, sofern d
 3. Ziehe auf dem Desktop einen Wert direkt. Auf Mobilgeräten drückst du einen Wert lange, wählst **Neu anordnen** oder **Neu anordnen oder verschieben** und ziehst ihn anschließend.
 4. Richte unter **Namensvorschläge** die vorgeschlagenen Eigenschaftsnamen ein. Aktiviere bei Bedarf **Wertvorschläge**, um Obsidians vorhandene Wertvorschläge mit einer Standardeinstellung und Regeln je Eigenschaft zu ordnen.
 
+
+**Vor dem Ziehen:** Bei einer unterstützten Textliste können YAML-Werte zu Zeichenfolgen werden: Aus `true` wird `"true"`, aus `123` wird `"123"`. Dabei ändert sich nicht nur die Position, sondern möglicherweise auch der Datentyp. Prüfe das Ergebnis, wenn Zahlen oder Wahrheitswerte wichtig sind.
+
+**Mobil:** Ziehen ist erst möglich, wenn Obsidians eigenes Menü nach langem Drücken **Neu anordnen** oder **Neu anordnen oder verschieben** anbietet. Ist die Menüerweiterung nicht verfügbar, zeigt das Plugin kein nachgebautes Menü; die native Bearbeitung bleibt erhalten.
+
 **Welche Vorschlagseinstellung ist gemeint?** Wenn du eine neue Eigenschaft anlegst und ihren **Namen** eingibst, bestimmt **Namensvorschläge**, ob Namen wie `status` oder `owner` angeheftet, ausgeblendet oder neu sortiert werden. Sobald du `status` gewählt hast und den **Wert** bearbeitest, steuert **Wertvorschläge** die vorhandenen Werte, beispielsweise `todo` oder `done`. Du kannst dort auch eigene Werte hinterlegen. Wertvorschläge sind standardmäßig ausgeschaltet. Keine dieser Einstellungen ändert die Notiz, bevor du einen Wert auswählst oder bearbeitest.
 
 **Beispiel: häufige Werte für `status` hinterlegen.** Öffne **Wertvorschläge**, schalte **Vorschläge für Eigenschaftswerte anpassen** ein und füge eine Regelgruppe mit **Eigene Vorschläge** hinzu. Füge `status` zu dieser Gruppe hinzu. Gib unter **Angeheftete Vorschläge** den Wert `todo` ein und wähle **Eigenen Vorschlag hinzufügen**. Wiederhole das für `doing` und `done`. Beim Bearbeiten von `status` werden diese Werte passend zu deiner Eingabe vorgeschlagen. Damit ein hinterlegter Wert an der normalen Sortierung teilnimmt, klicke daneben auf **↔ (Zu normalen Vorschlägen)**.
@@ -61,7 +66,7 @@ Sichere und behalte `Vault/.obsidian/plugins/property-order/data.json`, sofern d
 Alle unterstützten Obsidian-Versionen verwenden dieselben vier Einstellungsregister:
 
 - **Allgemein** enthält die Plugin-Sprache und optionale Hinweise zur Fehleranalyse. Oberfläche und README sind auf Englisch, vereinfachtem Chinesisch, traditionellem Chinesisch, Deutsch, Französisch, Spanisch, brasilianischem Portugiesisch, Russisch, Japanisch, Koreanisch, Vietnamesisch und Arabisch verfügbar. **Wie Obsidian** wählt die passende Sprache oder Englisch, wenn diese Sprache nicht verfügbar ist.
-- **Wertreihenfolge** steuert das Listenformat nach dem Ziehen, das Verschieben zwischen Eigenschaften und das Ziehverhalten. Wenn du das Ziehen ausschaltest, bleibt die gesonderte Einstellung zum Verschieben zwischen Eigenschaften erhalten.
+- **Wertreihenfolge** steuert das Listenformat nach dem Ziehen, das Verschieben zwischen Eigenschaften und das Ziehverhalten. Wenn du das Ziehen ausschaltest, bleibt die gesonderte Einstellung zum Verschieben zwischen Eigenschaften erhalten. Eine erzwungene Umwandlung von Listen mit einem Eintrag pro Zeile in die Klammerform kann Kommentare oder Leerzeilen verlieren. Behalte bei solchen Listen das bisherige Format bei.
 - **Namensvorschläge** steuert angeheftete, ans Ende gesetzte und ausgeblendete Eigenschaftsnamen sowie die Sortierung nach Name, letzter Verwendung oder Notizanzahl. Die optionale Gruppierung nach Eigenschaftstyp ordnet normale Vorschläge den Gruppen Text, Liste, Zahl, Kontrollkästchen, Datum, Datum und Uhrzeit, Tags sowie Automatisch / nicht festgelegt zu. Innerhalb jeder Gruppe gilt weiterhin die gewählte Sortierung.
 - **Wertvorschläge** muss ausdrücklich eingeschaltet werden. Eigenschaften ohne eigene Regel verwenden die Standardeinstellung. Einzelne Eigenschaftsnamen können **Nach Name**, **Auswahlhäufigkeit**, **Notizen mit diesem Wert**, **Wie Obsidian**, **Keine Vorschläge** oder **Eigene Vorschläge** zugeordnet werden.
 - Eigene Vorschläge verwenden die Bereiche **Angeheftete Vorschläge**, **Normale Vorschläge** und **Vorschläge am Ende**. Du kannst Werte direkt hinterlegen. Sie bleiben dadurch auswählbar, auch wenn sie noch in keiner Notiz vorkommen.
