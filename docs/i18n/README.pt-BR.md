@@ -2,7 +2,7 @@
 
 [English](../../README.md) · [简体中文](README.zh-CN.md) · [繁體中文](README.zh-TW.md) · [日本語](README.ja-JP.md) · [한국어](README.ko-KR.md) · [Deutsch](README.de-DE.md) · [Français](README.fr-FR.md) · [Español](README.es-ES.md) · [Português (Brasil)](README.pt-BR.md) · [Русский](README.ru-RU.md) · [Tiếng Việt](README.vi-VN.md) · [العربية](README.ar.md)
 
-O Property Order permite arrastar valores de listas no painel Propriedades do Obsidian e escolher quais nomes e valores de propriedades são sugeridos enquanto você digita.
+O Property Order permite arrastar valores de listas no painel Propriedades do Obsidian e escolher quais nomes e valores de propriedades são sugeridos enquanto você digita. Ele ordena valores de listas e sugestões de digitação, mas não reorganiza os campos de propriedades da nota.
 
 ## Demonstração
 
@@ -52,6 +52,11 @@ Se `Vault/.obsidian/plugins/property-order/data.json` existir, faça uma cópia 
 3. No computador, arraste um valor diretamente. No celular, mantenha um valor pressionado, selecione **Reordenar** (ou **Reordenar ou mover**) e arraste esse valor.
 4. Configure **Sugestões de nomes** para os nomes de propriedades. Se desejar, ative **Sugestões de valores** para ordenar as opções de valores já oferecidas pelo Obsidian, com uma configuração padrão e regras por propriedade.
 
+
+**Antes de arrastar:** ao editar uma lista de texto compatível, valores YAML não textuais podem virar strings: `true` passa a `"true"`, e `123` a `"123"`. Além da ordem, o tipo do valor pode mudar. Confira o resultado se números e booleanos forem importantes.
+
+**No celular:** só é possível arrastar quando o menu nativo de toque longo do Obsidian mostra **Reordenar** ou **Reordenar ou mover**. Se o menu não puder ser estendido, o plugin não cria um menu parecido; a edição nativa continua disponível.
+
 **Qual configuração de sugestões usar?** Ao adicionar uma nova propriedade e digitar seu **nome**, **Sugestões de nomes** controla se nomes como `status` ou `owner` ficam fixados, ocultos ou em outra ordem. Depois que você escolhe `status` e edita seu **valor**, **Sugestões de valores** controla as opções existentes, como `todo` ou `done`, e pode incluir valores predefinidos por você. As sugestões de valores vêm desativadas. Nenhuma dessas configurações altera a nota até que você selecione ou edite um valor.
 
 **Exemplo: adicionar valores frequentes para `status`.** Abra **Sugestões de valores**, ative **Personalizar sugestões de valores de propriedades** e adicione um cartão de regras do tipo **Sugestões personalizadas**. Adicione `status` a esse cartão. Em **Sugestões fixadas**, digite `todo` e selecione **Adicionar sugestão predefinida**; repita para `doing` e `done`. Esses valores serão oferecidos ao editar `status`, filtrados pelo que você digitar. Para incluir uma sugestão predefinida na ordenação comum, clique em **↔ (Mover para sugestões comuns)** ao lado dela.
@@ -61,7 +66,7 @@ Se `Vault/.obsidian/plugins/property-order/data.json` existir, faça uma cópia 
 Todas as versões compatíveis do Obsidian usam as mesmas quatro abas de configurações:
 
 - **Geral** controla o idioma do plugin e os avisos opcionais de diagnóstico. A interface e o README estão disponíveis em inglês, chinês simplificado, chinês tradicional, alemão, francês, espanhol, português do Brasil, russo, japonês, coreano, vietnamita e árabe. **Usar o idioma do Obsidian** seleciona o idioma correspondente ou o inglês quando esse idioma não está disponível.
-- **Ordem dos valores** controla o formato das listas após arrastar, o movimento entre propriedades e o comportamento do arraste. Desativar o arraste de valores não apaga a preferência separada de movimento entre propriedades.
+- **Ordem dos valores** controla o formato das listas após arrastar, o movimento entre propriedades e o comportamento do arraste. Desativar o arraste de valores não apaga a preferência separada de movimento entre propriedades. Forçar uma lista com um item por linha para o formato entre colchetes pode eliminar comentários ou linhas vazias. Preserve o formato original quando necessário.
 - **Sugestões de nomes** controla os nomes de propriedades fixados, colocados no final ou ocultos, além das ordenações **Nome**, **Usados recentemente** e **Notas com esta propriedade**. O agrupamento por tipo de propriedade opcional organiza as sugestões comuns em **Texto**, **Lista**, **Número**, **Caixa de seleção**, **Data**, **Data e hora**, **Tags** e **Automático / não especificado**; a ordenação escolhida continua valendo dentro de cada grupo.
 - A personalização em **Sugestões de valores** precisa ser ativada. Propriedades sem uma regra própria usam o comportamento padrão, enquanto nomes exatos de propriedades podem ser atribuídos a **Nome**, **Frequência de seleção**, **Notas com este valor**, **Ordem do Obsidian**, **Sem sugestões** ou **Sugestões personalizadas**.
 - As regras de sugestões personalizadas usam as seções **Sugestões fixadas**, **Sugestões comuns** e **Sugestões no final**. Os valores predefinidos podem ser digitados diretamente e continuam disponíveis para seleção mesmo antes de aparecerem em alguma nota.
