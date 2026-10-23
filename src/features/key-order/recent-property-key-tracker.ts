@@ -18,6 +18,7 @@ interface PendingPropertyKeyUse {
   editorId: number;
   file: TFile;
   keys: readonly string[];
+  sequence: number;
   source: "suggestion" | "tab" | "typed-explicit" | "typed-passive";
 }
 
@@ -39,6 +40,7 @@ export class RecentPropertyKeyTracker {
   private readonly plugin: Plugin;
   private readonly resolveFile: (element: HTMLElement) => TFile | null;
   private nextEditorId = 1;
+  private nextActivationSequence = 0;
 
   constructor(options: RecentPropertyKeyTrackerOptions) {
     this.getEnabled = options.getEnabled;
@@ -103,6 +105,7 @@ export class RecentPropertyKeyTracker {
 
     const now = Date.now();
     const currentKeys = getFrontmatterKeys(cache);
+    const confirmed: Array<{ key: string; sequence: number }> = [];
 
     for (const [targetDocument, queue] of this.pendingByDocument) {
       const remaining: PendingPropertyKeyUse[] = [];
@@ -130,14 +133,20 @@ export class RecentPropertyKeyTracker {
           continue;
         }
 
-        try {
-          this.onConfirmed(confirmedKey);
-        } catch (error) {
-          console.error("Property Order: failed to record a recent property key", error);
-        }
+        confirmed.push({ key: confirmedKey, sequence: pending.sequence });
       }
 
       this.setPendingQueue(targetDocument, remaining);
+    }
+
+    // A single cache update can confirm interleaved windows. Consume every
+    // confirmed intent first, then notify in action order (also safe on reentry).
+    for (const { key } of confirmed.sort((left, right) => left.sequence - right.sequence)) {
+      try {
+        this.onConfirmed(key);
+      } catch (error) {
+        console.error("Property Order: failed to record a recent property key", error);
+      }
     }
   }
 
@@ -307,6 +316,7 @@ export class RecentPropertyKeyTracker {
       editorId: this.getEditorId(editor),
       file,
       keys,
+      sequence: this.nextActivationSequence++,
       source,
     };
     const queue = this.getLivePendingQueue(editor.ownerDocument, pending.createdAt);
@@ -321,6 +331,7 @@ export class RecentPropertyKeyTracker {
       haveSameKeys(related.keys, pending.keys)
     ) {
       related.createdAt = pending.createdAt;
+      related.sequence = pending.sequence;
       this.setPendingQueue(
         editor.ownerDocument,
         queue.slice(-MAX_PENDING_USES_PER_DOCUMENT),

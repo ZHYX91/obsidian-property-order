@@ -55,11 +55,19 @@ export class RecentPropertyValueTracker {
         this.captureSuggestionActivation(asHtmlElement(event.target));
       }
     };
+    const handleClick = (event: MouseEvent): void => {
+      const target = asHtmlElement(event.target);
+      if (event.button === 0 && target?.closest(".property-order-custom-value-popup") != null) {
+        this.captureActivation(target, true);
+      }
+    };
 
     targetDocument.addEventListener("mousedown", handleMouseDown, true);
+    targetDocument.addEventListener("click", handleClick, true);
 
     const cleanup = (): void => {
       targetDocument.removeEventListener("mousedown", handleMouseDown, true);
+      targetDocument.removeEventListener("click", handleClick, true);
       this.documentCleanups.delete(targetDocument);
       this.pendingByDocument.delete(targetDocument);
     };
@@ -140,6 +148,10 @@ export class RecentPropertyValueTracker {
   }
 
   captureSuggestionActivation(target: HTMLElement | null): void {
+    this.captureActivation(target, false);
+  }
+
+  private captureActivation(target: HTMLElement | null, customPopupClicked: boolean): void {
     if (!this.getEnabled()) {
       return;
     }
@@ -147,6 +159,13 @@ export class RecentPropertyValueTracker {
     const itemElement = target?.closest<HTMLElement>(".suggestion-item, .menu-item") ?? null;
     const pluginPopup =
       itemElement?.closest<HTMLElement>(".property-order-custom-value-popup") ?? null;
+    // A fallback mousedown only preserves input focus. The keyboard bridge also
+    // announces intent before dispatching its activation click. Neither is a
+    // fallback commit: capture once at click, before the popup's commit handler.
+    // Native suggestions retain their existing mousedown/keyboard contract.
+    if (pluginPopup != null && !customPopupClicked) {
+      return;
+    }
     const container =
       pluginPopup ??
       (itemElement == null ? null : resolvePropertyValueSuggestionContainer(itemElement));
