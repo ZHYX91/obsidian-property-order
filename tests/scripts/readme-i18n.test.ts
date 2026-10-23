@@ -103,6 +103,35 @@ describe("README marketplace link contract", () => {
     );
   });
 
+  it("requires examples showing YAML scalar type changes", async () => {
+    await replaceInReadme("docs/i18n/README.zh-CN.md", "`\"true\"`", "`true`");
+    expect(checkReadmeI18n(fixtureRoot)).toContain(
+      'docs/i18n/README.zh-CN.md is missing YAML type-change example: `"true"`',
+    );
+  });
+
+  it("guards the mobile host-menu fallback explanation", async () => {
+    await replaceInReadme(
+      "docs/i18n/README.de-DE.md",
+      "Menüerweiterung nicht verfügbar",
+      "anderes mobiles Menü",
+    );
+    expect(checkReadmeI18n(fixtureRoot)).toContain(
+      "docs/i18n/README.de-DE.md is missing current drag safety explanation: Menüerweiterung nicht verfügbar",
+    );
+  });
+
+  it("guards the list-format loss warning beside settings", async () => {
+    await replaceInReadme(
+      "docs/i18n/README.fr-FR.md",
+      "perdre les commentaires ou lignes vides",
+      "changer certains détails",
+    );
+    expect(checkReadmeI18n(fixtureRoot)).toContain(
+      "docs/i18n/README.fr-FR.md is missing current drag safety explanation: perdre les commentaires ou lignes vides",
+    );
+  });
+
   it("rejects a localized README that drops a current feature concept", async () => {
     await replaceAllInReadme(
       "docs/i18n/README.zh-CN.md",
