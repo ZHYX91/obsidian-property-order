@@ -2,7 +2,7 @@
 
 [English](../../README.md) · [简体中文](README.zh-CN.md) · [繁體中文](README.zh-TW.md) · [日本語](README.ja-JP.md) · [한국어](README.ko-KR.md) · [Deutsch](README.de-DE.md) · [Français](README.fr-FR.md) · [Español](README.es-ES.md) · [Português (Brasil)](README.pt-BR.md) · [Русский](README.ru-RU.md) · [Tiếng Việt](README.vi-VN.md) · [العربية](README.ar.md)
 
-Property Order permite arrastrar los valores de listas en el panel de propiedades de Obsidian y elegir qué nombres y valores de propiedades se sugieren mientras escribes.
+Property Order permite arrastrar los valores de listas en el panel de propiedades de Obsidian y elegir qué nombres y valores de propiedades se sugieren mientras escribes. Ordena los valores de listas y las sugerencias de entrada; no reorganiza los campos de propiedades de la nota.
 
 ## Demostración
 
@@ -52,6 +52,11 @@ Haz una copia de seguridad de `Vault/.obsidian/plugins/property-order/data.json`
 3. En el ordenador, arrastra un valor directamente. En el móvil, mantén pulsado un valor, elige **Reordenar** o **Reordenar o mover** y después arrástralo.
 4. Configura **Nombres sugeridos** para las sugerencias de nombres de propiedades. Si lo deseas, activa **Valores sugeridos** para ordenar las opciones que ya ofrece Obsidian mediante un ajuste predeterminado y reglas por propiedad.
 
+
+**Antes de arrastrar:** al editar una lista de texto admitida, algunos valores YAML pueden convertirse en cadenas: `true` pasa a `"true"` y `123` a `"123"`. No cambia solo el orden, también puede cambiar el tipo de dato. Revisa el resultado si necesitas conservar esos tipos.
+
+**En móviles:** solo se puede arrastrar si el menú nativo de pulsación larga de Obsidian muestra **Reordenar** o **Reordenar o mover**. Si el menú no admite la extensión, el plugin no crea uno falso; la edición nativa sigue disponible.
+
 **¿Qué ajuste de sugerencias debes usar?** Cuando añades una propiedad e introduces su **nombre**, **Nombres sugeridos** decide si nombres como `status` u `owner` se fijan arriba, se ocultan o se reordenan. Después de elegir `status`, al editar su **valor**, **Valores sugeridos** controla las opciones existentes, como `todo` o `done`, y permite añadir valores predefinidos propios. Las sugerencias de valores están desactivadas de forma predeterminada. Ninguno de estos ajustes modifica la nota hasta que seleccionas o editas un valor.
 
 **Ejemplo: añadir valores habituales para `status`.** Abre **Valores sugeridos**, activa **Personalizar los valores de propiedades sugeridos** y añade un grupo de reglas de **Sugerencias personalizadas**. Añade `status` al grupo. En **Sugerencias fijadas arriba**, escribe `todo` y pulsa **Añadir valor predefinido**. Repite estos pasos con `doing` y `done`. Los valores aparecerán al editar `status`, filtrados según lo que escribas. Para incluir un valor predefinido en el orden normal, pulsa **↔ (Pasar a sugerencias normales)** junto a él.
@@ -61,7 +66,7 @@ Haz una copia de seguridad de `Vault/.obsidian/plugins/property-order/data.json`
 Todas las versiones compatibles de Obsidian muestran las mismas cuatro pestañas de ajustes:
 
 - **General** permite elegir el idioma del complemento y activar los mensajes de diagnóstico opcionales. La interfaz y el README están disponibles en inglés, chino simplificado, chino tradicional, alemán, francés, español, portugués de Brasil, ruso, japonés, coreano, vietnamita y árabe. **Seguir el idioma de Obsidian** elige el idioma correspondiente, o inglés si no está disponible.
-- **Orden de valores** controla el formato de las listas después de arrastrar, el movimiento entre propiedades y el comportamiento del arrastre. Desactivar el arrastre de valores no borra el ajuste independiente de movimiento entre propiedades.
+- **Orden de valores** controla el formato de las listas después de arrastrar, el movimiento entre propiedades y el comportamiento del arrastre. Desactivar el arrastre de valores no borra el ajuste independiente de movimiento entre propiedades. Forzar el cambio de una lista con un elemento por línea a corchetes puede perder comentarios o líneas en blanco. Conserva el formato original si los necesitas.
 - **Nombres sugeridos** controla los nombres fijados arriba, situados al final u ocultos, además del orden por nombre, uso reciente o número de notas. La agrupación por tipo de propiedad opcional organiza las sugerencias normales en Texto, Lista, Número, Casilla de verificación, Fecha, Fecha y hora, Etiquetas y Automático / sin especificar. El orden elegido sigue aplicándose dentro de cada grupo.
 - **Valores sugeridos** requiere activación expresa. Las propiedades sin una regla propia usan el ajuste predeterminado. Cada nombre de propiedad puede asignarse a **Por nombre**, **Frecuencia de selección**, **Notas que contienen este valor**, **Orden de Obsidian**, **Sin sugerencias** o **Sugerencias personalizadas**.
 - Las reglas personalizadas usan las secciones **Sugerencias fijadas arriba**, **Sugerencias normales** y **Sugerencias al final**. Puedes introducir valores predefinidos directamente para que sigan siendo seleccionables aunque todavía no aparezcan en una nota.
