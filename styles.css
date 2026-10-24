@@ -611,3 +611,37 @@ body.property-order-value-drag-enabled .metadata-property .multi-select-pill {
   pointer-events: none;
   user-select: none;
 }
+
+.property-order-keyboard-field {
+  display: grid;
+  gap: 6px;
+  margin-block: 12px;
+}
+
+.property-order-keyboard-field select {
+  width: 100%;
+  min-width: 0;
+}
+
+.property-order-keyboard-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-block-start: 16px;
+}
+
+.property-order-keyboard-actions button {
+  min-height: 36px;
+}
+
+.property-order-format-examples {
+  margin-block: 12px;
+}
+
+.property-order-format-examples summary {
+  cursor: pointer;
+}
+
+.property-order-format-examples pre {
+  overflow-x: auto;
+}

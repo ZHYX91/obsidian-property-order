@@ -7,6 +7,8 @@ export class Plugin {
 
   addSettingTab(_settingTab: unknown): void {}
 
+  addCommand(_command: unknown): void {}
+
   loadData(): Promise<unknown> {
     return Promise.resolve(null);
   }
@@ -120,4 +122,18 @@ export function normalizePath(path: string): string {
     .replace(/\\\\/g, "/")
     .replace(/\/+/g, "/")
     .replace(/^\.\//, "");
+}
+
+export class Modal {
+  contentEl: HTMLElement;
+  titleEl: HTMLElement;
+  constructor(_app: unknown) {
+    this.contentEl = document.createElement("div");
+    this.titleEl = document.createElement("h2");
+  }
+  setTitle(title: string): void { this.titleEl.textContent = title; }
+  open(): void { document.body.append(this.titleEl, this.contentEl); this.onOpen(); }
+  close(): void { this.onClose(); this.contentEl.remove(); this.titleEl.remove(); }
+  onOpen(): void {}
+  onClose(): void {}
 }

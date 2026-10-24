@@ -23,7 +23,7 @@ Dependencies point inward toward the pure core:
    - `suggestions/`: hide, deduplicate, pin, place at the bottom, and sort suggestion keys and values; its property-name comparator is the single ordering implementation shared by settings and native menus.
    - `interaction/`: pointer-drag state transitions and document identity guards.
 2. `src/features/`: feature orchestration.
-   - `value-order/`: combines state-machine actions, drop geometry, DOM presentation, pane context, and writeback into a drag transaction.
+   - `value-order/`: owns pointer sessions and command-palette selection, connecting pane context, semantic plans, minimal writeback, post-commit reconciliation, and pane recovery feedback. Both entry points share the content-commit and recovery boundaries.
    - `key-order/`: observes suggestion menus, applies pure ordering rules, bridges keyboard selection to the visible suggestion order, and manages confirmed property-name strict MRU through the recent tracker and device-local store.
    - `value-suggestions/`: resolves grouped per-property behaviors, enhances recognizable native popups, tracks confirmed device-local selection frequency, injects explicit custom preset candidates, renders its own fallback popup when no native value popup exists, and restores exact host state when enhancement no longer applies.
 3. `src/obsidian/`: the Obsidian and DOM adapter boundary.
@@ -36,7 +36,7 @@ Dependencies point inward toward the pure core:
 4. `src/app/`: plugin lifecycle, settings persistence, and settings UI; existing property names are presented and filtered through Obsidian's public `AbstractInputSuggest` API.
 5. `src/shared/`: versioned settings, shared types, the locale catalog, and complete interface dictionaries.
 
-The project does not add abstraction folders merely to increase file count. `writeback.ts`, `pane-context.ts`, and the two DOM adapters already provide testable Vault, pane, and Properties-surface boundaries. Future port interfaces must preserve the same dependency direction.
+`writeback.ts`, `pane-context.ts`, and the DOM adapters provide testable content-writeback, pane-identity, and Properties-surface boundaries. New collaborators follow the same dependency direction and do not create another content-commit path.
 
 ## Localized Frontmatter Rewrite Contract
 
@@ -65,7 +65,11 @@ Scalar parsing mirrors the YAML core-schema types exposed by Obsidian: null, boo
 
 Missing properties, unsupported values, index conflicts, and content conflicts return diagnostics without partial writes. Single/double quotes and scalars containing commas or `#` must parse safely. A property-head inline comment must retain valid whitespace when converted to flow form.
 
-## Property-value Drag Transaction
+## Property-value Edit Transaction
+
+`value-edit-session.ts` defines one edit’s identity and content snapshot. `property-value-reconciler.ts` handles only original/committed UI reconciliation and later undo/redo; `properties-refresh-notices.ts` owns pane-local recovery messages and listener cleanup. `src/app/keyboard-value-order-modal.ts` owns one-shot selection and submission state. Updating does not steal modal focus, and closing uses Obsidian Modal’s focus restoration without an extra manual focus call. `property-list-alignment.ts` shares native-list/text checks between entry and reconciliation.
+
+The keyboard command captures source properties, values, the file object, and editor text from visible native Properties in the current Markdown pane. Dialog actions to move up, down, or to the end of another property express intent only. Confirmation rechecks the captured identity and content before entering the same semantic plan, minimal `editor.transaction()`, exact-commit verification, save, and UI-recovery flow as pointer operations. Cancellation before submission creates no transaction. During updating, the dialog waits for the operation to finish; failure or refusal cannot execute the same draft again. Stale selections are not retried automatically. This entry point does not commit through direct Vault writes, private property setters, or manual pill relocation.
 
 `core/interaction/pointer-drag.ts` is the pure state machine. It converts mouse/touch/pen press, movement, long-press timing, release, and interruption into actions such as `start`, `cancel`, and `finish`, without DOM access. `value-drag-controller.ts` only orchestrates actions and resource lifetimes:
 
@@ -91,11 +95,11 @@ The editor remains the only content and conflict base, so unsaved body edits are
 
 Only after the editor buffer exactly matches the plan may `editor-transaction.ts` call public `MarkdownView.setViewData(committedContent, false)` to rebuild Properties from that same content, verify that no second text change occurred, and then call public `MarkdownView.requestSave()` to schedule persistence. Identity of the original leaf, file, view, and editor must be revalidated both after the host turn and after reconstruction.
 
-Once writeback returns an exact commit, the controller calls public `editor.focus()` before its first Properties wait so CodeMirror owns platform undo/redo. After reconstruction and reconciliation, it performs one guarded repair only when focus remains on `body`, the focus owner captured before drag start, a disconnected old node, or an affected Properties row and no post-commit pointer, focus-navigation, or window-intent generation has advanced.
+For pointer dragging, once writeback returns an exact commit, the controller calls public `editor.focus()` before its first Properties wait so CodeMirror owns platform undo/redo. After reconstruction and reconciliation, it performs one guarded repair only when focus remains on `body`, the focus owner captured before drag start, a disconnected old node, or an affected Properties row and no post-commit pointer, focus-navigation, or window-intent generation has advanced.
 
 Deliberate user focus invalidates that repair; paths without an exact commit never invoke it. Pre-commit drag/DOM ownership and post-commit document identity are deliberately separate: window blur or plugin unload may clean up drag UI, but must not suppress persistence for an exact commit that still belongs to the original document.
 
-A `requestSave()` exception is a distinct persistence-scheduling failure: editor content remains committed and receives undo focus, while the user is told to save manually instead of receiving a false divergence warning. Native property setters, direct Vault writes, and manual pill relocation are not writeback or recovery mechanisms.
+A `requestSave()` exception is a distinct persistence-scheduling failure: editor content remains committed, pointer dragging still receives undo focus, and the user is told to save manually instead of receiving a false divergence warning. Native property setters, direct Vault writes, and manual pill relocation are not writeback or recovery mechanisms.
 
 The controller then proves every affected Properties row against the current valid transaction state. A buffer equal to committed content continues post-commit reconciliation; an exact return to this transaction's original content is a valid immediate undo, and another exact committed state can be redo.
 

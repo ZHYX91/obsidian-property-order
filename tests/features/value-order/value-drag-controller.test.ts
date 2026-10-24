@@ -350,6 +350,7 @@ function createHarness(): ControllerHarness {
   let editorChangeCallback: ((editor: Editor) => void) | null = null;
   const plugin = {
     app: {
+      vault: { getAbstractFileByPath: (path: string) => path === file.path ? file : null },
       metadataCache: {
         getFileCache: () => ({ frontmatter }),
       },
@@ -2241,9 +2242,9 @@ describe("PropertyValueOrderController", () => {
     const secondPane = document.createElement("div");
     secondPane.className = "workspace-leaf";
     document.body.appendChild(secondPane);
-    const showRecovery = (
+    const recoveryNotices = (
       harness.controller as unknown as {
-        showPropertiesRefreshRecovery(context: {
+        reconciliation: { notices: { show(context: {
           committedContent: string;
           document: Document;
           editor: Editor;
@@ -2253,14 +2254,16 @@ describe("PropertyValueOrderController", () => {
           previousContent: string;
           propertyKeys: readonly string[];
           view: MarkdownView;
-        }): void;
+        }): void; } };
       }
-    ).showPropertiesRefreshRecovery.bind(harness.controller);
+    ).reconciliation.notices;
+    const showRecovery = recoveryNotices.show.bind(recoveryNotices);
     const context = {
       committedContent: harness.editor.getContent(),
       document,
       editor: harness.editor.instance,
       file: harness.file,
+      originalPath: harness.file.path,
       generation: 1,
       previousContent: harness.editor.getContent(),
       propertyKeys: ["flow"],
@@ -2294,9 +2297,9 @@ describe("PropertyValueOrderController", () => {
     const disconnectedPane = document.createElement("div");
     disconnectedPane.className = "workspace-leaf";
     document.body.appendChild(disconnectedPane);
-    const showRecovery = (
+    const recoveryNotices = (
       harness.controller as unknown as {
-        showPropertiesRefreshRecovery(context: {
+        reconciliation: { notices: { show(context: {
           committedContent: string;
           document: Document;
           editor: Editor;
@@ -2306,14 +2309,16 @@ describe("PropertyValueOrderController", () => {
           previousContent: string;
           propertyKeys: readonly string[];
           view: MarkdownView;
-        }): void;
+        }): void; } };
       }
-    ).showPropertiesRefreshRecovery.bind(harness.controller);
+    ).reconciliation.notices;
+    const showRecovery = recoveryNotices.show.bind(recoveryNotices);
     const context = {
       committedContent: harness.editor.getContent(),
       document,
       editor: harness.editor.instance,
       file: harness.file,
+      originalPath: harness.file.path,
       generation: 1,
       previousContent: harness.editor.getContent(),
       propertyKeys: ["flow"],
@@ -3062,4 +3067,175 @@ describe("PropertyValueOrderController", () => {
     );
     harness.cleanup();
   });
+  it.each([
+    { action: "down" as const, sourceIndex: 0 },
+    { action: "up" as const, sourceIndex: 1 },
+  ])("reorders with the keyboard draft using one guarded transaction: $action", async (request) => {
+    const harness = createHarness();
+    harness.settings.enablePropertyValueDrag = false;
+    const draft = harness.controller.prepareKeyboardReorder(harness.leaf.containerEl);
+    expect(draft?.properties).toEqual([{ key: "flow", values: ["alpha", "beta"], canSource: true }]);
+    expect(await draft?.submit({ ...request, sourceProperty: "flow" })).toBe(true);
+    expect(harness.editor.getContent()).toBe("---\nflow: [beta, alpha]\n---\n");
+    expect(harness.editor.transaction).toHaveBeenCalledOnce();
+    expect(harness.leaf.view.requestSave).toHaveBeenCalledOnce();
+    expect(harness.editor.focus).not.toHaveBeenCalled();
+    harness.cleanup();
+  });
+
+  it("moves to another property with the keyboard even when pointer moves are disabled", async () => {
+    const harness = createHarness();
+    harness.settings.enablePropertyValueDrag = false;
+    harness.settings.enableCrossPropertyDrag = false;
+    harness.editor.setContent("---\nflow: [alpha, beta]\ntarget: [gamma]\n---\n");
+    addScalarBackedListProperty(harness, "target", "gamma");
+    const draft = harness.controller.prepareKeyboardReorder(harness.leaf.containerEl);
+    expect(await draft?.submit({ action: "move", sourceProperty: "flow", sourceIndex: 0, targetProperty: "target" })).toBe(true);
+    expect(harness.editor.getContent()).toBe("---\nflow: [beta]\ntarget: [gamma, alpha]\n---\n");
+    expect(harness.editor.transaction).toHaveBeenCalledOnce();
+    harness.cleanup();
+  });
+
+  it("moves a scalar-backed native list into an empty target with the same text normalization", async () => {
+    const harness = createHarness();
+    addListTypeMismatchProperty(harness, "number", "12");
+    addEmptyListProperty(harness, "target");
+    harness.container.closest(".metadata-property")?.remove();
+    harness.editor.setContent("---\nnumber: 12\ntarget: []\n---\n");
+    const draft = harness.controller.prepareKeyboardReorder(harness.leaf.containerEl);
+    expect(await draft?.submit({ action: "move", sourceProperty: "number", sourceIndex: 0, targetProperty: "target" })).toBe(true);
+    expect(getFrontmatterTextListPropertyValues(harness.editor.getContent(), "target")).toEqual(["12"]);
+    expect(harness.editor.getContent()).toContain('target: ["12"]');
+    harness.cleanup();
+  });
+
+  it.each(["rename", "replacement", "vault-replacement", "editor", "content", "dom"])("rejects a stale keyboard draft after %s", async (change) => {
+    const harness = createHarness();
+    const original = harness.editor.getContent();
+    const draft = harness.controller.prepareKeyboardReorder(harness.leaf.containerEl);
+    if (change === "rename") harness.file.path = "Renamed.md";
+    if (change === "replacement") harness.leaf.view.file = { path: harness.file.path } as TFile;
+    if (change === "vault-replacement") vi.spyOn(harness.plugin.app.vault, "getAbstractFileByPath").mockReturnValue({ ...harness.file });
+    if (change === "editor") harness.leaf.view.editor = createEditorHarness(original).instance;
+    if (change === "content") harness.editor.setContent(`${original}new body\n`);
+    if (change === "dom") harness.container.remove();
+    expect(await draft?.submit({ action: "down", sourceProperty: "flow", sourceIndex: 0 })).toBe(false);
+    expect(harness.editor.transaction).not.toHaveBeenCalled();
+    expect(harness.leaf.view.requestSave).not.toHaveBeenCalled();
+    harness.cleanup();
+  });
+
+  it.each(["cancel", "unload", "superseded"])("invalidates an unused keyboard draft on %s", async (change) => {
+    const harness = createHarness();
+    const draft = harness.controller.prepareKeyboardReorder(harness.leaf.containerEl);
+    if (change === "cancel") draft?.cancel();
+    if (change === "unload") harness.controller.dispose();
+    if (change === "superseded") harness.controller.prepareKeyboardReorder(harness.leaf.containerEl);
+    expect(await draft?.submit({ action: "down", sourceProperty: "flow", sourceIndex: 0 })).toBe(false);
+    expect(harness.editor.transaction).not.toHaveBeenCalled();
+    harness.cleanup();
+  });
+
+  it("prevents duplicate keyboard submissions and reconciles exact undo without another write", async () => {
+    const harness = createHarness();
+    const original = harness.editor.getContent();
+    Object.assign(harness.leaf.view, {
+      getFile: () => harness.file,
+      metadataEditor: {
+        containerEl: harness.leaf.containerEl.querySelector(".metadata-container"),
+        owner: harness.leaf.view,
+        synchronize: () => rerenderHostListProperties(harness.leaf.containerEl, harness.editor.getContent()),
+      },
+    });
+    vi.mocked(parseYaml).mockReturnValue({ flow: ["alpha", "beta"] });
+    const draft = harness.controller.prepareKeyboardReorder(harness.leaf.containerEl);
+    const request = { action: "down" as const, sourceProperty: "flow", sourceIndex: 0 };
+    const first = draft?.submit(request);
+    expect(await draft?.submit(request)).toBe(false);
+    expect(await first).toBe(true);
+    harness.editor.setContent(original);
+    harness.editorChange();
+    await vi.waitFor(() => expect(Array.from(harness.leaf.containerEl.querySelectorAll(".multi-select-pill")).map((pill) => pill.textContent)).toEqual(["alpha", "beta"]));
+    expect(harness.editor.transaction).toHaveBeenCalledOnce();
+    expect(harness.leaf.view.requestSave).toHaveBeenCalledOnce();
+    harness.cleanup();
+  });
+
+  it.each(["hidden", "aria", "display", "duplicate", "unsupported"])("does not offer hidden or ambiguous native lists: %s", (change) => {
+    const harness = createHarness();
+    const property = harness.container.closest<HTMLElement>(".metadata-property");
+    if (change === "hidden" && property) property.hidden = true;
+    if (change === "aria") property?.setAttribute("aria-hidden", "true");
+    if (change === "display" && property) property.style.display = "none";
+    if (change === "duplicate" && property) property.after(property.cloneNode(true));
+    if (change === "unsupported") harness.editor.setContent("---\nflow: [{nested: alpha}, beta]\n---\n");
+    expect(harness.controller.prepareKeyboardReorder(harness.leaf.containerEl)).toBeNull();
+    expect(harness.editor.transaction).not.toHaveBeenCalled();
+    harness.cleanup();
+  });
+
+  it.each([
+    { action: "up" as const, sourceProperty: "flow", sourceIndex: 0 },
+    { action: "down" as const, sourceProperty: "flow", sourceIndex: 1 },
+    { action: "up" as const, sourceProperty: "unknown", sourceIndex: 1 },
+    { action: "up" as const, sourceProperty: "flow", sourceIndex: -1 },
+    { action: "up" as const, sourceProperty: "flow", sourceIndex: 0.5 },
+    { action: "move" as const, sourceProperty: "flow", sourceIndex: 0, targetProperty: "flow" },
+    { action: "move" as const, sourceProperty: "flow", sourceIndex: 0, targetProperty: "missing" },
+  ])("does not write a keyboard boundary or invalid selection: $action/$sourceIndex/$targetProperty", async (request) => {
+    const harness = createHarness();
+    const draft = harness.controller.prepareKeyboardReorder(harness.leaf.containerEl);
+    expect(await draft?.submit(request)).toBe(false);
+    expect(harness.editor.transaction).not.toHaveBeenCalled();
+    harness.cleanup();
+  });
+
+  it.each(["ignored", "diverged", "save-failed", "applied-throw"])("uses the shared keyboard result reconciliation for %s", async (outcome) => {
+    const harness = createHarness();
+    const transaction = harness.editor.transaction.getMockImplementation() as ((value: EditorTransaction) => void) | undefined;
+    if (outcome === "ignored") harness.editor.transaction.mockImplementation(() => undefined);
+    if (outcome === "diverged") harness.editor.transaction.mockImplementation(() => harness.editor.setContent("third-party content"));
+    if (outcome === "save-failed") vi.mocked(harness.leaf.view.requestSave).mockImplementation(() => { throw new Error("save"); });
+    if (outcome === "applied-throw") harness.editor.transaction.mockImplementation((value: EditorTransaction) => { transaction?.(value); throw new Error("after apply"); });
+    const draft = harness.controller.prepareKeyboardReorder(harness.leaf.containerEl);
+    expect(await draft?.submit({ action: "down", sourceProperty: "flow", sourceIndex: 0 })).toBe(outcome === "save-failed" || outcome === "applied-throw");
+    expect(harness.editor.transaction).toHaveBeenCalledOnce();
+    if (outcome === "diverged") expect(harness.editor.getContent()).toBe("third-party content");
+    if (outcome === "ignored" || outcome === "diverged") expect(harness.leaf.view.setViewData).not.toHaveBeenCalled();
+    harness.cleanup();
+  });
+
+  it("settles an already-applied keyboard transaction after unload only on its original document", async () => {
+    const harness = createHarness();
+    const apply = harness.editor.transaction.getMockImplementation() as ((value: EditorTransaction) => void) | undefined;
+    harness.editor.transaction.mockImplementation((transaction: EditorTransaction) => {
+      apply?.(transaction);
+      harness.controller.dispose();
+    });
+    const draft = harness.controller.prepareKeyboardReorder(harness.leaf.containerEl);
+    expect(await draft?.submit({ action: "down", sourceProperty: "flow", sourceIndex: 0 })).toBe(false);
+    expect(harness.editor.transaction).toHaveBeenCalledOnce();
+    expect(harness.leaf.view.requestSave).toHaveBeenCalledOnce();
+    expect(harness.editor.getContent()).toBe("---\nflow: [beta, alpha]\n---\n");
+    harness.cleanup();
+  });
+
+  it.each(["rename", "replacement", "vault-replacement"])("does not finalize an applied keyboard transaction on a rebound document: %s", async (change) => {
+    const harness = createHarness();
+    const apply = harness.editor.transaction.getMockImplementation() as ((value: EditorTransaction) => void) | undefined;
+    harness.editor.transaction.mockImplementation((transaction: EditorTransaction) => {
+      apply?.(transaction);
+      if (change === "rename") harness.file.path = "Moved.md";
+      else if (change === "replacement") harness.leaf.view.file = { path: harness.file.path } as TFile;
+      else vi.spyOn(harness.plugin.app.vault, "getAbstractFileByPath").mockReturnValue({ ...harness.file });
+    });
+    const draft = harness.controller.prepareKeyboardReorder(harness.leaf.containerEl);
+    await draft?.submit({ action: "down", sourceProperty: "flow", sourceIndex: 0 });
+    expect(harness.editor.transaction).toHaveBeenCalledOnce();
+    expect(harness.leaf.view.requestSave).not.toHaveBeenCalled();
+    expect(harness.leaf.view.setViewData).not.toHaveBeenCalled();
+    harness.cleanup();
+  });
+
+
 });

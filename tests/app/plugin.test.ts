@@ -1,12 +1,13 @@
 // @vitest-environment happy-dom
 
-import { Notice, Platform } from "obsidian";
+import { MarkdownView, Notice, Platform, type Command } from "obsidian";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import PropertyOrderPlugin, {
   VALUE_DRAG_ENABLED_CLASS,
 } from "../../src/app/plugin";
 import { KeySuggestionOrderController } from "../../src/features/key-order/key-suggestion-controller";
+import { PropertyValueOrderController } from "../../src/features/value-order/value-drag-controller";
 import { createDefaultSettings } from "../../src/shared/settings";
 
 const MockNotice = Notice as typeof Notice & { messages: string[] };
@@ -494,5 +495,39 @@ describe("PropertyOrderPlugin settings persistence", () => {
     await plugin.loadSettings();
 
     expect(document.body.classList.contains(VALUE_DRAG_ENABLED_CLASS)).toBe(true);
+  });
+});
+
+
+describe("keyboard value order command", () => {
+  it("registers a Markdown-only command without a default hotkey and releases its dialog on unload", async () => {
+    const { plugin } = createPlugin(createDefaultSettings());
+    const addCommand = vi.spyOn(plugin, "addCommand");
+    let view: MarkdownView | null = null;
+    Object.assign(plugin.app.workspace, { getActiveViewOfType: () => view });
+    const draft = {
+      properties: [{ key: "tags", values: ["alpha", "beta"], canSource: true }],
+      submit: vi.fn().mockResolvedValue(true),
+      cancel: vi.fn(),
+    };
+    const prepare = vi.spyOn(PropertyValueOrderController.prototype, "prepareKeyboardReorder").mockReturnValue(draft);
+    plugin.onload();
+    await vi.waitFor(() => expect(addCommand).toHaveBeenCalledOnce());
+    const command = addCommand.mock.calls[0]?.[0] as Command;
+    expect(command.id).toBe("reorder-property-values");
+    expect(command.hotkeys).toBeUndefined();
+    expect(command.checkCallback?.(true)).toBe(false);
+    view = Object.assign(new MarkdownView({} as never), { file: { path: "Note.md" }, containerEl: document.createElement("div") });
+    expect(command.checkCallback?.(true)).toBe(true);
+    expect(prepare).not.toHaveBeenCalled();
+    expect(command.checkCallback?.(false)).toBe(true);
+    expect(document.querySelector(".property-order-keyboard-reorder")).not.toBeNull();
+    command.checkCallback?.(false);
+    expect(draft.cancel).toHaveBeenCalledOnce();
+    plugin.onunload();
+    expect(draft.cancel).toHaveBeenCalledTimes(2);
+    expect(document.querySelector(".property-order-keyboard-reorder")).toBeNull();
+    expect(command.checkCallback?.(false)).toBe(false);
+    prepare.mockRestore();
   });
 });

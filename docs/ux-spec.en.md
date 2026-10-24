@@ -8,7 +8,11 @@ translation_status: synced
 
 This document mirrors the authoritative current interaction and presentation contract for Property Order.
 
-## Property-value drag
+## Property-value order
+
+- Without a pointer, open value reordering from the command palette, select a source property and value, then move it up, down, or to the end of another property. The command has no default shortcut and remains available when dragging or cross-property dragging is disabled.
+- Source and target choices come from visible, verifiable native Properties in the current Markdown pane. Before submission, Escape or Cancel closes selection without writing. During updating, closure waits for completion. The dialog closes after success or a committed change whose save scheduling failed. Refusal or failure leaves the explanation visible and disables another execution until the user checks the note, closes the dialog, and reopens the command. If the file or values change during selection, ask the user to reopen the command instead of applying the old choice. Success shares the pointer path's undo, save, and Properties-recovery feedback.
+- The before/after example beside **List format after reordering** uses one shared input. Expanding it shows the production rewrite results for `preserve`, `flow`, and `block` together and explains non-text values becoming strings and comments or blank lines that flow syntax cannot retain. `preserve` remains the default.
 
 - Clicking a pill does not start drag. Desktop mouse starts after movement threshold; desktop touch and pen start after long press.
 - On mobile, long-press keeps Obsidian's native value menu and adds **Reorder** or **Reorder or move**. Selecting it visibly arms that pill; the next touch/pen movement on the same pill starts drag without another long press.
@@ -75,5 +79,5 @@ This document mirrors the authoritative current interaction and presentation con
 
 - Settings controls, tabs, and error states have accessible names and semantics.
 - Key suggestions support keyboard navigation while retaining native host selection behavior.
-- Property-value reorder currently requires pointer input, so direct keyboard reorder remains a published limitation. Drag operations expose a polite live-status region in the DOM; real screen-reader announcement quality remains host/assistive-technology acceptance evidence rather than something inferred from DOM tests alone.
+- Property-value reordering has a command-palette path that does not require first focusing or dragging a pill. Pointer dragging still exposes polite live status. Dialog focus order, cancellation, submission, and real screen-reader announcements each need host/assistive-technology verification; DOM tests alone do not establish that acceptance.
 - The Android release matrix covers native-menu preservation, the armed one-shot drag, property-name suggestions, rotation, narrow layout, and lifecycle. Physical-device haptics, pen differences, and vendor input stacks remain outside automated evidence.
