@@ -5,6 +5,8 @@ follow the repository's Git tags; entries summarize the corresponding commit his
 
 ## [Unreleased]
 
+## [0.11.0] - 2026-10-25
+
 ### Added
 
 - Add a keyboard command to move property values up, down, or to another list through the existing safe editor pipeline.
@@ -17,6 +19,7 @@ follow the repository's Git tags; entries summarize the corresponding commit his
 ### Changed
 
 - Separate interaction, reconciliation, and recovery notices; synchronize all 12 guides and bilingual contracts.
+- Clarify in all twelve interface languages that disabling pointer dragging keeps keyboard reordering available and that list-format settings apply to both paths.
 
 ## [0.10.2] - 2026-10-24
 
@@ -366,7 +369,8 @@ follow the repository's Git tags; entries summarize the corresponding commit his
 
 - Established the initial Property Order release baseline.
 
-[Unreleased]: https://github.com/ZHYX91/obsidian-property-order/compare/0.9.0...HEAD
+[Unreleased]: https://github.com/ZHYX91/obsidian-property-order/compare/0.11.0...HEAD
+[0.11.0]: https://github.com/ZHYX91/obsidian-property-order/compare/0.10.2...0.11.0
 [0.9.0]: https://github.com/ZHYX91/obsidian-property-order/releases/tag/0.9.0
 [0.8.2]: https://github.com/ZHYX91/obsidian-property-order/releases/tag/0.8.2
 [0.8.1]: https://github.com/ZHYX91/obsidian-property-order/releases/tag/0.8.1
