@@ -38,7 +38,7 @@ const translations = {
   "settings.valueDrag.heading": "Déplacement des valeurs de propriétés",
   "settings.valueDrag.enable.name": "Réordonner les valeurs par glissement",
   "settings.valueDrag.enable.desc": "Faites glisser les valeurs d’une propriété de type liste pour changer leur ordre dans la note. Sur mobile, faites d’abord un appui long sur une valeur et choisissez l’action de réorganisation.",
-  "settings.valueDrag.disabledHint": "Le déplacement des valeurs par glissement est désactivé. Vous pouvez tout de même préparer les réglages ci-dessous pour plus tard.",
+  "settings.valueDrag.disabledHint": "Le glissement des valeurs avec le pointeur est désactivé. La commande de réorganisation au clavier reste disponible ; le format de liste ci-dessous s’applique aux deux méthodes.",
   "settings.valueDrag.mobileHint": "Faites un appui long sur une valeur, choisissez « Réordonner » ou « Réordonner ou déplacer », puis faites-la glisser. Les actions d’Obsidian pour modifier, retirer de la liste et copier restent disponibles.",
   "settings.writebackFormat.name": "Format des listes après réorganisation",
   "settings.writebackFormat.desc": "Conservez le format actuel ou enregistrez les listes concernées entre crochets, par exemple [a, b], ou avec un élément par ligne précédé d’un tiret. Le passage aux crochets peut supprimer les commentaires d’éléments et les lignes vides.",

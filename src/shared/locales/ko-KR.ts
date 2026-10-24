@@ -38,7 +38,7 @@ const translations = {
   "settings.valueDrag.heading": "속성 값 드래그",
   "settings.valueDrag.enable.name": "속성 값 드래그 사용",
   "settings.valueDrag.enable.desc": "목록 속성의 값을 드래그해 노트에 저장되는 순서를 바꿉니다. 모바일에서는 먼저 값을 길게 누르고 순서 변경을 선택하세요.",
-  "settings.valueDrag.disabledHint": "속성 값 드래그가 꺼져 있습니다. 아래 설정은 나중에 사용할 수 있도록 미리 변경할 수 있습니다.",
+  "settings.valueDrag.disabledHint": "포인터로 속성 값을 드래그하는 기능이 꺼져 있습니다. 키보드 재정렬 명령은 계속 사용할 수 있으며, 아래 목록 형식은 두 방식 모두에 적용됩니다.",
   "settings.valueDrag.mobileHint": "값을 길게 누르고 '순서 변경' 또는 '순서 변경 또는 이동'을 선택한 다음 드래그하세요. Obsidian의 편집, 목록에서 제거, 복사 기능도 그대로 사용할 수 있습니다.",
   "settings.writebackFormat.name": "순서 변경 후 목록 형식",
   "settings.writebackFormat.desc": "현재 형식을 유지하거나, 변경한 목록을 [a, b] 같은 대괄호 형식 또는 각 줄을 하이픈으로 시작하는 형식으로 저장합니다. 대괄호 형식으로 바꾸면 항목의 주석이나 빈 줄이 사라질 수 있습니다.",

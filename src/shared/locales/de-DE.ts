@@ -2,7 +2,7 @@ import type { TranslationDictionary } from "../i18n";
 
 const translations = {
   "keyboard.command": "Eigenschaftswerte umordnen",
-  "keyboard.description": "Wählen Sie einen Wert in den sichtbaren Eigenschaften dieser Notiz. Das Verschieben ändert die Notiz; im Editor können Sie es rückgängig machen.",
+  "keyboard.description": "Wähle einen Wert in den sichtbaren Eigenschaften dieser Notiz. Das Verschieben ändert die Notiz; im Editor kannst du es rückgängig machen.",
   "keyboard.source": "Quelleigenschaft",
   "keyboard.value": "Wert",
   "keyboard.target": "Zieleigenschaft",
@@ -11,8 +11,8 @@ const translations = {
   "keyboard.move": "In Eigenschaft verschieben",
   "keyboard.cancel": "Abbrechen",
   "keyboard.pending": "Notiz wird aktualisiert…",
-  "keyboard.retry": "Prüfen Sie die Notiz und die Meldung. Schließen Sie den Dialog und öffnen Sie den Befehl vor einem erneuten Versuch.",
-  "keyboard.unavailable": "Zeigen Sie die nativen Eigenschaften der Notiz und eine unterstützte Liste an und führen Sie den Befehl erneut aus.",
+  "keyboard.retry": "Prüfe die Notiz und die Meldung. Schließe den Dialog und öffne den Befehl vor einem erneuten Versuch.",
+  "keyboard.unavailable": "Zeige die nativen Eigenschaften der Notiz und eine unterstützte Liste an und führe den Befehl erneut aus.",
   "keyboard.settingsHint": "Der Befehl „Eigenschaftswerte umordnen“ bietet Tastaturbedienung und ist auch bei deaktiviertem Ziehen verfügbar.",
   "settings.writebackFormat.examples": "Formatbeispiele",
   "settings.writebackFormat.before": "Vorher",
@@ -38,7 +38,7 @@ const translations = {
   "settings.valueDrag.heading": "Eigenschaftswerte ziehen",
   "settings.valueDrag.enable.name": "Eigenschaftswerte per Ziehen ordnen",
   "settings.valueDrag.enable.desc": "Ziehe Werte in Listeneigenschaften, um ihre Reihenfolge in der Notiz zu ändern. Auf Mobilgeräten zuerst einen Wert lange drücken und die Aktion zum Neuordnen wählen.",
-  "settings.valueDrag.disabledHint": "Das Ziehen von Eigenschaftswerten ist ausgeschaltet. Du kannst die folgenden Einstellungen trotzdem für später vorbereiten.",
+  "settings.valueDrag.disabledHint": "Das Ziehen von Eigenschaftswerten mit dem Zeiger ist ausgeschaltet. Du kannst weiterhin den Befehl zum Umordnen per Tastatur verwenden; das folgende Listenformat gilt für beide Methoden.",
   "settings.valueDrag.mobileHint": "Drücke einen Wert lange, wähle „Neu anordnen“ oder „Neu anordnen oder verschieben“ und ziehe ihn dann. Die Obsidian-Aktionen zum Bearbeiten, Entfernen aus der Liste und Kopieren bleiben verfügbar.",
   "settings.writebackFormat.name": "Listenformat nach dem Umordnen",
   "settings.writebackFormat.desc": "Behalte das aktuelle Format bei oder speichere die betroffenen Listen in eckigen Klammern, etwa [a, b], oder mit einem Eintrag pro Zeile, der mit einem Bindestrich beginnt. Beim Wechsel zu eckigen Klammern können Kommentare zu Einträgen und Leerzeilen verloren gehen.",

@@ -38,7 +38,7 @@ const translations = {
   "settings.valueDrag.heading": "プロパティ値のドラッグ",
   "settings.valueDrag.enable.name": "プロパティ値のドラッグを有効にする",
   "settings.valueDrag.enable.desc": "リスト形式のプロパティ内で値をドラッグして、ノートに保存される順序を変更します。モバイルでは、まず値を長押しして並べ替えを選んでください。",
-  "settings.valueDrag.disabledHint": "プロパティ値のドラッグは無効です。下の設定は、有効にするときに備えて変更できます。",
+  "settings.valueDrag.disabledHint": "ポインターによるプロパティ値のドラッグは無効です。キーボードで並べ替えるコマンドは引き続き使えます。下のリスト形式は両方の操作に適用されます。",
   "settings.valueDrag.mobileHint": "値を長押しし、「並べ替え」または「並べ替え・移動」を選んでからドラッグします。Obsidian の編集、リストから削除、コピーもそのまま使えます。",
   "settings.writebackFormat.name": "並べ替え後のリスト形式",
   "settings.writebackFormat.desc": "現在の書式を保つか、変更したリストを [a, b] のような角括弧形式、または各行をハイフンで始める形式で保存します。角括弧形式にすると、項目のコメントや空行が失われる場合があります。",

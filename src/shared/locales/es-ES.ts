@@ -38,7 +38,7 @@ const translations = {
   "settings.valueDrag.heading": "Arrastrar valores de propiedades",
   "settings.valueDrag.enable.name": "Reordenar valores arrastrándolos",
   "settings.valueDrag.enable.desc": "Arrastra los valores de una propiedad de tipo lista para cambiar su orden en la nota. En el móvil, mantén pulsado primero un valor y elige la acción para reordenar.",
-  "settings.valueDrag.disabledHint": "La función de arrastrar valores está desactivada. Puedes preparar los ajustes siguientes para usarlos más adelante.",
+  "settings.valueDrag.disabledHint": "El arrastre de valores con el puntero está desactivado. El comando para reordenar con el teclado sigue disponible; el formato de lista de abajo se aplica a ambos métodos.",
   "settings.valueDrag.mobileHint": "Mantén pulsado un valor, elige «Reordenar» o «Reordenar o mover» y después arrástralo. Las acciones de Obsidian para editar, quitar de la lista y copiar siguen disponibles.",
   "settings.writebackFormat.name": "Formato de lista tras reordenar",
   "settings.writebackFormat.desc": "Conserva el formato actual o guarda las listas afectadas entre corchetes, como [a, b], o con un elemento por línea precedido de un guion. Al pasar a corchetes, pueden perderse los comentarios de los elementos y las líneas en blanco.",

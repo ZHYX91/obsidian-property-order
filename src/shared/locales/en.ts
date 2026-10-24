@@ -36,7 +36,7 @@ const translations = {
   "settings.valueDrag.heading": "Property value drag",
   "settings.valueDrag.enable.name": "Enable property value drag",
   "settings.valueDrag.enable.desc": "Drag values in list properties to change their order in the note. On mobile, first long-press a value and choose the reorder action.",
-  "settings.valueDrag.disabledHint": "Property value drag is currently disabled. The settings below can still be prepared for later.",
+  "settings.valueDrag.disabledHint": "Pointer dragging of property values is disabled. The keyboard reorder command remains available; the list format below applies to both methods.",
   "settings.valueDrag.mobileHint": "Long-press a value and choose Reorder (or Reorder or move), then drag it. Obsidian's Edit, Remove from list, and Copy actions remain available.",
   "settings.writebackFormat.name": "List format after reordering",
   "settings.writebackFormat.desc": "Keep the current list format, or save the affected lists with brackets, such as [a, b], or one item per line starting with a hyphen. Changing to bracket lists may remove item comments and blank lines.",

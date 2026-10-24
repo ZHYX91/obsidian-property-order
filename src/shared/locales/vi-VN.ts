@@ -38,7 +38,7 @@ const translations = {
   "settings.valueDrag.heading": "Kéo giá trị thuộc tính",
   "settings.valueDrag.enable.name": "Bật kéo giá trị thuộc tính",
   "settings.valueDrag.enable.desc": "Kéo các giá trị trong thuộc tính dạng danh sách để thay đổi thứ tự lưu trong ghi chú. Trên thiết bị di động, trước tiên hãy nhấn giữ một giá trị rồi chọn sắp xếp lại.",
-  "settings.valueDrag.disabledHint": "Tính năng kéo giá trị thuộc tính đang tắt. Bạn vẫn có thể chỉnh các cài đặt bên dưới để dùng khi bật lại.",
+  "settings.valueDrag.disabledHint": "Tính năng kéo giá trị bằng con trỏ đang tắt. Bạn vẫn có thể dùng lệnh sắp xếp lại bằng bàn phím; định dạng danh sách bên dưới áp dụng cho cả hai cách.",
   "settings.valueDrag.mobileHint": "Nhấn giữ một giá trị, chọn 'Sắp xếp lại' hoặc 'Sắp xếp lại hoặc di chuyển', rồi kéo giá trị đó. Các thao tác Sửa, Xóa khỏi danh sách và Sao chép của Obsidian vẫn dùng được.",
   "settings.writebackFormat.name": "Định dạng danh sách sau khi sắp xếp",
   "settings.writebackFormat.desc": "Giữ định dạng hiện tại, hoặc lưu các danh sách vừa thay đổi dưới dạng ngoặc vuông như [a, b], hoặc mỗi mục một dòng bắt đầu bằng dấu gạch nối. Chuyển sang ngoặc vuông có thể làm mất chú thích của từng mục và các dòng trống.",
