@@ -3,9 +3,7 @@ import {
   Platform,
   type Editor,
   type EventRef,
-  type MarkdownView,
   type Plugin,
-  type TFile,
 } from "obsidian";
 
 import {
@@ -20,28 +18,23 @@ import {
 import {
   getFrontmatterListPropertyScalars,
   getFrontmatterTextListPropertyValues,
-  type FrontmatterScalar,
 } from "../../core/frontmatter";
-import { isSameNoteDocument } from "../../core/interaction/document-guard";
 import { t, type TranslationKey } from "../../shared/i18n";
 import type { PropertyOrderSettings } from "../../shared/types";
 import {
   blurFocusedPropertyEditor,
   findPropertyListContextByKey,
   getContainerPills,
-  getListTypeMismatchDisplayValue,
-  getPropertyPillValueEvidence,
   isPropertyPillTarget,
   resolveDraggablePropertyPill,
   resolveListTypeMismatchContext,
   resolvePropertyContainerContext,
+  getVisiblePropertyListContexts,
   resolvePropertyPillContext,
-  type PropertyContainerContext,
-  type PropertyPillContext,
 } from "../../obsidian/properties-dom";
 import { getCachedFrontmatterStorageKinds } from "../../obsidian/metadata";
-import { reconcileMetadataEditorProperties } from "../../obsidian/metadata-editor-refresh";
 import {
+  isCurrentFileIdentity,
   resolvePaneFileContext,
 } from "../../obsidian/pane-context";
 import {
@@ -61,24 +54,16 @@ import {
   resolveDropTarget,
 } from "./drop-targeting";
 import type { DropTarget, InvalidDropTarget } from "./types";
-import { arePropertyListValuesAligned } from "./value-alignment";
 import {
   writePropertyValueDrop,
-  type ValueWritebackResult,
 } from "./writeback";
 import { addMobileReorderMenuItem } from "./mobile-reorder-menu";
+import { PropertyValueReconciler } from "./property-value-reconciler";
+import { isSourceContextAlignedWithContent, isTargetContextAlignedWithContent } from "./property-list-alignment";
+import type { KeyboardReorderDraft } from "./keyboard-reorder";
+import type { ValueEditSession } from "./value-edit-session";
 
-interface DragState {
-  document: Document;
-  editor: Editor;
-  expectedContent: string | null;
-  file: TFile;
-  focusOwnerAtStart: Element | null;
-  focusIntentGeneration: number;
-  generation: number;
-  paneContainer: HTMLElement;
-  paneView: MarkdownView;
-  context: PropertyPillContext;
+interface DragState extends ValueEditSession {
   expectedStorageKinds: ReturnType<typeof getCachedFrontmatterStorageKinds>;
   indicatorElement: HTMLElement;
   invalidTarget: InvalidDropTarget | null;
@@ -89,28 +74,6 @@ interface DragState {
   target: DropTarget | null;
 }
 
-interface PropertiesRefreshRecoveryContext {
-  committedContent: string;
-  document: Document;
-  editor: Editor;
-  file: TFile;
-  generation: number;
-  paneContainer: HTMLElement;
-  previousContent: string;
-  propertyKeys: readonly string[];
-  view: MarkdownView;
-}
-
-interface PropertiesRefreshNoticeState {
-  document: Document;
-  notice: Notice;
-  releaseButton: () => void;
-}
-
-interface PostDragReconciliationContext extends PropertiesRefreshRecoveryContext {
-  revision: number;
-}
-
 interface TrailingClickSuppression {
   clientX: number;
   clientY: number;
@@ -118,16 +81,6 @@ interface TrailingClickSuppression {
   timeoutId: number;
   window: Window;
 }
-
-type PropertiesRefreshRetryResult = "diverged" | "failed" | "refreshed" | "stale";
-type PropertiesRefreshContextState =
-  | { content: string; status: "current" }
-  | { status: "diverged" | "stale" };
-type CommittedValueWritebackResult = Extract<
-  ValueWritebackResult,
-  { status: "persistence-failed" | "written" }
->;
-type WrittenValueWritebackResult = Extract<ValueWritebackResult, { status: "written" }>;
 
 const TOUCH_MOVE_LISTENER_OPTIONS: AddEventListenerOptions = {
   capture: true,
@@ -159,14 +112,9 @@ export class PropertyValueOrderController {
   private initialized = false;
   private lifecycleGeneration = 0;
   private userFocusIntentGeneration = 0;
-  private readonly propertiesRefreshNotices = new Map<
-    HTMLElement,
-    PropertiesRefreshNoticeState
-  >();
-  private readonly postDragReconciliations = new Map<
-    HTMLElement,
-    PostDragReconciliationContext
-  >();
+  private readonly reconciliation: PropertyValueReconciler;
+  private editSession: ValueEditSession | null = null;
+  private keyboardDraft: object | null = null;
   private readonly registeredDocumentCleanups = new Map<Document, () => void>();
   private readonly registeredEventCleanups: Array<() => void> = [];
   private readonly plugin: Plugin;
@@ -175,6 +123,14 @@ export class PropertyValueOrderController {
   constructor(plugin: Plugin, getSettings: () => PropertyOrderSettings) {
     this.plugin = plugin;
     this.getSettings = getSettings;
+    this.reconciliation = new PropertyValueReconciler({
+      plugin,
+      t: (key) => this.t(key),
+      isLifecycleCurrent: (generation) => this.initialized && this.lifecycleGeneration === generation,
+      isOwned: (session) => this.isEditSessionOwned(session),
+      isOriginalDocumentActive: (session) => this.isOriginalDocumentActive(session),
+      focusAfterCommit: (session, target) => this.restoreEditorFocusAfterCommit(session, target),
+    });
   }
 
   initialize(): () => void {
@@ -208,14 +164,13 @@ export class PropertyValueOrderController {
         this.plugin.app.workspace.offref(windowCloseRef);
       });
       const layoutChangeRef = this.plugin.app.workspace.on("layout-change", () => {
-        this.pruneDisconnectedPropertiesRefreshNotices();
-        this.pruneDisconnectedPostDragReconciliations();
+        this.reconciliation.pruneDisconnected();
       });
       this.registerControllerEvent(layoutChangeRef, () => {
         this.plugin.app.workspace.offref(layoutChangeRef);
       });
       const editorChangeRef = this.plugin.app.workspace.on("editor-change", (editor) => {
-        this.handleEditorChange(editor);
+        this.reconciliation.handleEditorChange(editor);
       });
       this.registerControllerEvent(editorChangeRef, () => {
         this.plugin.app.workspace.offref(editorChangeRef);
@@ -226,6 +181,84 @@ export class PropertyValueOrderController {
     }
 
     return this.dispose;
+  }
+
+  prepareKeyboardReorder(paneElement: HTMLElement): KeyboardReorderDraft | null {
+    if (!this.initialized || this.editSession !== null) return null;
+    const pane = resolvePaneFileContext(this.plugin, paneElement);
+    const expectedContent = pane === null ? null : this.readExpectedContent(pane.editor);
+    if (pane === null || expectedContent === null) return null;
+    const contexts = getVisiblePropertyListContexts(pane.container)
+      .filter((context) => isTargetContextAlignedWithContent(context, expectedContent));
+    const properties = contexts.map((context) => ({
+      key: context.propertyKey,
+      values: getFrontmatterTextListPropertyValues(expectedContent, context.propertyKey) ?? [],
+      canSource: isSourceContextAlignedWithContent(context, expectedContent),
+    }));
+    if (!properties.some((property) => property.canSource && property.values.length > 0)) {
+      new Notice(this.t("keyboard.unavailable"));
+      return null;
+    }
+    const token = {};
+    const generation = this.lifecycleGeneration;
+    const originalPath = pane.file.path;
+    this.keyboardDraft = token;
+    let submitted = false;
+    return {
+      properties,
+      cancel: () => { if (this.keyboardDraft === token) this.keyboardDraft = null; },
+      submit: async (request) => {
+        if (submitted) return false;
+        submitted = true;
+        if (!this.initialized || this.lifecycleGeneration !== generation || this.keyboardDraft !== token) return false;
+        this.keyboardDraft = null;
+        const currentPane = resolvePaneFileContext(this.plugin, pane.container);
+        if (currentPane?.file !== pane.file || currentPane.view !== pane.view ||
+            currentPane.editor !== pane.editor || !isCurrentFileIdentity(this.plugin, pane.file, originalPath)) {
+          new Notice(this.t("notice.activeFileChanged"));
+          return false;
+        }
+        if (this.readExpectedContent(pane.editor) !== expectedContent || this.editSession !== null) {
+          new Notice(this.t("notice.contentChanged"));
+          return false;
+        }
+        const source = contexts.find((context) => context.propertyKey === request.sourceProperty);
+        const values = properties.find((property) => property.key === request.sourceProperty);
+        if (source === undefined || values?.canSource !== true || !Number.isInteger(request.sourceIndex) ||
+            request.sourceIndex < 0 || request.sourceIndex >= values.values.length) return false;
+        const pill = source.editorKind === "list-type-mismatch" ? source.container : source.pills[request.sourceIndex];
+        if (pill === undefined) return false;
+        const sourceContext = resolvePropertyPillContext(pill);
+        if (sourceContext === null) return false;
+        const destination = request.action === "move"
+          ? contexts.find((context) => context.propertyKey === request.targetProperty)
+          : source;
+        if (destination === undefined || (request.action === "move" && destination === source) ||
+            (request.action === "up" && request.sourceIndex === 0) ||
+            (request.action === "down" && request.sourceIndex === values.values.length - 1)) return false;
+        const session: ValueEditSession = {
+          context: sourceContext,
+          document: pane.container.ownerDocument,
+          editor: pane.editor,
+          expectedContent,
+          file: pane.file,
+          originalPath,
+          focusOwnerAtStart: pane.container.ownerDocument.activeElement,
+          focusIntentGeneration: this.userFocusIntentGeneration,
+          generation,
+          paneContainer: pane.container,
+          paneView: pane.view,
+          restoreEditorFocus: false,
+        };
+        this.editSession = session;
+        return this.commitValueEdit(session, {
+          context: destination,
+          kind: "drop",
+          mode: request.action === "move" ? "move" : "reorder",
+          slot: request.action === "move" ? "append" : request.sourceIndex + (request.action === "up" ? -1 : 2),
+        });
+      },
+    };
   }
 
   private registerControllerEvent(eventRef: EventRef, release: () => void): void {
@@ -253,8 +286,9 @@ export class PropertyValueOrderController {
 
     try {
       this.clearTrailingClickSuppression();
-      this.clearAllPropertiesRefreshNotices();
-      this.postDragReconciliations.clear();
+      this.reconciliation.dispose();
+      this.editSession = null;
+      this.keyboardDraft = null;
     } catch (error) {
       console.error("Property Order: failed to clear post-drag recovery state", error);
     } finally {
@@ -357,8 +391,8 @@ export class PropertyValueOrderController {
   private unregisterDocumentEvents(targetDocument: Document): void {
     try {
       this.clearInteractionForDocument(targetDocument);
-      this.clearPropertiesRefreshNoticesForDocument(targetDocument);
-      this.clearPostDragReconciliationsForDocument(targetDocument);
+      this.reconciliation.clearForDocument(targetDocument);
+      if (this.editSession?.document === targetDocument) this.editSession = null;
     } finally {
       this.registeredDocumentCleanups.get(targetDocument)?.();
     }
@@ -875,7 +909,7 @@ export class PropertyValueOrderController {
 
     if (
       expectedContent == null ||
-      !this.isSourceContextAlignedWithContent(context, expectedContent)
+      !isSourceContextAlignedWithContent(context, expectedContent)
     ) {
       new Notice(this.t("notice.propertiesOutOfSync"));
       this.clearInteractionState();
@@ -909,6 +943,7 @@ export class PropertyValueOrderController {
       editor: paneContext.editor,
       expectedContent,
       file: paneContext.file,
+      originalPath: paneContext.file.path,
       focusOwnerAtStart,
       focusIntentGeneration: this.userFocusIntentGeneration,
       generation: this.lifecycleGeneration,
@@ -924,6 +959,7 @@ export class PropertyValueOrderController {
       pointerType: pressedPointerType,
       target: null,
     };
+    this.editSession = this.dragState;
     this.pressedPill = null;
     this.pressedPointerType = null;
 
@@ -1073,7 +1109,7 @@ export class PropertyValueOrderController {
 
       if (
         invalidTarget?.reason === "non-list" &&
-        this.isDragStateActive(dragState) &&
+        this.isEditSessionActive(dragState) &&
         this.isOriginalDocumentActive(dragState)
       ) {
         new Notice(
@@ -1093,24 +1129,28 @@ export class PropertyValueOrderController {
       return;
     }
 
+    await this.commitValueEdit(dragState, target);
+  }
+
+  private async commitValueEdit(dragState: ValueEditSession, target: DropTarget): Promise<boolean> {
     try {
-      if (!this.isDragStateActive(dragState)) {
-        return;
+      if (!this.isEditSessionActive(dragState)) {
+        return false;
       }
 
       if (!this.isOriginalDocumentActive(dragState)) {
         new Notice(this.t("notice.activeFileChanged"));
-        return;
+        return false;
       }
 
       const currentContent = dragState.editor.getValue();
 
       if (
-        !this.isSourceContextAlignedWithContent(dragState.context, currentContent) ||
-        !this.isTargetContextAlignedWithContent(target.context, currentContent)
+        !isSourceContextAlignedWithContent(dragState.context, currentContent) ||
+        !isTargetContextAlignedWithContent(target.context, currentContent)
       ) {
         new Notice(this.t("notice.propertiesOutOfSync"));
-        return;
+        return false;
       }
 
       for (const propertyElement of new Set([
@@ -1123,7 +1163,7 @@ export class PropertyValueOrderController {
       const writebackResult = await writePropertyValueDrop({
         canFinalize: () => this.isOriginalDocumentActive(dragState),
         canWrite: () =>
-          this.isDropReadyForWrite(dragState, target),
+          this.isEditReadyForWrite(dragState, target),
         editor: dragState.editor,
         expectedContent: dragState.expectedContent,
         sourceContext: dragState.context,
@@ -1132,194 +1172,72 @@ export class PropertyValueOrderController {
         writebackFormat: this.getSettings().listWritebackFormat,
       });
 
-      if (!this.isDragOperationOwned(dragState)) {
-        return;
+      if (!this.isEditSessionOwned(dragState)) {
+        return false;
       }
 
       if (writebackResult.status === "persistence-failed") {
         if (this.isOriginalDocumentActive(dragState)) {
-          this.focusEditorAfterCommittedDrag(dragState, target);
-          this.trackPostDragReconciliation(dragState, writebackResult);
+          this.restoreEditorFocusAfterCommit(dragState, target);
+          this.reconciliation.track(dragState, writebackResult);
         }
         new Notice(this.t("notice.persistenceFailed"));
-        return;
+        return true;
       }
 
       if (!this.isOriginalDocumentActive(dragState)) {
         new Notice(this.t("notice.activeFileChanged"));
-        return;
+        return false;
       }
 
       if (writebackResult.status === "conflict") {
         new Notice(this.t("notice.contentChanged"));
-        return;
+        return false;
       }
 
       if (writebackResult.status === "aborted") {
-        return;
+        return false;
       }
 
       if (writebackResult.status === "diagnostic") {
         this.maybeShowDiagnostic(writebackResult.messageKey);
-        return;
+        return false;
       }
 
       if (writebackResult.status === "failed") {
         new Notice(this.t("notice.reorderFailed"));
-        return;
+        return false;
       }
 
       if (writebackResult.status === "diverged") {
         new Notice(this.t("notice.writebackDiverged"));
-        return;
+        return false;
       }
 
       if (writebackResult.status === "written") {
-        await this.finalizeWrittenDrag(dragState, target, writebackResult);
-        this.trackPostDragReconciliation(dragState, writebackResult);
+        await this.reconciliation.finalize(dragState, target, writebackResult);
+        this.reconciliation.track(dragState, writebackResult);
+        return true;
       }
+      return false;
     } catch (error) {
-      if (this.isDragOperationOwned(dragState)) {
+      if (this.isEditSessionOwned(dragState)) {
         console.error("Property Order: failed to write frontmatter", error);
         new Notice(this.t("notice.reorderFailed"));
       }
+      return false;
     } finally {
+      if (this.editSession === dragState) this.editSession = null;
       if (this.dragState === dragState) {
         this.clearInteractionState();
       }
     }
   }
 
-  private async finalizeWrittenDrag(
-    dragState: DragState,
-    target: DropTarget,
-    writebackResult: WrittenValueWritebackResult,
-  ): Promise<void> {
-    this.focusEditorAfterCommittedDrag(dragState, target);
-
-    for (let attempt = 0; attempt < 4; attempt += 1) {
-      await this.waitForHostUiSettlement(dragState.document);
-
-      if (!this.isDragOperationOwned(dragState)) {
-        return;
-      }
-
-      if (!this.isOriginalDocumentActive(dragState)) {
-        new Notice(this.t("notice.activeFileChanged"));
-        return;
-      }
-
-      const currentContent = dragState.editor.getValue();
-      const expectedContent = this.resolvePostCommitContent(
-        currentContent,
-        writebackResult,
-      );
-
-      if (expectedContent == null) {
-        new Notice(this.t("notice.writebackDiverged"));
-        return;
-      }
-
-      let propertiesAligned = this.arePropertiesAlignedWithContent(
-        dragState.paneContainer,
-        writebackResult.changedPropertyKeys,
-        expectedContent,
-      );
-
-      if (!propertiesAligned) {
-        reconcileMetadataEditorProperties({
-          canRefresh: () =>
-            this.isDragOperationOwned(dragState) &&
-            this.isOriginalDocumentActive(dragState),
-          document: dragState.document,
-          editor: dragState.editor,
-          expectedContent,
-          file: dragState.file,
-          isAligned: () =>
-            this.arePropertiesAlignedWithContent(
-              dragState.paneContainer,
-              writebackResult.changedPropertyKeys,
-              expectedContent,
-            ),
-          paneContainer: dragState.paneContainer,
-          propertyKeys: writebackResult.changedPropertyKeys,
-          view: dragState.paneView,
-        });
-        await this.waitForHostUiSettlement(dragState.document);
-
-        if (!this.isDragOperationOwned(dragState)) {
-          return;
-        }
-
-        if (!this.isOriginalDocumentActive(dragState)) {
-          new Notice(this.t("notice.activeFileChanged"));
-          return;
-        }
-
-        const settledContent = dragState.editor.getValue();
-        const settledExpectedContent = this.resolvePostCommitContent(
-          settledContent,
-          writebackResult,
-        );
-
-        if (settledExpectedContent == null) {
-          new Notice(this.t("notice.writebackDiverged"));
-          return;
-        }
-
-        if (settledExpectedContent !== expectedContent) {
-          continue;
-        }
-
-        propertiesAligned = this.arePropertiesAlignedWithContent(
-          dragState.paneContainer,
-          writebackResult.changedPropertyKeys,
-          expectedContent,
-        );
-      }
-
-      if (!propertiesAligned) {
-        this.showPropertiesRefreshRecovery({
-          committedContent: writebackResult.committedContent,
-          document: dragState.document,
-          editor: dragState.editor,
-          file: dragState.file,
-          generation: dragState.generation,
-          paneContainer: dragState.paneContainer,
-          previousContent: writebackResult.previousContent,
-          propertyKeys: writebackResult.changedPropertyKeys,
-          view: dragState.paneView,
-        });
-      } else {
-        this.clearPropertiesRefreshNotice(dragState.paneContainer);
-      }
-
-      this.focusEditorAfterCommittedDrag(dragState, target);
-      return;
-    }
-
-    // Repeated exact undo/redo changes are valid editor history, not a third-party
-    // divergence. Leave the current buffer untouched and only repair focus when
-    // the user has not deliberately moved it elsewhere.
-    this.focusEditorAfterCommittedDrag(dragState, target);
-  }
-
-  private resolvePostCommitContent(
-    currentContent: string,
-    writebackResult: WrittenValueWritebackResult,
-  ): string | null {
-    if (currentContent === writebackResult.committedContent) {
-      return writebackResult.committedContent;
-    }
-
-    return currentContent === writebackResult.previousContent
-      ? writebackResult.previousContent
-      : null;
-  }
-
-  private focusEditorAfterCommittedDrag(dragState: DragState, target: DropTarget): void {
+  private restoreEditorFocusAfterCommit(dragState: ValueEditSession, target: DropTarget): void {
     if (
-      !this.isDragOperationOwned(dragState) ||
+      dragState.restoreEditorFocus === false ||
+      !this.isEditSessionOwned(dragState) ||
       !this.isOriginalDocumentActive(dragState) ||
       this.userFocusIntentGeneration !== dragState.focusIntentGeneration
     ) {
@@ -1334,7 +1252,7 @@ export class PropertyValueOrderController {
       console.warn("Property Order: failed to inspect the Markdown editor focus", error);
     }
 
-    if (!this.canRepairPostDragFocus(dragState, target)) {
+    if (!this.canRestoreEditorFocus(dragState, target)) {
       return;
     }
 
@@ -1345,7 +1263,7 @@ export class PropertyValueOrderController {
     }
   }
 
-  private canRepairPostDragFocus(dragState: DragState, target: DropTarget): boolean {
+  private canRestoreEditorFocus(dragState: ValueEditSession, target: DropTarget): boolean {
     const activeElement = dragState.document.activeElement;
 
     if (
@@ -1382,78 +1300,21 @@ export class PropertyValueOrderController {
     );
   }
 
-  private isOriginalDocumentActive(dragState: DragState): boolean {
+  private isOriginalDocumentActive(dragState: ValueEditSession): boolean {
     const currentPaneContext = resolvePaneFileContext(this.plugin, dragState.paneContainer);
     return (
       currentPaneContext?.view === dragState.paneView &&
       currentPaneContext?.editor === dragState.editor &&
-      isSameNoteDocument(dragState.file.path, currentPaneContext.file.path)
+      currentPaneContext.file === dragState.file &&
+      isCurrentFileIdentity(this.plugin, dragState.file, dragState.originalPath)
     );
   }
 
-  private isSourceContextAlignedWithContent(
-    context: PropertyContainerContext,
-    content: string,
-  ): boolean {
-    return this.isListContextAlignedWithContent(context, content, false);
-  }
-
-  private isTargetContextAlignedWithContent(
-    context: PropertyContainerContext,
-    content: string,
-  ): boolean {
-    return this.isListContextAlignedWithContent(context, content, true);
-  }
-
-  private isListContextAlignedWithContent(
-    context: PropertyContainerContext,
-    content: string,
-    allowMultipleMismatchValues: boolean,
-  ): boolean {
-    if (context.editorKind === "list-type-mismatch") {
-      return isListTypeMismatchContextAlignedWithContent(
-        context,
-        content,
-        allowMultipleMismatchValues,
-      );
-    }
-
-    return this.isMultiSelectContextAlignedWithContent(context, content);
-  }
-
-  private isMultiSelectContextAlignedWithContent(
-    context: PropertyContainerContext,
-    content: string,
-  ): boolean {
-    if (context.editorKind !== "multi-select") {
-      return false;
-    }
-
-    const expectedValues = getFrontmatterTextListPropertyValues(content, context.propertyKey);
-    const visibleValues = getPropertyPillValueEvidence(context);
-
-    return arePropertyListValuesAligned(expectedValues, visibleValues);
-  }
-
-  private arePropertiesAlignedWithContent(
-    paneContainer: HTMLElement,
-    propertyKeys: readonly string[],
-    content: string,
-  ): boolean {
-    return propertyKeys.every((propertyKey) => {
-      const context = findPropertyListContextByKey(paneContainer, propertyKey);
-      return (
-        context != null &&
-        this.isListContextAlignedWithContent(context, content, true)
-      );
-    });
-  }
-
-  private isDropReadyForWrite(dragState: DragState, target: DropTarget): boolean {
+  private isEditReadyForWrite(dragState: ValueEditSession, target: DropTarget): boolean {
     if (
-      !this.isDragStateActive(dragState) ||
+      !this.isEditSessionActive(dragState) ||
       !this.isOriginalDocumentActive(dragState) ||
-      !this.isDropTargetActive(dragState, target)
+      !this.isTargetContextCurrent(dragState, target)
     ) {
       return false;
     }
@@ -1462,435 +1323,24 @@ export class PropertyValueOrderController {
 
     return (
       currentContent != null &&
-      this.isSourceContextAlignedWithContent(dragState.context, currentContent) &&
-      this.isTargetContextAlignedWithContent(target.context, currentContent)
+      isSourceContextAlignedWithContent(dragState.context, currentContent) &&
+      isTargetContextAlignedWithContent(target.context, currentContent)
     );
   }
 
-  private waitForHostUiSettlement(targetDocument: Document): Promise<void> {
-    const targetWindow = targetDocument.defaultView;
-
-    return targetWindow == null
-      ? Promise.resolve()
-      : new Promise((resolve) => targetWindow.setTimeout(resolve, 0));
-  }
-
-  private trackPostDragReconciliation(
-    dragState: DragState,
-    writebackResult: CommittedValueWritebackResult,
-  ): void {
-    const context: PostDragReconciliationContext = {
-      committedContent: writebackResult.committedContent,
-      document: dragState.document,
-      editor: dragState.editor,
-      file: dragState.file,
-      generation: dragState.generation,
-      paneContainer: dragState.paneContainer,
-      previousContent: writebackResult.previousContent,
-      propertyKeys: writebackResult.changedPropertyKeys,
-      revision: 0,
-      view: dragState.paneView,
-    };
-
-    if (this.getPropertiesRefreshContextState(context).status === "current") {
-      this.postDragReconciliations.set(context.paneContainer, context);
-    }
-  }
-
-  private handleEditorChange(editor: Editor): void {
-    for (const context of Array.from(this.postDragReconciliations.values())) {
-      if (context.editor !== editor) {
-        continue;
-      }
-
-      const state = this.getPropertiesRefreshContextState(context);
-
-      if (state.status !== "current") {
-        this.clearPostDragReconciliation(context.paneContainer);
-        continue;
-      }
-
-      context.revision += 1;
-      const revision = context.revision;
-      void this.reconcilePostDragEditorChange(context, revision).catch((error: unknown) => {
-        console.warn("Property Order: failed to reconcile Properties after editor change", error);
-      });
-    }
-  }
-
-  private async reconcilePostDragEditorChange(
-    context: PostDragReconciliationContext,
-    revision: number,
-  ): Promise<void> {
-    await this.waitForHostUiSettlement(context.document);
-
-    if (!this.isPostDragReconciliationCurrent(context, revision)) {
-      return;
-    }
-
-    const state = this.getPropertiesRefreshContextState(context);
-
-    if (state.status !== "current") {
-      this.clearPostDragReconciliation(context.paneContainer);
-      return;
-    }
-
-    const expectedContent = state.content;
-
-    if (
-      this.arePropertiesAlignedWithContent(
-        context.paneContainer,
-        context.propertyKeys,
-        expectedContent,
-      )
-    ) {
-      this.clearPropertiesRefreshNotice(context.paneContainer);
-      return;
-    }
-
-    reconcileMetadataEditorProperties({
-      canRefresh: () => {
-        if (!this.isPostDragReconciliationCurrent(context, revision)) {
-          return false;
-        }
-
-        const currentState = this.getPropertiesRefreshContextState(context);
-        return currentState.status === "current" && currentState.content === expectedContent;
-      },
-      document: context.document,
-      editor: context.editor,
-      expectedContent,
-      file: context.file,
-      isAligned: () =>
-        this.arePropertiesAlignedWithContent(
-          context.paneContainer,
-          context.propertyKeys,
-          expectedContent,
-        ),
-      paneContainer: context.paneContainer,
-      propertyKeys: context.propertyKeys,
-      view: context.view,
-    });
-
-    await this.waitForHostUiSettlement(context.document);
-
-    if (!this.isPostDragReconciliationCurrent(context, revision)) {
-      return;
-    }
-
-    const settledState = this.getPropertiesRefreshContextState(context);
-
-    if (settledState.status !== "current") {
-      this.clearPostDragReconciliation(context.paneContainer);
-      return;
-    }
-
-    if (settledState.content !== expectedContent) {
-      return;
-    }
-
-    if (
-      this.arePropertiesAlignedWithContent(
-        context.paneContainer,
-        context.propertyKeys,
-        expectedContent,
-      )
-    ) {
-      this.clearPropertiesRefreshNotice(context.paneContainer);
-      return;
-    }
-
-    this.showPropertiesRefreshRecovery(context);
-  }
-
-  private isPostDragReconciliationCurrent(
-    context: PostDragReconciliationContext,
-    revision: number,
-  ): boolean {
-    return (
-      this.postDragReconciliations.get(context.paneContainer) === context &&
-      context.revision === revision
-    );
-  }
-
-  private clearPostDragReconciliation(paneContainer: HTMLElement): void {
-    this.postDragReconciliations.delete(paneContainer);
-    this.clearPropertiesRefreshNotice(paneContainer);
-  }
-
-  private clearPostDragReconciliationsForDocument(targetDocument: Document): void {
-    for (const [paneContainer, context] of this.postDragReconciliations) {
-      if (context.document === targetDocument) {
-        this.clearPostDragReconciliation(paneContainer);
-      }
-    }
-  }
-
-  private pruneDisconnectedPostDragReconciliations(): void {
-    for (const paneContainer of Array.from(this.postDragReconciliations.keys())) {
-      if (!paneContainer.isConnected) {
-        this.clearPostDragReconciliation(paneContainer);
-      }
-    }
-  }
-
-  private showPropertiesRefreshRecovery(context: PropertiesRefreshRecoveryContext): void {
-    this.clearPropertiesRefreshNotice(context.paneContainer);
-    const notice = new Notice(this.t("notice.propertiesRefreshNeeded"), 0);
-    const button = notice.messageEl.createEl("button", {
-      cls: ["mod-cta", "property-order-notice-action"],
-      text: this.t("notice.propertiesRefreshAction"),
-    });
-    button.type = "button";
-
-    const handleClick = (): void => {
-      button.disabled = true;
-      void this.retryPropertiesRefresh(context)
-        .then((result) => {
-          if (
-            this.propertiesRefreshNotices.get(context.paneContainer)?.notice !== notice
-          ) {
-            return;
-          }
-
-          if (result === "refreshed") {
-            this.clearPropertiesRefreshNotice(context.paneContainer);
-            new Notice(this.t("notice.propertiesRefreshSucceeded"));
-            return;
-          }
-
-          const messageKey =
-            result === "diverged"
-              ? "notice.writebackDiverged"
-              : result === "stale"
-                ? "notice.activeFileChanged"
-                : "notice.propertiesRefreshFailed";
-          this.releasePropertiesRefreshButton(context.paneContainer, notice);
-          notice.setMessage(this.t(messageKey));
-        })
-        .catch((error: unknown) => {
-          console.error("Property Order: failed to retry the Properties refresh", error);
-
-          if (
-            this.propertiesRefreshNotices.get(context.paneContainer)?.notice === notice
-          ) {
-            this.releasePropertiesRefreshButton(context.paneContainer, notice);
-            notice.setMessage(this.t("notice.propertiesRefreshFailed"));
-          }
-        });
-    };
-
-    button.addEventListener("click", handleClick, { once: true });
-    this.propertiesRefreshNotices.set(context.paneContainer, {
-      document: context.document,
-      notice,
-      releaseButton: () => button.removeEventListener("click", handleClick),
-    });
-  }
-
-  private async retryPropertiesRefresh(
-    context: PropertiesRefreshRecoveryContext,
-  ): Promise<PropertiesRefreshRetryResult> {
-    for (let attempt = 0; attempt < 4; attempt += 1) {
-      const initialState = this.getPropertiesRefreshContextState(context);
-
-      if (initialState.status !== "current") {
-        return initialState.status;
-      }
-
-      const expectedContent = initialState.content;
-
-      if (
-        this.arePropertiesAlignedWithContent(
-          context.paneContainer,
-          context.propertyKeys,
-          expectedContent,
-        )
-      ) {
-        return "refreshed";
-      }
-
-      for (const propertyKey of context.propertyKeys) {
-        const propertyElement = findPropertyListContextByKey(
-          context.paneContainer,
-          propertyKey,
-        )?.propertyElement;
-
-        if (propertyElement != null) {
-          blurFocusedPropertyEditor(propertyElement);
-        }
-      }
-
-      const beforePublicRefresh = this.getPropertiesRefreshContextState(context);
-
-      if (beforePublicRefresh.status !== "current") {
-        return beforePublicRefresh.status;
-      }
-      if (beforePublicRefresh.content !== expectedContent) {
-        continue;
-      }
-
-      try {
-        context.view.setViewData(expectedContent, false);
-      } catch (error) {
-        console.warn("Property Order: failed to retry the public Properties refresh", error);
-      }
-
-      await this.waitForHostUiSettlement(context.document);
-      const afterPublicRefresh = this.getPropertiesRefreshContextState(context);
-
-      if (afterPublicRefresh.status !== "current") {
-        return afterPublicRefresh.status;
-      }
-      if (afterPublicRefresh.content !== expectedContent) {
-        continue;
-      }
-
-      if (
-        this.arePropertiesAlignedWithContent(
-          context.paneContainer,
-          context.propertyKeys,
-          expectedContent,
-        )
-      ) {
-        return "refreshed";
-      }
-
-      reconcileMetadataEditorProperties({
-        canRefresh: () => {
-          const state = this.getPropertiesRefreshContextState(context);
-          return state.status === "current" && state.content === expectedContent;
-        },
-        document: context.document,
-        editor: context.editor,
-        expectedContent,
-        file: context.file,
-        isAligned: () =>
-          this.arePropertiesAlignedWithContent(
-            context.paneContainer,
-            context.propertyKeys,
-            expectedContent,
-          ),
-        paneContainer: context.paneContainer,
-        propertyKeys: context.propertyKeys,
-        view: context.view,
-      });
-
-      await this.waitForHostUiSettlement(context.document);
-      const afterPrivateRefresh = this.getPropertiesRefreshContextState(context);
-
-      if (afterPrivateRefresh.status !== "current") {
-        return afterPrivateRefresh.status;
-      }
-      if (afterPrivateRefresh.content !== expectedContent) {
-        continue;
-      }
-
-      return this.arePropertiesAlignedWithContent(
-        context.paneContainer,
-        context.propertyKeys,
-        expectedContent,
-      )
-        ? "refreshed"
-        : "failed";
-    }
-
-    return "failed";
-  }
-
-  private getPropertiesRefreshContextState(
-    context: PropertiesRefreshRecoveryContext,
-  ): PropertiesRefreshContextState {
-    if (
-      !this.initialized ||
-      this.lifecycleGeneration !== context.generation ||
-      !context.paneContainer.isConnected ||
-      context.paneContainer.ownerDocument !== context.document ||
-      context.view.containerEl.ownerDocument !== context.document
-    ) {
-      return { status: "stale" };
-    }
-
-    const paneContext = resolvePaneFileContext(this.plugin, context.paneContainer);
-
-    if (
-      paneContext?.view !== context.view ||
-      paneContext.editor !== context.editor ||
-      !isSameNoteDocument(context.file.path, paneContext.file.path)
-    ) {
-      return { status: "stale" };
-    }
-
-    const currentContent = context.editor.getValue();
-
-    if (currentContent === context.committedContent) {
-      return { content: context.committedContent, status: "current" };
-    }
-    if (currentContent === context.previousContent) {
-      return { content: context.previousContent, status: "current" };
-    }
-
-    return { status: "diverged" };
-  }
-
-  private releasePropertiesRefreshButton(
-    paneContainer: HTMLElement,
-    notice: Notice,
-  ): void {
-    const state = this.propertiesRefreshNotices.get(paneContainer);
-
-    if (state?.notice === notice) {
-      state.releaseButton();
-    }
-  }
-
-  private clearPropertiesRefreshNotice(paneContainer: HTMLElement): void {
-    const state = this.propertiesRefreshNotices.get(paneContainer);
-    this.propertiesRefreshNotices.delete(paneContainer);
-
-    if (state == null) {
-      return;
-    }
-
-    this.runInteractionCleanup(state.releaseButton);
-    this.runInteractionCleanup(() => state.notice.hide());
-  }
-
-  private clearPropertiesRefreshNoticesForDocument(targetDocument: Document): void {
-    for (const [paneContainer, state] of this.propertiesRefreshNotices) {
-      if (state.document === targetDocument) {
-        this.clearPropertiesRefreshNotice(paneContainer);
-      }
-    }
-  }
-
-  private pruneDisconnectedPropertiesRefreshNotices(): void {
-    for (const paneContainer of Array.from(this.propertiesRefreshNotices.keys())) {
-      if (!paneContainer.isConnected) {
-        this.clearPropertiesRefreshNotice(paneContainer);
-      }
-    }
-  }
-
-  private clearAllPropertiesRefreshNotices(): void {
-    for (const paneContainer of Array.from(this.propertiesRefreshNotices.keys())) {
-      this.clearPropertiesRefreshNotice(paneContainer);
-    }
-  }
-
-  private isDragOperationOwned(dragState: DragState): boolean {
+  private isEditSessionOwned(dragState: ValueEditSession): boolean {
     return (
       this.initialized &&
       this.lifecycleGeneration === dragState.generation &&
-      this.dragState === dragState
+      this.editSession === dragState
     );
   }
 
-  private isDragStateActive(dragState: DragState): boolean {
-    return this.isDragOperationOwned(dragState) && this.isDragSourceConnected(dragState);
+  private isEditSessionActive(dragState: ValueEditSession): boolean {
+    return this.isEditSessionOwned(dragState) && this.isSourceContextCurrent(dragState);
   }
 
-  private isDropTargetActive(dragState: DragState, target: DropTarget): boolean {
+  private isTargetContextCurrent(dragState: ValueEditSession, target: DropTarget): boolean {
     const { container, propertyElement, propertyKey } = target.context;
 
     if (
@@ -1917,7 +1367,7 @@ export class PropertyValueOrderController {
     );
   }
 
-  private isDragSourceConnected(dragState: DragState): boolean {
+  private isSourceContextCurrent(dragState: ValueEditSession): boolean {
     const { container, pill, propertyElement } = dragState.context;
     const { document: targetDocument, paneContainer } = dragState;
 
@@ -1989,6 +1439,7 @@ export class PropertyValueOrderController {
     const dragState = this.dragState;
     const restoreNativeDragState = this.restoreNativeDragState;
     this.dragState = null;
+    if (this.editSession === dragState) this.editSession = null;
     this.restoreNativeDragState = null;
     this.pressedPill = null;
     this.pressedPointerType = null;
@@ -2078,76 +1529,4 @@ export class PropertyValueOrderController {
   private t(messageKey: TranslationKey): string {
     return t(messageKey, this.getSettings().language);
   }
-}
-
-function isListTypeMismatchContextAlignedWithContent(
-  context: PropertyContainerContext,
-  content: string,
-  allowMultipleValues: boolean,
-): boolean {
-  const expectedTextValues = getFrontmatterTextListPropertyValues(
-    content,
-    context.propertyKey,
-  );
-  const expectedScalars = getFrontmatterListPropertyScalars(
-    content,
-    context.propertyKey,
-    true,
-  );
-  const displayedValue = getListTypeMismatchDisplayValue(context);
-
-  if (
-    expectedTextValues == null ||
-    expectedScalars == null ||
-    displayedValue == null ||
-    expectedTextValues.length !== expectedScalars.length
-  ) {
-    return false;
-  }
-
-  if (expectedTextValues.length === 0) {
-    return displayedValue === "" || displayedValue === "null" || displayedValue === "~";
-  }
-
-  if (expectedTextValues.length === 1) {
-    const expectedScalar = expectedScalars[0];
-    return (
-      expectedScalar != null &&
-      (displayedValue === expectedTextValues[0] || displayedValue === expectedScalar.value)
-    );
-  }
-
-  if (!allowMultipleValues) {
-    return false;
-  }
-
-  const displayedScalars = parseMismatchDisplayScalars(displayedValue);
-  return (
-    displayedScalars != null &&
-    displayedScalars.length === expectedScalars.length &&
-    expectedScalars.every((expectedScalar, index) => {
-      const displayedScalar = displayedScalars[index];
-
-      if (displayedScalar == null || displayedScalar.value !== expectedScalar.value) {
-        return false;
-      }
-
-      return (
-        displayedScalar.kind === expectedScalar.kind ||
-        (expectedScalar.kind !== "string" && displayedScalar.kind === "string")
-      );
-    })
-  );
-}
-
-function parseMismatchDisplayScalars(displayedValue: string): readonly FrontmatterScalar[] | null {
-  const trimmedValue = displayedValue.trim();
-  const flowValue =
-    trimmedValue.startsWith("[") && trimmedValue.endsWith("]")
-      ? trimmedValue
-      : `[${trimmedValue}]`;
-  return getFrontmatterListPropertyScalars(
-    `---\nproperty-order-value: ${flowValue}\n---\n`,
-    "property-order-value",
-  );
 }

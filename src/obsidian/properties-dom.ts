@@ -42,6 +42,28 @@ const PROPERTY_KEY_SELECTORS = [
   ".metadata-property-name",
 ];
 
+export function getVisiblePropertyListContexts(pane: HTMLElement): PropertyContainerContext[] {
+  const contexts = Array.from(pane.querySelectorAll<HTMLElement>(PROPERTY_ELEMENT_SELECTOR))
+    .filter((element) => isPropertyElementExposed(element, pane))
+    .map(resolvePropertyElementListContext)
+    .filter((context): context is PropertyContainerContext => context !== null);
+  // Multiple visible native editors for one key cannot supply an unambiguous choice.
+  const counts = new Map<string, number>();
+  for (const context of contexts) counts.set(context.propertyKey, (counts.get(context.propertyKey) ?? 0) + 1);
+  return contexts.filter((context) => counts.get(context.propertyKey) === 1);
+}
+
+function isPropertyElementExposed(element: HTMLElement, pane: HTMLElement): boolean {
+  if (!element.isConnected || !pane.contains(element)) return false;
+  for (let current: HTMLElement | null = element; current !== null; current = current.parentElement) {
+    const style = current.ownerDocument.defaultView?.getComputedStyle(current);
+    if (current.hidden || current.getAttribute("aria-hidden") === "true" ||
+        style?.display === "none" || style?.visibility === "hidden" || style?.visibility === "collapse") return false;
+    if (current === pane) return true;
+  }
+  return false;
+}
+
 export function resolvePropertyPillContext(pill: HTMLElement): PropertyPillContext | null {
   const container = pill.closest<HTMLElement>(PROPERTY_CONTAINER_SELECTOR);
 

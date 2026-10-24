@@ -5,6 +5,19 @@ follow the repository's Git tags; entries summarize the corresponding commit his
 
 ## [Unreleased]
 
+### Added
+
+- Add a keyboard command to move property values up, down, or to another list through the existing safe editor pipeline.
+- Show real before/after list-format examples, including text conversion and flow-list comment loss.
+
+### Fixed
+
+- Bind edits and recovery to the original file object and path before finalizing.
+
+### Changed
+
+- Separate interaction, reconciliation, and recovery notices; synchronize all 12 guides and bilingual contracts.
+
 ## [0.10.2] - 2026-10-24
 
 - Preserve external settings changes when a local save is queued, and keep later local edits during an in-flight save.

@@ -1,9 +1,9 @@
-import { Notice, Plugin } from "obsidian";
+import { MarkdownView, Notice, Plugin } from "obsidian";
 
 import { KeySuggestionOrderController } from "../features/key-order/key-suggestion-controller";
 import { PropertyValueOrderController } from "../features/value-order/value-drag-controller";
 import { ValueSuggestionOrderController } from "../features/value-suggestions/value-suggestion-controller";
-import { t } from "../shared/i18n";
+import { getResolvedLocaleCode, t } from "../shared/i18n";
 import {
   createDefaultSettings,
   hasFutureSettingsSchema,
@@ -12,6 +12,7 @@ import {
 } from "../shared/settings";
 import type { PropertyOrderSettings } from "../shared/types";
 import { PropertyOrderSettingTab } from "./settings-tab";
+import { KeyboardValueOrderModal } from "./keyboard-value-order-modal";
 
 export const VALUE_DRAG_ENABLED_CLASS = "property-order-value-drag-enabled";
 const STALE_SETTINGS_INSTANCE_ERROR =
@@ -224,6 +225,28 @@ export default class PropertyOrderPlugin extends Plugin {
       );
       this.registerController(valueOrderController.dispose);
       valueOrderController.initialize();
+      let keyboardModal: KeyboardValueOrderModal | null = null;
+      this.registerController(() => { keyboardModal?.dispose(); keyboardModal = null; });
+      this.addCommand({
+        id: "reorder-property-values",
+        name: t("keyboard.command", this.propertyOrderSettings.language),
+        checkCallback: (checking) => {
+          const view = this.app.workspace.getActiveViewOfType(MarkdownView);
+          if (view?.file == null || !this.isLifecycleCurrent(lifecycleEpoch)) return false;
+          if (!checking) {
+            keyboardModal?.dispose();
+            const draft = valueOrderController.prepareKeyboardReorder(view.containerEl);
+            if (draft !== null) {
+              keyboardModal = new KeyboardValueOrderModal(
+                this.app, draft, (key) => t(key, this.propertyOrderSettings.language),
+                getResolvedLocaleCode(this.propertyOrderSettings.language) === "ar" ? "rtl" : "ltr",
+              );
+              keyboardModal.open();
+            }
+          }
+          return true;
+        },
+      });
 
       this.keySuggestionOrderController = new KeySuggestionOrderController(
         this,

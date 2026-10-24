@@ -21,7 +21,9 @@ The plugin changes only content involved in the current action, and successful c
 ## Property-value order
 
 - Support top-level flow and block lists rendered by Obsidian Properties as pills.
-- Support same-property reorder and, when enabled, moves between supported properties in the same leaf and file.
+- Support same-property reorder and moves between supported properties in the same leaf and file. Pointer moves between properties require the cross-property drag setting to be enabled.
+- The command palette provides a value-reordering entry point: select the source property and value from visible Properties in the current Markdown pane, then move it up, down, or to the end of another supported property. No shortcut is assigned by default. The command remains available when dragging is disabled; the cross-property drag setting applies only to pointer operations, not explicit keyboard moves.
+- Before submission, cancelling selection or pressing Escape leaves the note unchanged. Once updating starts, closure waits for completion so an already-started move is not presented as a cancellable draft. A file-object, list-content, or plugin-lifecycle change during selection invalidates that choice; users must reopen the command so stale positions cannot be written into newer content.
 
 - Whether a property can participate in value dragging is determined by how Obsidian Properties presents its type. A normal multi-value editor can participate, and a type-mismatch row can also participate when Obsidian still exposes clear native list evidence.
 - An empty value, `[]`, or one supported scalar can be treated as a logical text list: a scalar may be moved out or receive a moved value. If Obsidian collapses a mixed array into one field, the plugin never guesses a source item; it may only append when the displayed value maps unambiguously to the current YAML.
@@ -30,13 +32,13 @@ The plugin changes only content involved in the current action, and successful c
 - On mobile, a native value-menu action arms one pill for 15 seconds. The next touch or pen movement on that same pill starts drag after a small threshold, without another long press. Tapping elsewhere, Escape, timeout, unload, or invalidated DOM cancels the armed state.
 - Drop geometry follows the container's inline direction, including wrapped rows in RTL layouts. Dragging near a scrollable Properties edge advances the applicable scroll container by a bounded step. A polite live region announces drag start and target-state changes, and reduced-motion preference disables preview and indicator transitions.
 
-- Writeback mode can be `preserve`, `flow`, or `block`. Same-property reorders and cross-property moves follow the same rules, and each successful drag creates one undo step.
+- Writeback mode can be `preserve`, `flow`, or `block`, with `preserve` as the default. Settings show the same input before and after each format to explain non-text values becoming strings and comments or blank lines that flow syntax cannot retain. Same-property reorders and cross-property moves use the same rules; each successful pointer or keyboard operation creates one undo step.
 - The plugin schedules persistence and refreshes Properties only after the editor content exactly matches the planned result. If the content changes before commit, the operation is cancelled. If the content was already committed but persistence scheduling later fails, the committed content remains and the user is told to save manually.
 - After a successful write, visible Properties must reconcile with the current editor state and support immediate undo and redo. If automatic refresh fails, the plugin offers a Refresh Properties action and recommends reopening the note only after that retry also fails.
 - The plugin never manufactures success by reopening a note automatically, writing directly through the Vault, using native property setters, manually relocating pills, or adding an automatic rollback transaction. No-op, cancellation, conflict, and failure paths never reformat unrelated content.
 
-- After an exact commit, platform undo and redo work immediately without first clicking the note body. No-op, cancellation, rejection, conflict, or an ineffective transaction never forces editor focus.
-- If Properties reconstruction or reconciliation causes the editor to lose focus, the plugin may restore it only while the user has not deliberately focused another control, pane, or window.
+- After an exact pointer-drag commit, platform undo and redo work immediately without first clicking the note body. No-op, cancellation, rejection, conflict, or an ineffective transaction never forces editor focus.
+- For pointer dragging, if Properties reconstruction or reconciliation causes the editor to lose focus, the plugin may restore it only while the user has not deliberately focused another control, pane, or window. The keyboard dialog keeps its focus during updating and uses Obsidian Modal’s normal focus restoration when it closes.
 - If the user immediately undoes a drag while Properties is refreshing, the editor returns to the exact text from before the drag. The plugin must accept that undo without reporting a content conflict or reapplying the undone change.
 - File, leaf, source/target content, or DOM identity changes cancel the transaction without writing another file or overwriting newer content.
 - Dragging over a property in the same pane that has positive native non-list evidence corroborated by scalar storage shows a rejected target without an insertion indicator. A localized Notice appears only when released on that target, not while merely passing over it; an unknown host row cancels silently rather than being mislabeled.
@@ -90,7 +92,7 @@ The plugin changes only content involved in the current action, and successful c
 - No nested lists, object lists, multiline flow sequences, source-mode drag, or cross-file moves.
 - Forced block-to-flow conversion may discard item comments and blank lines that only block form can represent.
 - Mobile reorder extends Obsidian's native Edit, Remove from list, and Copy menu instead of replacing it. If the shared host menu is unavailable, the plugin adds nothing and leaves native behavior unchanged.
-- Property-value reorder supports pointer input only and has no direct keyboard reorder command. Drag-status announcements describe pointer-drag state but do not provide a keyboard reorder interaction.
+- The keyboard command requires visible, verifiable Properties in the current Markdown pane. It does not infer properties or values from a source-mode cursor and does not move values across files.
 - The plugin does not perform a second non-undoable Vault write solely to restore a disk-specific newline convention after Obsidian saves an editor transaction.
 - Key-suggestion enhancement depends on recognizable Obsidian DOM structure. If the host changes in a way the plugin cannot identify safely, the enhancement stops and native suggestion behavior is preserved.
 - Only notes exposed by Obsidian as Properties are in scope; real-UI writeback is not promised for CR-only documents that the host does not expose.

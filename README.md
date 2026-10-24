@@ -2,7 +2,7 @@
 
 [English](https://github.com/ZHYX91/obsidian-property-order/blob/main/README.md) · [简体中文](https://github.com/ZHYX91/obsidian-property-order/blob/main/docs/i18n/README.zh-CN.md) · [繁體中文](https://github.com/ZHYX91/obsidian-property-order/blob/main/docs/i18n/README.zh-TW.md) · [日本語](https://github.com/ZHYX91/obsidian-property-order/blob/main/docs/i18n/README.ja-JP.md) · [한국어](https://github.com/ZHYX91/obsidian-property-order/blob/main/docs/i18n/README.ko-KR.md) · [Deutsch](https://github.com/ZHYX91/obsidian-property-order/blob/main/docs/i18n/README.de-DE.md) · [Français](https://github.com/ZHYX91/obsidian-property-order/blob/main/docs/i18n/README.fr-FR.md) · [Español](https://github.com/ZHYX91/obsidian-property-order/blob/main/docs/i18n/README.es-ES.md) · [Português (Brasil)](https://github.com/ZHYX91/obsidian-property-order/blob/main/docs/i18n/README.pt-BR.md) · [Русский](https://github.com/ZHYX91/obsidian-property-order/blob/main/docs/i18n/README.ru-RU.md) · [Tiếng Việt](https://github.com/ZHYX91/obsidian-property-order/blob/main/docs/i18n/README.vi-VN.md) · [العربية](https://github.com/ZHYX91/obsidian-property-order/blob/main/docs/i18n/README.ar.md)
 
-Property Order lets you drag list values in Obsidian Properties and choose which property names and values are suggested while you type. It orders list values and suggestion menus, not the property fields themselves in a note.
+Property Order lets you reorder list values in Obsidian Properties by dragging or using the command palette and choose which property names and values are suggested while you type. It orders list values and suggestion menus, not the property fields themselves in a note.
 
 ## Demo
 
@@ -14,10 +14,10 @@ Cross-property drag is enabled by default and can be disabled in the Value order
 
 ## Features
 
-- Reorder values by dragging inside a supported top-level YAML list.
-- Move values between supported list properties in the same note. Cross-property moves are enabled by default and can be turned off.
+- Reorder values in a supported top-level YAML list by dragging or using the command palette.
+- Move values between supported list properties in the same note. Cross-property dragging is enabled by default and can be turned off.
 - When Obsidian treats an empty value or scalar as a list property, Property Order can safely move values into or out of it. Non-text items are converted to text using their original YAML spelling.
-- Keep each property's current list format, or choose bracket lists or one item per line. Every successful drag creates a single undoable edit.
+- Keep each property's current list format, or choose bracket lists or one item per line. Each successful reorder or move creates a single undoable edit.
 - Dragging works with wrapped and RTL layouts, can scroll supported Properties areas near the edge, and announces drag-state changes to screen readers.
 - Customize native property-name suggestions: pin, move to the bottom, hide, sort by name, recently used order, or note count, with optional property-type grouping.
 - Optionally manage property-value suggestions per property: native order, name order, confirmed selection frequency, note count, no suggestions, or custom candidates.
@@ -52,12 +52,13 @@ Back up and preserve `Vault/.obsidian/plugins/property-order/data.json` when it 
 3. On desktop, drag a value directly. On mobile, long-press a value, choose **Reorder** (or **Reorder or move**), then drag that value.
 4. Configure Key suggestions for property-name candidates and, if desired, enable Value suggestions to order Obsidian's existing property-value candidates with global defaults and per-property rules.
 
+**Keyboard:** Open Obsidian’s command palette and run **Property Order: Reorder property values**. Select the source property and value, then choose **Move up**, **Move down**, or **Move to property**. A move to another property appends the value to its end. These commands work even when dragging is disabled; the cross-property drag toggle applies only to pointer dragging. Before starting a move, **Escape** or **Cancel** leaves the note unchanged. Once updating starts, wait for it to finish; use Undo in the editor to reverse a completed move. No shortcut is assigned by default.
 
-**Before dragging:** A supported text-list edit can turn non-text YAML values into strings: `true` becomes `"true"` and `123` becomes `"123"`. This changes the value type, not just its position; check the result if types matter.
+**Before changing value order:** A supported text-list edit can turn non-text YAML values into strings: `true` becomes `"true"` and `123` becomes `"123"`. This changes the value type. Check the result if those types matter.
 
 **On mobile:** Dragging requires Obsidian's own long-press menu to offer **Reorder** or **Reorder or move**. If the host menu cannot be extended, Property Order does not substitute a look-alike menu; native editing stays available.
 
-**Which suggestion setting?** When you add a new property and type its **name**, **Key suggestions** controls whether names such as `status` or `owner` are pinned, hidden, or reordered. After you choose `status` and edit its **value**, **Value suggestions** controls the existing value candidates (for example, `todo` or `done`), with optional user-defined presets. Value suggestions are disabled by default. Neither setting changes the note until you select or edit a value.
+**Which suggestion setting?** When you add a new property and type its **name**, **Key suggestions** controls whether names such as `status` or `owner` are pinned, hidden, or reordered. After you choose `status` and edit its **value**, **Value suggestions** controls the existing value candidates (for example, `todo` or `done`), with optional user-defined presets. Value suggestions are disabled by default. Changing suggestion settings does not edit notes. Selecting or editing a property in Obsidian can change the note.
 
 **Example: add common values for `status`.** Open **Value suggestions**, turn on **Customize property value suggestions**, and add a **Custom candidates** rule card. Add `status` to that card. Under **Pinned candidates**, enter `todo` and choose **Add preset candidate**; repeat for `doing` and `done`. These values will be offered when you edit `status`, filtered by what you type. To include a preset in the normal sorting order, click **↔ (Move to normal)** beside it.
 
@@ -66,7 +67,7 @@ Back up and preserve `Vault/.obsidian/plugins/property-order/data.json` when it 
 Every supported Obsidian version uses the same four settings tabs:
 
 - **General** controls the plugin language and optional diagnostic notices. The interface and README are available in English, Simplified Chinese, Traditional Chinese, German, French, Spanish, Brazilian Portuguese, Russian, Japanese, Korean, Vietnamese, and Arabic. **Follow Obsidian** selects the matching language, or English if that language is unavailable.
-- **Value order** controls the list format after dragging, cross-property moves, and drag behavior. Turning value drag off does not erase the separate cross-property preference. Switching a one-item-per-line list to bracket-list format can discard comments or blank lines; choose Preserve when those matter.
+- **Value order** controls the list format after reordering and the settings for same-property and cross-property dragging. Turning value drag off does not erase the separate cross-property preference. Switching a one-item-per-line list to bracket-list format can discard comments or blank lines; choose Preserve when those matter. Expand **Format examples** beside **List format after reordering** to compare the same input in all three formats before you choose.
 - **Key suggestions** controls pinned, bottom, and hidden property names plus Name, Recently used, and Note count sorting. Optional property-type grouping organizes normal candidates into Text, List, Number, Checkbox, Date, Date & time, Tags, and Automatic / unspecified; the chosen sort still applies inside each group.
 - **Value suggestions** is opt-in. Unassigned properties use one default behavior, while exact property keys can be assigned to Name, Selection frequency, Note count, Native, No suggestions, or Custom candidates.
 - Custom candidate rules use Pinned, Normal, and Bottom sections. Preset values can be entered directly, so they can remain selectable even before they appear in a note.
@@ -82,13 +83,13 @@ Every supported Obsidian version uses the same four settings tabs:
 - Some type-mismatch rows can participate when Obsidian clearly identifies them as list properties. Ambiguous mixed-value rows are handled conservatively and may only accept an appended value.
 - Custom preset candidates apply only when editing values in Properties. If Obsidian does not show a suggestion popup, Property Order can show the presets beside the input. If it cannot identify the input safely, you can continue typing normally.
 - Converting bullet lists to bracket lists can discard comments or blank lines that bracket syntax cannot represent.
-- Property values cannot currently be reordered directly from the keyboard. Pointer dragging does provide screen-reader status announcements.
+- The keyboard command needs a visible, supported Properties panel in the active Markdown pane. If the file or values change while the dialog is open, reopen the command before trying again.
 
 ## Privacy and security
 
 Property Order works locally. It does not require an account, upload note content, or call a remote service.
 
-Dragging changes only the properties involved in the move. The plugin checks the result before asking Obsidian to save the note. It does not write structures it cannot handle safely.
+Reordering or moving values changes only the properties involved. The plugin checks the result before asking Obsidian to save the note. It does not write structures it cannot handle safely.
 
 For Note count sorting, Property Order enumerates Markdown files and reads cached frontmatter metadata; it does not read every note body. Recent property-name history and confirmed property-value selection counts are stored only in Obsidian's per-Vault local storage on the current device, separately from `data.json`, and can be cleared from settings.
 

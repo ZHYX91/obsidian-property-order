@@ -13,6 +13,10 @@ export interface PaneFileContext {
   view: MarkdownView;
 }
 
+export function isCurrentFileIdentity(plugin: Plugin, file: TFile, originalPath: string): boolean {
+  return file.path === originalPath && plugin.app.vault.getAbstractFileByPath(originalPath) === file;
+}
+
 export function resolvePaneFileContext(
   plugin: Plugin,
   element: HTMLElement,

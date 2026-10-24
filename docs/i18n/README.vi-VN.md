@@ -2,7 +2,7 @@
 
 [English](../../README.md) · [简体中文](README.zh-CN.md) · [繁體中文](README.zh-TW.md) · [日本語](README.ja-JP.md) · [한국어](README.ko-KR.md) · [Deutsch](README.de-DE.md) · [Français](README.fr-FR.md) · [Español](README.es-ES.md) · [Português (Brasil)](README.pt-BR.md) · [Русский](README.ru-RU.md) · [Tiếng Việt](README.vi-VN.md) · [العربية](README.ar.md)
 
-Property Order cho phép bạn kéo các giá trị danh sách trong phần Thuộc tính của Obsidian, đồng thời chọn những tên và giá trị thuộc tính được gợi ý khi nhập. Plugin sắp xếp giá trị danh sách và gợi ý nhập liệu, không đổi vị trí các trường thuộc tính trong ghi chú.
+Property Order cho phép bạn sắp xếp các giá trị danh sách trong phần Thuộc tính của Obsidian bằng cách kéo hoặc dùng bảng lệnh, đồng thời chọn những tên và giá trị thuộc tính được gợi ý khi nhập. Plugin sắp xếp giá trị danh sách và gợi ý nhập liệu, không đổi vị trí các trường thuộc tính trong ghi chú.
 
 ## Minh họa
 
@@ -14,10 +14,10 @@ Kéo giữa các thuộc tính được bật mặc định. Bạn có thể t�
 
 ## Tính năng
 
-- Kéo các giá trị trong danh sách YAML cấp cao nhất được hỗ trợ để thay đổi thứ tự.
-- Di chuyển giá trị giữa các thuộc tính danh sách được hỗ trợ trong cùng ghi chú. Di chuyển giữa các thuộc tính được bật mặc định và có thể tắt.
+- Sắp xếp giá trị trong danh sách YAML cấp cao nhất được hỗ trợ bằng cách kéo hoặc dùng bảng lệnh.
+- Di chuyển giá trị giữa các thuộc tính danh sách được hỗ trợ trong cùng ghi chú. Kéo giữa các thuộc tính được bật mặc định và có thể tắt.
 - Khi Obsidian coi một giá trị trống hoặc giá trị đơn là thuộc tính danh sách, Property Order vẫn có thể đưa giá trị vào hoặc ra một cách an toàn. Các mục không phải văn bản được chuyển thành văn bản theo đúng cách viết YAML ban đầu.
-- Giữ định dạng danh sách hiện tại của từng thuộc tính, hoặc chọn danh sách trong ngoặc vuông hay mỗi mục một dòng. Mỗi lần kéo thành công tạo một thay đổi có thể hoàn tác bằng một thao tác.
+- Giữ định dạng danh sách hiện tại của từng thuộc tính, hoặc chọn danh sách trong ngoặc vuông hay mỗi mục một dòng. Mỗi lần sắp xếp hoặc di chuyển thành công tạo một thay đổi có thể hoàn tác bằng một thao tác.
 - Hỗ trợ bố cục xuống dòng và bố cục từ phải sang trái. Có thể cuộn các vùng Thuộc tính được hỗ trợ khi kéo gần mép và thông báo thay đổi trạng thái kéo cho trình đọc màn hình.
 - Tùy chỉnh gợi ý tên thuộc tính của Obsidian: ghim ở đầu, đặt ở cuối, ẩn, sắp xếp theo tên, dùng gần đây hoặc số ghi chú. Có thể nhóm theo kiểu thuộc tính.
 - Có thể cấu hình gợi ý giá trị riêng cho từng thuộc tính: thứ tự Obsidian, theo tên, số lần chọn đã xác nhận, số ghi chú, không hiển thị gợi ý hoặc gợi ý tùy chỉnh.
@@ -52,12 +52,13 @@ Nếu có `Vault/.obsidian/plugins/property-order/data.json`, hãy sao lưu và 
 3. Trên máy tính, kéo trực tiếp một giá trị. Trên thiết bị di động, nhấn giữ giá trị, chọn **Sắp xếp lại** hoặc **Sắp xếp lại hoặc di chuyển**, rồi kéo giá trị đó.
 4. Cấu hình **Gợi ý tên thuộc tính** cho các tên được gợi ý. Nếu cần, bật **Gợi ý giá trị thuộc tính** để sắp xếp các giá trị có sẵn của Obsidian bằng cài đặt mặc định và quy tắc riêng cho từng thuộc tính.
 
+**Dùng bàn phím:** Mở bảng lệnh của Obsidian và chạy **Property Order: Sắp xếp lại giá trị thuộc tính**. Chọn thuộc tính nguồn và giá trị, rồi chọn **Chuyển lên**, **Chuyển xuống** hoặc **Chuyển sang thuộc tính**. Khi chuyển sang thuộc tính khác, giá trị được thêm vào cuối. Lệnh vẫn dùng được khi tắt kéo thả; cài đặt kéo giữa các thuộc tính chỉ áp dụng cho con trỏ. Trước khi bắt đầu di chuyển, **Escape** hoặc **Hủy** không thay đổi ghi chú. Khi cập nhật đã bắt đầu, hãy chờ hoàn tất; sau đó có thể hoàn tác trong trình soạn thảo. Không có phím tắt được gán sẵn.
 
-**Trước khi kéo:** với danh sách văn bản được hỗ trợ, giá trị YAML không phải chuỗi có thể chuyển thành chuỗi: `true` thành `"true"`, `123` thành `"123"`. Không chỉ thứ tự mà kiểu dữ liệu cũng có thể thay đổi. Hãy kiểm tra kết quả nếu bạn cần giữ giá trị số hoặc boolean.
+**Trước khi đổi thứ tự:** Sắp xếp hoặc di chuyển giá trị trong danh sách văn bản được hỗ trợ có thể đổi giá trị YAML không phải văn bản thành chuỗi: `true` thành `"true"`, `123` thành `"123"`. Vì kiểu dữ liệu cũng có thể thay đổi, hãy kiểm tra kết quả nếu bạn cần giữ kiểu ban đầu.
 
 **Trên điện thoại:** chỉ kéo được khi menu nhấn giữ gốc của Obsidian có mục **Sắp xếp lại** hoặc **Sắp xếp lại hoặc di chuyển**. Nếu không thể mở rộng menu gốc, plugin không tạo menu giả; thao tác chỉnh sửa có sẵn vẫn hoạt động.
 
-**Nên dùng phần cài đặt gợi ý nào?** Khi thêm thuộc tính mới và nhập **tên**, **Gợi ý tên thuộc tính** quyết định việc ghim, ẩn hoặc sắp xếp các tên như `status` hay `owner`. Sau khi chọn `status` và chỉnh **giá trị**, **Gợi ý giá trị thuộc tính** quyết định các giá trị có sẵn như `todo` hay `done`, cùng những giá trị định sẵn do bạn thêm. Tùy chỉnh gợi ý giá trị được tắt mặc định. Cả hai phần cài đặt đều không thay đổi ghi chú cho đến khi bạn chọn hoặc sửa một giá trị.
+**Nên dùng phần cài đặt gợi ý nào?** Khi thêm thuộc tính mới và nhập **tên**, **Gợi ý tên thuộc tính** quyết định việc ghim, ẩn hoặc sắp xếp các tên như `status` hay `owner`. Sau khi chọn `status` và chỉnh **giá trị**, **Gợi ý giá trị thuộc tính** quyết định các giá trị có sẵn như `todo` hay `done`, cùng những giá trị định sẵn do bạn thêm. Tùy chỉnh gợi ý giá trị được tắt mặc định. Thay đổi cài đặt gợi ý không chỉnh sửa ghi chú. Chọn hoặc chỉnh sửa thuộc tính trong Obsidian có thể làm thay đổi ghi chú.
 
 **Ví dụ: thêm các giá trị thường dùng cho `status`.** Mở **Gợi ý giá trị thuộc tính**, bật **Tùy chỉnh gợi ý giá trị thuộc tính** và thêm thẻ quy tắc **Gợi ý tùy chỉnh**. Thêm `status` vào thẻ đó. Trong **Gợi ý ghim ở đầu**, nhập `todo` rồi chọn **Thêm giá trị định sẵn**; làm tương tự với `doing` và `done`. Khi chỉnh `status`, các giá trị này sẽ xuất hiện và được lọc theo nội dung bạn nhập. Để một giá trị định sẵn tuân theo thứ tự sắp xếp thông thường, nhấn **↔ (Chuyển về gợi ý thông thường)** bên cạnh giá trị đó.
 
@@ -66,7 +67,7 @@ Nếu có `Vault/.obsidian/plugins/property-order/data.json`, hãy sao lưu và 
 Mọi phiên bản Obsidian được hỗ trợ đều sử dụng cùng bốn thẻ cài đặt:
 
 - **Chung**: chọn ngôn ngữ plugin và bật thông báo chẩn đoán nếu cần. Giao diện và README có tiếng Anh, tiếng Trung giản thể, tiếng Trung phồn thể, tiếng Đức, tiếng Pháp, tiếng Tây Ban Nha, tiếng Bồ Đào Nha Brazil, tiếng Nga, tiếng Nhật, tiếng Hàn, tiếng Việt và tiếng Ả Rập. **Theo Obsidian** dùng ngôn ngữ tương ứng, hoặc tiếng Anh nếu chưa hỗ trợ ngôn ngữ đó.
-- **Thứ tự giá trị**: chọn định dạng danh sách sau khi kéo, di chuyển giữa các thuộc tính và cách kéo. Tắt kéo giá trị không xóa tùy chọn di chuyển giữa các thuộc tính. Buộc chuyển danh sách mỗi mục một dòng sang dấu ngoặc vuông có thể làm mất chú thích hoặc dòng trống. Hãy giữ định dạng cũ nếu những phần đó quan trọng.
+- **Thứ tự giá trị**: chọn định dạng danh sách sau khi sắp xếp và cách kéo trong một thuộc tính hoặc giữa các thuộc tính. Tắt kéo giá trị không xóa tùy chọn kéo giữa các thuộc tính. Buộc chuyển danh sách mỗi mục một dòng sang dấu ngoặc vuông có thể làm mất chú thích hoặc dòng trống. Hãy giữ định dạng cũ nếu những phần đó quan trọng. Mở rộng **Ví dụ định dạng** bên cạnh **Định dạng danh sách sau khi sắp xếp** để so sánh cùng một đầu vào ở cả ba định dạng trước khi chọn.
 - **Gợi ý tên thuộc tính**: chọn tên ghim ở đầu, đặt ở cuối, cần ẩn và cách sắp xếp theo tên, dùng gần đây hoặc số ghi chú. **Nhóm gợi ý theo kiểu thuộc tính** chia các gợi ý thông thường thành Văn bản, Danh sách, Số, Hộp kiểm, Ngày, Ngày và giờ, Thẻ, Tự động / chưa chỉ định. Cách sắp xếp đã chọn vẫn áp dụng trong từng nhóm.
 - **Gợi ý giá trị thuộc tính**: chỉ hoạt động khi được bật. Thuộc tính chưa cấu hình riêng dùng một cách hiển thị mặc định. Bạn có thể chỉ định từng tên thuộc tính để dùng Theo tên, Số lần chọn, Số ghi chú, Thứ tự Obsidian, Không hiển thị gợi ý hoặc Gợi ý tùy chỉnh.
 - Quy tắc gợi ý tùy chỉnh có ba phần: ghim ở đầu, thông thường và đặt ở cuối. Có thể nhập trực tiếp giá trị định sẵn để chúng vẫn được chọn ngay cả trước khi xuất hiện trong ghi chú.
@@ -82,13 +83,13 @@ Mọi phiên bản Obsidian được hỗ trợ đều sử dụng cùng bốn t
 - Một số hàng báo không khớp kiểu vẫn có thể dùng nếu Obsidian nhận diện rõ đó là thuộc tính danh sách. Các hàng trộn nhiều giá trị khó xác định sẽ được xử lý thận trọng và có thể chỉ cho phép thêm giá trị vào cuối.
 - Giá trị định sẵn chỉ được gợi ý khi chỉnh giá trị trong phần Thuộc tính. Nếu Obsidian không mở danh sách gợi ý, Property Order có thể hiển thị chúng bên cạnh ô nhập. Nếu không nhận diện được ô nhập một cách an toàn, bạn vẫn có thể nhập bình thường.
 - Chuyển danh sách mỗi mục một dòng sang ngoặc vuông có thể làm mất các chú thích hoặc dòng trống mà cú pháp ngoặc vuông không biểu diễn được.
-- Hiện chưa thể sắp xếp trực tiếp các giá trị thuộc tính chỉ bằng bàn phím. Kéo bằng con trỏ có thông báo trạng thái cho trình đọc màn hình.
+- Lệnh bàn phím cần phần Thuộc tính được hỗ trợ đang hiển thị trong khung Markdown hiện hành. Nếu tệp hoặc giá trị thay đổi khi hộp thoại đang mở, hãy mở lại lệnh.
 
 ## Quyền riêng tư và bảo mật
 
 Property Order hoạt động cục bộ. Plugin không yêu cầu tài khoản, không tải nội dung ghi chú lên mạng và không gọi dịch vụ từ xa.
 
-Kéo chỉ thay đổi các thuộc tính liên quan đến lần di chuyển đó. Plugin kiểm tra kết quả trước khi yêu cầu Obsidian lưu ghi chú và không ghi vào những cấu trúc mà nó không thể xử lý an toàn.
+Sắp xếp hoặc di chuyển giá trị chỉ thay đổi các thuộc tính liên quan đến thao tác đó. Plugin kiểm tra kết quả trước khi yêu cầu Obsidian lưu ghi chú và không ghi vào những cấu trúc mà nó không thể xử lý an toàn.
 
 Khi sắp xếp theo số ghi chú, Property Order duyệt danh sách tệp Markdown và đọc thông tin thuộc tính đã được Obsidian lưu trong bộ nhớ đệm; không đọc phần nội dung của từng ghi chú. Lịch sử tên thuộc tính dùng gần đây và số lần chọn giá trị đã được xác nhận chỉ nằm trong bộ nhớ cục bộ riêng cho từng kho trên thiết bị hiện tại, tách khỏi `data.json`, và có thể xóa trong cài đặt.
 
