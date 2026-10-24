@@ -72,6 +72,35 @@ describe("settings snapshots behind an external read", () => {
     expect(test.stored()).toMatchObject({ language: "en", enablePropertyValueDrag: true, pinnedPropertyKeys: ["latest"] });
   });
 
+  it("keeps a local reversal after an external reload while its save is pending", async () => {
+    const test = await settingsHarness();
+    const reading = deferred<void>();
+    const externalRead = deferred<unknown>();
+    const writing = deferred<void>();
+    const releaseWrite = deferred<void>();
+    test.load.mockImplementationOnce(() => { reading.resolve(); return externalRead.promise; });
+    test.save.mockImplementationOnce(async (value: unknown) => {
+      writing.resolve();
+      await releaseWrite.promise;
+      test.setStored(value);
+    });
+    const external = test.plugin.onExternalSettingsChange();
+    await reading.promise;
+    test.plugin.propertyOrderSettings.language = "zh-CN";
+    const first = test.plugin.saveSettings();
+    const incoming = { ...createDefaultSettings(), enablePropertyValueDrag: false };
+    test.setStored(incoming);
+    externalRead.resolve(incoming);
+    await writing.promise;
+    expect(test.plugin.propertyOrderSettings.enablePropertyValueDrag).toBe(false);
+    test.plugin.propertyOrderSettings.enablePropertyValueDrag = true;
+    const second = test.plugin.saveSettings();
+    releaseWrite.resolve();
+    await Promise.all([external, first, second]);
+    expect(test.stored()).toMatchObject({ language: "zh-CN", enablePropertyValueDrag: true });
+    expect(test.plugin.propertyOrderSettings.enablePropertyValueDrag).toBe(true);
+  });
+
   it("preserves a later local change while the preceding save is reading", async () => {
     const test = await settingsHarness();
     const reading = deferred<void>();

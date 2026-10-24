@@ -5,6 +5,14 @@ follow the repository's Git tags; entries summarize the corresponding commit his
 
 ## [Unreleased]
 
+## [0.10.2] - 2026-10-24
+
+- Preserve external settings changes when a local save is queued, and keep later local edits during an in-flight save.
+- Count fallback value candidates only after an actual activation and Metadata Cache confirmation, preserving click, Enter and Tab behavior.
+- Preserve property-name recent-use order across interleaved windows and consume confirmed intents before callbacks.
+- Clarify YAML scalar type changes, list-format comment loss and mobile long-press menu requirements in all twelve README languages.
+- Update development and test dependencies to resolve the current dependency audit findings.
+
 ## [0.10.1] - 2026-10-21
 
 - Refuse unsupported YAML root forms before property-value drag or writeback, preserving nested properties and the note body.
