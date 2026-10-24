@@ -1,9 +1,18 @@
 // @vitest-environment happy-dom
 
 import { MarkdownView, type CachedMetadata, type Plugin, type TFile } from "obsidian";
+import { Window as HappyDomWindow } from "happy-dom";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { RecentPropertyValueTracker } from "../../../src/features/value-suggestions/recent-property-value-tracker";
+
+const peerWindows: HappyDomWindow[] = [];
+
+function createPeerDocument(): Document {
+  const peerWindow = new HappyDomWindow();
+  peerWindows.push(peerWindow);
+  return peerWindow.document as unknown as Document;
+}
 
 function createValueSuggestion(
   value = "draft",
@@ -84,6 +93,9 @@ describe("RecentPropertyValueTracker", () => {
   afterEach(() => {
     vi.useRealTimers();
     vi.restoreAllMocks();
+    for (const peerWindow of peerWindows.splice(0)) {
+      peerWindow.close();
+    }
   });
 
   it("confirms a clicked native value only after metadata changes", () => {
@@ -388,10 +400,7 @@ describe("RecentPropertyValueTracker", () => {
   });
 
   it.each([1, 2, 3])("shares %i added occurrences across two window queues", (addedCount) => {
-    const frame = document.createElement("iframe");
-    document.body.appendChild(frame);
-    const peerDocument = frame.contentDocument;
-    if (peerDocument == null) throw new Error("Expected the peer window document.");
+    const peerDocument = createPeerDocument();
     const first = createValueSuggestion("draft", "status");
     const second = createValueSuggestion("draft", "Status", peerDocument);
     const file = { path: "note.md" } as TFile;
@@ -444,10 +453,7 @@ describe("RecentPropertyValueTracker", () => {
   });
 
   it("keeps activation order across interleaved window queues", () => {
-    const frame = document.createElement("iframe");
-    document.body.appendChild(frame);
-    const peerDocument = frame.contentDocument;
-    if (peerDocument == null) throw new Error("Expected the peer window document.");
+    const peerDocument = createPeerDocument();
     const first = createValueSuggestion("draft");
     const review = first.container.createDiv({ cls: "suggestion-item" });
     review.createDiv({ cls: "suggestion-title", text: "review" });

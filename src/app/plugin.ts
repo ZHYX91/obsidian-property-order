@@ -345,13 +345,17 @@ export default class PropertyOrderPlugin extends Plugin {
       const saveWaiters = this.pendingSettingsSaveWaiters.splice(0);
 
       try {
-        const settingsSnapshot = normalizeSettings(this.propertyOrderSettings);
-        const settingsForStorage = await runSettingsStorageOperation(async () => {
+        const { settingsSnapshot, settingsForStorage } = await runSettingsStorageOperation(async () => {
+          // A queued external read may update both runtime settings and their
+          // baseline before this operation starts. Capture the pair together
+          // here so neither merge mistakes an external reload for a local edit.
+          const settingsSnapshot = normalizeSettings(this.propertyOrderSettings);
+          const baselineSnapshot = normalizeSettings(this.persistedSettingsBaseline);
           const latestStoredSettings: unknown = await this.loadData();
           const preparedSettings = prepareSettingsForStorage(
             settingsSnapshot,
             latestStoredSettings,
-            this.persistedSettingsBaseline,
+            baselineSnapshot,
           );
 
           if (this.unloaded) {
@@ -359,7 +363,7 @@ export default class PropertyOrderPlugin extends Plugin {
           }
 
           await this.saveData(preparedSettings);
-          return preparedSettings;
+          return { settingsSnapshot, settingsForStorage: preparedSettings };
         });
         const mergedSettings = normalizeSettings(settingsForStorage);
         const currentSettings = normalizeSettings(this.propertyOrderSettings);
