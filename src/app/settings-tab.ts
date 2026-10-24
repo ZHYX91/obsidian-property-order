@@ -24,6 +24,7 @@ import { PropertyNameSuggest } from "./property-name-suggest";
 import { renderValueSuggestionBehaviorGroups } from "./value-suggestion-behavior-groups";
 import { preserveSettingsView } from "./settings-view-state";
 import { renderCustomValueSuggestionEditor } from "./value-suggestion-custom-editor";
+import { renderWritebackFormatExamples } from "./writeback-format-examples";
 import {
   applyPropertyOrderControlValue,
   isPropertyOrderControlKey,
@@ -483,6 +484,7 @@ export class PropertyOrderSettingTab extends PluginSettingTab {
   }
 
   private displayValueDragSettings(containerEl: HTMLElement): void {
+    addInactiveHint(containerEl, this.t("keyboard.settingsHint"));
     if (Platform.isMobileApp) {
       addInactiveHint(containerEl, this.t("settings.valueDrag.mobileHint"));
     }
@@ -513,6 +515,8 @@ export class PropertyOrderSettingTab extends PluginSettingTab {
             await this.applyImperativeControlValue("listWritebackFormat", value);
           });
       });
+
+    renderWritebackFormatExamples(containerEl, (key) => this.t(key));
 
     new Setting(containerEl)
       .setName(this.t("settings.crossPropertyDrag.name"))

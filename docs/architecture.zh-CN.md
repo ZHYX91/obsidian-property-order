@@ -22,7 +22,7 @@ translation_status: source
    - `suggestions/`：对候选键和值进行隐藏、去重、置顶、置底和排序；名称比较器是设置页与原生候选菜单共享的唯一排序实现。
    - `interaction/`：指针拖拽状态转换和文档身份守卫。
 2. `src/features/`：功能编排。
-   - `value-order/`：把状态机动作、drop 几何、DOM 呈现、pane 上下文和写回组合成一次拖拽事务。
+   - `value-order/`：负责指针会话和命令面板选值，把 pane 上下文、语义计划、最小写回事务、提交后对账与 pane 恢复反馈连接起来。两种入口共用内容提交与恢复边界。
    - `key-order/`：监听候选菜单、应用纯排序规则，把键盘选择桥接到可见候选顺序，并由 recent tracker 与 device-local store 管理已确认属性名称的严格 MRU。
    - `value-suggestions/`：解析按属性分组的候选行为，增强可识别的原生弹窗，跟踪已确认且仅本设备保存的选择次数，注入明确配置的自定义预设候选，在没有原生值弹窗时拥有回退弹窗，并在增强不再适用时精确恢复宿主状态。
 3. `src/obsidian/`：Obsidian 和 DOM 适配边界。
@@ -35,7 +35,7 @@ translation_status: source
 4. `src/app/`：插件生命周期、设置持久化和设置页；已有属性名称通过 Obsidian 公开的 `AbstractInputSuggest` 呈现和筛选。
 5. `src/shared/`：跨层设置 schema、共享类型、语言目录和完整界面词典。
 
-当前项目不为文件数量而额外引入抽象端口目录；`writeback.ts`、`pane-context.ts` 和两个 DOM adapter 已分别形成 Vault、pane 与 Properties surface 的可测试边界。若未来增加端口接口，也必须保持上述依赖方向。
+`writeback.ts`、`pane-context.ts` 和 DOM adapters 分别承载内容写回、pane 身份与 Properties 呈现的可测试边界；新增协作者也遵循上述依赖方向，不另建内容提交路径。
 
 ## Frontmatter 局部重写契约
 
@@ -64,7 +64,11 @@ translation_status: source
 
 属性缺失、不是受支持列表、索引冲突或内容冲突时返回诊断，不写入部分结果。单引号、双引号、带逗号或 `#` 的标量必须安全解析；属性头行尾注释在转换成 flow 时必须保留合法空白分隔。
 
-## 属性值拖拽事务
+## 属性值编辑事务
+
+`value-edit-session.ts` 定义一次内容编辑的身份与快照；`property-value-reconciler.ts` 只处理原始/已提交状态的 UI 对账和之后的 undo/redo，`properties-refresh-notices.ts` 拥有按 pane 隔离的恢复提示与 listener 清理。`src/app/keyboard-value-order-modal.ts` 负责单次选择和提交状态；更新期间不抢走模态焦点，关闭后沿用 Obsidian Modal 的焦点恢复，不追加手动聚焦。`property-list-alignment.ts` 供入口和对账共同核对原生列表与文本。
+
+键盘命令从当前 Markdown pane 的可见原生 Properties 捕获源属性、值、文件对象与编辑器文本；对话框中的上移、下移和移至属性末尾只形成操作意图。确认后重新核对捕获的身份与内容，再进入与指针操作相同的语义计划、最小 `editor.transaction()`、精确提交核验、保存及 UI 恢复流程。提交前取消不产生事务；更新期间对话框等待本次操作完成，失败或拒绝后不允许再次执行旧草稿。失效选择不会自动重试；该入口不通过 Vault 直写、私有属性 setter 或手工 pill 搬移提交内容。
 
 `core/interaction/pointer-drag.ts` 是纯状态机。它把 mouse/touch/pen 的按下、移动、长按计时、释放和中断转换为 `start`、`cancel`、`finish` 等动作，不访问 DOM。`value-drag-controller.ts` 只编排动作和资源生命周期：
 
@@ -88,11 +92,11 @@ translation_status: source
 
 编辑器仍是内容与冲突判断的唯一基底，因此尚未落盘的正文修改会被保留；同属性或跨属性的一次成功拖拽都只形成一个撤销步骤。controller 在 pointer release 时单次抑制该拖拽产生的尾随 click，并让 source/target 原生输入失焦，避免 Obsidian 的聚焦保护跳过控件重建。
 
-只有编辑器 buffer 精确匹配规划结果后，`editor-transaction.ts` 才可调用公开 `MarkdownView.setViewData(committedContent, false)`，以同一份已提交内容重建 Properties，确认该调用没有产生第二次文本变更，再调用公开 `MarkdownView.requestSave()` 安排持久化；在宿主事件循环后以及重建后都必须重新确认原 leaf、文件、view 和 editor 身份。写回返回精确提交后，controller 在第一次 Properties 等待前立即调用公开 `editor.focus()`，使 CodeMirror 接管平台撤销/重做；重建和对账结束后，仅当焦点仍在 `body`、拖拽开始前捕获的旧焦点 owner、已经断开的旧节点或本次受影响的 Properties 行内，且提交后的 pointer/焦点导航/window 用户意图 generation 没有推进时，才受守卫恢复一次。
+只有编辑器 buffer 精确匹配规划结果后，`editor-transaction.ts` 才可调用公开 `MarkdownView.setViewData(committedContent, false)`，以同一份已提交内容重建 Properties，确认该调用没有产生第二次文本变更，再调用公开 `MarkdownView.requestSave()` 安排持久化；在宿主事件循环后以及重建后都必须重新确认原 leaf、文件、view 和 editor 身份。指针拖拽写回返回精确提交后，controller 在第一次 Properties 等待前立即调用公开 `editor.focus()`，使 CodeMirror 接管平台撤销/重做；重建和对账结束后，仅当焦点仍在 `body`、拖拽开始前捕获的旧焦点 owner、已经断开的旧节点或本次受影响的 Properties 行内，且提交后的 pointer/焦点导航/window 用户意图 generation 没有推进时，才受守卫恢复一次。
 
 用户主动转焦会使该恢复资格失效；未产生精确提交的路径不得调用它。提交前的 drag/DOM 所有权与提交后的文档身份必须分离：window blur 或插件卸载可以清理拖拽 UI，但不得阻止已经精确提交且仍属于原文档的内容安排保存。
 
-`requestSave()` 失败属于独立的持久化调度失败：编辑器内容仍视为已提交并取得撤销焦点，同时提示用户先手动保存，不得误报为内容 divergence。原生属性 setter、Vault 直写和手工移动 pill 都不是写回或恢复手段。
+`requestSave()` 失败属于独立的持久化调度失败：编辑器内容仍视为已提交，指针拖拽仍取得撤销焦点，同时提示用户先手动保存，不得误报为内容 divergence。原生属性 setter、Vault 直写和手工移动 pill 都不是写回或恢复手段。
 
 随后 controller 根据当前有效 transaction 状态逐项证明受影响的 Properties 行：buffer 等于 committed content 时继续提交后对账，精确等于本次 transaction 的 original content 时视为合法的立即 undo；再次成为 committed content 可视为 redo。两种状态都只按当前 buffer 对账，不报告 divergence，也不重新应用 transaction；只有第三种内容才是 divergence。
 
