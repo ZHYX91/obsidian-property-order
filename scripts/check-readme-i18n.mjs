@@ -138,6 +138,69 @@ const config = {
   ],
 };
 
+const dataSafetyPhrasesByLocale = {
+  "en": [
+    "This changes the value type",
+    "bracket-list format can discard",
+    "host menu cannot be extended"
+  ],
+  "zh-CN": [
+    "改变值类型",
+    "可能丢失项目注释",
+    "宿主菜单无法扩展"
+  ],
+  "zh-TW": [
+    "改變值的型別",
+    "可能遺失項目註解",
+    "宿主選單無法擴充"
+  ],
+  "de-DE": [
+    "Datentyp",
+    "Kommentare oder Leerzeilen verlieren",
+    "Menüerweiterung nicht verfügbar"
+  ],
+  "fr-FR": [
+    "Le type peut donc changer",
+    "perdre les commentaires ou lignes vides",
+    "ne peut pas être étendu"
+  ],
+  "es-ES": [
+    "cambiar el tipo de dato",
+    "perder comentarios o líneas en blanco",
+    "no admite la extensión"
+  ],
+  "pt-BR": [
+    "tipo do valor pode mudar",
+    "eliminar comentários ou linhas vazias",
+    "não puder ser estendido"
+  ],
+  "ru-RU": [
+    "тип данных",
+    "убрать комментарии и пустые строки",
+    "расширение меню недоступно"
+  ],
+  "ja-JP": [
+    "値の型も変わる",
+    "コメントや空行が失われる",
+    "メニューを拡張できない"
+  ],
+  "ko-KR": [
+    "값의 유형도 달라질",
+    "주석이나 빈 줄이 사라질",
+    "메뉴를 확장할 수 없는"
+  ],
+  "vi-VN": [
+    "kiểu dữ liệu cũng có thể thay đổi",
+    "mất chú thích hoặc dòng trống",
+    "không thể mở rộng menu"
+  ],
+  "ar": [
+    "نوع القيمة",
+    "فقدان التعليقات أو الأسطر الفارغة",
+    "تعذرت إضافة هذا الخيار"
+  ]
+};
+
 const ignoredDirectories = new Set([".git", "coverage", "dist", "node_modules", "release"]);
 const normalizePath = (filePath) => filePath.split(path.sep).join("/");
 
@@ -307,6 +370,20 @@ export function checkReadmeI18n(projectRoot = defaultProjectRoot) {
     for (const phrase of language.semanticPhrases ?? []) {
       if (!source.includes(phrase)) {
         errors.push(`${filePath} is missing required README semantic phrase: ${phrase}`);
+      }
+    }
+    // Risk text is user-facing behavior, not merely section presence. Guard
+    // the values, syntax, and mobile fallback in all twelve complete guides.
+    for (const token of ["`true`", "`\"true\"`", "`123`", "`\"123\"`"]) {
+      if (!source.includes(token)) {
+        errors.push(`${filePath} is missing YAML type-change example: ${token}`);
+      }
+    }
+    for (const phrase of dataSafetyPhrasesByLocale[language.path === "README.md"
+      ? "en"
+      : language.path.split("README.")[1].replace(".md", "")] ?? []) {
+      if (!source.includes(phrase)) {
+        errors.push(`${filePath} is missing current drag safety explanation: ${phrase}`);
       }
     }
     validateTargets(projectRoot, filePath, source, errors);

@@ -2,7 +2,7 @@
 
 [English](../../README.md) · [简体中文](README.zh-CN.md) · [繁體中文](README.zh-TW.md) · [日本語](README.ja-JP.md) · [한국어](README.ko-KR.md) · [Deutsch](README.de-DE.md) · [Français](README.fr-FR.md) · [Español](README.es-ES.md) · [Português (Brasil)](README.pt-BR.md) · [Русский](README.ru-RU.md) · [Tiếng Việt](README.vi-VN.md) · [العربية](README.ar.md)
 
-Property Order cho phép bạn kéo các giá trị danh sách trong phần Thuộc tính của Obsidian, đồng thời chọn những tên và giá trị thuộc tính được gợi ý khi nhập.
+Property Order cho phép bạn kéo các giá trị danh sách trong phần Thuộc tính của Obsidian, đồng thời chọn những tên và giá trị thuộc tính được gợi ý khi nhập. Plugin sắp xếp giá trị danh sách và gợi ý nhập liệu, không đổi vị trí các trường thuộc tính trong ghi chú.
 
 ## Minh họa
 
@@ -52,6 +52,11 @@ Nếu có `Vault/.obsidian/plugins/property-order/data.json`, hãy sao lưu và 
 3. Trên máy tính, kéo trực tiếp một giá trị. Trên thiết bị di động, nhấn giữ giá trị, chọn **Sắp xếp lại** hoặc **Sắp xếp lại hoặc di chuyển**, rồi kéo giá trị đó.
 4. Cấu hình **Gợi ý tên thuộc tính** cho các tên được gợi ý. Nếu cần, bật **Gợi ý giá trị thuộc tính** để sắp xếp các giá trị có sẵn của Obsidian bằng cài đặt mặc định và quy tắc riêng cho từng thuộc tính.
 
+
+**Trước khi kéo:** với danh sách văn bản được hỗ trợ, giá trị YAML không phải chuỗi có thể chuyển thành chuỗi: `true` thành `"true"`, `123` thành `"123"`. Không chỉ thứ tự mà kiểu dữ liệu cũng có thể thay đổi. Hãy kiểm tra kết quả nếu bạn cần giữ giá trị số hoặc boolean.
+
+**Trên điện thoại:** chỉ kéo được khi menu nhấn giữ gốc của Obsidian có mục **Sắp xếp lại** hoặc **Sắp xếp lại hoặc di chuyển**. Nếu không thể mở rộng menu gốc, plugin không tạo menu giả; thao tác chỉnh sửa có sẵn vẫn hoạt động.
+
 **Nên dùng phần cài đặt gợi ý nào?** Khi thêm thuộc tính mới và nhập **tên**, **Gợi ý tên thuộc tính** quyết định việc ghim, ẩn hoặc sắp xếp các tên như `status` hay `owner`. Sau khi chọn `status` và chỉnh **giá trị**, **Gợi ý giá trị thuộc tính** quyết định các giá trị có sẵn như `todo` hay `done`, cùng những giá trị định sẵn do bạn thêm. Tùy chỉnh gợi ý giá trị được tắt mặc định. Cả hai phần cài đặt đều không thay đổi ghi chú cho đến khi bạn chọn hoặc sửa một giá trị.
 
 **Ví dụ: thêm các giá trị thường dùng cho `status`.** Mở **Gợi ý giá trị thuộc tính**, bật **Tùy chỉnh gợi ý giá trị thuộc tính** và thêm thẻ quy tắc **Gợi ý tùy chỉnh**. Thêm `status` vào thẻ đó. Trong **Gợi ý ghim ở đầu**, nhập `todo` rồi chọn **Thêm giá trị định sẵn**; làm tương tự với `doing` và `done`. Khi chỉnh `status`, các giá trị này sẽ xuất hiện và được lọc theo nội dung bạn nhập. Để một giá trị định sẵn tuân theo thứ tự sắp xếp thông thường, nhấn **↔ (Chuyển về gợi ý thông thường)** bên cạnh giá trị đó.
@@ -61,7 +66,7 @@ Nếu có `Vault/.obsidian/plugins/property-order/data.json`, hãy sao lưu và 
 Mọi phiên bản Obsidian được hỗ trợ đều sử dụng cùng bốn thẻ cài đặt:
 
 - **Chung**: chọn ngôn ngữ plugin và bật thông báo chẩn đoán nếu cần. Giao diện và README có tiếng Anh, tiếng Trung giản thể, tiếng Trung phồn thể, tiếng Đức, tiếng Pháp, tiếng Tây Ban Nha, tiếng Bồ Đào Nha Brazil, tiếng Nga, tiếng Nhật, tiếng Hàn, tiếng Việt và tiếng Ả Rập. **Theo Obsidian** dùng ngôn ngữ tương ứng, hoặc tiếng Anh nếu chưa hỗ trợ ngôn ngữ đó.
-- **Thứ tự giá trị**: chọn định dạng danh sách sau khi kéo, di chuyển giữa các thuộc tính và cách kéo. Tắt kéo giá trị không xóa tùy chọn di chuyển giữa các thuộc tính.
+- **Thứ tự giá trị**: chọn định dạng danh sách sau khi kéo, di chuyển giữa các thuộc tính và cách kéo. Tắt kéo giá trị không xóa tùy chọn di chuyển giữa các thuộc tính. Buộc chuyển danh sách mỗi mục một dòng sang dấu ngoặc vuông có thể làm mất chú thích hoặc dòng trống. Hãy giữ định dạng cũ nếu những phần đó quan trọng.
 - **Gợi ý tên thuộc tính**: chọn tên ghim ở đầu, đặt ở cuối, cần ẩn và cách sắp xếp theo tên, dùng gần đây hoặc số ghi chú. **Nhóm gợi ý theo kiểu thuộc tính** chia các gợi ý thông thường thành Văn bản, Danh sách, Số, Hộp kiểm, Ngày, Ngày và giờ, Thẻ, Tự động / chưa chỉ định. Cách sắp xếp đã chọn vẫn áp dụng trong từng nhóm.
 - **Gợi ý giá trị thuộc tính**: chỉ hoạt động khi được bật. Thuộc tính chưa cấu hình riêng dùng một cách hiển thị mặc định. Bạn có thể chỉ định từng tên thuộc tính để dùng Theo tên, Số lần chọn, Số ghi chú, Thứ tự Obsidian, Không hiển thị gợi ý hoặc Gợi ý tùy chỉnh.
 - Quy tắc gợi ý tùy chỉnh có ba phần: ghim ở đầu, thông thường và đặt ở cuối. Có thể nhập trực tiếp giá trị định sẵn để chúng vẫn được chọn ngay cả trước khi xuất hiện trong ghi chú.
