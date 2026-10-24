@@ -47,7 +47,7 @@
   "overrides": {
     "brace-expansion": "5.0.12",
     "postcss": "8.5.23",
-    "fast-uri": "3.1.8",
+    "fast-uri": "3.1.9",
     "moment": "2.31.0",
     "source-map-js": "1.2.2"
   },
@@ -55,15 +55,15 @@
     "@eslint/js": "10.0.1",
     "@eslint/json": "0.14.0",
     "@types/node": "^20.19.0",
-    "@vitest/coverage-v8": "4.1.11",
+    "@vitest/coverage-v8": "4.1.12",
     "esbuild": "0.28.2",
     "eslint": "10.11.0",
     "eslint-plugin-obsidianmd": "0.4.2",
-    "happy-dom": "20.14.5",
+    "happy-dom": "21.0.4",
     "obsidian": "1.13.1",
     "typescript": "6.0.3",
     "typescript-eslint": "8.70.1",
-    "vitest": "4.1.11",
+    "vitest": "4.1.12",
     "yaml": "2.9.1"
   },
   "allowScripts": {
