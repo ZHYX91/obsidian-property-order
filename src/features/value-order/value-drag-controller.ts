@@ -190,11 +190,11 @@ export class PropertyValueOrderController {
     if (pane === null || expectedContent === null) return null;
     const contexts = getVisiblePropertyListContexts(pane.container)
       .filter((context) => isTargetContextAlignedWithContent(context, expectedContent));
-    const properties = contexts.map((context) => ({
+    const properties = Object.freeze(contexts.map((context) => Object.freeze({
       key: context.propertyKey,
-      values: getFrontmatterTextListPropertyValues(expectedContent, context.propertyKey) ?? [],
+      values: Object.freeze(getFrontmatterTextListPropertyValues(expectedContent, context.propertyKey) ?? []),
       canSource: isSourceContextAlignedWithContent(context, expectedContent),
-    }));
+    })));
     if (!properties.some((property) => property.canSource && property.values.length > 0)) {
       new Notice(this.t("keyboard.unavailable"));
       return null;
@@ -233,9 +233,15 @@ export class PropertyValueOrderController {
         const destination = request.action === "move"
           ? contexts.find((context) => context.propertyKey === request.targetProperty)
           : source;
-        if (destination === undefined || (request.action === "move" && destination === source) ||
-            (request.action === "up" && request.sourceIndex === 0) ||
-            (request.action === "down" && request.sourceIndex === values.values.length - 1)) return false;
+        if (destination === undefined || (request.action === "move" && destination === source)) return false;
+        let slot: number | "append" = "append";
+        if (request.action !== "move") {
+          const targetIndex = request.action === "up" ? request.sourceIndex - 1
+            : request.action === "down" ? request.sourceIndex + 1 : request.targetIndex;
+          if (typeof targetIndex !== "number" || !Number.isInteger(targetIndex) || targetIndex < 0 ||
+              targetIndex >= values.values.length || targetIndex === request.sourceIndex) return false;
+          slot = targetIndex + (targetIndex > request.sourceIndex ? 1 : 0);
+        }
         const session: ValueEditSession = {
           context: sourceContext,
           document: pane.container.ownerDocument,
@@ -255,7 +261,7 @@ export class PropertyValueOrderController {
           context: destination,
           kind: "drop",
           mode: request.action === "move" ? "move" : "reorder",
-          slot: request.action === "move" ? "append" : request.sourceIndex + (request.action === "up" ? -1 : 2),
+          slot,
         });
       },
     };

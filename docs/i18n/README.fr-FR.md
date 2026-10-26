@@ -54,6 +54,8 @@ Sauvegardez et conservez `Vault/.obsidian/plugins/property-order/data.json` si c
 
 **Au clavier :** Ouvrez la palette de commandes d’Obsidian et lancez **Property Order: Réorganiser les valeurs des propriétés**. Choisissez la propriété source et la valeur, puis **Monter**, **Descendre** ou **Déplacer vers la propriété**. Un déplacement vers une autre propriété ajoute la valeur à la fin. La commande reste disponible si le glissement est désactivé ; le réglage de glissement entre propriétés ne concerne que le pointeur. Avant de lancer le déplacement, **Échap** ou **Annuler** laisse la note inchangée. Après le lancement, attendez la fin ; vous pouvez ensuite annuler le changement dans l’éditeur. Aucun raccourci n’est attribué par défaut.
 
+Pour les longues listes, saisissez une position à partir de 1 et choisissez **Déplacer à cette position**, ou utilisez **Placer au début** / **Placer à la fin**. Chaque déplacement terminé s’annule en une seule étape.
+
 **Avant de modifier l’ordre :** Réordonner ou déplacer des valeurs dans une liste de texte prise en charge peut convertir les valeurs YAML non textuelles en chaînes : `true` devient `"true"` et `123` devient `"123"`. Le type peut donc changer ; vérifiez le résultat si ces types sont importants.
 
 **Sur mobile :** le déplacement exige que le menu natif d'appui long d'Obsidian affiche **Réordonner** ou **Réordonner ou déplacer**. Si ce menu ne peut pas être étendu, le module ne crée pas de faux menu ; les commandes natives restent accessibles.

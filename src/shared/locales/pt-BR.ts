@@ -1,6 +1,10 @@
 import type { TranslationDictionary } from "../i18n";
 
 const translations = {
+  "keyboard.position": "Posição de destino (a partir de 1)",
+  "keyboard.atPosition": "Mover para a posição",
+  "keyboard.first": "Mover para o início",
+  "keyboard.last": "Mover para o fim",
   "keyboard.command": "Reordenar valores de propriedades",
   "keyboard.description": "Escolha um valor nas propriedades visíveis desta nota. Movê-lo altera a nota; você pode desfazer a alteração no editor.",
   "keyboard.source": "Propriedade de origem",

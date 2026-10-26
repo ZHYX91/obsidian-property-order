@@ -1,6 +1,10 @@
 import type { TranslationDictionary } from "../i18n";
 
 const translations = {
+  "keyboard.position": "Vị trí đích (bắt đầu từ 1)",
+  "keyboard.atPosition": "Chuyển đến vị trí",
+  "keyboard.first": "Chuyển lên đầu",
+  "keyboard.last": "Chuyển xuống cuối",
   "keyboard.command": "Sắp xếp lại giá trị thuộc tính",
   "keyboard.description": "Chọn một giá trị trong các thuộc tính đang hiển thị của ghi chú này. Di chuyển sẽ sửa ghi chú; bạn có thể hoàn tác trong trình soạn thảo.",
   "keyboard.source": "Thuộc tính nguồn",
