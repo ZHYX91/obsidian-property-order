@@ -54,6 +54,8 @@ Sichere und behalte `Vault/.obsidian/plugins/property-order/data.json`, sofern d
 
 **Mit der Tastatur:** Öffne Obsidians Befehlspalette und starte **Property Order: Eigenschaftswerte umordnen**. Wähle Quelleigenschaft und Wert, dann **Nach oben**, **Nach unten** oder **In Eigenschaft verschieben**. Beim Wechsel in eine andere Eigenschaft wird der Wert hinten angefügt. Der Befehl funktioniert auch bei deaktiviertem Ziehen; die Einstellung für eigenschaftsübergreifendes Ziehen gilt nur für Zeigeraktionen. Vor dem Start lässt **Escape** oder **Abbrechen** die Notiz unverändert. Warte nach dem Start auf den Abschluss; ein fertiger Schritt lässt sich im Editor rückgängig machen. Es ist kein Tastenkürzel voreingestellt.
 
+Bei langen Listen kannst du eine Zielposition ab 1 eingeben und **Zur Position verschieben** wählen oder **An den Anfang** / **Ans Ende** verwenden. Jeder abgeschlossene Vorgang lässt sich mit einem Schritt rückgängig machen.
+
 **Vor dem Neuordnen:** Beim Neuordnen oder Verschieben in einer unterstützten Textliste können YAML-Werte zu Zeichenfolgen werden: Aus `true` wird `"true"`, aus `123` wird `"123"`. Prüfe das Ergebnis, wenn diese Datentypen wichtig sind.
 
 **Mobil:** Ziehen ist erst möglich, wenn Obsidians eigenes Menü nach langem Drücken **Neu anordnen** oder **Neu anordnen oder verschieben** anbietet. Ist die Menüerweiterung nicht verfügbar, zeigt das Plugin kein nachgebautes Menü; die native Bearbeitung bleibt erhalten.

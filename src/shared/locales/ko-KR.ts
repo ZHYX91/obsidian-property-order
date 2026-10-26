@@ -1,6 +1,10 @@
 import type { TranslationDictionary } from "../i18n";
 
 const translations = {
+  "keyboard.position": "대상 위치(1부터)",
+  "keyboard.atPosition": "지정 위치로 이동",
+  "keyboard.first": "맨 앞으로 이동",
+  "keyboard.last": "맨 뒤로 이동",
   "keyboard.command": "속성 값 순서 변경",
   "keyboard.description": "이 노트에 표시된 속성에서 값을 선택하세요. 이동하면 노트가 수정됩니다. 완료된 이동은 편집기에서 실행 취소할 수 있습니다.",
   "keyboard.source": "원본 속성",

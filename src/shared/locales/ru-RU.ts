@@ -1,6 +1,10 @@
 import type { TranslationDictionary } from "../i18n";
 
 const translations = {
+  "keyboard.position": "Позиция назначения (начиная с 1)",
+  "keyboard.atPosition": "Переместить на позицию",
+  "keyboard.first": "В начало",
+  "keyboard.last": "В конец",
   "keyboard.command": "Изменить порядок значений свойств",
   "keyboard.description": "Выберите значение в видимых свойствах этой заметки. Перемещение изменяет заметку; завершённое действие можно отменить в редакторе.",
   "keyboard.source": "Исходное свойство",

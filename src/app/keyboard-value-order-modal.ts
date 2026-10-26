@@ -30,27 +30,45 @@ export class KeyboardValueOrderModal extends Modal {
     };
     const source = addSelect("keyboard.source");
     const value = addSelect("keyboard.value");
+    const positionLabel = root.createEl("label", { cls: "property-order-keyboard-field" });
+    positionLabel.createSpan({ text: this.t("keyboard.position") });
+    const position = positionLabel.createEl("input", { attr: { type: "number", min: "1", step: "1" } });
     const target = addSelect("keyboard.target");
     const sourceProperties = this.draft.properties.filter((property) => property.canSource && property.values.length > 0);
     for (const property of sourceProperties) source.createEl("option", { text: property.key, attr: { value: property.key } });
     const actions = root.createDiv({ cls: "property-order-keyboard-actions" });
     const up = actions.createEl("button", { text: this.t("keyboard.up") });
     const down = actions.createEl("button", { text: this.t("keyboard.down") });
+    const first = actions.createEl("button", { text: this.t("keyboard.first") });
+    const last = actions.createEl("button", { text: this.t("keyboard.last") });
+    const atPosition = actions.createEl("button", { text: this.t("keyboard.atPosition") });
     const move = actions.createEl("button", { text: this.t("keyboard.move") });
     const cancel = actions.createEl("button", { text: this.t("keyboard.cancel") });
-    for (const button of [up, down, move, cancel]) button.type = "button";
+    for (const button of [up, down, first, last, atPosition, move, cancel]) button.type = "button";
     const status = root.createEl("p", { attr: { role: "status", "aria-live": "polite" } });
     const updateControls = (): void => {
       const locked = this.pending || this.failed;
       const values = sourceProperties.find((property) => property.key === source.value)?.values ?? [];
       source.disabled = locked;
       value.disabled = locked;
+      position.disabled = locked || values.length < 2;
+      const validPosition = Number.isInteger(position.valueAsNumber) && position.valueAsNumber >= 1 &&
+        position.valueAsNumber <= values.length;
+      position.setAttribute("aria-invalid", String(!validPosition));
       target.disabled = locked || target.options.length === 0;
       up.disabled = locked || Number(value.value) <= 0;
       down.disabled = locked || Number(value.value) >= values.length - 1;
+      first.disabled = up.disabled;
+      last.disabled = down.disabled;
+      atPosition.disabled = locked || !validPosition || position.valueAsNumber === Number(value.value) + 1;
       move.disabled = locked || target.options.length === 0;
       cancel.disabled = this.pending;
       root.setAttribute("aria-busy", String(this.pending));
+    };
+    const updateValue = (): void => {
+      position.max = String(sourceProperties.find((property) => property.key === source.value)?.values.length ?? 0);
+      position.value = String(Number(value.value) + 1);
+      updateControls();
     };
     const updateSource = (): void => {
       value.replaceChildren();
@@ -60,12 +78,15 @@ export class KeyboardValueOrderModal extends Modal {
       for (const property of this.draft.properties) {
         if (property.key !== source.value) target.createEl("option", { text: property.key, attr: { value: property.key } });
       }
-      updateControls();
+      updateValue();
     };
     source.addEventListener("change", updateSource);
-    value.addEventListener("change", updateControls);
-    const apply = async (action: KeyboardReorderRequest["action"]): Promise<void> => {
+    value.addEventListener("change", updateValue);
+    position.addEventListener("input", updateControls);
+    const apply = async (action: KeyboardReorderRequest["action"], targetIndex?: number): Promise<void> => {
       if (this.disposed || this.pending || this.failed) return;
+      if (action === "position" && (targetIndex === undefined || !Number.isInteger(targetIndex) ||
+          targetIndex < 0 || targetIndex >= Number(position.max) || targetIndex === Number(value.value))) return;
       this.pending = true;
       updateControls();
       status.textContent = this.t("keyboard.pending");
@@ -76,6 +97,7 @@ export class KeyboardValueOrderModal extends Modal {
           sourceIndex: Number(value.value),
           action,
           targetProperty: target.value,
+          ...(action === "position" ? { targetIndex } : {}),
         });
       } catch (error) {
         console.error("Property Order: keyboard value edit failed", error);
@@ -92,6 +114,9 @@ export class KeyboardValueOrderModal extends Modal {
     };
     up.addEventListener("click", () => { void apply("up"); });
     down.addEventListener("click", () => { void apply("down"); });
+    first.addEventListener("click", () => { void apply("position", 0); });
+    last.addEventListener("click", () => { void apply("position", Number(position.max) - 1); });
+    atPosition.addEventListener("click", () => { void apply("position", position.valueAsNumber - 1); });
     move.addEventListener("click", () => { void apply("move"); });
     cancel.addEventListener("click", () => this.close());
     updateSource();

@@ -1,4 +1,8 @@
 const translations = {
+  "keyboard.position": "Destination position (starting at 1)",
+  "keyboard.atPosition": "Move to position",
+  "keyboard.first": "Move to first",
+  "keyboard.last": "Move to last",
   "keyboard.command": "Reorder property values",
   "keyboard.description": "Choose a value in this note’s visible Properties. Moving it changes the note; use Undo in the editor to undo a completed move.",
   "keyboard.source": "Source property",

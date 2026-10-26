@@ -1,6 +1,10 @@
 import type { TranslationDictionary } from "../i18n";
 
 const translations = {
+  "keyboard.position": "移動先の位置（1 から）",
+  "keyboard.atPosition": "指定位置へ移動",
+  "keyboard.first": "先頭へ移動",
+  "keyboard.last": "末尾へ移動",
   "keyboard.command": "プロパティ値を並べ替え",
   "keyboard.description": "このノートに表示されているプロパティから値を選択します。移動するとノートが変更されます。完了した操作はエディタで元に戻せます。",
   "keyboard.source": "移動元のプロパティ",

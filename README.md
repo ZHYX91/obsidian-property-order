@@ -54,6 +54,8 @@ Back up and preserve `Vault/.obsidian/plugins/property-order/data.json` when it 
 
 **Keyboard:** Open Obsidian’s command palette and run **Property Order: Reorder property values**. Select the source property and value, then choose **Move up**, **Move down**, or **Move to property**. A move to another property appends the value to its end. These commands work even when dragging is disabled; the cross-property drag toggle applies only to pointer dragging. Before starting a move, **Escape** or **Cancel** leaves the note unchanged. Once updating starts, wait for it to finish; use Undo in the editor to reverse a completed move. No shortcut is assigned by default.
 
+For longer lists, enter a position starting at 1 and choose **Move to position**, or use **Move to first** / **Move to last**. Each completed move is one undo step.
+
 **Before changing value order:** A supported text-list edit can turn non-text YAML values into strings: `true` becomes `"true"` and `123` becomes `"123"`. This changes the value type. Check the result if those types matter.
 
 **On mobile:** Dragging requires Obsidian's own long-press menu to offer **Reorder** or **Reorder or move**. If the host menu cannot be extended, Property Order does not substitute a look-alike menu; native editing stays available.

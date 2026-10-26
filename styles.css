@@ -618,7 +618,8 @@ body.property-order-value-drag-enabled .metadata-property .multi-select-pill {
   margin-block: 12px;
 }
 
-.property-order-keyboard-field select {
+.property-order-keyboard-field select,
+.property-order-keyboard-field input {
   width: 100%;
   min-width: 0;
 }

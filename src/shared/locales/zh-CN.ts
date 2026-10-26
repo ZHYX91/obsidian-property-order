@@ -1,6 +1,10 @@
 import type { TranslationDictionary } from "../i18n";
 
 const translations = {
+  "keyboard.position": "目标位置（从 1 开始）",
+  "keyboard.atPosition": "移至指定位置",
+  "keyboard.first": "移至首位",
+  "keyboard.last": "移至末位",
   "keyboard.command": "重排属性值",
   "keyboard.description": "选择当前笔记可见 Properties 中的值。移动会修改笔记；完成后可在编辑器中撤销。",
   "keyboard.source": "源属性",
