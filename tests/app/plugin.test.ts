@@ -8,7 +8,7 @@ import PropertyOrderPlugin, {
 } from "../../src/app/plugin";
 import { KeySuggestionOrderController } from "../../src/features/key-order/key-suggestion-controller";
 import { PropertyValueOrderController } from "../../src/features/value-order/value-drag-controller";
-import { createDefaultSettings } from "../../src/shared/settings";
+import { createDefaultSettings, normalizeSettings } from "../../src/shared/settings";
 
 const MockNotice = Notice as typeof Notice & { messages: string[] };
 
@@ -32,6 +32,12 @@ function createPlugin(storedSettings: unknown): {
   const loadData = vi.spyOn(plugin, "loadData").mockResolvedValue(storedSettings);
   const saveData = vi.spyOn(plugin, "saveData").mockResolvedValue();
   return { loadData, plugin, saveData };
+}
+
+function expectPersistedBaseline(plugin: PropertyOrderPlugin, storedSettings: unknown): void {
+  expect((plugin as unknown as {
+    persistedSettingsBaseline: ReturnType<typeof createDefaultSettings>;
+  }).persistedSettingsBaseline).toEqual(normalizeSettings(storedSettings));
 }
 
 beforeEach(() => {
@@ -103,6 +109,171 @@ describe("PropertyOrderPlugin settings persistence", () => {
     expect(saveData).toHaveBeenCalledTimes(2);
     error.mockRestore();
     plugin.onunload();
+  });
+
+  it.each([
+    [6, 7],
+    [6, 999],
+    [7, 7],
+  ])("keeps external schema %i → %i settings during actual onload", async (initialSchema, externalSchema) => {
+    const initialSettings = {
+      ...createDefaultSettings(),
+      schemaVersion: initialSchema,
+      language: "en",
+      pinnedPropertyKeys: ["old"],
+    };
+    const externalSettings = {
+      ...createDefaultSettings(),
+      schemaVersion: externalSchema,
+      language: "zh-CN",
+      pinnedPropertyKeys: ["new"],
+      ...(externalSchema === 999 ? { futureOption: { mode: "keep" } } : {}),
+    };
+    let storedSettings: unknown = initialSettings;
+    const { loadData, plugin, saveData } = createPlugin(initialSettings);
+    let releaseInitialRead!: (value: unknown) => void;
+    loadData.mockImplementationOnce(() => new Promise((resolve) => {
+      releaseInitialRead = resolve;
+    })).mockImplementation(async () => structuredClone(storedSettings));
+    saveData.mockImplementation(async (value: unknown) => {
+      storedSettings = structuredClone(value);
+    });
+    const addSettingTab = vi.spyOn(plugin, "addSettingTab");
+
+    expect(plugin.onload()).toBeUndefined();
+    await vi.waitFor(() => expect(releaseInitialRead).toBeTypeOf("function"));
+    storedSettings = externalSettings;
+    const externalReload = plugin.onExternalSettingsChange();
+    releaseInitialRead(initialSettings);
+    await externalReload;
+    await vi.waitFor(() => expect(addSettingTab).toHaveBeenCalledOnce());
+
+    expect(saveData).not.toHaveBeenCalled();
+    expect(storedSettings).toEqual(externalSettings);
+    expect(plugin.propertyOrderSettings).toEqual(normalizeSettings(externalSettings));
+    expectPersistedBaseline(plugin, externalSettings);
+    expect(plugin.hasPendingSettingsSave()).toBe(false);
+    plugin.onunload();
+  });
+
+  it("migrates once and reloads external settings after initialization without rewriting them", async () => {
+    const initialSettings = { ...createDefaultSettings(), schemaVersion: 6, language: "en" };
+    let storedSettings: unknown = initialSettings;
+    const { loadData, plugin, saveData } = createPlugin(initialSettings);
+    loadData.mockImplementation(async () => structuredClone(storedSettings));
+    saveData.mockImplementation(async (value: unknown) => {
+      storedSettings = structuredClone(value);
+    });
+    const addSettingTab = vi.spyOn(plugin, "addSettingTab");
+
+    plugin.onload();
+    await vi.waitFor(() => expect(addSettingTab).toHaveBeenCalledOnce());
+
+    expect(saveData).toHaveBeenCalledOnce();
+    expect(storedSettings).toEqual(normalizeSettings(initialSettings));
+    expect(plugin.propertyOrderSettings).toEqual(storedSettings);
+    expectPersistedBaseline(plugin, storedSettings);
+    expect(plugin.hasPendingSettingsSave()).toBe(false);
+
+    const externalSettings = { ...createDefaultSettings(), language: "zh-CN", pinnedPropertyKeys: ["new"] };
+    storedSettings = externalSettings;
+    await plugin.onExternalSettingsChange();
+
+    expect(saveData).toHaveBeenCalledOnce();
+    expect(storedSettings).toEqual(externalSettings);
+    expect(plugin.propertyOrderSettings).toEqual(externalSettings);
+    expectPersistedBaseline(plugin, externalSettings);
+    expect(plugin.hasPendingSettingsSave()).toBe(false);
+    plugin.onunload();
+  });
+
+  it("keeps post-initialization external reads ordered without starting a migration", async () => {
+    const initialSettings = createDefaultSettings();
+    const { loadData, plugin, saveData } = createPlugin(initialSettings);
+    const addSettingTab = vi.spyOn(plugin, "addSettingTab");
+    plugin.onload();
+    await vi.waitFor(() => expect(addSettingTab).toHaveBeenCalledOnce());
+    const olderExternal = { ...initialSettings, schemaVersion: 6, language: "en" };
+    const newerExternal = { ...initialSettings, language: "zh-CN", pinnedPropertyKeys: ["new"] };
+    let releaseOlderRead!: (value: unknown) => void;
+    loadData.mockImplementationOnce(() => new Promise((resolve) => {
+      releaseOlderRead = resolve;
+    })).mockResolvedValue(newerExternal);
+
+    const olderReload = plugin.onExternalSettingsChange();
+    await vi.waitFor(() => expect(releaseOlderRead).toBeTypeOf("function"));
+    const newerReload = plugin.onExternalSettingsChange();
+    releaseOlderRead(olderExternal);
+    await Promise.all([olderReload, newerReload]);
+
+    expect(saveData).not.toHaveBeenCalled();
+    expect(plugin.propertyOrderSettings).toEqual(newerExternal);
+    expectPersistedBaseline(plugin, newerExternal);
+    expect(plugin.hasPendingSettingsSave()).toBe(false);
+    plugin.onunload();
+  });
+
+  it("preserves local edits and future fields when an explicit save queues during migration", async () => {
+    const initialSettings = { ...createDefaultSettings(), schemaVersion: 6, language: "en" };
+    const futureSettings = {
+      ...createDefaultSettings(),
+      schemaVersion: 999,
+      language: "zh-CN",
+      pinnedPropertyKeys: ["new"],
+      futureOption: { mode: "keep" },
+    };
+    let storedSettings: unknown = initialSettings;
+    const { loadData, plugin, saveData } = createPlugin(initialSettings);
+    let releaseMigrationRead!: (value: unknown) => void;
+    loadData.mockResolvedValueOnce(initialSettings)
+      .mockImplementationOnce(() => new Promise((resolve) => {
+        releaseMigrationRead = resolve;
+      })).mockImplementation(async () => structuredClone(storedSettings));
+    saveData.mockImplementation(async (value: unknown) => {
+      storedSettings = structuredClone(value);
+    });
+    const addSettingTab = vi.spyOn(plugin, "addSettingTab");
+
+    plugin.onload();
+    await vi.waitFor(() => expect(releaseMigrationRead).toBeTypeOf("function"));
+    storedSettings = futureSettings;
+    plugin.propertyOrderSettings.language = "ja-JP";
+    plugin.propertyOrderSettings.showDiagnostics = true;
+    const explicitSave = plugin.saveSettings();
+    releaseMigrationRead(futureSettings);
+    await explicitSave;
+    await vi.waitFor(() => expect(addSettingTab).toHaveBeenCalledOnce());
+
+    const expectedSettings = { ...futureSettings, language: "ja-JP", showDiagnostics: true };
+    expect(saveData).toHaveBeenCalledOnce();
+    expect(storedSettings).toEqual(expectedSettings);
+    expect(plugin.propertyOrderSettings).toEqual(normalizeSettings(expectedSettings));
+    expectPersistedBaseline(plugin, expectedSettings);
+    expect(plugin.hasPendingSettingsSave()).toBe(false);
+    plugin.onunload();
+  });
+
+  it("does not start a migration write after unloading during its fresh read", async () => {
+    const initialSettings = { ...createDefaultSettings(), schemaVersion: 6 };
+    const { loadData, plugin, saveData } = createPlugin(initialSettings);
+    let releaseMigrationRead!: (value: unknown) => void;
+    loadData.mockResolvedValueOnce(initialSettings)
+      .mockImplementationOnce(() => new Promise((resolve) => {
+        releaseMigrationRead = resolve;
+      }));
+    const addSettingTab = vi.spyOn(plugin, "addSettingTab");
+
+    plugin.onload();
+    await vi.waitFor(() => expect(releaseMigrationRead).toBeTypeOf("function"));
+    plugin.onunload();
+    releaseMigrationRead(initialSettings);
+    await new Promise((resolve) => window.setTimeout(resolve, 0));
+
+    expect(saveData).not.toHaveBeenCalled();
+    expect(addSettingTab).not.toHaveBeenCalled();
+    expect(document.body.classList.contains(VALUE_DRAG_ENABLED_CLASS)).toBe(false);
+    expect(plugin.hasPendingSettingsSave()).toBe(false);
+    expect(MockNotice.messages).toEqual([]);
   });
 
   it("does not resume initialization after unloading during migration persistence", async () => {

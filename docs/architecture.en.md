@@ -160,6 +160,8 @@ The short age guard exists only in memory and is never persisted with history.
 
 `src/shared/settings.ts` currently uses schema version 7. Loading migrates legacy keys sequentially, then normalizes unknown or invalid values.
 
+Startup loading reads, decides migration, and publishes runtime settings and their baseline within one shared storage queue operation. If the first read needs migration, a fresh pre-write read is merged with the loaded baseline and current local settings. Replacement current-schema data is never overwritten with the old snapshot; future schemas load compatible fields without automatic writeback. After a write, only fields not changed locally meanwhile are merged, and the persisted baseline is updated. A read completed after unload cannot start a migration write. Failure preserves in-memory settings and the unsaved state; explicit retry follows the ordinary save path. The queue coordinates plugin storage operations only and cannot eliminate external-process changes between the last read and write.
+
 Schema 6 to 7 adds opt-in property-type grouping for key suggestions and leaves it disabled by default to preserve existing behavior. Schema 5 to 6 adds the grouped per-property value-suggestion model while retaining the legacy fields needed for loss-aware migration; exact non-recent overrides can be translated, while recent, wildcard, pin, bottom, or hidden rules remain explicitly marked as pending instead of being silently reinterpreted.
 
 Schema 3 to 4 establishes the new `recent` enum boundary without changing existing `name` or `usage` values. Schema 4 to 5 adds independent, opt-in property-value suggestion settings.
