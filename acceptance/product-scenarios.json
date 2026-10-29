@@ -13,6 +13,29 @@
   },
   "scenarios": [
     {
+      "id": "settings-startup-and-external-reload",
+      "title": "Startup migration and external settings replacement",
+      "surfaces": [
+        "desktop",
+        "android-emulator"
+      ],
+      "requiredCapabilities": {
+        "desktop": [],
+        "android-emulator": []
+      },
+      "steps": [
+        "In a disposable Vault only, use Settings Reload.md to prepare schema 6 settings with English and startup_old pinned before enabling the candidate; verify one migration and successful initialization",
+        "After initialization replace the settings externally with schema 7, Simplified Chinese and startup_new pinned; record the actual host callback, verify live settings, then reload and compare persisted values",
+        "Repeat with schema 999 and futureOption mode keep; verify automatic loading does not downgrade or rewrite it, then make one visible local change and verify an explicit save preserves the future schema and unknown field",
+        "If observing a startup-window replacement, record the real initial read, external callback and storage order; label manually invoked callbacks or controlled delays as injected evidence rather than an observed host startup race"
+      ],
+      "expected": [
+        "Visible settings and persisted known values agree after initialization and reload, with no unintended fixture-note edits",
+        "An old migration payload never replaces newer current- or future-schema settings; explicit saves retain unknown future fields and unchanged external values",
+        "Automated race regressions and real-host event observations remain separate evidence claims"
+      ]
+    },
+    {
       "id": "value-order-commit-and-undo",
       "title": "Same-property reorder, cross-property move, persistence, and one-step undo",
       "surfaces": [

@@ -119,31 +119,67 @@ export default class PropertyOrderPlugin extends Plugin {
   }
 
   async loadSettings(expectedLifecycleEpoch?: number): Promise<boolean> {
-    const storedSettings: unknown = await runSettingsStorageOperation(() =>
-      this.loadData(),
-    );
+    return runSettingsStorageOperation(async () => {
+      const storedSettings: unknown = await this.loadData();
 
-    if (!this.isLifecycleCurrent(expectedLifecycleEpoch)) {
-      return false;
-    }
+      if (!this.isLifecycleCurrent(expectedLifecycleEpoch)) {
+        return false;
+      }
 
-    const normalizedSettings = normalizeSettings(storedSettings);
-    this.propertyOrderSettings = normalizedSettings;
-    this.persistedSettingsBaseline = normalizeSettings(storedSettings);
-    this.pendingSettingsSave = false;
-    this.syncValueDragState();
+      this.propertyOrderSettings = normalizeSettings(storedSettings);
+      this.persistedSettingsBaseline = normalizeSettings(storedSettings);
+      this.pendingSettingsSave = false;
+      this.syncValueDragState();
 
-    if (
-      !hasFutureSettingsSchema(storedSettings) &&
-      JSON.stringify(storedSettings) !== JSON.stringify(this.propertyOrderSettings)
-    ) {
-      const settingsForStorage = prepareSettingsForStorage(
-        this.propertyOrderSettings,
-        storedSettings,
-      );
+      if (
+        hasFutureSettingsSchema(storedSettings) ||
+        JSON.stringify(storedSettings) === JSON.stringify(this.propertyOrderSettings)
+      ) {
+        return true;
+      }
 
       try {
-        await runSettingsStorageOperation(() => this.saveData(settingsForStorage));
+        // Keep the migration and its runtime/baseline publication inside the
+        // same queue operation. An external writer may still have replaced
+        // data.json since the first read, so decide from a fresh snapshot.
+        const latestStoredSettings: unknown = await this.loadData();
+
+        if (!this.isLifecycleCurrent(expectedLifecycleEpoch)) {
+          return false;
+        }
+
+        const settingsForStorage = prepareSettingsForStorage(
+          this.propertyOrderSettings,
+          latestStoredSettings,
+          this.persistedSettingsBaseline,
+        );
+        const mergedSettings = normalizeSettings(settingsForStorage);
+        this.propertyOrderSettings = mergedSettings;
+        this.persistedSettingsBaseline = normalizeSettings(latestStoredSettings);
+        this.syncValueDragState();
+
+        if (
+          hasFutureSettingsSchema(latestStoredSettings) ||
+          JSON.stringify(latestStoredSettings) === JSON.stringify(settingsForStorage)
+        ) {
+          return true;
+        }
+
+        await this.saveData(settingsForStorage);
+
+        if (!this.isLifecycleCurrent(expectedLifecycleEpoch)) {
+          return false;
+        }
+
+        this.propertyOrderSettings = normalizeSettings(
+          prepareSettingsForStorage(
+            this.propertyOrderSettings,
+            settingsForStorage,
+            mergedSettings,
+          ),
+        );
+        this.persistedSettingsBaseline = normalizeSettings(settingsForStorage);
+        this.syncValueDragState();
       } catch (error) {
         if (!this.isLifecycleCurrent(expectedLifecycleEpoch)) {
           return false;
@@ -152,17 +188,10 @@ export default class PropertyOrderPlugin extends Plugin {
         this.pendingSettingsSave = true;
         console.error("Property Order: failed to save migrated settings", error);
         new Notice(t("notice.settingsSaveFailed", this.propertyOrderSettings.language));
-        return true;
       }
 
-      if (!this.isLifecycleCurrent(expectedLifecycleEpoch)) {
-        return false;
-      }
-
-      this.persistedSettingsBaseline = normalizeSettings(settingsForStorage);
-    }
-
-    return true;
+      return true;
+    });
   }
 
   hasPendingSettingsSave(): boolean {
