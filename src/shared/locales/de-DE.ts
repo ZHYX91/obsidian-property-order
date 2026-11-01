@@ -1,6 +1,10 @@
 import type { TranslationDictionary } from "../i18n";
 
 const translations = {
+  "keyboard.position": "Zielposition (ab 1)",
+  "keyboard.atPosition": "Zur Position verschieben",
+  "keyboard.first": "An den Anfang",
+  "keyboard.last": "Ans Ende",
   "keyboard.command": "Eigenschaftswerte umordnen",
   "keyboard.description": "Wähle einen Wert in den sichtbaren Eigenschaften dieser Notiz. Das Verschieben ändert die Notiz; im Editor kannst du es rückgängig machen.",
   "keyboard.source": "Quelleigenschaft",

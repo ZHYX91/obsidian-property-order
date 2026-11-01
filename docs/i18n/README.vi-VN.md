@@ -54,6 +54,8 @@ Nếu có `Vault/.obsidian/plugins/property-order/data.json`, hãy sao lưu và 
 
 **Dùng bàn phím:** Mở bảng lệnh của Obsidian và chạy **Property Order: Sắp xếp lại giá trị thuộc tính**. Chọn thuộc tính nguồn và giá trị, rồi chọn **Chuyển lên**, **Chuyển xuống** hoặc **Chuyển sang thuộc tính**. Khi chuyển sang thuộc tính khác, giá trị được thêm vào cuối. Lệnh vẫn dùng được khi tắt kéo thả; cài đặt kéo giữa các thuộc tính chỉ áp dụng cho con trỏ. Trước khi bắt đầu di chuyển, **Escape** hoặc **Hủy** không thay đổi ghi chú. Khi cập nhật đã bắt đầu, hãy chờ hoàn tất; sau đó có thể hoàn tác trong trình soạn thảo. Không có phím tắt được gán sẵn.
 
+Với danh sách dài, nhập vị trí đích bắt đầu từ 1 rồi chọn **Chuyển đến vị trí**, hoặc dùng **Chuyển lên đầu** / **Chuyển xuống cuối**. Mỗi lần chuyển hoàn tất chỉ cần một bước để hoàn tác.
+
 **Trước khi đổi thứ tự:** Sắp xếp hoặc di chuyển giá trị trong danh sách văn bản được hỗ trợ có thể đổi giá trị YAML không phải văn bản thành chuỗi: `true` thành `"true"`, `123` thành `"123"`. Vì kiểu dữ liệu cũng có thể thay đổi, hãy kiểm tra kết quả nếu bạn cần giữ kiểu ban đầu.
 
 **Trên điện thoại:** chỉ kéo được khi menu nhấn giữ gốc của Obsidian có mục **Sắp xếp lại** hoặc **Sắp xếp lại hoặc di chuyển**. Nếu không thể mở rộng menu gốc, plugin không tạo menu giả; thao tác chỉnh sửa có sẵn vẫn hoạt động.

@@ -68,7 +68,7 @@ translation_status: source
 
 `value-edit-session.ts` 定义一次内容编辑的身份与快照；`property-value-reconciler.ts` 只处理原始/已提交状态的 UI 对账和之后的 undo/redo，`properties-refresh-notices.ts` 拥有按 pane 隔离的恢复提示与 listener 清理。`src/app/keyboard-value-order-modal.ts` 负责单次选择和提交状态；更新期间不抢走模态焦点，关闭后沿用 Obsidian Modal 的焦点恢复，不追加手动聚焦。`property-list-alignment.ts` 供入口和对账共同核对原生列表与文本。
 
-键盘命令从当前 Markdown pane 的可见原生 Properties 捕获源属性、值、文件对象与编辑器文本；对话框中的上移、下移和移至属性末尾只形成操作意图。确认后重新核对捕获的身份与内容，再进入与指针操作相同的语义计划、最小 `editor.transaction()`、精确提交核验、保存及 UI 恢复流程。提交前取消不产生事务；更新期间对话框等待本次操作完成，失败或拒绝后不允许再次执行旧草稿。失效选择不会自动重试；该入口不通过 Vault 直写、私有属性 setter 或手工 pill 搬移提交内容。
+键盘命令从当前 Markdown pane 的可见原生 Properties 捕获源属性、值、文件对象与编辑器文本；捕获的属性和值数组不可变；对话框中的上移、下移、移至指定位置／首位／末位和移至属性末尾只形成操作意图。同属性目标表示最终索引，验证范围与非 noop 后只转换一次插入槽，不用多次相邻移动实现远距离重排。确认后重新核对捕获的身份与内容，再进入与指针操作相同的语义计划、最小 `editor.transaction()`、精确提交核验、保存及 UI 恢复流程。提交前取消不产生事务；更新期间对话框等待本次操作完成，失败或拒绝后不允许再次执行旧草稿。失效选择不会自动重试；该入口不通过 Vault 直写、私有属性 setter 或手工 pill 搬移提交内容。
 
 `core/interaction/pointer-drag.ts` 是纯状态机。它把 mouse/touch/pen 的按下、移动、长按计时、释放和中断转换为 `start`、`cancel`、`finish` 等动作，不访问 DOM。`value-drag-controller.ts` 只编排动作和资源生命周期：
 

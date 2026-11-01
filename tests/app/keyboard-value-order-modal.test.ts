@@ -5,6 +5,7 @@ import { KeyboardValueOrderModal } from "../../src/app/keyboard-value-order-moda
 import { renderWritebackFormatExamples } from "../../src/app/writeback-format-examples";
 import type { KeyboardReorderDraft } from "../../src/features/value-order/keyboard-reorder";
 import { getTranslation, type TranslationKey } from "../../src/shared/i18n";
+import { SUPPORTED_LOCALES } from "../../src/shared/locale-catalog";
 
 const t = (key: TranslationKey): string => getTranslation("en", key);
 
@@ -37,7 +38,8 @@ describe("keyboard value order dialog", () => {
     const modal = new KeyboardValueOrderModal({} as never, draft, t);
     modal.open();
     const labels = Array.from(modal.contentEl.querySelectorAll("label"));
-    expect(labels.map((label) => label.querySelector("span")?.textContent)).toEqual(["Source property", "Value", "Destination property"]);
+    expect(labels.map((label) => label.querySelector("span")?.textContent))
+      .toEqual(["Source property", "Value", "Destination position (starting at 1)", "Destination property"]);
     const [source, value, target] = modal.contentEl.querySelectorAll("select");
     expect(source?.value).toBe("tags");
     expect(source?.options.length).toBe(2);
@@ -46,9 +48,13 @@ describe("keyboard value order dialog", () => {
     expect(document.activeElement).toBe(source);
     expect(button(modal, "Move up").disabled).toBe(true);
     expect(button(modal, "Move down").disabled).toBe(false);
+    expect(button(modal, "Move to first").disabled).toBe(true);
+    expect(button(modal, "Move to last").disabled).toBe(false);
     if (value) { value.value = "1"; value.dispatchEvent(new Event("change")); }
     expect(button(modal, "Move up").disabled).toBe(false);
     expect(button(modal, "Move down").disabled).toBe(true);
+    expect(button(modal, "Move to first").disabled).toBe(false);
+    expect(button(modal, "Move to last").disabled).toBe(true);
     modal.close();
   });
 
@@ -61,7 +67,54 @@ describe("keyboard value order dialog", () => {
     expect(Array.from(target?.options ?? []).map((option) => option.value)).toEqual(["tags", "empty"]);
     expect(button(modal, "Move up").disabled).toBe(true);
     expect(button(modal, "Move down").disabled).toBe(true);
+    expect(modal.contentEl.querySelector("input")?.disabled).toBe(true);
+    expect(modal.contentEl.querySelector("input")?.max).toBe("1");
     modal.close();
+  });
+
+  it.each([
+    { action: "Move to first", sourceIndex: 29, targetIndex: 0 },
+    { action: "Move to last", sourceIndex: 0, targetIndex: 29 },
+    { action: "Move to position", sourceIndex: 29, targetIndex: 12 },
+  ])("moves directly using $action with one submission", async ({ action, sourceIndex, targetIndex }) => {
+    const draft = createDraft();
+    const modal = new KeyboardValueOrderModal({} as never, {
+      ...draft,
+      properties: [{ key: "tags", values: Array.from({ length: 30 }, () => "duplicate"), canSource: true }],
+    }, t);
+    modal.open();
+    const value = modal.contentEl.querySelectorAll("select")[1]!;
+    value.value = String(sourceIndex);
+    value.dispatchEvent(new Event("change"));
+    const position = modal.contentEl.querySelector("input")!;
+    expect(position.min).toBe("1");
+    expect(position.max).toBe("30");
+    expect(position.value).toBe(String(sourceIndex + 1));
+    position.value = String(targetIndex + 1);
+    position.dispatchEvent(new Event("input"));
+    button(modal, action).click();
+    await vi.waitFor(() => expect(draft.cancel).toHaveBeenCalledOnce());
+    expect(draft.submit).toHaveBeenCalledExactlyOnceWith({
+      action: "position", sourceProperty: "tags", sourceIndex, targetIndex, targetProperty: "",
+    });
+  });
+
+  it.each(["", "0", "3", "1.5", "2"])("rejects invalid or unchanged destination position %j", (destination) => {
+    const draft = createDraft();
+    const modal = new KeyboardValueOrderModal({} as never, draft, t);
+    modal.open();
+    const value = modal.contentEl.querySelectorAll("select")[1]!;
+    value.value = "1";
+    value.dispatchEvent(new Event("change"));
+    const position = modal.contentEl.querySelector("input")!;
+    position.value = destination;
+    position.dispatchEvent(new Event("input"));
+    const apply = button(modal, "Move to position");
+    expect(apply.disabled).toBe(true);
+    apply.dispatchEvent(new MouseEvent("click"));
+    expect(draft.submit).not.toHaveBeenCalled();
+    button(modal, "Cancel").click();
+    expect(draft.cancel).toHaveBeenCalledOnce();
   });
 
   it.each(["up", "down", "move"] as const)("submits the selected %s action and closes on completion", async (action) => {
@@ -92,6 +145,9 @@ describe("keyboard value order dialog", () => {
     expect(draft.cancel).not.toHaveBeenCalled();
     expect(modal.contentEl.getAttribute("aria-busy")).toBe("true");
     expect(button(modal, "Cancel").disabled).toBe(true);
+    expect(modal.contentEl.querySelector("input")?.disabled).toBe(true);
+    button(modal, "Move to last").dispatchEvent(new MouseEvent("click"));
+    expect(draft.submit).toHaveBeenCalledOnce();
     expect(modal.contentEl.querySelector('[role="status"]')?.textContent).toBe("Updating the note…");
     resolve(true);
     await vi.waitFor(() => expect(draft.cancel).toHaveBeenCalledOnce());
@@ -151,6 +207,17 @@ describe("keyboard value order dialog", () => {
     expect(modal.titleEl.dir).toBe("rtl");
     expect(button(modal, "Move to property").disabled).toBe(true);
     expect(modal.contentEl.querySelectorAll("select")[2]?.disabled).toBe(true);
+    modal.close();
+  });
+
+  it.each(SUPPORTED_LOCALES)("labels direct destination controls in $id", ({ id }) => {
+    const translate = (key: TranslationKey) => getTranslation(id, key);
+    const modal = new KeyboardValueOrderModal({} as never, createDraft(), translate, id === "ar" ? "rtl" : "ltr");
+    modal.open();
+    expect(modal.contentEl.querySelector("input")?.closest("label")?.textContent).toBe(translate("keyboard.position"));
+    for (const key of ["keyboard.atPosition", "keyboard.first", "keyboard.last"] as const) {
+      expect(button(modal, translate(key)).textContent).toBe(translate(key));
+    }
     modal.close();
   });
 });

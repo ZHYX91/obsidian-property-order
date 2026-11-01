@@ -1,6 +1,10 @@
 import type { TranslationDictionary } from "../i18n";
 
 const translations = {
+  "keyboard.position": "الموضع الهدف (بدءًا من 1)",
+  "keyboard.atPosition": "نقل إلى الموضع",
+  "keyboard.first": "نقل إلى البداية",
+  "keyboard.last": "نقل إلى النهاية",
   "keyboard.command": "إعادة ترتيب قيم الخصائص",
   "keyboard.description": "اختر قيمة من الخصائص الظاهرة في هذه الملاحظة. يؤدي نقلها إلى تعديل الملاحظة؛ ويمكن التراجع عن النقل المكتمل في المحرر.",
   "keyboard.source": "خاصية المصدر",

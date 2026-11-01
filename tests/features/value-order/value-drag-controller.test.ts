@@ -3096,6 +3096,43 @@ describe("PropertyValueOrderController", () => {
     harness.cleanup();
   });
 
+  it.each([
+    { sourceIndex: 29, targetIndex: 0, first: "value-29", last: "value-28" },
+    { sourceIndex: 0, targetIndex: 29, first: "value-1", last: "value-0" },
+    { sourceIndex: 29, targetIndex: 14, first: "value-0", last: "value-28" },
+  ])("moves directly from $sourceIndex to $targetIndex in one transaction", async (request) => {
+    const harness = createHarness();
+    const values = Array.from({ length: 30 }, (_, index) => `value-${index}`);
+    const original = `---\nflow: [${values.join(", ")}]\n---\n`;
+    harness.editor.setContent(original);
+    rerenderHostListProperties(harness.leaf.containerEl, original);
+    const draft = harness.controller.prepareKeyboardReorder(harness.leaf.containerEl)!;
+    expect(Object.isFrozen(draft.properties)).toBe(true);
+    expect(Reflect.set(draft.properties[0]!.values, "0", "changed")).toBe(false);
+    expect(await draft.submit({ action: "position", sourceProperty: "flow", ...request })).toBe(true);
+    const actual = getFrontmatterTextListPropertyValues(harness.editor.getContent(), "flow")!;
+    expect(actual).toHaveLength(30);
+    expect(actual[0]).toBe(request.first);
+    expect(actual.at(-1)).toBe(request.last);
+    expect(actual[request.targetIndex]).toBe(`value-${request.sourceIndex}`);
+    expect([...actual].sort()).toEqual([...values].sort());
+    expect(harness.editor.transaction).toHaveBeenCalledOnce();
+    expect(harness.leaf.view.requestSave).toHaveBeenCalledOnce();
+    harness.cleanup();
+  });
+
+  it("moves the selected duplicate by index with its attached comment", async () => {
+    const harness = createHarness();
+    const original = "---\nflow:\n  - alpha # first\n  - beta\n  - alpha # second\n  - gamma\n---\n";
+    harness.editor.setContent(original);
+    rerenderHostListProperties(harness.leaf.containerEl, original);
+    const draft = harness.controller.prepareKeyboardReorder(harness.leaf.containerEl)!;
+    expect(await draft.submit({ action: "position", sourceProperty: "flow", sourceIndex: 2, targetIndex: 0 })).toBe(true);
+    expect(harness.editor.getContent()).toBe("---\nflow:\n  - alpha # second\n  - alpha # first\n  - beta\n  - gamma\n---\n");
+    expect(harness.editor.transaction).toHaveBeenCalledOnce();
+    harness.cleanup();
+  });
+
   it("moves a scalar-backed native list into an empty target with the same text normalization", async () => {
     const harness = createHarness();
     addListTypeMismatchProperty(harness, "number", "12");
@@ -3109,7 +3146,7 @@ describe("PropertyValueOrderController", () => {
     harness.cleanup();
   });
 
-  it.each(["rename", "replacement", "vault-replacement", "editor", "content", "dom"])("rejects a stale keyboard draft after %s", async (change) => {
+  it.each(["rename", "replacement", "vault-replacement", "editor", "content", "dom"])("rejects a stale position draft after %s", async (change) => {
     const harness = createHarness();
     const original = harness.editor.getContent();
     const draft = harness.controller.prepareKeyboardReorder(harness.leaf.containerEl);
@@ -3119,7 +3156,7 @@ describe("PropertyValueOrderController", () => {
     if (change === "editor") harness.leaf.view.editor = createEditorHarness(original).instance;
     if (change === "content") harness.editor.setContent(`${original}new body\n`);
     if (change === "dom") harness.container.remove();
-    expect(await draft?.submit({ action: "down", sourceProperty: "flow", sourceIndex: 0 })).toBe(false);
+    expect(await draft?.submit({ action: "position", sourceProperty: "flow", sourceIndex: 0, targetIndex: 1 })).toBe(false);
     expect(harness.editor.transaction).not.toHaveBeenCalled();
     expect(harness.leaf.view.requestSave).not.toHaveBeenCalled();
     harness.cleanup();
@@ -3136,7 +3173,7 @@ describe("PropertyValueOrderController", () => {
     harness.cleanup();
   });
 
-  it("prevents duplicate keyboard submissions and reconciles exact undo without another write", async () => {
+  it.each(["down", "position"] as const)("prevents duplicate %s submissions and reconciles exact undo without another write", async (action) => {
     const harness = createHarness();
     const original = harness.editor.getContent();
     Object.assign(harness.leaf.view, {
@@ -3149,7 +3186,7 @@ describe("PropertyValueOrderController", () => {
     });
     vi.mocked(parseYaml).mockReturnValue({ flow: ["alpha", "beta"] });
     const draft = harness.controller.prepareKeyboardReorder(harness.leaf.containerEl);
-    const request = { action: "down" as const, sourceProperty: "flow", sourceIndex: 0 };
+    const request = { action, sourceProperty: "flow", sourceIndex: 0, targetIndex: 1 };
     const first = draft?.submit(request);
     expect(await draft?.submit(request)).toBe(false);
     expect(await first).toBe(true);
@@ -3182,6 +3219,12 @@ describe("PropertyValueOrderController", () => {
     { action: "up" as const, sourceProperty: "flow", sourceIndex: 0.5 },
     { action: "move" as const, sourceProperty: "flow", sourceIndex: 0, targetProperty: "flow" },
     { action: "move" as const, sourceProperty: "flow", sourceIndex: 0, targetProperty: "missing" },
+    { action: "position" as const, sourceProperty: "flow", sourceIndex: 0, targetIndex: 0 },
+    { action: "position" as const, sourceProperty: "flow", sourceIndex: 0 },
+    { action: "position" as const, sourceProperty: "flow", sourceIndex: 0, targetIndex: -1 },
+    { action: "position" as const, sourceProperty: "flow", sourceIndex: 0, targetIndex: 2 },
+    { action: "position" as const, sourceProperty: "flow", sourceIndex: 0, targetIndex: 0.5 },
+    { action: "position" as const, sourceProperty: "flow", sourceIndex: 0, targetIndex: Number.NaN },
   ])("does not write a keyboard boundary or invalid selection: $action/$sourceIndex/$targetProperty", async (request) => {
     const harness = createHarness();
     const draft = harness.controller.prepareKeyboardReorder(harness.leaf.containerEl);

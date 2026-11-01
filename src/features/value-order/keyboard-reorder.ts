@@ -7,8 +7,10 @@ export interface KeyboardReorderProperty {
 export interface KeyboardReorderRequest {
   readonly sourceProperty: string;
   readonly sourceIndex: number;
-  readonly action: "up" | "down" | "move";
+  readonly action: "up" | "down" | "move" | "position";
   readonly targetProperty?: string;
+  /** Zero-based final position within the source property, before slot conversion. */
+  readonly targetIndex?: number;
 }
 
 /** One snapshot and one submission. Closing a dialog invalidates its unused draft. */

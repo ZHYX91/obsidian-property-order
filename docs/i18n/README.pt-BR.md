@@ -54,6 +54,8 @@ Se `Vault/.obsidian/plugins/property-order/data.json` existir, faça uma cópia 
 
 **Pelo teclado:** Abra a paleta de comandos do Obsidian e execute **Property Order: Reordenar valores de propriedades**. Selecione a propriedade de origem e o valor, depois escolha **Mover para cima**, **Mover para baixo** ou **Mover para a propriedade**. Ao mover para outra propriedade, o valor é acrescentado ao final. O comando funciona mesmo com o arraste desativado; a opção de arrastar entre propriedades afeta apenas o ponteiro. Antes de iniciar o movimento, **Escape** ou **Cancelar** mantém a nota intacta. Após o início, espere a conclusão; você pode desfazer o movimento no editor. Nenhum atalho vem definido.
 
+Em listas longas, informe uma posição a partir de 1 e escolha **Mover para a posição**, ou use **Mover para o início** / **Mover para o fim**. Cada movimento concluído pode ser desfeito em uma única etapa.
+
 **Antes de mudar a ordem:** Reordenar ou mover valores em uma lista de texto compatível pode transformar valores YAML que não são texto em strings: `true` vira `"true"` e `123` vira `"123"`. O tipo do valor pode mudar; confira o resultado se esses tipos forem importantes.
 
 **No celular:** só é possível arrastar quando o menu nativo de toque longo do Obsidian mostra **Reordenar** ou **Reordenar ou mover**. Se o menu não puder ser estendido, o plugin não cria um menu parecido; a edição nativa continua disponível.
