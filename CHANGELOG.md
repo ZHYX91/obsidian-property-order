@@ -5,6 +5,13 @@ follow the repository's Git tags; entries summarize the corresponding commit his
 
 ## [Unreleased]
 
+## [0.11.1] - 2026-11-01
+
+- Keep an old instance's in-flight settings write ahead of a replacement plugin module's reads and writes, with independent queues for separate Vaults.
+
+- Move a property value directly to a selected list position through the keyboard reorder dialog.
+- Recheck external settings before startup migrations and preserve newer or unsupported-schema data.
+
 ## [0.11.0] - 2026-10-25
 
 ### Added
@@ -369,7 +376,8 @@ follow the repository's Git tags; entries summarize the corresponding commit his
 
 - Established the initial Property Order release baseline.
 
-[Unreleased]: https://github.com/ZHYX91/obsidian-property-order/compare/0.11.0...HEAD
+[Unreleased]: https://github.com/ZHYX91/obsidian-property-order/compare/0.11.1...HEAD
+[0.11.1]: https://github.com/ZHYX91/obsidian-property-order/compare/0.11.0...0.11.1
 [0.11.0]: https://github.com/ZHYX91/obsidian-property-order/compare/0.10.2...0.11.0
 [0.9.0]: https://github.com/ZHYX91/obsidian-property-order/releases/tag/0.9.0
 [0.8.2]: https://github.com/ZHYX91/obsidian-property-order/releases/tag/0.8.2

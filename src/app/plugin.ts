@@ -18,7 +18,11 @@ export const VALUE_DRAG_ENABLED_CLASS = "property-order-value-drag-enabled";
 const STALE_SETTINGS_INSTANCE_ERROR =
   "Property Order settings cannot be saved after plugin unload.";
 
-let settingsStorageQueue: Promise<void> = Promise.resolve();
+const SETTINGS_STORAGE_QUEUE = Symbol.for("property-order.settings-storage-queue");
+
+interface SettingsStorageQueue {
+  tail: Promise<void>;
+}
 
 interface SettingsSaveWaiter {
   reject(reason: unknown): void;
@@ -74,7 +78,7 @@ export default class PropertyOrderPlugin extends Plugin {
     let externalSettings: unknown;
 
     try {
-      externalSettings = await runSettingsStorageOperation(() => this.loadData());
+      externalSettings = await runSettingsStorageOperation(this.app, () => this.loadData());
     } catch (error) {
       if (this.isLifecycleCurrent(lifecycleEpoch)) {
         console.error("Property Order: failed to reload external settings", error);
@@ -119,31 +123,67 @@ export default class PropertyOrderPlugin extends Plugin {
   }
 
   async loadSettings(expectedLifecycleEpoch?: number): Promise<boolean> {
-    const storedSettings: unknown = await runSettingsStorageOperation(() =>
-      this.loadData(),
-    );
+    return runSettingsStorageOperation(this.app, async () => {
+      const storedSettings: unknown = await this.loadData();
 
-    if (!this.isLifecycleCurrent(expectedLifecycleEpoch)) {
-      return false;
-    }
+      if (!this.isLifecycleCurrent(expectedLifecycleEpoch)) {
+        return false;
+      }
 
-    const normalizedSettings = normalizeSettings(storedSettings);
-    this.propertyOrderSettings = normalizedSettings;
-    this.persistedSettingsBaseline = normalizeSettings(storedSettings);
-    this.pendingSettingsSave = false;
-    this.syncValueDragState();
+      this.propertyOrderSettings = normalizeSettings(storedSettings);
+      this.persistedSettingsBaseline = normalizeSettings(storedSettings);
+      this.pendingSettingsSave = false;
+      this.syncValueDragState();
 
-    if (
-      !hasFutureSettingsSchema(storedSettings) &&
-      JSON.stringify(storedSettings) !== JSON.stringify(this.propertyOrderSettings)
-    ) {
-      const settingsForStorage = prepareSettingsForStorage(
-        this.propertyOrderSettings,
-        storedSettings,
-      );
+      if (
+        hasFutureSettingsSchema(storedSettings) ||
+        JSON.stringify(storedSettings) === JSON.stringify(this.propertyOrderSettings)
+      ) {
+        return true;
+      }
 
       try {
-        await runSettingsStorageOperation(() => this.saveData(settingsForStorage));
+        // Keep the migration and its runtime/baseline publication inside the
+        // same queue operation. An external writer may still have replaced
+        // data.json since the first read, so decide from a fresh snapshot.
+        const latestStoredSettings: unknown = await this.loadData();
+
+        if (!this.isLifecycleCurrent(expectedLifecycleEpoch)) {
+          return false;
+        }
+
+        const settingsForStorage = prepareSettingsForStorage(
+          this.propertyOrderSettings,
+          latestStoredSettings,
+          this.persistedSettingsBaseline,
+        );
+        const mergedSettings = normalizeSettings(settingsForStorage);
+        this.propertyOrderSettings = mergedSettings;
+        this.persistedSettingsBaseline = normalizeSettings(latestStoredSettings);
+        this.syncValueDragState();
+
+        if (
+          hasFutureSettingsSchema(latestStoredSettings) ||
+          JSON.stringify(latestStoredSettings) === JSON.stringify(settingsForStorage)
+        ) {
+          return true;
+        }
+
+        await this.saveData(settingsForStorage);
+
+        if (!this.isLifecycleCurrent(expectedLifecycleEpoch)) {
+          return false;
+        }
+
+        this.propertyOrderSettings = normalizeSettings(
+          prepareSettingsForStorage(
+            this.propertyOrderSettings,
+            settingsForStorage,
+            mergedSettings,
+          ),
+        );
+        this.persistedSettingsBaseline = normalizeSettings(settingsForStorage);
+        this.syncValueDragState();
       } catch (error) {
         if (!this.isLifecycleCurrent(expectedLifecycleEpoch)) {
           return false;
@@ -152,17 +192,10 @@ export default class PropertyOrderPlugin extends Plugin {
         this.pendingSettingsSave = true;
         console.error("Property Order: failed to save migrated settings", error);
         new Notice(t("notice.settingsSaveFailed", this.propertyOrderSettings.language));
-        return true;
       }
 
-      if (!this.isLifecycleCurrent(expectedLifecycleEpoch)) {
-        return false;
-      }
-
-      this.persistedSettingsBaseline = normalizeSettings(settingsForStorage);
-    }
-
-    return true;
+      return true;
+    });
   }
 
   hasPendingSettingsSave(): boolean {
@@ -368,7 +401,7 @@ export default class PropertyOrderPlugin extends Plugin {
       const saveWaiters = this.pendingSettingsSaveWaiters.splice(0);
 
       try {
-        const { settingsSnapshot, settingsForStorage } = await runSettingsStorageOperation(async () => {
+        const { settingsSnapshot, settingsForStorage } = await runSettingsStorageOperation(this.app, async () => {
           // A queued external read may update both runtime settings and their
           // baseline before this operation starts. Capture the pair together
           // here so neither merge mistakes an external reload for a local edit.
@@ -540,9 +573,13 @@ function areStringListsEqual(left: readonly string[], right: readonly string[]):
   );
 }
 
-function runSettingsStorageOperation<T>(operation: () => Promise<T>): Promise<T> {
-  const result = settingsStorageQueue.then(operation, operation);
-  settingsStorageQueue = result.then(
+function runSettingsStorageOperation<T>(host: object, operation: () => Promise<T>): Promise<T> {
+  // The App survives plugin module reloads. Keep its pending writes ahead of
+  // the replacement instance's first read, without serializing other Vaults.
+  const owner = host as { [SETTINGS_STORAGE_QUEUE]?: SettingsStorageQueue };
+  const queue = owner[SETTINGS_STORAGE_QUEUE] ??= { tail: Promise.resolve() };
+  const result = queue.tail.then(operation, operation);
+  queue.tail = result.then(
     () => undefined,
     () => undefined,
   );

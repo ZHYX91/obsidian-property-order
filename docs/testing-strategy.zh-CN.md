@@ -51,6 +51,8 @@ Lint 使用当前 Obsidian API typings，兼容性仍以 `manifest.json` 为契�
 
 可注入的故障路径以自动测试为主证据，包括：设置保存拒绝、宿主 DOM 不匹配、选择同步失败、Escape/blur、组件消失、外部内容冲突和异步乱序。真实宿主用于确认 Obsidian 实际 DOM、输入、视觉和磁盘结果，不重复伪造难以稳定注入的失败。
 
+启动设置回归直接经过 `onload` 与实际初始化链路，控制旧 schema 6 读取期间的外部 schema 7／999 变化，并同时核对存储、运行时、持久化基线与未保存状态；覆盖无迁移、单独迁移、迁移失败与重试、写前重读期间卸载、未来字段与本地改动并存，以及初始化完成后的有序外部重载。受控回调时序只证明插件内部竞争边界，不证明真实宿主会在该启动窗口派发事件；后者需要独立记录实际宿主回调与存储顺序。
+
 ## 隔离 Vault
 
 使用安装精确候选包的临时 Vault。仓库提供 `acceptance/fixtures/Property Order.md`、`Key Suggestions.md`、`Key Type Vocabulary.md`、`Value Suggestions.md` 和 `acceptance/product-scenarios.json`；核对它们与候选绑定的哈希，并安装三个候选资产。常规回归只启用 Property Order；需要下述受控条件时，再启用仓库提供的 fixture provider。普通或生产 Vault 永远不是合法目标。

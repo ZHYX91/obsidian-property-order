@@ -52,6 +52,8 @@ These numbers are regression tripwires for repeated scans or superlinear work, n
 
 Injectable failure paths rely primarily on automated evidence: rejected settings persistence, host-DOM mismatch, selection-sync failure, Escape/blur, component removal, external conflict, and asynchronous reordering. Real hosts verify actual Obsidian DOM, input, visuals, and disk results without duplicating failures that cannot be injected reliably.
 
+Startup-settings regressions call `onload` through the actual initialization chain, control external schema 7/999 changes during an old schema-6 read, and check storage, runtime settings, persisted baseline, and unsaved state together. They cover no migration, ordinary migration, migration failure and retry, unload during the pre-write reread, future fields with local edits, and ordered external reloads after initialization. Controlled callback timing proves only the plugin's internal race boundary; it does not prove that a real host emits an event in that startup window. That requires a separate record of actual host callbacks and storage order.
+
 ## Isolated Vault
 
 Use a disposable Vault with the exact packaged candidate. The repository provides `acceptance/fixtures/Property Order.md`, `Key Suggestions.md`, `Key Type Vocabulary.md`, `Value Suggestions.md`, and `acceptance/product-scenarios.json`; verify their candidate-bound hashes and install the three candidate assets. Routine regression enables only Property Order. Enable the repository's fixture provider as well when the controlled conditions below are needed. An ordinary or production Vault is never a valid target.
