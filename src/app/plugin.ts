@@ -18,7 +18,11 @@ export const VALUE_DRAG_ENABLED_CLASS = "property-order-value-drag-enabled";
 const STALE_SETTINGS_INSTANCE_ERROR =
   "Property Order settings cannot be saved after plugin unload.";
 
-let settingsStorageQueue: Promise<void> = Promise.resolve();
+const SETTINGS_STORAGE_QUEUE = Symbol.for("property-order.settings-storage-queue");
+
+interface SettingsStorageQueue {
+  tail: Promise<void>;
+}
 
 interface SettingsSaveWaiter {
   reject(reason: unknown): void;
@@ -74,7 +78,7 @@ export default class PropertyOrderPlugin extends Plugin {
     let externalSettings: unknown;
 
     try {
-      externalSettings = await runSettingsStorageOperation(() => this.loadData());
+      externalSettings = await runSettingsStorageOperation(this.app, () => this.loadData());
     } catch (error) {
       if (this.isLifecycleCurrent(lifecycleEpoch)) {
         console.error("Property Order: failed to reload external settings", error);
@@ -119,7 +123,7 @@ export default class PropertyOrderPlugin extends Plugin {
   }
 
   async loadSettings(expectedLifecycleEpoch?: number): Promise<boolean> {
-    return runSettingsStorageOperation(async () => {
+    return runSettingsStorageOperation(this.app, async () => {
       const storedSettings: unknown = await this.loadData();
 
       if (!this.isLifecycleCurrent(expectedLifecycleEpoch)) {
@@ -397,7 +401,7 @@ export default class PropertyOrderPlugin extends Plugin {
       const saveWaiters = this.pendingSettingsSaveWaiters.splice(0);
 
       try {
-        const { settingsSnapshot, settingsForStorage } = await runSettingsStorageOperation(async () => {
+        const { settingsSnapshot, settingsForStorage } = await runSettingsStorageOperation(this.app, async () => {
           // A queued external read may update both runtime settings and their
           // baseline before this operation starts. Capture the pair together
           // here so neither merge mistakes an external reload for a local edit.
@@ -569,9 +573,13 @@ function areStringListsEqual(left: readonly string[], right: readonly string[]):
   );
 }
 
-function runSettingsStorageOperation<T>(operation: () => Promise<T>): Promise<T> {
-  const result = settingsStorageQueue.then(operation, operation);
-  settingsStorageQueue = result.then(
+function runSettingsStorageOperation<T>(host: object, operation: () => Promise<T>): Promise<T> {
+  // The App survives plugin module reloads. Keep its pending writes ahead of
+  // the replacement instance's first read, without serializing other Vaults.
+  const owner = host as { [SETTINGS_STORAGE_QUEUE]?: SettingsStorageQueue };
+  const queue = owner[SETTINGS_STORAGE_QUEUE] ??= { tail: Promise.resolve() };
+  const result = queue.tail.then(operation, operation);
+  queue.tail = result.then(
     () => undefined,
     () => undefined,
   );

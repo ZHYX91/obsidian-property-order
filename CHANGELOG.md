@@ -5,6 +5,7 @@ follow the repository's Git tags; entries summarize the corresponding commit his
 
 ## [Unreleased]
 
+- Keep an old instance's in-flight settings write ahead of a replacement plugin module's reads and writes, with independent queues for separate Vaults.
 ## [0.11.0] - 2026-10-25
 
 ### Added

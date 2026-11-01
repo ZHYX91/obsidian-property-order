@@ -590,6 +590,7 @@ describe("PropertyOrderPlugin settings persistence", () => {
       ...initialSettings,
       language: "en",
     });
+    Object.assign(newPlugin, { app: oldPlugin.app });
     const newLoad = newPlugin.loadSettings();
     await Promise.resolve();
     expect(newLoadData).not.toHaveBeenCalled();
