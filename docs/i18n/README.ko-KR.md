@@ -110,7 +110,7 @@ npm ci
 npm run check
 ```
 
-- 문서: [제품 요구 사항 (English)](../product-requirements.en.md), [UX 명세 (English)](../ux-spec.en.md), [아키텍처 (English)](../architecture.en.md), [테스트 전략 (English)](../testing-strategy.en.md).
+- 문서: [제품 요구 사항 (English)](../product-requirements.md), [UX 명세 (English)](../ux-spec.md), [아키텍처 (English)](../architecture.md), [테스트 전략 (English)](../testing-strategy.md).
 - 프로젝트 정보: [변경 이력](../../CHANGELOG.md), [기여 안내](../../CONTRIBUTING.md), [보안 정책](../../SECURITY.md).
 - 토론: [Q&A](https://github.com/ZHYX91/obsidian-property-order/discussions/categories/q-a), [Ideas](https://github.com/ZHYX91/obsidian-property-order/discussions/categories/ideas), [Show and tell](https://github.com/ZHYX91/obsidian-property-order/discussions/categories/show-and-tell).
 - 재현 가능한 버그와 구체적인 기능 요청은 구조화된 [GitHub 이슈 양식](https://github.com/ZHYX91/obsidian-property-order/issues/new/choose)을 사용하세요. 취약점은 [보안 정책](https://github.com/ZHYX91/obsidian-property-order/security/policy)에 따라 비공개로 보고하세요.

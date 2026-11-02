@@ -114,10 +114,10 @@ npm run check
 
 ### Tài liệu
 
-- [Yêu cầu sản phẩm (English)](../product-requirements.en.md)
-- [Đặc tả UX (English)](../ux-spec.en.md)
-- [Kiến trúc (English)](../architecture.en.md)
-- [Chiến lược kiểm thử (English)](../testing-strategy.en.md)
+- [Yêu cầu sản phẩm (English)](../product-requirements.md)
+- [Đặc tả UX (English)](../ux-spec.md)
+- [Kiến trúc (English)](../architecture.md)
+- [Chiến lược kiểm thử (English)](../testing-strategy.md)
 - [Nhật ký thay đổi (English)](../../CHANGELOG.md)
 - [Hướng dẫn đóng góp (English)](../../CONTRIBUTING.md)
 - [Chính sách bảo mật (English)](../../SECURITY.md)
