@@ -114,10 +114,10 @@ npm run check
 
 ### Documentation
 
-- [Exigences du produit (English)](../product-requirements.en.md)
-- [Spécification des interactions (English)](../ux-spec.en.md)
-- [Architecture (English)](../architecture.en.md)
-- [Stratégie de test (English)](../testing-strategy.en.md)
+- [Exigences du produit (English)](../product-requirements.md)
+- [Spécification des interactions (English)](../ux-spec.md)
+- [Architecture (English)](../architecture.md)
+- [Stratégie de test (English)](../testing-strategy.md)
 - [Journal des modifications (English)](../../CHANGELOG.md)
 - [Guide de contribution (English)](../../CONTRIBUTING.md)
 - [Politique de sécurité (English)](../../SECURITY.md)

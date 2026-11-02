@@ -231,9 +231,9 @@ Controllers do not retain stale settings that affect subsequent interactions: va
 ## Verification and Release Boundary
 
 - Automated regression coverage: `tests/core/`, `tests/features/`, `tests/obsidian/`, `tests/shared/`, and `tests/app/`.
-- Product boundary: [`product-requirements.en.md`](product-requirements.en.md).
-- UX contract: [`ux-spec.en.md`](ux-spec.en.md).
-- Automated gates, real-host matrix, and verification boundary: [`testing-strategy.en.md`](testing-strategy.en.md).
+- Product boundary: [`product-requirements.md`](product-requirements.md).
+- UX contract: [`ux-spec.md`](ux-spec.md).
+- Automated gates, real-host matrix, and verification boundary: [`testing-strategy.md`](testing-strategy.md).
 - Before release, `npm run check` must pass; it runs the official Obsidian ESLint gate, deterministic text-format contract, README and stable bilingual-document contracts, `npm run typecheck`, `npm run test:coverage`, `npm run build`, and `npm run check:release` in sequence. The final check requires a reproducible bundle and caps production `main.js` at 450,000 B. All 12 interface dictionaries are bundled offline in that single `main.js`; the build retains UTF-8 characters to avoid the size cost of non-ASCII escapes. This regression budget includes the complete dictionaries and is not an Obsidian platform limit.
 - Follow Obsidian reads the host's configured interface language through `getLanguage()`; an explicit plugin language always takes precedence. The minimum supported Obsidian version is 1.12.7, while `versions.json` remains the compatibility contract for every published version.
 - Production builds place `main.js`, `manifest.json`, and `styles.css` directly at the top level of `dist/`, so source-build review and the local release check use the same standard paths. `.node-version`, `package.json` `engines.node`/`packageManager`, and the runtime gate jointly pin Node.js 24.19.0 and npm 11.17.0. A repository-local release-core runtime and adjacent lock bind the shared implementation exactly. The thin adapter declares only plugin identity, style policy, and public repository, so an independent clone has no dependency on the private workspace.

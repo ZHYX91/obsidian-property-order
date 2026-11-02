@@ -110,7 +110,7 @@ npm ci
 npm run check
 ```
 
-- ドキュメント：[製品要件（English）](../product-requirements.en.md)、[UX 仕様（English）](../ux-spec.en.md)、[アーキテクチャ（English）](../architecture.en.md)、[テスト方針（English）](../testing-strategy.en.md)。
+- ドキュメント：[製品要件（English）](../product-requirements.md)、[UX 仕様（English）](../ux-spec.md)、[アーキテクチャ（English）](../architecture.md)、[テスト方針（English）](../testing-strategy.md)。
 - プロジェクト情報：[変更履歴](../../CHANGELOG.md)、[貢献ガイド](../../CONTRIBUTING.md)、[セキュリティポリシー](../../SECURITY.md)。
 - ディスカッション：[Q&A](https://github.com/ZHYX91/obsidian-property-order/discussions/categories/q-a)、[Ideas](https://github.com/ZHYX91/obsidian-property-order/discussions/categories/ideas)、[Show and tell](https://github.com/ZHYX91/obsidian-property-order/discussions/categories/show-and-tell)。
 - 再現可能な不具合や具体的な機能要望には、構造化された [GitHub Issue フォーム](https://github.com/ZHYX91/obsidian-property-order/issues/new/choose)を使ってください。脆弱性は[セキュリティポリシー](https://github.com/ZHYX91/obsidian-property-order/security/policy)に従って非公開で報告してください。

@@ -115,10 +115,10 @@ npm run check
 
 ### الوثائق
 
-- [متطلبات المنتج (English)](../product-requirements.en.md)
-- [مواصفات تجربة الاستخدام (English)](../ux-spec.en.md)
-- [البنية البرمجية (English)](../architecture.en.md)
-- [استراتيجية الاختبار (English)](../testing-strategy.en.md)
+- [متطلبات المنتج (English)](../product-requirements.md)
+- [مواصفات تجربة الاستخدام (English)](../ux-spec.md)
+- [البنية البرمجية (English)](../architecture.md)
+- [استراتيجية الاختبار (English)](../testing-strategy.md)
 - [سجل التغييرات (English)](../../CHANGELOG.md)
 - [دليل المساهمة (English)](../../CONTRIBUTING.md)
 - [سياسة الأمان (English)](../../SECURITY.md)

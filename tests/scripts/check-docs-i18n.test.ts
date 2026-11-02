@@ -37,31 +37,31 @@ describe("stable documentation i18n checker", () => {
 
   it("rejects a complete stable document pair that is not registered", async () => {
     await writeFile(path.join(fixtureRoot, "docs/unregistered.zh-CN.md"), "placeholder\n");
-    await writeFile(path.join(fixtureRoot, "docs/unregistered.en.md"), "placeholder\n");
+    await writeFile(path.join(fixtureRoot, "docs/unregistered.md"), "placeholder\n");
 
     expect(checkDocsI18n(fixtureRoot)).toContain(
       "Unregistered stable document pair: docs/unregistered.zh-CN.md and " +
-        "docs/unregistered.en.md",
+        "docs/unregistered.md",
     );
   });
 
   it("rejects a stable document with only one language", async () => {
     await writeFile(path.join(fixtureRoot, "docs/source-only.zh-CN.md"), "placeholder\n");
-    await writeFile(path.join(fixtureRoot, "docs/translation-only.en.md"), "placeholder\n");
+    await writeFile(path.join(fixtureRoot, "docs/translation-only.md"), "placeholder\n");
 
     const errors = checkDocsI18n(fixtureRoot);
     expect(errors).toContain(
       "Stable document has no English translation: docs/source-only.zh-CN.md " +
-        "(expected docs/source-only.en.md)",
+        "(expected docs/source-only.md)",
     );
     expect(errors).toContain(
-      "Stable document has no Simplified Chinese source: docs/translation-only.en.md " +
+      "Stable document has no Simplified Chinese source: docs/translation-only.md " +
         "(expected docs/translation-only.zh-CN.md)",
     );
   });
 
   it("does not inventory localized README or asset files below docs root", async () => {
-    await writeFile(path.join(fixtureRoot, "docs/i18n/unpaired.en.md"), "placeholder\n");
+    await writeFile(path.join(fixtureRoot, "docs/i18n/unpaired.md"), "placeholder\n");
     await mkdir(path.join(fixtureRoot, "docs/assets"), { recursive: true });
     await writeFile(path.join(fixtureRoot, "docs/assets/unpaired.zh-CN.md"), "placeholder\n");
 
@@ -70,20 +70,20 @@ describe("stable documentation i18n checker", () => {
 
   it("rejects stale translation metadata", async () => {
     await replaceInDocument(
-      "docs/ux-spec.en.md",
+      "docs/ux-spec.md",
       "translation_status: synced",
       "translation_status: stale",
     );
 
     expect(checkDocsI18n(fixtureRoot)).toContain(
-      "docs/ux-spec.en.md frontmatter must set translation_status: synced",
+      "docs/ux-spec.md frontmatter must set translation_status: synced",
     );
   });
 
   it("rejects mismatched heading hierarchy and table shape", async () => {
-    await replaceInDocument("docs/ux-spec.en.md", "## Settings UI", "### Settings UI");
+    await replaceInDocument("docs/ux-spec.md", "## Settings UI", "### Settings UI");
     await replaceInDocument(
-      "docs/architecture.en.md",
+      "docs/architecture.md",
       "| scalar | Minimal inline flow conversion; explicit null is empty | Flow | Block |",
       "",
     );
@@ -94,10 +94,10 @@ describe("stable documentation i18n checker", () => {
   });
 
   it("rejects missing critical contract tokens", async () => {
-    await replaceInDocument("docs/testing-strategy.en.md", "`src/**/*.ts`", "source files");
+    await replaceInDocument("docs/testing-strategy.md", "`src/**/*.ts`", "source files");
 
     expect(checkDocsI18n(fixtureRoot)).toContain(
-      "docs/testing-strategy.en.md must retain the stable contract token `src/**/*.ts`",
+      "docs/testing-strategy.md must retain the stable contract token `src/**/*.ts`",
     );
   });
 
@@ -108,7 +108,7 @@ describe("stable documentation i18n checker", () => {
       "schema 版本为 6",
     );
     await replaceInDocument(
-      "docs/ux-spec.en.md",
+      "docs/ux-spec.md",
       "property-type grouping",
       "type clusters",
     );
@@ -118,28 +118,28 @@ describe("stable documentation i18n checker", () => {
       "docs/architecture.zh-CN.md must retain the stable semantic phrase: schema 版本为 7",
     );
     expect(errors).toContain(
-      "docs/ux-spec.en.md must retain the stable semantic phrase: property-type grouping",
+      "docs/ux-spec.md must retain the stable semantic phrase: property-type grouping",
     );
   });
 
   it("rejects an unterminated fenced code block", async () => {
-    await appendToDocument("docs/ux-spec.en.md", "\n```text\nunfinished");
+    await appendToDocument("docs/ux-spec.md", "\n```text\nunfinished");
 
     expect(checkDocsI18n(fixtureRoot)).toContain(
-      "docs/ux-spec.en.md has an unterminated fenced code block",
+      "docs/ux-spec.md has an unterminated fenced code block",
     );
   });
 
   it("rejects broken and unsynchronized relative links", async () => {
     await replaceInDocument(
-      "docs/architecture.en.md",
-      "(product-requirements.en.md)",
-      "(missing.en.md)",
+      "docs/architecture.md",
+      "(product-requirements.md)",
+      "(missing.md)",
     );
 
     const errors = checkDocsI18n(fixtureRoot);
     expect(errors).toContain(
-      "docs/architecture.en.md has a broken relative link: missing.en.md",
+      "docs/architecture.md has a broken relative link: missing.md",
     );
     expect(errors.some((error: string) => error.includes("different relative links"))).toBe(true);
   });
@@ -154,7 +154,7 @@ describe("stable documentation i18n checker", () => {
       "[external reference](https://example.com/reference)",
     ].join("\n");
     await appendToDocument("docs/ux-spec.zh-CN.md", sample);
-    await appendToDocument("docs/ux-spec.en.md", sample);
+    await appendToDocument("docs/ux-spec.md", sample);
 
     expect(checkDocsI18n(fixtureRoot)).toEqual([]);
   });

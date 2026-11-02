@@ -12,7 +12,7 @@ export const stableDocumentPairs = [
       { source: "属性类型分组", translation: "property-type grouping" },
     ],
     source: "docs/product-requirements.zh-CN.md",
-    translation: "docs/product-requirements.en.md",
+    translation: "docs/product-requirements.md",
   },
   {
     requiredTokens: [
@@ -29,7 +29,7 @@ export const stableDocumentPairs = [
       { source: "属性类型分组", translation: "property-type grouping" },
     ],
     source: "docs/architecture.zh-CN.md",
-    translation: "docs/architecture.en.md",
+    translation: "docs/architecture.md",
   },
   {
     requiredTokens: [
@@ -44,7 +44,7 @@ export const stableDocumentPairs = [
       { source: "属性类型分组", translation: "property-type grouping" },
     ],
     source: "docs/ux-spec.zh-CN.md",
-    translation: "docs/ux-spec.en.md",
+    translation: "docs/ux-spec.md",
   },
   {
     requiredTokens: [
@@ -57,7 +57,7 @@ export const stableDocumentPairs = [
       "block",
     ],
     source: "docs/testing-strategy.zh-CN.md",
-    translation: "docs/testing-strategy.en.md",
+    translation: "docs/testing-strategy.md",
   },
 ];
 
@@ -155,13 +155,15 @@ function validateStableDocumentInventory(projectRoot, errors) {
       continue;
     }
 
-    const match = /^(.*)\.(zh-CN|en)\.md$/u.exec(entry.name);
+    if (entry.name === "README.md") continue;
+    const match = /^([a-z0-9]+(?:-[a-z0-9]+)*)(?:\.(zh-CN))?\.md$/u.exec(entry.name);
 
     if (match == null) {
       continue;
     }
 
-    const [, stem, locale] = match;
+    const [, stem, sourceLocale] = match;
+    const locale = sourceLocale ?? "en";
 
     if (stem == null || locale == null) {
       continue;
@@ -186,7 +188,7 @@ function validateStableDocumentInventory(projectRoot, errors) {
 
     if (translation == null) {
       errors.push(
-        `Registered stable translation must be a docs root *.en.md file: ${pair.translation}`,
+        `Registered stable translation must be a docs root *.md file: ${pair.translation}`,
       );
     }
 
@@ -209,7 +211,7 @@ function validateStableDocumentInventory(projectRoot, errors) {
     left.localeCompare(right, "en"),
   )) {
     const expectedSource = path.posix.join("docs", `${stem}.zh-CN.md`);
-    const expectedTranslation = path.posix.join("docs", `${stem}.en.md`);
+    const expectedTranslation = path.posix.join("docs", `${stem}.md`);
 
     if (pair["zh-CN"] == null) {
       errors.push(
@@ -243,14 +245,14 @@ function validateStableDocumentInventory(projectRoot, errors) {
 
 function parseRegisteredStableDocument(filePath, locale) {
   const prefix = "docs/";
-  const suffix = `.${locale}.md`;
+  const suffix = locale === "en" ? ".md" : `.${locale}.md`;
 
   if (!filePath.startsWith(prefix) || !filePath.endsWith(suffix)) {
     return null;
   }
 
   const stem = filePath.slice(prefix.length, -suffix.length);
-  return stem.length === 0 || stem.includes("/") ? null : { stem };
+  return /^[a-z0-9]+(?:-[a-z0-9]+)*$/u.test(stem) ? { stem } : null;
 }
 
 function createStablePairKey(source, translation) {
