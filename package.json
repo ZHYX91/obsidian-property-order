@@ -28,7 +28,9 @@
     "release:publish-github": "node scripts/release.mjs publish-github",
     "release:post-verify": "node scripts/release.mjs post-verify",
     "bench:usage": "vitest run --config vitest.performance.config.mts --mode quick --reporter=verbose",
-    "bench:usage:large": "vitest run --config vitest.performance.config.mts --mode large --reporter=verbose"
+    "bench:usage:large": "vitest run --config vitest.performance.config.mts --mode large --reporter=verbose",
+    "postinstall": "node scripts/prepare-lint-dependencies.mjs",
+    "prelint": "node scripts/prepare-lint-dependencies.mjs && node scripts/check-lint-dependencies.mjs"
   },
   "keywords": [
     "obsidian",
@@ -49,7 +51,31 @@
     "postcss": "8.5.23",
     "fast-uri": "3.1.9",
     "moment": "2.31.0",
-    "source-map-js": "1.2.2"
+    "source-map-js": "1.2.2",
+    "@eslint/config-array": {
+      "minimatch": "11.0.4"
+    },
+    "@eslint/eslintrc": {
+      "minimatch": "11.0.4"
+    },
+    "@typescript-eslint/typescript-estree": {
+      "minimatch": "11.0.4"
+    },
+    "eslint": {
+      "minimatch": "11.0.4"
+    },
+    "eslint-plugin-json-schema-validator": {
+      "minimatch": "11.0.4"
+    },
+    "eslint-plugin-n": {
+      "minimatch": "11.0.4"
+    },
+    "eslint-plugin-import": {
+      "minimatch": "11.0.4"
+    },
+    "eslint-plugin-react": {
+      "minimatch": "11.0.4"
+    }
   },
   "devDependencies": {
     "@eslint/js": "10.0.1",
