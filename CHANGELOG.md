@@ -5,6 +5,8 @@ follow the repository's Git tags; entries summarize the corresponding commit his
 
 ## [Unreleased]
 
+- Update the development-only minimatch dependencies to 11.0.4 with reviewed legacy lint-call adaptations and installed-caller regression checks.
+
 ## [0.11.1] - 2026-11-01
 
 - Keep an old instance's in-flight settings write ahead of a replacement plugin module's reads and writes, with independent queues for separate Vaults.
