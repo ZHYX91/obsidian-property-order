@@ -8,7 +8,7 @@ export const stableDocumentPairs = [
   {
     requiredTokens: ["preserve", "flow", "block", "[]"],
     semanticPhrases: [
-      { source: "schema 7", translation: "schema 7" },
+      { source: "schema 8", translation: "schema 8" },
       { source: "属性类型分组", translation: "property-type grouping" },
     ],
     source: "docs/product-requirements.zh-CN.md",
@@ -25,7 +25,7 @@ export const stableDocumentPairs = [
       "MarkdownView.requestSave()",
     ],
     semanticPhrases: [
-      { source: "schema 版本为 7", translation: "schema version 7" },
+      { source: "schema 版本为 8", translation: "schema version 8" },
       { source: "属性类型分组", translation: "property-type grouping" },
     ],
     source: "docs/architecture.zh-CN.md",

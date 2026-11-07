@@ -130,10 +130,8 @@ const translations = {
   "settings.valueSuggestions.addProperty.placeholder": "Найдите или введите имя свойства...",
   "settings.valueSuggestions.addProperty.button": "Добавить свойство",
   "settings.valueSuggestions.moveConfirm": "Переместить «{property}» из «{from}» в «{to}»? Это изменит способ отображения подсказок его значений.",
-  "settings.valueSuggestions.legacyMigrationPending": "Некоторые старые правила нельзя преобразовать автоматически. Они по-прежнему управляют подсказками. Проверьте их перед переходом к настройкам по группам.",
+  "settings.valueSuggestions.legacyRulesArchived": "Прежние правила значений сохранены в архиве и больше не управляют подсказками. Равнозначные настройки перенесены. Просмотрите сохранённые правила и при необходимости настройте им замену ниже.",
   "settings.valueSuggestions.legacyMigrationDetails": "Просмотреть сохранённые старые правила",
-  "settings.valueSuggestions.legacyMigrationAdopt": "Перейти к настройкам по группам",
-  "settings.valueSuggestions.legacyMigrationConfirm": "Перейти к настройкам по группам? Старые правила перестанут влиять на подсказки, но останутся в файле настроек. Возможно, потребуется настроить им замену.",
   "settings.valueSuggestions.frequencyHistory.name": "Частота выбора",
   "settings.valueSuggestions.frequencyHistory.desc": "Считает, сколько раз значения были выбраны и успешно добавлены, только когда для подсказок свойства или раздела «Обычные варианты» в режиме «Свои варианты» выбран режим «Частота выбора». Счётчики хранятся для этого хранилища на этом устройстве. Их очистка не меняет заметки или заданные варианты.",
   "settings.valueSuggestions.frequencyHistory.clear": "Сбросить счётчики",
@@ -179,10 +177,8 @@ const translations = {
   "notice.settingsSaveFailed": "Property Order: не удалось сохранить настройки. Попробуйте ещё раз.",
   "notice.recentHistoryCleared": "Property Order: история недавно использованных свойств очищена.",
   "notice.recentHistoryClearFailed": "Property Order: не удалось удалить сохранённую историю недавнего использования. Для этого сеанса она очищена, но после перезапуска может появиться снова.",
-  "notice.recentValueHistoryCleared": "Property Order: история недавно использованных значений свойств очищена.",
   "notice.valueFrequencyCleared": "Property Order: счётчики выбора сброшены.",
   "notice.valueFrequencyClearFailed": "Property Order: счётчики сброшены для этого сеанса, но сохранённые данные удалить не удалось. После перезапуска они могут появиться снова.",
-  "notice.recentValueHistoryClearFailed": "Property Order: не удалось удалить сохранённую историю недавних значений свойств. Для этого сеанса она очищена, но после перезапуска может появиться снова.",
   "notice.mobileReorderArmed": "Property Order: теперь перетащите выбранное значение. Для отмены нажмите в другом месте или подождите.",
 } satisfies TranslationDictionary;
 

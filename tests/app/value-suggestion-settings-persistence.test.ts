@@ -147,9 +147,10 @@ describe("Value suggestion settings persistence", () => {
     const rules = ["TQ_* = usage", "status=   unexpected", "name = constructor"];
     const harness = await createHarness({
       language: "zh-CN",
-      valueSuggestionLegacyMigrationPending: true,
-      valueSuggestionSortMode: "recent",
-      valueSuggestionSortOverrides: rules,
+      valueSuggestionLegacyRules: {
+        sortMode: "recent", sortOverrides: rules, pinnedValues: [],
+        bottomValues: [], hiddenPatterns: [],
+      },
     });
     const content = harness.container.querySelector(".property-order-legacy-value-rules")?.textContent;
 
@@ -157,8 +158,13 @@ describe("Value suggestion settings persistence", () => {
     expect(content).toContain("status=   unexpected");
     expect(content).toContain("name = constructor");
     expect(content).not.toContain("behavior:");
-    expect(harness.plugin.propertyOrderSettings.valueSuggestionSortOverrides).toEqual(rules);
-    expect(harness.persisted().valueSuggestionLegacyMigrationPending).toBe(true);
+    expect(harness.plugin.propertyOrderSettings.valueSuggestionLegacyRules?.sortOverrides).toEqual(rules);
+    expect(harness.persisted().valueSuggestionLegacyRules?.sortOverrides).toEqual(rules);
+    expect(harness.container.textContent).toContain("已归档，不再控制候选");
+    expect(getDefaultBehaviorDropdown()).toBeDefined();
+    await getDefaultBehaviorDropdown().onChange?.("name");
+    expect(harness.persisted().valueSuggestionDefaultBehavior).toBe("name");
+    expect(harness.persisted().valueSuggestionLegacyRules?.sortOverrides).toEqual(rules);
   });
 
   it("scopes Arabic direction to plugin settings and restores LTR after a language change", async () => {

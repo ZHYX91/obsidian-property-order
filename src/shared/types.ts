@@ -11,7 +11,6 @@ export type PropertyType =
   | "datetime"
   | "tags"
   | "unknown";
-export type ValueSuggestionSortMode = "native" | "name" | "recent" | "usage" | "none";
 export type ValueSuggestionBehavior =
   | "native"
   | "name"
@@ -40,6 +39,15 @@ export interface PropertyValueCustomOrder {
   propertyKey: string;
 }
 
+/** Preserved settings for review only; these rules never participate in runtime ordering. */
+export interface LegacyValueSuggestionRules {
+  sortMode: string;
+  sortOverrides: string[];
+  pinnedValues: string[];
+  bottomValues: string[];
+  hiddenPatterns: string[];
+}
+
 export interface PropertyOrderSettings {
   schemaVersion: number;
   language: PluginLanguage;
@@ -53,16 +61,11 @@ export interface PropertyOrderSettings {
   bottomPropertyKeys: string[];
   hiddenPropertyKeyPatterns: string[];
   enableNativeValueSuggestionOrder: boolean;
-  valueSuggestionSortMode: ValueSuggestionSortMode;
-  valueSuggestionSortOverrides: string[];
-  pinnedPropertyValues: string[];
-  bottomPropertyValues: string[];
-  hiddenPropertyValuePatterns: string[];
   valueSuggestionDefaultBehavior: ValueSuggestionDefaultBehavior;
   valueSuggestionPropertyAssignments: PropertyValueBehaviorAssignment[];
   valueSuggestionCustomOrders: PropertyValueCustomOrder[];
   valueSuggestionKeyDisplayOrder: ValueSuggestionKeyDisplayOrder;
-  valueSuggestionLegacyMigrationPending: boolean;
+  valueSuggestionLegacyRules: LegacyValueSuggestionRules | null;
   showDiagnostics: boolean;
 }
 
@@ -102,13 +105,4 @@ export interface PropertyKeyOrderOptions {
 export interface PropertyValueUsage {
   value: string;
   count: number;
-}
-
-export interface PropertyValueOrderOptions {
-  bottomValues: string[];
-  hiddenPatterns: string[];
-  pinnedValues: string[];
-  recentValues: string[];
-  sortMode: ValueSuggestionSortMode;
-  usage: PropertyValueUsage[];
 }

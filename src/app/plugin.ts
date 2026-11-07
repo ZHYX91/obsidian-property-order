@@ -206,10 +206,6 @@ export default class PropertyOrderPlugin extends Plugin {
     return this.keySuggestionOrderController?.clearRecentPropertyKeys() ?? false;
   }
 
-  clearRecentPropertyValues(): boolean {
-    return this.valueSuggestionOrderController?.clearRecentPropertyValues() ?? false;
-  }
-
   clearPropertyValueFrequency(): boolean {
     return this.valueSuggestionOrderController?.clearPropertyValueFrequency() ?? false;
   }
@@ -544,25 +540,12 @@ function areValueSuggestionSettingsEqual(
 ): boolean {
   return (
     left.enableNativeValueSuggestionOrder === right.enableNativeValueSuggestionOrder &&
-    left.valueSuggestionSortMode === right.valueSuggestionSortMode &&
-    areStringListsEqual(
-      left.valueSuggestionSortOverrides,
-      right.valueSuggestionSortOverrides,
-    ) &&
-    areStringListsEqual(left.pinnedPropertyValues, right.pinnedPropertyValues) &&
-    areStringListsEqual(left.bottomPropertyValues, right.bottomPropertyValues) &&
-    areStringListsEqual(
-      left.hiddenPropertyValuePatterns,
-      right.hiddenPropertyValuePatterns,
-    ) &&
     left.valueSuggestionDefaultBehavior === right.valueSuggestionDefaultBehavior &&
     JSON.stringify(left.valueSuggestionPropertyAssignments) ===
       JSON.stringify(right.valueSuggestionPropertyAssignments) &&
     JSON.stringify(left.valueSuggestionCustomOrders) ===
       JSON.stringify(right.valueSuggestionCustomOrders) &&
-    left.valueSuggestionKeyDisplayOrder === right.valueSuggestionKeyDisplayOrder &&
-    left.valueSuggestionLegacyMigrationPending ===
-      right.valueSuggestionLegacyMigrationPending
+    left.valueSuggestionKeyDisplayOrder === right.valueSuggestionKeyDisplayOrder
   );
 }
 

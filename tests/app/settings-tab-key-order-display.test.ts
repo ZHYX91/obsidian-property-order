@@ -47,7 +47,6 @@ describe("PropertyOrderSettingTab imperative key-suggestion controls", () => {
     } as unknown as App;
     const plugin = {
       clearRecentPropertyKeys: vi.fn(() => true),
-      clearRecentPropertyValues: vi.fn(() => true),
       clearPropertyValueFrequency: vi.fn(() => true),
       getPropertyValueFrequency: vi.fn(() => []),
       hasPendingSettingsSave: vi.fn(() => false),

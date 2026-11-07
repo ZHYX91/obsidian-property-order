@@ -8,7 +8,7 @@ import PropertyOrderPlugin, {
 } from "../../src/app/plugin";
 import { KeySuggestionOrderController } from "../../src/features/key-order/key-suggestion-controller";
 import { PropertyValueOrderController } from "../../src/features/value-order/value-drag-controller";
-import { createDefaultSettings, normalizeSettings } from "../../src/shared/settings";
+import { CURRENT_SETTINGS_SCHEMA_VERSION, createDefaultSettings, normalizeSettings } from "../../src/shared/settings";
 
 const MockNotice = Notice as typeof Notice & { messages: string[] };
 
@@ -112,9 +112,9 @@ describe("PropertyOrderPlugin settings persistence", () => {
   });
 
   it.each([
-    [6, 7],
-    [6, 999],
-    [7, 7],
+    [CURRENT_SETTINGS_SCHEMA_VERSION - 1, CURRENT_SETTINGS_SCHEMA_VERSION],
+    [CURRENT_SETTINGS_SCHEMA_VERSION - 1, 999],
+    [CURRENT_SETTINGS_SCHEMA_VERSION, CURRENT_SETTINGS_SCHEMA_VERSION],
   ])("keeps external schema %i → %i settings during actual onload", async (initialSchema, externalSchema) => {
     const initialSettings = {
       ...createDefaultSettings(),

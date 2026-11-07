@@ -104,7 +104,7 @@ describe("stable documentation i18n checker", () => {
   it("rejects stale schema and feature semantics across language pairs", async () => {
     await replaceInDocument(
       "docs/architecture.zh-CN.md",
-      "schema 版本为 7",
+      "schema 版本为 8",
       "schema 版本为 6",
     );
     await replaceInDocument(
@@ -115,7 +115,7 @@ describe("stable documentation i18n checker", () => {
 
     const errors = checkDocsI18n(fixtureRoot);
     expect(errors).toContain(
-      "docs/architecture.zh-CN.md must retain the stable semantic phrase: schema 版本为 7",
+      "docs/architecture.zh-CN.md must retain the stable semantic phrase: schema 版本为 8",
     );
     expect(errors).toContain(
       "docs/ux-spec.md must retain the stable semantic phrase: property-type grouping",
