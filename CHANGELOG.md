@@ -5,6 +5,8 @@ follow the repository's Git tags; entries summarize the corresponding commit his
 
 ## [Unreleased]
 
+- Use the grouped value-suggestion model for all users. Import equivalent older settings once and preserve original rules in a read-only archive; retired recent-value and wildcard rules no longer control suggestions.
+
 - Update the development-only minimatch dependencies to 11.0.4 with reviewed legacy lint-call adaptations and installed-caller regression checks.
 
 ## [0.11.1] - 2026-11-01

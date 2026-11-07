@@ -45,7 +45,6 @@ const ENABLE_DECLARATIVE_SETTINGS = false;
 
 interface PropertyOrderSettingsHost extends Plugin {
   clearRecentPropertyKeys(): boolean;
-  clearRecentPropertyValues(): boolean;
   clearPropertyValueFrequency(): boolean;
   getPropertyValueFrequency(propertyKey: string): PropertyValueUsage[];
   hasPendingSettingsSave(): boolean;
@@ -668,14 +667,15 @@ export class PropertyOrderSettingTab extends PluginSettingTab {
       addInactiveHint(containerEl, this.t("settings.valueSuggestions.disabledHint"));
     }
 
-    if (settingsAtRender.valueSuggestionLegacyMigrationPending) {
+    const archivedRules = settingsAtRender.valueSuggestionLegacyRules;
+    if (archivedRules !== null) {
       const migrationEl = containerEl.createDiv({
         cls: "property-order-value-suggestion-migration",
       });
       const message = migrationEl.createDiv({
         cls: "property-order-settings-hint",
       });
-      message.textContent = this.t("settings.valueSuggestions.legacyMigrationPending");
+      message.textContent = this.t("settings.valueSuggestions.legacyRulesArchived");
 
       const details = migrationEl.createEl("details");
       const summary = details.createEl("summary");
@@ -683,38 +683,17 @@ export class PropertyOrderSettingTab extends PluginSettingTab {
       const legacyRules = details.createEl("pre");
       legacyRules.className = "property-order-legacy-value-rules";
       legacyRules.textContent = [
-        `${this.t("settings.valueSuggestions.sortMode.name")}: ${this.getLegacyValueSuggestionModeLabel(settingsAtRender.valueSuggestionSortMode)}`,
-        ...settingsAtRender.valueSuggestionSortOverrides.map((rule) =>
+        `${this.t("settings.valueSuggestions.sortMode.name")}: ${this.getLegacyValueSuggestionModeLabel(archivedRules.sortMode)}`,
+        ...archivedRules.sortOverrides.map((rule) =>
           `${this.t("settings.valueSuggestions.sortOverrides.name")}: ${this.formatLegacyValueSuggestionRule(rule)}`),
-        ...settingsAtRender.pinnedPropertyValues.map((rule) =>
+        ...archivedRules.pinnedValues.map((rule) =>
           `${this.t("settings.valueSuggestions.pinned.name")}: ${rule}`),
-        ...settingsAtRender.bottomPropertyValues.map((rule) =>
+        ...archivedRules.bottomValues.map((rule) =>
           `${this.t("settings.valueSuggestions.bottom.name")}: ${rule}`),
-        ...settingsAtRender.hiddenPropertyValuePatterns.map((rule) =>
+        ...archivedRules.hiddenPatterns.map((rule) =>
           `${this.t("settings.valueSuggestions.hidden.name")}: ${rule}`),
       ].join("\n");
 
-      const adoptButton = migrationEl.createEl("button");
-      adoptButton.type = "button";
-      adoptButton.textContent = this.t("settings.valueSuggestions.legacyMigrationAdopt");
-      adoptButton.addEventListener("click", () => {
-        const targetWindow = migrationEl.ownerDocument.defaultView;
-        if (
-          targetWindow?.confirm(
-            this.t("settings.valueSuggestions.legacyMigrationConfirm"),
-          ) !== true
-        ) {
-          return;
-        }
-
-        this.plugin.propertyOrderSettings.valueSuggestionLegacyMigrationPending = false;
-        void this.persistSettings(false, true).then(() => {
-          if (this.isSettingsSurfaceCurrent(surfaceGeneration)) {
-            this.render(null);
-          }
-        });
-      });
-      return;
     }
 
     new Setting(containerEl)

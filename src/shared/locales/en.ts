@@ -128,10 +128,8 @@ const translations = {
   "settings.valueSuggestions.addProperty.placeholder": "Search or enter a property name...",
   "settings.valueSuggestions.addProperty.button": "Add property",
   "settings.valueSuggestions.moveConfirm": "Move “{property}” from “{from}” to “{to}”? This changes how its value suggestions are shown.",
-  "settings.valueSuggestions.legacyMigrationPending": "Some older rules cannot be converted automatically. They still control suggestions. Review them before switching to grouped settings.",
+  "settings.valueSuggestions.legacyRulesArchived": "Older value rules have been archived and no longer control suggestions. Equivalent settings were imported. Review the saved rules and configure any replacements below.",
   "settings.valueSuggestions.legacyMigrationDetails": "Review preserved legacy rules",
-  "settings.valueSuggestions.legacyMigrationAdopt": "Switch to grouped settings",
-  "settings.valueSuggestions.legacyMigrationConfirm": "Switch to grouped settings? Older rules will stop affecting suggestions, but will remain in the settings file. You may need to configure their replacements.",
   "settings.valueSuggestions.frequencyHistory.name": "Selection frequency",
   "settings.valueSuggestions.frequencyHistory.desc": "Counts successful value selections only while that property's suggestions, or its Custom normal section, use Selection frequency. Counts stay in this vault on this device. Clearing them does not change notes or presets.",
   "settings.valueSuggestions.frequencyHistory.clear": "Clear counts",
@@ -177,10 +175,8 @@ const translations = {
   "notice.settingsSaveFailed": "Property Order: failed to save settings. Try again.",
   "notice.recentHistoryCleared": "Property Order: recent property history cleared.",
   "notice.recentHistoryClearFailed": "Property Order: saved recent history could not be cleared. It is cleared for this session but may return after restart.",
-  "notice.recentValueHistoryCleared": "Property Order: recent property value history cleared.",
   "notice.valueFrequencyCleared": "Property Order: selection counts cleared.",
   "notice.valueFrequencyClearFailed": "Property Order: counts cleared for this session, but saved counts could not be removed and may return after restarting.",
-  "notice.recentValueHistoryClearFailed": "Property Order: saved recent property value history could not be cleared. It is cleared for this session but may return after restart.",
   "notice.mobileReorderArmed": "Property Order: drag the selected value now. Tap elsewhere or wait to cancel.",
 } as const;
 

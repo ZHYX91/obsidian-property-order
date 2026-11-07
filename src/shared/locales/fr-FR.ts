@@ -130,10 +130,8 @@ const translations = {
   "settings.valueSuggestions.addProperty.placeholder": "Rechercher ou saisir un nom de propriété...",
   "settings.valueSuggestions.addProperty.button": "Ajouter une propriété",
   "settings.valueSuggestions.moveConfirm": "Déplacer « {property} » de « {from} » vers « {to} » ? Cela change la façon dont ses valeurs sont suggérées.",
-  "settings.valueSuggestions.legacyMigrationPending": "Certaines anciennes règles ne peuvent pas être converties automatiquement. Elles continuent de contrôler les suggestions. Consultez-les avant de passer aux réglages par groupes.",
+  "settings.valueSuggestions.legacyRulesArchived": "Les anciennes règles de valeurs sont conservées, mais ne contrôlent plus les suggestions. Les réglages équivalents ont été repris. Consultez les règles conservées et configurez leurs remplacements ci-dessous si nécessaire.",
   "settings.valueSuggestions.legacyMigrationDetails": "Consulter les anciennes règles conservées",
-  "settings.valueSuggestions.legacyMigrationAdopt": "Passer aux réglages par groupes",
-  "settings.valueSuggestions.legacyMigrationConfirm": "Passer aux réglages par groupes ? Les anciennes règles n’agiront plus sur les suggestions, mais resteront dans le fichier de paramètres. Vous devrez peut-être créer des règles pour les remplacer.",
   "settings.valueSuggestions.frequencyHistory.name": "Fréquence de sélection",
   "settings.valueSuggestions.frequencyHistory.desc": "Compte les sélections réussies uniquement lorsque les suggestions de cette propriété, ou la section normale de ses suggestions personnalisées, utilisent le tri « Fréquence de sélection ». Les compteurs restent dans ce coffre sur cet appareil. Les effacer ne modifie ni les notes ni les valeurs prédéfinies.",
   "settings.valueSuggestions.frequencyHistory.clear": "Effacer les compteurs",
@@ -179,10 +177,8 @@ const translations = {
   "notice.settingsSaveFailed": "Property Order : les paramètres n’ont pas pu être enregistrés. Réessayez.",
   "notice.recentHistoryCleared": "Property Order : l’historique des noms de propriétés récents a été effacé.",
   "notice.recentHistoryClearFailed": "Property Order : l’historique enregistré n’a pas pu être supprimé. Il est effacé pour cette session, mais peut revenir après un redémarrage.",
-  "notice.recentValueHistoryCleared": "Property Order : l’historique des valeurs de propriétés récentes a été effacé.",
   "notice.valueFrequencyCleared": "Property Order : les compteurs de sélection ont été effacés.",
   "notice.valueFrequencyClearFailed": "Property Order : les compteurs ont été effacés pour cette session, mais les données enregistrées n’ont pas pu être supprimées et peuvent revenir après un redémarrage.",
-  "notice.recentValueHistoryClearFailed": "Property Order : l’historique enregistré des valeurs de propriétés n’a pas pu être supprimé. Il est effacé pour cette session, mais peut revenir après un redémarrage.",
   "notice.mobileReorderArmed": "Property Order : faites maintenant glisser la valeur sélectionnée. Touchez ailleurs ou attendez pour annuler.",
 } satisfies TranslationDictionary;
 

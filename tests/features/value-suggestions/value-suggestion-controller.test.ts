@@ -5,7 +5,6 @@ import { Platform, type App, type Plugin, type TFile } from "obsidian";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { PropertyValueFrequencyStore } from "../../../src/features/value-suggestions/property-value-frequency-store";
-import { RecentPropertyValueStore } from "../../../src/features/value-suggestions/recent-property-value-store";
 import { ValueSuggestionOrderController } from "../../../src/features/value-suggestions/value-suggestion-controller";
 import { createDefaultSettings } from "../../../src/shared/settings";
 import type { PropertyOrderSettings } from "../../../src/shared/types";
@@ -26,7 +25,6 @@ interface TestableValueController {
   invalidateUsage(): void;
   originalSuggestions: Map<HTMLElement, unknown>;
   recordConfirmedPropertyValue(propertyKey: string, value: string): void;
-  recordRecentPropertyValue(propertyKey: string, value: string): void;
   refreshCustomFallback(targetDocument: Document): void;
   restoreContainer(container: HTMLElement): void;
   shouldScheduleEnhancement(
@@ -102,7 +100,6 @@ function createApp(options: {
 function createController(
   settings: PropertyOrderSettings,
   app = createApp(),
-  store?: RecentPropertyValueStore,
   frequencyStore?: PropertyValueFrequencyStore,
 ): ValueSuggestionOrderController {
   const plugin = {
@@ -112,7 +109,6 @@ function createController(
   const controller = new ValueSuggestionOrderController(
     plugin,
     () => settings,
-    store,
     frequencyStore,
   );
   liveControllers.add(controller);
@@ -371,14 +367,18 @@ describe("ValueSuggestionOrderController", () => {
     controller.dispose();
   });
 
-  it("orders, hides, and restores native value suggestions", () => {
+  it("uses current custom rules while preserving archived rules and native restoration", () => {
     const settings = createDefaultSettings();
     settings.enableNativeValueSuggestionOrder = true;
-    settings.valueSuggestionLegacyMigrationPending = true;
-    settings.valueSuggestionSortMode = "name";
-    settings.pinnedPropertyValues = ["status = draft"];
-    settings.bottomPropertyValues = ["status = archived"];
-    settings.hiddenPropertyValuePatterns = ["status = cancel*"];
+    settings.valueSuggestionLegacyRules = {
+      sortMode: "recent", sortOverrides: [], pinnedValues: [], bottomValues: [],
+      hiddenPatterns: ["status = cancel*"],
+    };
+    settings.valueSuggestionPropertyAssignments = [{ propertyKey: "status", behavior: "custom" }];
+    settings.valueSuggestionCustomOrders = [{
+      propertyKey: "status", middleSortMode: "name", pinnedValues: ["draft"],
+      middleValues: [], bottomValues: ["archived"],
+    }];
     const controller = createController(settings);
     const testable = asTestable(controller);
     const { container } = createValueMenu([
@@ -391,13 +391,13 @@ describe("ValueSuggestionOrderController", () => {
 
     testable.enhanceContainer(container);
 
-    expect(visibleValues(container)).toEqual(["draft", "alpha", "beta", "archived"]);
+    expect(visibleValues(container)).toEqual(["draft", "alpha", "beta", "cancelled", "archived"]);
     expect(allValues(container)).toEqual([
       "draft",
       "alpha",
       "beta",
-      "archived",
       "cancelled",
+      "archived",
     ]);
     expect(container.dataset.propertyOrderValueEnhanced).toBe("true");
     expect(
@@ -446,7 +446,7 @@ describe("ValueSuggestionOrderController", () => {
       getCounts: vi.fn(() => []),
       increment: vi.fn(() => []),
     } as unknown as PropertyValueFrequencyStore;
-    const controller = createController(settings, createApp(), undefined, frequencyStore);
+    const controller = createController(settings, createApp(), frequencyStore);
     const testable = asTestable(controller);
 
     testable.recordConfirmedPropertyValue("status", "draft");
@@ -477,24 +477,27 @@ describe("ValueSuggestionOrderController", () => {
     expect(frequencyStore.getCounts).toHaveBeenCalledWith("STATUS");
   });
 
-  it("uses recent values from the device-local store", () => {
+  it("uses current frequency ordering while an old recent rule is archived", () => {
     const settings = createDefaultSettings();
     settings.enableNativeValueSuggestionOrder = true;
-    settings.valueSuggestionLegacyMigrationPending = true;
-    settings.valueSuggestionSortMode = "recent";
-    const store = {
+    settings.valueSuggestionDefaultBehavior = "frequency";
+    settings.valueSuggestionLegacyRules = {
+      sortMode: "recent", sortOverrides: [], pinnedValues: [], bottomValues: [], hiddenPatterns: [],
+    };
+    const frequencyStore = {
       clear: vi.fn(() => true),
-      getValues: vi.fn(() => ["beta"]),
-      touch: vi.fn((_propertyKey: string, value: string) => [value, "beta"]),
-    } as unknown as RecentPropertyValueStore;
-    const controller = createController(settings, createApp(), store);
-    const testable = asTestable(controller);
+      getCounts: vi.fn(() => [{ value: "beta", count: 2 }]),
+      increment: vi.fn(),
+    } as unknown as PropertyValueFrequencyStore;
+    const app = createApp();
+    const controller = createController(settings, app, frequencyStore);
     const { container } = createValueMenu(["gamma", "alpha", "beta"]);
 
-    testable.enhanceContainer(container);
+    asTestable(controller).enhanceContainer(container);
 
     expect(visibleValues(container)).toEqual(["beta", "alpha", "gamma"]);
-    expect(store.getValues).toHaveBeenCalledWith("status");
+    expect(frequencyStore.getCounts).toHaveBeenCalledWith("status");
+    expect(app.loadLocalStorage).not.toHaveBeenCalled();
   });
 
   it("uses cached frontmatter note counts for usage ordering", () => {
@@ -1733,50 +1736,25 @@ describe("ValueSuggestionOrderController", () => {
     controller.dispose();
   });
 
-  it("records recent values only when the MRU changes", () => {
+  it("records confirmed frequency and refreshes active documents", () => {
     const raf = installRafHarness();
     const settings = createDefaultSettings();
     settings.enableNativeValueSuggestionOrder = true;
-    const getValues = vi.fn(() => ["draft"]);
-    const touch = vi
-      .fn()
-      .mockReturnValueOnce(["done", "draft"])
-      .mockReturnValueOnce(["draft"]);
-    const store = {
-      clear: vi.fn(() => true),
-      getValues,
-      touch,
-    } as unknown as RecentPropertyValueStore;
-    const controller = createController(settings, createApp(), store);
-    const testable = asTestable(controller);
+    settings.valueSuggestionDefaultBehavior = "frequency";
+    const increment = vi.fn();
+    const frequencyStore = {
+      clear: vi.fn(() => false), getCounts: vi.fn(() => []), increment,
+    } as unknown as PropertyValueFrequencyStore;
+    const controller = createController(settings, createApp(), frequencyStore);
 
     controller.initialize();
     raf.flush();
-    testable.recordRecentPropertyValue("status", "done");
+    asTestable(controller).recordConfirmedPropertyValue("status", "done");
+    expect(increment).toHaveBeenCalledWith("status", "done");
     expect(raf.pending()).toBe(1);
     raf.flush();
-
-    testable.recordRecentPropertyValue("status", "draft");
-    expect(touch).toHaveBeenCalledTimes(2);
-    controller.dispose();
-  });
-
-  it("clears recent value history and refreshes active documents", () => {
-    const raf = installRafHarness();
-    const settings = createDefaultSettings();
-    settings.enableNativeValueSuggestionOrder = true;
-    const clear = vi.fn(() => false);
-    const store = {
-      clear,
-      getValues: vi.fn(() => []),
-      touch: vi.fn(() => []),
-    } as unknown as RecentPropertyValueStore;
-    const controller = createController(settings, createApp(), store);
-
-    controller.initialize();
-    raf.flush();
-    expect(controller.clearRecentPropertyValues()).toBe(false);
-    expect(clear).toHaveBeenCalledOnce();
+    expect(controller.clearPropertyValueFrequency()).toBe(false);
+    expect(frequencyStore.clear).toHaveBeenCalledOnce();
     expect(raf.pending()).toBe(1);
     controller.dispose();
   });
@@ -2161,20 +2139,21 @@ describe("ValueSuggestionOrderController", () => {
   it("restores native ordering after removing a pin or changing sort mode", () => {
     const settings = createDefaultSettings();
     settings.enableNativeValueSuggestionOrder = true;
-    settings.valueSuggestionLegacyMigrationPending = true;
-    settings.valueSuggestionSortMode = "name";
+    settings.valueSuggestionDefaultBehavior = "name";
     const controller = createController(settings);
     const { container } = createValueMenu(["b", "a"]);
     asTestable(controller).enhanceContainer(container);
     expect(visibleValues(container)).toEqual(["a", "b"]);
 
-    settings.valueSuggestionSortMode = "native";
+    settings.valueSuggestionDefaultBehavior = "native";
     asTestable(controller).enhanceContainer(container);
     expect(visibleValues(container)).toEqual(["b", "a"]);
-    settings.pinnedPropertyValues = ["status = a"];
+    settings.valueSuggestionPropertyAssignments = [{ propertyKey: "status", behavior: "custom" }];
+    settings.valueSuggestionCustomOrders = [{ propertyKey: "status", pinnedValues: ["a"],
+      middleValues: [], bottomValues: [], middleSortMode: "native" }];
     asTestable(controller).enhanceContainer(container);
     expect(visibleValues(container)).toEqual(["a", "b"]);
-    settings.pinnedPropertyValues = [];
+    settings.valueSuggestionCustomOrders = [];
     asTestable(controller).enhanceContainer(container);
     expect(visibleValues(container)).toEqual(["b", "a"]);
     controller.dispose();

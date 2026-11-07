@@ -4,6 +4,24 @@ import { planGroupedPropertyValueSuggestions } from "../../../src/core/suggestio
 import { createDefaultSettings } from "../../../src/shared/settings";
 
 describe("planGroupedPropertyValueSuggestions", () => {
+  it.each([
+    ["native", ["gamma", "alpha", "beta"]],
+    ["name", ["alpha", "beta", "gamma"]],
+    ["frequency", ["beta", "alpha", "gamma"]],
+    ["note-count", ["gamma", "beta", "alpha"]],
+  ] as const)("orders native candidates by %s without creating presets", (behavior, expected) => {
+    const settings = createDefaultSettings();
+    settings.valueSuggestionDefaultBehavior = behavior;
+    const plan = planGroupedPropertyValueSuggestions(
+      settings, "status", ["gamma", "alpha", "beta", "alpha", ""],
+      [{ value: "beta", count: 3 }, { value: "gamma", count: 1 }, { value: "alpha", count: 1 }],
+      [{ value: "beta", count: 2 }, { value: "gamma", count: 4 }],
+    );
+    expect(plan.candidates).toEqual(expected.map((value) => ({
+      value, isPreset: false, placement: "middle",
+    })));
+  });
+
   it("uses the default behavior for unassigned properties", () => {
     const settings = createDefaultSettings();
     settings.valueSuggestionDefaultBehavior = "name";

@@ -542,7 +542,6 @@ function createSettingTab(options: {
   };
   const plugin = {
     clearRecentPropertyKeys: options.clearRecentPropertyKeys ?? vi.fn(() => true),
-    clearRecentPropertyValues: vi.fn(() => true),
     hasPendingSettingsSave: vi.fn(() => false),
     propertyOrderSettings: options.settings ?? createDefaultSettings(),
     saveSettings: options.saveSettings ?? vi.fn(() => Promise.resolve()),

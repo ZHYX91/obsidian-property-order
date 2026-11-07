@@ -130,10 +130,8 @@ const translations = {
   "settings.valueSuggestions.addProperty.placeholder": "Tìm hoặc nhập tên thuộc tính…",
   "settings.valueSuggestions.addProperty.button": "Thêm thuộc tính",
   "settings.valueSuggestions.moveConfirm": "Chuyển '{property}' từ '{from}' sang '{to}'? Cách hiển thị gợi ý giá trị của thuộc tính này sẽ thay đổi.",
-  "settings.valueSuggestions.legacyMigrationPending": "Một số quy tắc cũ không thể chuyển đổi tự động và hiện vẫn chi phối gợi ý. Hãy xem lại chúng trước khi chuyển sang cài đặt theo nhóm.",
+  "settings.valueSuggestions.legacyRulesArchived": "Các quy tắc giá trị cũ đã được lưu lại và không còn chi phối gợi ý. Những cài đặt tương đương đã được chuyển đổi. Hãy xem các quy tắc đã lưu và thiết lập quy tắc thay thế bên dưới nếu cần.",
   "settings.valueSuggestions.legacyMigrationDetails": "Xem các quy tắc cũ được giữ lại",
-  "settings.valueSuggestions.legacyMigrationAdopt": "Chuyển sang cài đặt theo nhóm",
-  "settings.valueSuggestions.legacyMigrationConfirm": "Chuyển sang cài đặt theo nhóm? Quy tắc cũ sẽ ngừng áp dụng cho gợi ý nhưng vẫn còn trong tệp cài đặt. Bạn có thể cần tạo quy tắc mới để thay thế.",
   "settings.valueSuggestions.frequencyHistory.name": "Số lần chọn",
   "settings.valueSuggestions.frequencyHistory.desc": "Chỉ ghi nhận những lần chọn và thêm giá trị thành công khi thuộc tính đó, hoặc phần gợi ý thông thường trong Gợi ý tùy chỉnh, dùng 'Số lần chọn'. Số liệu chỉ lưu trong kho này trên thiết bị này. Xóa số liệu không thay đổi ghi chú hay giá trị định sẵn.",
   "settings.valueSuggestions.frequencyHistory.clear": "Xóa số lần chọn",
@@ -179,10 +177,8 @@ const translations = {
   "notice.settingsSaveFailed": "Property Order: không lưu được cài đặt. Hãy thử lại.",
   "notice.recentHistoryCleared": "Property Order: đã xóa lịch sử tên thuộc tính dùng gần đây.",
   "notice.recentHistoryClearFailed": "Property Order: không xóa được lịch sử đã lưu. Lịch sử đã được xóa trong phiên này nhưng có thể xuất hiện lại sau khi khởi động lại.",
-  "notice.recentValueHistoryCleared": "Property Order: đã xóa lịch sử giá trị thuộc tính dùng gần đây.",
   "notice.valueFrequencyCleared": "Property Order: đã xóa số lần chọn.",
   "notice.valueFrequencyClearFailed": "Property Order: đã xóa số lần chọn trong phiên này nhưng không xóa được số liệu đã lưu. Số liệu có thể xuất hiện lại sau khi khởi động lại.",
-  "notice.recentValueHistoryClearFailed": "Property Order: không xóa được lịch sử giá trị thuộc tính đã lưu. Lịch sử đã được xóa trong phiên này nhưng có thể xuất hiện lại sau khi khởi động lại.",
   "notice.mobileReorderArmed": "Property Order: hãy kéo giá trị đã chọn. Chạm vào nơi khác hoặc đợi một lúc để hủy.",
 } satisfies TranslationDictionary;
 

@@ -4,7 +4,7 @@ import { MarkdownView, type CachedMetadata, type Plugin, type TFile } from "obsi
 import { Window as HappyDomWindow } from "happy-dom";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import { RecentPropertyValueTracker } from "../../../src/features/value-suggestions/recent-property-value-tracker";
+import { PropertyValueSelectionTracker } from "../../../src/features/value-suggestions/property-value-selection-tracker";
 
 const peerWindows: HappyDomWindow[] = [];
 
@@ -85,7 +85,7 @@ function createMultiPanePlugin(
   } as unknown as Plugin;
 }
 
-describe("RecentPropertyValueTracker", () => {
+describe("PropertyValueSelectionTracker", () => {
   beforeEach(() => {
     document.body.replaceChildren();
   });
@@ -105,7 +105,7 @@ describe("RecentPropertyValueTracker", () => {
     const pane = suggestion.row.parentElement as HTMLElement;
     const plugin = createPlugin(pane, file, () => cache);
     const onConfirmed = vi.fn();
-    const tracker = new RecentPropertyValueTracker({
+    const tracker = new PropertyValueSelectionTracker({
       getEnabled: () => true,
       onConfirmed,
       plugin,
@@ -133,7 +133,7 @@ describe("RecentPropertyValueTracker", () => {
       () => cache,
     );
     const onConfirmed = vi.fn();
-    const tracker = new RecentPropertyValueTracker({
+    const tracker = new PropertyValueSelectionTracker({
       getEnabled: () => true,
       onConfirmed,
       plugin,
@@ -159,7 +159,7 @@ describe("RecentPropertyValueTracker", () => {
       () => cache,
     );
     const onConfirmed = vi.fn();
-    const tracker = new RecentPropertyValueTracker({
+    const tracker = new PropertyValueSelectionTracker({
       getEnabled: () => true,
       onConfirmed,
       plugin,
@@ -183,7 +183,7 @@ describe("RecentPropertyValueTracker", () => {
       () => cache,
     );
     const onConfirmed = vi.fn();
-    const tracker = new RecentPropertyValueTracker({
+    const tracker = new PropertyValueSelectionTracker({
       getEnabled: () => true,
       onConfirmed,
       plugin,
@@ -207,7 +207,7 @@ describe("RecentPropertyValueTracker", () => {
       () => cache,
     );
     const onConfirmed = vi.fn();
-    const tracker = new RecentPropertyValueTracker({
+    const tracker = new PropertyValueSelectionTracker({
       getEnabled: () => true,
       onConfirmed,
       plugin,
@@ -232,7 +232,7 @@ describe("RecentPropertyValueTracker", () => {
       () => cache,
     );
     const onConfirmed = vi.fn();
-    const tracker = new RecentPropertyValueTracker({
+    const tracker = new PropertyValueSelectionTracker({
       getEnabled: () => true,
       onConfirmed,
       plugin,
@@ -269,7 +269,7 @@ describe("RecentPropertyValueTracker", () => {
       () => content,
     );
     const onConfirmed = vi.fn();
-    const tracker = new RecentPropertyValueTracker({
+    const tracker = new PropertyValueSelectionTracker({
       getEnabled: () => true,
       onConfirmed,
       plugin,
@@ -301,7 +301,7 @@ describe("RecentPropertyValueTracker", () => {
       () => content,
     );
     const onConfirmed = vi.fn();
-    const tracker = new RecentPropertyValueTracker({ getEnabled: () => true, onConfirmed, plugin });
+    const tracker = new PropertyValueSelectionTracker({ getEnabled: () => true, onConfirmed, plugin });
 
     tracker.captureSuggestionActivation(suggestion.item);
     content = "---\nstatus: [draft]\n---";
@@ -329,7 +329,7 @@ describe("RecentPropertyValueTracker", () => {
       () => content,
     );
     const onConfirmed = vi.fn();
-    const tracker = new RecentPropertyValueTracker({ getEnabled: () => true, onConfirmed, plugin });
+    const tracker = new PropertyValueSelectionTracker({ getEnabled: () => true, onConfirmed, plugin });
 
     for (const [index, value] of values.entries()) {
       tracker.captureSuggestionActivation(value === "draft" ? suggestion.item : doneItem);
@@ -356,7 +356,7 @@ describe("RecentPropertyValueTracker", () => {
       () => "---\nstatus: []\n---",
     );
     const onConfirmed = vi.fn();
-    const tracker = new RecentPropertyValueTracker({ getEnabled: () => true, onConfirmed, plugin });
+    const tracker = new PropertyValueSelectionTracker({ getEnabled: () => true, onConfirmed, plugin });
 
     tracker.captureSuggestionActivation(suggestion.item);
     cache = { frontmatter: { status: ["draft"], other: "changed" } } as CachedMetadata;
@@ -389,7 +389,7 @@ describe("RecentPropertyValueTracker", () => {
       },
     );
     const onConfirmed = vi.fn();
-    const tracker = new RecentPropertyValueTracker({ getEnabled: () => true, onConfirmed, plugin });
+    const tracker = new PropertyValueSelectionTracker({ getEnabled: () => true, onConfirmed, plugin });
 
     tracker.captureSuggestionActivation(suggestion.item);
     tracker.captureSuggestionActivation(secondItem);
@@ -410,7 +410,7 @@ describe("RecentPropertyValueTracker", () => {
       getContent: () => "---\nstatus: []\n---",
     })));
     const onConfirmed = vi.fn();
-    const tracker = new RecentPropertyValueTracker({ getEnabled: () => true, onConfirmed, plugin });
+    const tracker = new PropertyValueSelectionTracker({ getEnabled: () => true, onConfirmed, plugin });
     tracker.registerDocument(document);
     const closePeer = tracker.registerDocument(peerDocument);
     tracker.captureSuggestionActivation(first.item);
@@ -438,7 +438,7 @@ describe("RecentPropertyValueTracker", () => {
       { paneElement: second.row.parentElement as HTMLElement, getContent: () => "---\nstatus: []\n---" },
     ]);
     const onConfirmed = vi.fn();
-    const tracker = new RecentPropertyValueTracker({ getEnabled: () => true, onConfirmed, plugin });
+    const tracker = new PropertyValueSelectionTracker({ getEnabled: () => true, onConfirmed, plugin });
     first.editor.focus();
     tracker.captureSuggestionActivation(first.item);
     firstContent = "---\nstatus: [draft]\n---";
@@ -466,7 +466,7 @@ describe("RecentPropertyValueTracker", () => {
       { paneElement: second.row.parentElement as HTMLElement, getContent: () => "---\nstatus: []\n---" },
     ]);
     const onConfirmed = vi.fn();
-    const tracker = new RecentPropertyValueTracker({ getEnabled: () => true, onConfirmed, plugin });
+    const tracker = new PropertyValueSelectionTracker({ getEnabled: () => true, onConfirmed, plugin });
     tracker.captureSuggestionActivation(first.item);
     firstContent = "---\nstatus: [draft]\n---";
     tracker.captureSuggestionActivation(second.item);
@@ -486,7 +486,7 @@ describe("RecentPropertyValueTracker", () => {
     let cache = { frontmatter: { status: [] } } as CachedMetadata;
     const plugin = createPlugin(suggestion.row.parentElement as HTMLElement, file, () => cache);
     const onConfirmed = vi.fn();
-    const tracker = new RecentPropertyValueTracker({ getEnabled: () => true, onConfirmed, plugin });
+    const tracker = new PropertyValueSelectionTracker({ getEnabled: () => true, onConfirmed, plugin });
     tracker.captureSuggestionActivation(suggestion.item);
     cache = { frontmatter: { status: ["draft"] } } as CachedMetadata;
     tracker.handleMetadataChanged(file, cache);
@@ -509,7 +509,7 @@ describe("RecentPropertyValueTracker", () => {
       () => cache,
     );
     const onConfirmed = vi.fn();
-    const tracker = new RecentPropertyValueTracker({
+    const tracker = new PropertyValueSelectionTracker({
       getEnabled: () => true,
       onConfirmed,
       plugin,
@@ -533,7 +533,7 @@ describe("RecentPropertyValueTracker", () => {
       () => ({ frontmatter: {} }) as CachedMetadata,
     );
     const onConfirmed = vi.fn();
-    const tracker = new RecentPropertyValueTracker({
+    const tracker = new PropertyValueSelectionTracker({
       getEnabled: () => true,
       onConfirmed,
       plugin,
@@ -559,7 +559,7 @@ describe("RecentPropertyValueTracker", () => {
       () => cache,
     );
     const onConfirmed = vi.fn();
-    const tracker = new RecentPropertyValueTracker({
+    const tracker = new PropertyValueSelectionTracker({
       getEnabled: () => true,
       onConfirmed,
       plugin,
@@ -590,7 +590,7 @@ describe("RecentPropertyValueTracker", () => {
       () => cache,
     );
     const onConfirmed = vi.fn();
-    const tracker = new RecentPropertyValueTracker({
+    const tracker = new PropertyValueSelectionTracker({
       getEnabled: () => enabled,
       onConfirmed,
       plugin,
@@ -622,7 +622,7 @@ describe("RecentPropertyValueTracker", () => {
       () => cache,
     );
     const onConfirmed = vi.fn();
-    const tracker = new RecentPropertyValueTracker({
+    const tracker = new PropertyValueSelectionTracker({
       getEnabled: () => true,
       onConfirmed,
       plugin,
@@ -647,7 +647,7 @@ describe("RecentPropertyValueTracker", () => {
       () => cache,
     );
     const onConfirmed = vi.fn();
-    const tracker = new RecentPropertyValueTracker({
+    const tracker = new PropertyValueSelectionTracker({
       getEnabled: () => true,
       onConfirmed,
       plugin,
@@ -673,7 +673,7 @@ describe("RecentPropertyValueTracker", () => {
       () => cache,
     );
     const onConfirmed = vi.fn();
-    const tracker = new RecentPropertyValueTracker({
+    const tracker = new PropertyValueSelectionTracker({
       getEnabled: () => true,
       onConfirmed,
       plugin,
@@ -705,7 +705,7 @@ describe("RecentPropertyValueTracker", () => {
       throw error;
     });
     const consoleError = vi.spyOn(console, "error").mockImplementation(() => undefined);
-    const tracker = new RecentPropertyValueTracker({
+    const tracker = new PropertyValueSelectionTracker({
       getEnabled: () => true,
       onConfirmed,
       plugin,

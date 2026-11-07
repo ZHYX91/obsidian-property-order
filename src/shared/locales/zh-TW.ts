@@ -130,10 +130,8 @@ const translations = {
   "settings.valueSuggestions.addProperty.placeholder": "搜尋或輸入屬性名稱…",
   "settings.valueSuggestions.addProperty.button": "新增屬性",
   "settings.valueSuggestions.moveConfirm": "將「{property}」從「{from}」移到「{to}」？這會改變該屬性值候選的顯示方式。",
-  "settings.valueSuggestions.legacyMigrationPending": "部分舊規則無法自動轉換，目前仍按舊規則顯示候選。切換到分組設定前，請先查看這些規則。",
+  "settings.valueSuggestions.legacyRulesArchived": "舊的屬性值規則已封存，不再控制候選。可等價轉換的設定已遷移。你可以查看保留的規則，並在下方設定需要的替代規則。",
   "settings.valueSuggestions.legacyMigrationDetails": "查看保留的舊規則",
-  "settings.valueSuggestions.legacyMigrationAdopt": "改用分組設定",
-  "settings.valueSuggestions.legacyMigrationConfirm": "改用分組設定？舊規則將停止生效，但仍保留在設定檔中。你可能需要重新設定相應規則。",
   "settings.valueSuggestions.frequencyHistory.name": "選擇次數統計",
   "settings.valueSuggestions.frequencyHistory.desc": "只有屬性候選（或自訂候選的一般區）使用「按選擇次數排序」時，才記錄成功新增至筆記的選擇。記錄只保存在目前儲存庫、本裝置；清除不會修改筆記或預設值。",
   "settings.valueSuggestions.frequencyHistory.clear": "清除次數",
@@ -179,10 +177,8 @@ const translations = {
   "notice.settingsSaveFailed": "Property Order：設定儲存失敗，請重試。",
   "notice.recentHistoryCleared": "Property Order：最近使用記錄已清除。",
   "notice.recentHistoryClearFailed": "Property Order：無法清除已儲存的最近使用記錄。本次工作階段中已清除，但重新啟動後可能恢復。",
-  "notice.recentValueHistoryCleared": "Property Order：最近使用的屬性值記錄已清除。",
   "notice.valueFrequencyCleared": "Property Order：選擇次數已清除。",
   "notice.valueFrequencyClearFailed": "Property Order：本次工作階段的次數已清除，但無法刪除已儲存的次數，重新啟動後可能恢復。",
-  "notice.recentValueHistoryClearFailed": "Property Order：無法清除已儲存的最近屬性值記錄。本次工作階段中已清除，但重新啟動後可能恢復。",
   "notice.mobileReorderArmed": "Property Order：現在拖曳已選取的值；點擊其他位置或等待即可取消。",
 } satisfies TranslationDictionary;
 
