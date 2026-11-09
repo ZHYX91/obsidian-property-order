@@ -23,13 +23,13 @@ interface PendingPropertyValueUse {
   value: string;
 }
 
-interface RecentPropertyValueTrackerOptions {
+interface PropertyValueSelectionTrackerOptions {
   getEnabled: () => boolean;
   onConfirmed: (propertyKey: string, value: string) => void;
   plugin: Plugin;
 }
 
-export class RecentPropertyValueTracker {
+export class PropertyValueSelectionTracker {
   private readonly documentCleanups = new Map<Document, () => void>();
   private readonly getEnabled: () => boolean;
   private readonly onConfirmed: (propertyKey: string, value: string) => void;
@@ -37,7 +37,7 @@ export class RecentPropertyValueTracker {
   private readonly plugin: Plugin;
   private nextActivationSequence = 0;
 
-  constructor(options: RecentPropertyValueTrackerOptions) {
+  constructor(options: PropertyValueSelectionTrackerOptions) {
     this.getEnabled = options.getEnabled;
     this.onConfirmed = options.onConfirmed;
     this.plugin = options.plugin;

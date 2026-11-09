@@ -7,7 +7,7 @@ import PropertyOrderPlugin from "../../src/app/plugin";
 import { RecentPropertyKeyTracker } from "../../src/features/key-order/recent-property-key-tracker";
 import { registerSuggestionKeyboardBridge } from "../../src/features/key-order/suggestion-keyboard-bridge";
 import { mountCustomValuePopup } from "../../src/features/value-suggestions/custom-value-popup";
-import { RecentPropertyValueTracker } from "../../src/features/value-suggestions/recent-property-value-tracker";
+import { PropertyValueSelectionTracker } from "../../src/features/value-suggestions/property-value-selection-tracker";
 import { createDefaultSettings } from "../../src/shared/settings";
 
 const cleanups: Array<() => void> = [];
@@ -138,7 +138,7 @@ function valueHarness() {
     workspace: { iterateAllLeaves: (callback: (leaf: unknown) => void) => callback({ containerEl: pane, view }) },
   } } as unknown as Plugin;
   const onConfirmed = vi.fn();
-  const tracker = new RecentPropertyValueTracker({ getEnabled: () => true, onConfirmed, plugin });
+  const tracker = new PropertyValueSelectionTracker({ getEnabled: () => true, onConfirmed, plugin });
   tracker.registerDocument(document);
   cleanups.push(() => tracker.dispose());
   const onCommit = vi.fn(() => { content = "---\nstatus: [open, draft]\n---"; });

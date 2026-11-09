@@ -130,10 +130,8 @@ const translations = {
   "settings.valueSuggestions.addProperty.placeholder": "속성 이름 검색 또는 입력…",
   "settings.valueSuggestions.addProperty.button": "속성 추가",
   "settings.valueSuggestions.moveConfirm": "'{property}'을(를) '{from}'에서 '{to}'(으)로 옮길까요? 해당 속성의 값 후보가 표시되는 방식이 바뀝니다.",
-  "settings.valueSuggestions.legacyMigrationPending": "일부 이전 규칙은 자동으로 변환할 수 없습니다. 현재도 해당 규칙이 후보 표시를 제어합니다. 그룹별 설정으로 전환하기 전에 내용을 확인하세요.",
+  "settings.valueSuggestions.legacyRulesArchived": "이전 속성 값 규칙은 보관되었으며 더 이상 후보에 적용되지 않습니다. 같은 동작을 유지할 수 있는 설정은 이전되었습니다. 보관된 규칙을 확인하고 필요한 대체 규칙을 아래에서 설정하세요.",
   "settings.valueSuggestions.legacyMigrationDetails": "보존된 이전 규칙 확인",
-  "settings.valueSuggestions.legacyMigrationAdopt": "그룹별 설정으로 전환",
-  "settings.valueSuggestions.legacyMigrationConfirm": "그룹별 설정으로 전환할까요? 이전 규칙은 후보 표시에 더 이상 적용되지 않지만 설정 파일에는 남습니다. 필요한 규칙을 새로 설정해야 할 수 있습니다.",
   "settings.valueSuggestions.frequencyHistory.name": "선택 횟수",
   "settings.valueSuggestions.frequencyHistory.desc": "해당 속성의 후보 또는 사용자 지정 후보의 일반 영역에서 '선택 횟수'를 사용할 때만 정상적으로 추가된 선택을 기록합니다. 횟수는 이 기기의 현재 보관함에만 저장됩니다. 횟수를 지워도 노트나 등록한 후보는 바뀌지 않습니다.",
   "settings.valueSuggestions.frequencyHistory.clear": "횟수 지우기",
@@ -179,10 +177,8 @@ const translations = {
   "notice.settingsSaveFailed": "Property Order: 설정을 저장하지 못했습니다. 다시 시도하세요.",
   "notice.recentHistoryCleared": "Property Order: 최근 속성 이름 기록을 지웠습니다.",
   "notice.recentHistoryClearFailed": "Property Order: 저장된 최근 기록을 지우지 못했습니다. 현재 세션에서는 지워졌지만 다시 시작하면 복원될 수 있습니다.",
-  "notice.recentValueHistoryCleared": "Property Order: 최근 속성 값 기록을 지웠습니다.",
   "notice.valueFrequencyCleared": "Property Order: 선택 횟수를 지웠습니다.",
   "notice.valueFrequencyClearFailed": "Property Order: 현재 세션의 횟수는 지웠지만 저장된 횟수를 제거하지 못했습니다. 다시 시작하면 복원될 수 있습니다.",
-  "notice.recentValueHistoryClearFailed": "Property Order: 저장된 최근 속성 값 기록을 지우지 못했습니다. 현재 세션에서는 지워졌지만 다시 시작하면 복원될 수 있습니다.",
   "notice.mobileReorderArmed": "Property Order: 선택한 값을 드래그하세요. 다른 곳을 누르거나 잠시 기다리면 취소됩니다.",
 } satisfies TranslationDictionary;
 

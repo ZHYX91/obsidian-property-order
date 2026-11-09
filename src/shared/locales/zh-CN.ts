@@ -130,10 +130,8 @@ const translations = {
   "settings.valueSuggestions.addProperty.placeholder": "搜索或输入属性名…",
   "settings.valueSuggestions.addProperty.button": "添加属性",
   "settings.valueSuggestions.moveConfirm": "将“{property}”从“{from}”移到“{to}”？这会改变该属性值候选的显示方式。",
-  "settings.valueSuggestions.legacyMigrationPending": "部分旧规则无法自动转换，目前仍按旧规则显示候选。切换到分组设置前，请先查看这些规则。",
+  "settings.valueSuggestions.legacyRulesArchived": "旧的属性值规则已归档，不再控制候选。可等价转换的设置已迁移。你可以查看保留的规则，并在下方配置需要的替代规则。",
   "settings.valueSuggestions.legacyMigrationDetails": "查看保留的旧规则",
-  "settings.valueSuggestions.legacyMigrationAdopt": "改用分组设置",
-  "settings.valueSuggestions.legacyMigrationConfirm": "改用分组设置？旧规则将停止生效，但仍保留在设置文件中。你可能需要重新配置相应规则。",
   "settings.valueSuggestions.frequencyHistory.name": "选择次数统计",
   "settings.valueSuggestions.frequencyHistory.desc": "只有属性候选（或自定义候选的普通区）使用“按选择次数排序”时，才记录成功添加到笔记的选择。记录只保存在当前仓库、本设备；清除不会修改笔记或预设值。",
   "settings.valueSuggestions.frequencyHistory.clear": "清除次数",
@@ -179,10 +177,8 @@ const translations = {
   "notice.settingsSaveFailed": "Property Order：设置保存失败，请重试。",
   "notice.recentHistoryCleared": "Property Order：最近使用记录已清除。",
   "notice.recentHistoryClearFailed": "Property Order：无法清除已保存的最近使用记录。本次会话中已清除，但重启后可能恢复。",
-  "notice.recentValueHistoryCleared": "Property Order：最近使用的属性值记录已清除。",
   "notice.valueFrequencyCleared": "Property Order：选择次数已清除。",
   "notice.valueFrequencyClearFailed": "Property Order：本次会话的次数已清除，但无法删除已保存的次数，重启后可能恢复。",
-  "notice.recentValueHistoryClearFailed": "Property Order：无法清除已保存的最近属性值记录。本次会话中已清除，但重启后可能恢复。",
   "notice.mobileReorderArmed": "Property Order：现在拖动已选中的值；点击其他位置或等待即可取消。",
 } satisfies TranslationDictionary;
 

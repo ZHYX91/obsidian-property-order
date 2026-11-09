@@ -130,10 +130,8 @@ const translations = {
   "settings.valueSuggestions.addProperty.placeholder": "Buscar ou digitar um nome de propriedade...",
   "settings.valueSuggestions.addProperty.button": "Adicionar propriedade",
   "settings.valueSuggestions.moveConfirm": "Mover “{property}” de “{from}” para “{to}”? Isso muda a forma como suas sugestões de valores são exibidas.",
-  "settings.valueSuggestions.legacyMigrationPending": "Algumas regras antigas não podem ser convertidas automaticamente. Elas continuam controlando as sugestões. Revise-as antes de mudar para a configuração por grupos.",
+  "settings.valueSuggestions.legacyRulesArchived": "As regras antigas de valores foram arquivadas e não controlam mais as sugestões. As configurações equivalentes foram importadas. Revise as regras preservadas e configure substituições abaixo, se necessário.",
   "settings.valueSuggestions.legacyMigrationDetails": "Revisar regras antigas preservadas",
-  "settings.valueSuggestions.legacyMigrationAdopt": "Usar configuração por grupos",
-  "settings.valueSuggestions.legacyMigrationConfirm": "Mudar para a configuração por grupos? As regras antigas deixarão de afetar as sugestões, mas continuarão no arquivo de configurações. Talvez você precise criar regras para substituí-las.",
   "settings.valueSuggestions.frequencyHistory.name": "Frequência de seleção",
   "settings.valueSuggestions.frequencyHistory.desc": "Conta as seleções de valores concluídas com sucesso apenas enquanto as sugestões da propriedade, ou a seção de sugestões comuns em Sugestões personalizadas, usam Frequência de seleção. As contagens ficam neste cofre, neste dispositivo. Limpá-las não altera notas nem valores predefinidos.",
   "settings.valueSuggestions.frequencyHistory.clear": "Limpar contagens",
@@ -179,10 +177,8 @@ const translations = {
   "notice.settingsSaveFailed": "Property Order: não foi possível salvar as configurações. Tente novamente.",
   "notice.recentHistoryCleared": "Property Order: o histórico de propriedades usadas recentemente foi limpo.",
   "notice.recentHistoryClearFailed": "Property Order: não foi possível apagar o histórico de uso recente salvo. Ele foi limpo nesta sessão, mas pode reaparecer após reiniciar.",
-  "notice.recentValueHistoryCleared": "Property Order: o histórico de valores de propriedades usados recentemente foi limpo.",
   "notice.valueFrequencyCleared": "Property Order: as contagens de seleção foram limpas.",
   "notice.valueFrequencyClearFailed": "Property Order: as contagens foram limpas nesta sessão, mas não foi possível apagar as contagens salvas. Elas podem reaparecer após reiniciar.",
-  "notice.recentValueHistoryClearFailed": "Property Order: não foi possível apagar o histórico salvo de valores de propriedades usados recentemente. Ele foi limpo nesta sessão, mas pode reaparecer após reiniciar.",
   "notice.mobileReorderArmed": "Property Order: arraste o valor selecionado agora. Toque em outro lugar ou aguarde para cancelar.",
 } satisfies TranslationDictionary;
 

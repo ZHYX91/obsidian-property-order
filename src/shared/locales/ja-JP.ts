@@ -130,10 +130,8 @@ const translations = {
   "settings.valueSuggestions.addProperty.placeholder": "プロパティ名を検索または入力…",
   "settings.valueSuggestions.addProperty.button": "プロパティを追加",
   "settings.valueSuggestions.moveConfirm": "「{property}」を「{from}」から「{to}」へ移しますか？ このプロパティ値の候補の表示方法が変わります。",
-  "settings.valueSuggestions.legacyMigrationPending": "自動変換できない以前のルールがあります。現在もそのルールが候補の表示に使われています。グループ形式の設定に切り替える前に内容を確認してください。",
+  "settings.valueSuggestions.legacyRulesArchived": "以前のプロパティ値ルールは保存されていますが、候補には適用されません。同じ動作を保てる設定は移行済みです。保存されたルールを確認し、必要な代わりのルールを下で設定してください。",
   "settings.valueSuggestions.legacyMigrationDetails": "保持されている以前のルールを確認",
-  "settings.valueSuggestions.legacyMigrationAdopt": "グループ形式の設定に切り替え",
-  "settings.valueSuggestions.legacyMigrationConfirm": "グループ形式の設定に切り替えますか？ 以前のルールは候補の表示に使われなくなりますが、設定ファイルには残ります。代わりのルールを設定する必要がある場合があります。",
   "settings.valueSuggestions.frequencyHistory.name": "選択回数",
   "settings.valueSuggestions.frequencyHistory.desc": "このプロパティ、またはカスタム候補の通常欄で「選択回数」を使用している間だけ、正常に追加できた選択を記録します。回数はこの端末のこの保管庫にだけ保存されます。消去してもノートや登録済みの候補は変わりません。",
   "settings.valueSuggestions.frequencyHistory.clear": "回数を消去",
@@ -179,10 +177,8 @@ const translations = {
   "notice.settingsSaveFailed": "Property Order：設定を保存できませんでした。もう一度お試しください。",
   "notice.recentHistoryCleared": "Property Order：最近使用したプロパティ名の履歴を消去しました。",
   "notice.recentHistoryClearFailed": "Property Order：保存済みの使用履歴を消去できませんでした。このセッションでは消去されていますが、再起動後に戻る可能性があります。",
-  "notice.recentValueHistoryCleared": "Property Order：最近使用したプロパティ値の履歴を消去しました。",
   "notice.valueFrequencyCleared": "Property Order：選択回数を消去しました。",
   "notice.valueFrequencyClearFailed": "Property Order：このセッションの回数は消去しましたが、保存済みの回数を削除できませんでした。再起動後に戻る可能性があります。",
-  "notice.recentValueHistoryClearFailed": "Property Order：保存済みのプロパティ値の使用履歴を消去できませんでした。このセッションでは消去されていますが、再起動後に戻る可能性があります。",
   "notice.mobileReorderArmed": "Property Order：選択した値をドラッグしてください。別の場所をタップするか、しばらく待つとキャンセルできます。",
 } satisfies TranslationDictionary;
 

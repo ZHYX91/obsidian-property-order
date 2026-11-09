@@ -43,16 +43,17 @@ describe("normalizeSettings", () => {
       bottomPropertyKeys: [],
       hiddenPropertyKeyPatterns: ["TQ_*"],
       enableNativeValueSuggestionOrder: true,
-      valueSuggestionSortMode: "native",
-      valueSuggestionSortOverrides: ["status = recent"],
-      pinnedPropertyValues: ["status = draft"],
-      bottomPropertyValues: [],
-      hiddenPropertyValuePatterns: ["status = archived"],
+      valueSuggestionLegacyRules: {
+        sortMode: "smart",
+        sortOverrides: [" status = recent "],
+        pinnedValues: [" status = draft ", ""],
+        bottomValues: [],
+        hiddenPatterns: ["status = archived"],
+      },
       valueSuggestionDefaultBehavior: "native",
       valueSuggestionPropertyAssignments: [],
       valueSuggestionCustomOrders: [],
       valueSuggestionKeyDisplayOrder: "name",
-      valueSuggestionLegacyMigrationPending: true,
       showDiagnostics: true,
     });
   });
@@ -62,7 +63,6 @@ describe("normalizeSettings", () => {
     const second = createDefaultSettings();
 
     first.pinnedPropertyKeys.push("tags");
-    first.pinnedPropertyValues.push("status = draft");
     first.valueSuggestionPropertyAssignments.push({
       behavior: "name",
       propertyKey: "status",
@@ -76,7 +76,7 @@ describe("normalizeSettings", () => {
     });
 
     expect(second.pinnedPropertyKeys).toEqual([]);
-    expect(second.pinnedPropertyValues).toEqual([]);
+    expect(second.valueSuggestionLegacyRules).toBeNull();
     expect(second.valueSuggestionPropertyAssignments).toEqual([]);
     expect(second.valueSuggestionCustomOrders).toEqual([]);
   });
@@ -86,7 +86,7 @@ describe("normalizeSettings", () => {
     expect(createDefaultSettings().groupKeySuggestionsByType).toBe(false);
     expect(normalizeSettings({}).enableCrossPropertyDrag).toBe(true);
     expect(createDefaultSettings().enableNativeValueSuggestionOrder).toBe(false);
-    expect(createDefaultSettings().valueSuggestionSortMode).toBe("native");
+    expect(createDefaultSettings().valueSuggestionDefaultBehavior).toBe("native");
   });
 
   it("preserves an explicit cross-property drag opt-out", () => {
@@ -114,7 +114,7 @@ describe("normalizeSettings", () => {
       keySuggestionSortMode: "usage",
       pinnedPropertyKeys: ["tags", "aliases"],
       enableNativeValueSuggestionOrder: false,
-      valueSuggestionSortMode: "native",
+      valueSuggestionDefaultBehavior: "native",
     });
   });
 
@@ -156,8 +156,8 @@ describe("normalizeSettings", () => {
     expect(normalizeSettings({ schemaVersion: 4 })).toMatchObject({
       schemaVersion: CURRENT_SETTINGS_SCHEMA_VERSION,
       enableNativeValueSuggestionOrder: false,
-      valueSuggestionSortMode: "native",
-      valueSuggestionSortOverrides: [],
+      valueSuggestionDefaultBehavior: "native",
+      valueSuggestionLegacyRules: null,
     });
   });
 
@@ -182,11 +182,10 @@ describe("normalizeSettings", () => {
       ],
       valueSuggestionCustomOrders: [],
       valueSuggestionKeyDisplayOrder: "name",
-      valueSuggestionLegacyMigrationPending: false,
     });
   });
 
-  it("flags legacy recent and wildcard value rules for explicit migration", () => {
+  it("archives legacy recent and wildcard value rules without assigning new meanings", () => {
     expect(
       normalizeSettings({
         schemaVersion: 5,
@@ -200,7 +199,6 @@ describe("normalizeSettings", () => {
     ).toMatchObject({
       valueSuggestionDefaultBehavior: "native",
       valueSuggestionPropertyAssignments: [],
-      valueSuggestionLegacyMigrationPending: true,
     });
   });
 
@@ -305,7 +303,7 @@ describe("normalizeSettings", () => {
       ...createDefaultSettings(),
       enablePropertyValueDrag: false,
       keySuggestionSortMode: "usage" as const,
-      valueSuggestionSortMode: "recent" as const,
+      valueSuggestionDefaultBehavior: "frequency" as const,
       showDiagnostics: true,
     };
 
@@ -332,12 +330,12 @@ describe("normalizeSettings", () => {
     const second = normalizeSettings(input);
 
     first.pinnedPropertyKeys.push("aliases");
-    first.pinnedPropertyValues.push("priority = high");
+    first.valueSuggestionLegacyRules?.pinnedValues.push("priority = high");
     input.pinnedPropertyKeys.push("source-only");
     input.pinnedPropertyValues.push("source = only");
 
     expect(second.pinnedPropertyKeys).toEqual(["tags"]);
-    expect(second.pinnedPropertyValues).toEqual(["status = draft"]);
+    expect(second.valueSuggestionLegacyRules?.pinnedValues).toEqual(["status = draft"]);
   });
 
   it("preserves the cross-property preference while value drag is disabled", () => {

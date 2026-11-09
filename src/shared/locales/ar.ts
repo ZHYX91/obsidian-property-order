@@ -130,10 +130,8 @@ const translations = {
   "settings.valueSuggestions.addProperty.placeholder": "ابحث عن اسم خاصية أو أدخله...",
   "settings.valueSuggestions.addProperty.button": "إضافة خاصية",
   "settings.valueSuggestions.moveConfirm": "هل تريد نقل «{property}» من «{from}» إلى «{to}»؟ سيغيّر ذلك طريقة عرض اقتراحات قيمها.",
-  "settings.valueSuggestions.legacyMigrationPending": "لا يمكن تحويل بعض القواعد القديمة تلقائيًا. ما زالت هذه القواعد تتحكم في الاقتراحات. راجعها قبل الانتقال إلى مجموعات القواعد.",
+  "settings.valueSuggestions.legacyRulesArchived": "أُرشفت قواعد قيم الخصائص القديمة ولم تعد تتحكم في الاقتراحات. نُقلت الإعدادات المكافئة. راجع القواعد المحفوظة واضبط بدائلها أدناه عند الحاجة.",
   "settings.valueSuggestions.legacyMigrationDetails": "مراجعة القواعد القديمة المحفوظة",
-  "settings.valueSuggestions.legacyMigrationAdopt": "الانتقال إلى مجموعات القواعد",
-  "settings.valueSuggestions.legacyMigrationConfirm": "هل تريد الانتقال إلى مجموعات القواعد؟ ستتوقف القواعد القديمة عن التأثير في الاقتراحات، لكنها ستبقى في ملف الإعدادات. قد تحتاج إلى إعداد قواعد بديلة.",
   "settings.valueSuggestions.frequencyHistory.name": "عدد مرات الاختيار",
   "settings.valueSuggestions.frequencyHistory.desc": "يحسب الاختيارات الناجحة للقيم فقط عندما تستخدم اقتراحات الخاصية «عدد مرات الاختيار»، أو يستخدمه القسم العادي في اقتراحاتها المخصصة. تُحفظ الأعداد محليًا لهذه الخزنة على هذا الجهاز. مسحها لا يغيّر الملاحظات أو القيم المسبقة.",
   "settings.valueSuggestions.frequencyHistory.clear": "مسح إحصاءات الاختيار",
@@ -179,10 +177,8 @@ const translations = {
   "notice.settingsSaveFailed": "Property Order: تعذّر حفظ الإعدادات. حاول مجددًا.",
   "notice.recentHistoryCleared": "Property Order: مُسح سجل أسماء الخصائص المستخدمة مؤخرًا.",
   "notice.recentHistoryClearFailed": "Property Order: تعذّر مسح السجل المحفوظ لآخر استخدام. مُسح السجل لهذه الجلسة، لكنه قد يعود بعد إعادة التشغيل.",
-  "notice.recentValueHistoryCleared": "Property Order: مُسح سجل قيم الخصائص المستخدمة مؤخرًا.",
   "notice.valueFrequencyCleared": "Property Order: مُسحت إحصاءات الاختيار.",
   "notice.valueFrequencyClearFailed": "Property Order: مُسحت إحصاءات الاختيار لهذه الجلسة، لكن تعذّر إزالة الإحصاءات المحفوظة وقد تعود بعد إعادة التشغيل.",
-  "notice.recentValueHistoryClearFailed": "Property Order: تعذّر مسح السجل المحفوظ لقيم الخصائص المستخدمة مؤخرًا. مُسح السجل لهذه الجلسة، لكنه قد يعود بعد إعادة التشغيل.",
   "notice.mobileReorderArmed": "Property Order: اسحب القيمة المحددة الآن. انقر في مكان آخر أو انتظر للإلغاء.",
 } as const satisfies TranslationDictionary;
 

@@ -4,7 +4,6 @@ import type {
   ValueSuggestionBehavior,
 } from "../../shared/types";
 import { getPropertyValueCustomOrder } from "./custom-value-order";
-import { orderPropertyValues, orderPropertyValuesByFrequency } from "./order-values";
 import { resolvePropertyValueBehavior } from "./value-behavior";
 import {
   planCustomPropertyValueCandidates,
@@ -57,27 +56,16 @@ export function planGroupedPropertyValueSuggestions(
     };
   }
 
-  const orderedValues =
-    behavior === "frequency"
-      ? orderPropertyValuesByFrequency(nativeValues, frequency)
-      : orderPropertyValues([...nativeValues], {
-          bottomValues: [],
-          hiddenPatterns: [],
-          pinnedValues: [],
-          recentValues: [],
-          sortMode:
-            behavior === "note-count"
-              ? "usage"
-              : behavior,
-          usage: behavior === "note-count" ? [...noteCounts] : [],
-        });
-
   return {
     behavior,
-    candidates: orderedValues.map(({ value }) => ({
-      isPreset: false,
-      placement: "middle" as const,
-      value,
-    })),
+    candidates: planCustomPropertyValueCandidates({
+      bottomValues: [],
+      frequency,
+      middleSortMode: behavior,
+      middleValues: [],
+      nativeValues,
+      noteCounts,
+      pinnedValues: [],
+    }),
   };
 }

@@ -59,7 +59,7 @@ This document mirrors the authoritative current interaction and presentation con
 - A custom preset absent from Obsidian's native popup is still shown. When a native popup exists, plugin-owned preset items join that popup; when it does not, a plugin-owned fallback popup is anchored to the active property-value editor. Both paths filter against the current query and use the final visible keyboard order.
 - Selecting a plugin-owned preset writes through the focused native property-value editor input path. It never writes frontmatter directly. Selection frequency increases only while the property or its Custom normal section uses that ordering and after Metadata Cache confirms the value was committed.
 - No suggestions hides candidates but does not disable typing. Escape, focus departure, feature disable, window close, or plugin unload removes plugin-owned popup state and restores native state.
-- Schema-5 rules that cannot be migrated without changing meaning remain read-only and active until the user explicitly confirms the grouped-model migration.
+- Older value rules remain available in a read-only archive. A localized explanation says that equivalent settings were imported and the archived rules no longer apply. Current grouped controls remain accessible below the archive so users can configure replacements without a migration-mode switch.
 
 ## Settings UI
 

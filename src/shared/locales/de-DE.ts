@@ -130,10 +130,8 @@ const translations = {
   "settings.valueSuggestions.addProperty.placeholder": "Eigenschaftsname suchen oder eingeben...",
   "settings.valueSuggestions.addProperty.button": "Eigenschaft hinzufügen",
   "settings.valueSuggestions.moveConfirm": "„{property}“ von „{from}“ nach „{to}“ verschieben? Dadurch ändert sich die Anzeige ihrer Wertvorschläge.",
-  "settings.valueSuggestions.legacyMigrationPending": "Einige ältere Regeln lassen sich nicht automatisch umwandeln. Sie steuern weiterhin die Vorschläge. Prüfe sie, bevor du zu den gruppierten Einstellungen wechselst.",
+  "settings.valueSuggestions.legacyRulesArchived": "Ältere Regeln für Eigenschaftswerte sind archiviert und steuern die Vorschläge nicht mehr. Gleichwertige Einstellungen wurden übernommen. Prüfe die gespeicherten Regeln und richte unten bei Bedarf Ersatz ein.",
   "settings.valueSuggestions.legacyMigrationDetails": "Beibehaltene ältere Regeln ansehen",
-  "settings.valueSuggestions.legacyMigrationAdopt": "Zu gruppierten Einstellungen wechseln",
-  "settings.valueSuggestions.legacyMigrationConfirm": "Zu gruppierten Einstellungen wechseln? Ältere Regeln steuern die Vorschläge dann nicht mehr, bleiben aber in der Einstellungsdatei erhalten. Möglicherweise musst du Ersatzregeln einrichten.",
   "settings.valueSuggestions.frequencyHistory.name": "Auswahlhäufigkeit",
   "settings.valueSuggestions.frequencyHistory.desc": "Zählt erfolgreiche Wertauswahlen nur, wenn die Vorschläge dieser Eigenschaft oder ihr normaler Bereich unter „Eigene Vorschläge“ nach Auswahlhäufigkeit sortiert werden. Die Zähler bleiben in diesem Vault auf diesem Gerät. Das Löschen ändert weder Notizen noch hinterlegte Werte.",
   "settings.valueSuggestions.frequencyHistory.clear": "Zähler löschen",
@@ -179,10 +177,8 @@ const translations = {
   "notice.settingsSaveFailed": "Property Order: Die Einstellungen konnten nicht gespeichert werden. Versuche es erneut.",
   "notice.recentHistoryCleared": "Property Order: Der Verlauf zuletzt verwendeter Eigenschaftsnamen wurde gelöscht.",
   "notice.recentHistoryClearFailed": "Property Order: Der gespeicherte Verlauf konnte nicht gelöscht werden. Er ist für diese Sitzung geleert, kann nach einem Neustart aber wieder erscheinen.",
-  "notice.recentValueHistoryCleared": "Property Order: Der Verlauf zuletzt verwendeter Eigenschaftswerte wurde gelöscht.",
   "notice.valueFrequencyCleared": "Property Order: Die Auswahlzähler wurden gelöscht.",
   "notice.valueFrequencyClearFailed": "Property Order: Die Zähler wurden für diese Sitzung gelöscht. Die gespeicherten Zähler konnten jedoch nicht entfernt werden und können nach einem Neustart wieder erscheinen.",
-  "notice.recentValueHistoryClearFailed": "Property Order: Der gespeicherte Verlauf der Eigenschaftswerte konnte nicht gelöscht werden. Er ist für diese Sitzung geleert, kann nach einem Neustart aber wieder erscheinen.",
   "notice.mobileReorderArmed": "Property Order: Ziehe jetzt den ausgewählten Wert. Tippe zum Abbrechen an eine andere Stelle oder warte kurz.",
 } satisfies TranslationDictionary;
 

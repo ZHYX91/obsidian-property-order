@@ -12,10 +12,6 @@ import {
 } from "../key-order/suggestion-snapshot";
 import { Platform, type EventRef, type Plugin } from "obsidian";
 
-import {
-  orderPropertyValues,
-  resolvePropertyValueRules,
-} from "../../core/suggestions/order-values";
 import { getPropertyValueCustomOrder } from "../../core/suggestions/custom-value-order";
 import { resolvePropertyValueBehavior } from "../../core/suggestions/value-behavior";
 import { planGroupedPropertyValueSuggestions } from "../../core/suggestions/value-suggestion-runtime";
@@ -53,8 +49,7 @@ import {
   type CustomValuePopupMount,
 } from "./custom-value-popup";
 import { PropertyValueFrequencyStore } from "./property-value-frequency-store";
-import { RecentPropertyValueStore } from "./recent-property-value-store";
-import { RecentPropertyValueTracker } from "./recent-property-value-tracker";
+import { PropertyValueSelectionTracker } from "./property-value-selection-tracker";
 
 const VALUE_SUGGESTIONS_SUPPRESSED_CLASS =
   "property-order-value-suggestions-suppressed";
@@ -75,7 +70,7 @@ interface DocumentEnhancementState {
   observer: MutationObserver;
   observing: boolean;
   rafId: number | null;
-  recentTrackingCleanup: () => void;
+  selectionTrackingCleanup: () => void;
   view: Window;
   windowFocused: boolean;
 }
@@ -103,9 +98,7 @@ export class ValueSuggestionOrderController {
   private readonly presetItemContexts = new WeakMap<HTMLElement, ValueSuggestionOwner>();
   private readonly plugin: Plugin;
   private readonly propertyValueFrequencyStore: PropertyValueFrequencyStore;
-  private readonly recentValueStore: RecentPropertyValueStore;
-  private readonly recentValueTracker: RecentPropertyValueTracker;
-  private recentValueRevision = 0;
+  private readonly selectionTracker: PropertyValueSelectionTracker;
   private frequencyRevision = 0;
   private usageRevision = 0;
   private readonly registeredEventCleanups: Array<() => void> = [];
@@ -113,14 +106,12 @@ export class ValueSuggestionOrderController {
   constructor(
     plugin: Plugin,
     getSettings: () => PropertyOrderSettings,
-    recentValueStore = new RecentPropertyValueStore(plugin.app),
     propertyValueFrequencyStore = new PropertyValueFrequencyStore(plugin.app),
   ) {
     this.plugin = plugin;
     this.getSettings = getSettings;
-    this.recentValueStore = recentValueStore;
     this.propertyValueFrequencyStore = propertyValueFrequencyStore;
-    this.recentValueTracker = new RecentPropertyValueTracker({
+    this.selectionTracker = new PropertyValueSelectionTracker({
       getEnabled: () =>
         this.initialized && this.getSettings().enableNativeValueSuggestionOrder,
       onConfirmed: (propertyKey, value) => this.recordConfirmedPropertyValue(propertyKey, value),
@@ -162,7 +153,7 @@ export class ValueSuggestionOrderController {
       });
 
       const changedRef = this.plugin.app.metadataCache.on("changed", (file, _data, cache) => {
-        this.recentValueTracker.handleMetadataChanged(file, cache);
+        this.selectionTracker.handleMetadataChanged(file, cache);
         this.invalidateUsage();
       });
       this.registerControllerEvent(changedRef, () => {
@@ -170,7 +161,7 @@ export class ValueSuggestionOrderController {
       });
 
       const deletedRef = this.plugin.app.metadataCache.on("deleted", (file) => {
-        this.recentValueTracker.handleFileDeleted(file);
+        this.selectionTracker.handleFileDeleted(file);
         this.invalidateUsage();
       });
       this.registerControllerEvent(deletedRef, () => {
@@ -214,7 +205,7 @@ export class ValueSuggestionOrderController {
     }
 
     this.runCleanup(() => invalidatePropertyValueUsage(this.plugin.app));
-    this.runCleanup(() => this.recentValueTracker.dispose());
+    this.runCleanup(() => this.selectionTracker.dispose());
     this.runCleanup(() => this.restoreAllContainers());
   };
 
@@ -222,7 +213,7 @@ export class ValueSuggestionOrderController {
     const enabled = this.getSettings().enableNativeValueSuggestionOrder;
 
     if (!enabled) {
-      this.recentValueTracker.clearPending();
+      this.selectionTracker.clearPending();
     }
 
     for (const [targetDocument, state] of this.documentStates) {
@@ -241,17 +232,9 @@ export class ValueSuggestionOrderController {
     }
   }
 
-  clearRecentPropertyValues(): boolean {
-    const persisted = this.recentValueStore.clear();
-    this.recentValueTracker.clearPending();
-    this.recentValueRevision += 1;
-    this.refresh();
-    return persisted;
-  }
-
   clearPropertyValueFrequency(): boolean {
     const persisted = this.propertyValueFrequencyStore.clear();
-    this.recentValueTracker.clearPending();
+    this.selectionTracker.clearPending();
     this.frequencyRevision += 1;
     this.refresh();
     return persisted;
@@ -293,14 +276,14 @@ export class ValueSuggestionOrderController {
       observer,
       observing: false,
       rafId: null,
-      recentTrackingCleanup: () => undefined,
+      selectionTrackingCleanup: () => undefined,
       view: targetWindow,
       windowFocused: targetDocument.hasFocus(),
     };
     this.documentStates.set(targetDocument, state);
 
     try {
-      state.recentTrackingCleanup = this.recentValueTracker.registerDocument(targetDocument);
+      state.selectionTrackingCleanup = this.selectionTracker.registerDocument(targetDocument);
       const handleFocusIn = (event: FocusEvent): void => {
         const target = event.target;
         if (
@@ -421,7 +404,7 @@ export class ValueSuggestionOrderController {
         getSuggestionElements: getPropertyValueSuggestionElements,
         hasActiveContext: hasActivePropertyValueSuggestionContext,
         onActivationIntent: (element) => {
-          this.recentValueTracker.captureSuggestionActivation(element);
+          this.selectionTracker.captureSuggestionActivation(element);
         },
         onEscapeIntent: handleEscapeIntent,
         onSynchronizationFailure: (container) => this.restoreContainer(container),
@@ -461,7 +444,7 @@ export class ValueSuggestionOrderController {
     this.cancelScheduledEnhancement(state);
     this.runCleanup(state.contextCleanup);
     this.runCleanup(state.keyboardCleanup);
-    this.runCleanup(state.recentTrackingCleanup);
+    this.runCleanup(state.selectionTrackingCleanup);
     this.runCleanup(() => this.restoreContainersForDocument(targetDocument));
   }
 
@@ -629,104 +612,60 @@ export class ValueSuggestionOrderController {
       .filter((item): item is SuggestionItem => item != null);
     const nativeValues = nativeItems.map((item) => item.key);
 
-    let plannedValues: Array<{ isPreset: boolean; value: string }> = [];
-    let shouldSuppress = false;
-    let signaturePayload: Record<string, unknown>;
-
-    if (settings.valueSuggestionLegacyMigrationPending) {
-      const rules = resolvePropertyValueRules(context.propertyKey, {
-        bottomRules: settings.bottomPropertyValues,
-        defaultSortMode: settings.valueSuggestionSortMode,
-        hiddenRules: settings.hiddenPropertyValuePatterns,
-        pinnedRules: settings.pinnedPropertyValues,
-        sortOverrides: settings.valueSuggestionSortOverrides,
-      });
-
-      shouldSuppress = rules.sortMode === "none";
-      const orderedValues = shouldSuppress
-        ? []
-        : orderPropertyValues(nativeValues, {
-            bottomValues: rules.bottomValues,
-            hiddenPatterns: rules.hiddenPatterns,
-            pinnedValues: rules.pinnedValues,
-            recentValues:
-              rules.sortMode === "recent"
-                ? this.recentValueStore.getValues(context.propertyKey)
-                : [],
-            sortMode: rules.sortMode,
-            usage:
-              rules.sortMode === "usage"
-                ? getCachedPropertyValueUsage(this.plugin.app, context.propertyKey)
-                : [],
-          });
-      plannedValues = orderedValues.map(({ value }) => ({ isPreset: false, value }));
-      signaturePayload = {
-        legacy: true,
-        bottom: rules.bottomValues,
-        hidden: rules.hiddenPatterns,
-        pinned: rules.pinnedValues,
-        propertyKey: context.propertyKey,
-        recentRevision: rules.sortMode === "recent" ? this.recentValueRevision : 0,
-        sortMode: rules.sortMode,
-        usageRevision: rules.sortMode === "usage" ? this.usageRevision : 0,
-        values: nativeValues,
-      };
-    } else {
-      const behavior = resolvePropertyValueBehavior(
-        settings.valueSuggestionPropertyAssignments,
-        settings.valueSuggestionDefaultBehavior,
-        context.propertyKey,
+    const behavior = resolvePropertyValueBehavior(
+      settings.valueSuggestionPropertyAssignments,
+      settings.valueSuggestionDefaultBehavior,
+      context.propertyKey,
+    );
+    const needsFrequency =
+      behavior === "frequency" ||
+      (
+        behavior === "custom" &&
+        getPropertyValueCustomOrder(
+          settings.valueSuggestionCustomOrders,
+          context.propertyKey,
+        ).middleSortMode === "frequency"
       );
-      const needsFrequency =
-        behavior === "frequency" ||
-        (
-          behavior === "custom" &&
-          getPropertyValueCustomOrder(
-            settings.valueSuggestionCustomOrders,
-            context.propertyKey,
-          ).middleSortMode === "frequency"
-        );
-      const needsNoteCount =
-        behavior === "note-count" ||
-        (
-          behavior === "custom" &&
-          getPropertyValueCustomOrder(
-            settings.valueSuggestionCustomOrders,
-            context.propertyKey,
-          ).middleSortMode === "note-count"
-        );
-      const groupedPlan = planGroupedPropertyValueSuggestions(
-        settings,
-        context.propertyKey,
-        nativeValues,
-        needsFrequency
-          ? this.propertyValueFrequencyStore.getCounts(context.propertyKey)
-          : [],
-        needsNoteCount
-          ? getCachedPropertyValueUsage(this.plugin.app, context.propertyKey)
-          : [],
+    const needsNoteCount =
+      behavior === "note-count" ||
+      (
+        behavior === "custom" &&
+        getPropertyValueCustomOrder(
+          settings.valueSuggestionCustomOrders,
+          context.propertyKey,
+        ).middleSortMode === "note-count"
       );
+    const groupedPlan = planGroupedPropertyValueSuggestions(
+      settings,
+      context.propertyKey,
+      nativeValues,
+      needsFrequency
+        ? this.propertyValueFrequencyStore.getCounts(context.propertyKey)
+        : [],
+      needsNoteCount
+        ? getCachedPropertyValueUsage(this.plugin.app, context.propertyKey)
+        : [],
+    );
 
-      shouldSuppress = groupedPlan.behavior === "none";
-      plannedValues = groupedPlan.candidates.map(({ isPreset, value }) => ({
-        isPreset,
-        value,
-      }));
-      signaturePayload = {
-        behavior: groupedPlan.behavior,
-        customOrder:
-          groupedPlan.behavior === "custom"
-            ? getPropertyValueCustomOrder(
-                settings.valueSuggestionCustomOrders,
-                context.propertyKey,
-              )
-            : null,
-        frequencyRevision: needsFrequency ? this.frequencyRevision : 0,
-        propertyKey: context.propertyKey,
-        usageRevision: needsNoteCount ? this.usageRevision : 0,
-        values: nativeValues,
-      };
-    }
+    const shouldSuppress = groupedPlan.behavior === "none";
+    let plannedValues = groupedPlan.candidates.map(({ isPreset, value }) => ({
+      isPreset,
+      value,
+    }));
+    const signaturePayload = {
+      behavior: groupedPlan.behavior,
+      customOrder:
+        groupedPlan.behavior === "custom"
+          ? getPropertyValueCustomOrder(
+              settings.valueSuggestionCustomOrders,
+              context.propertyKey,
+            )
+          : null,
+      frequencyRevision: needsFrequency ? this.frequencyRevision : 0,
+      propertyKey: context.propertyKey,
+      usageRevision: needsNoteCount ? this.usageRevision : 0,
+      values: nativeValues,
+    };
 
     const rawQuery = getPropertyValueInputText(getPropertyValueInput(context));
     const owner: ValueSuggestionOwner = { context, query: rawQuery };
@@ -996,7 +935,6 @@ export class ValueSuggestionOrderController {
       fallbackSession.editor === activeContext.editor &&
       equalPropertyKey(fallbackSession.propertyKey, activeContext.propertyKey) &&
       fallbackSession.editor.isConnected &&
-      !settings.valueSuggestionLegacyMigrationPending &&
       resolvePropertyValueBehavior(
         settings.valueSuggestionPropertyAssignments,
         settings.valueSuggestionDefaultBehavior,
@@ -1021,20 +959,6 @@ export class ValueSuggestionOrderController {
 
       const context = getPropertyValueSuggestionContext(container);
       if (context == null) {
-        continue;
-      }
-
-      if (settings.valueSuggestionLegacyMigrationPending) {
-        const rules = resolvePropertyValueRules(context.propertyKey, {
-          bottomRules: settings.bottomPropertyValues,
-          defaultSortMode: settings.valueSuggestionSortMode,
-          hiddenRules: settings.hiddenPropertyValuePatterns,
-          pinnedRules: settings.pinnedPropertyValues,
-          sortOverrides: settings.valueSuggestionSortOverrides,
-        });
-        if (rules.sortMode === "usage") {
-          return true;
-        }
         continue;
       }
 
@@ -1133,10 +1057,7 @@ export class ValueSuggestionOrderController {
       return;
     }
 
-    if (
-      !settings.enableNativeValueSuggestionOrder ||
-      settings.valueSuggestionLegacyMigrationPending
-    ) {
+    if (!settings.enableNativeValueSuggestionOrder) {
       this.customFallbackSessions.delete(targetDocument);
       this.hideCustomFallback(targetDocument);
       return;
@@ -1308,8 +1229,6 @@ export class ValueSuggestionOrderController {
   }
 
   private recordConfirmedPropertyValue(propertyKey: string, value: string): void {
-    this.recordRecentPropertyValue(propertyKey, value);
-
     if (this.shouldTrackPropertyValueFrequency(propertyKey)) {
       this.propertyValueFrequencyStore.increment(propertyKey, value);
       this.frequencyRevision += 1;
@@ -1321,9 +1240,6 @@ export class ValueSuggestionOrderController {
 
   private shouldTrackPropertyValueFrequency(propertyKey: string): boolean {
     const settings = this.getSettings();
-    if (settings.valueSuggestionLegacyMigrationPending) {
-      return false;
-    }
     const normalizedKey = propertyKey.trim().toLocaleLowerCase();
     const assignment = settings.valueSuggestionPropertyAssignments.find(
       (candidate) => candidate.propertyKey.trim().toLocaleLowerCase() === normalizedKey,
@@ -1347,22 +1263,6 @@ export class ValueSuggestionOrderController {
 
   getPropertyValueFrequency(propertyKey: string) {
     return this.propertyValueFrequencyStore.getCounts(propertyKey);
-  }
-
-  private recordRecentPropertyValue(propertyKey: string, value: string): void {
-    const beforeValues = this.recentValueStore.getValues(propertyKey);
-    const afterValues = this.recentValueStore.touch(propertyKey, value);
-
-    if (
-      beforeValues.length !== afterValues.length ||
-      beforeValues.some((existingValue, index) => existingValue !== afterValues[index])
-    ) {
-      this.recentValueRevision += 1;
-
-      for (const targetDocument of this.documentStates.keys()) {
-        this.scheduleEnhancement(targetDocument);
-      }
-    }
   }
 
   private restoreAllContainers(): void {

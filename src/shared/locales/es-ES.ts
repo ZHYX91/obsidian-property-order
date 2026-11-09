@@ -130,10 +130,8 @@ const translations = {
   "settings.valueSuggestions.addProperty.placeholder": "Buscar o escribir un nombre de propiedad...",
   "settings.valueSuggestions.addProperty.button": "Añadir propiedad",
   "settings.valueSuggestions.moveConfirm": "¿Mover «{property}» de «{from}» a «{to}»? Esto cambia cómo se muestran sus valores sugeridos.",
-  "settings.valueSuggestions.legacyMigrationPending": "Algunas reglas antiguas no se pueden convertir automáticamente y siguen controlando las sugerencias. Revísalas antes de cambiar a los ajustes por grupos.",
+  "settings.valueSuggestions.legacyRulesArchived": "Las reglas anteriores de valores se han archivado y ya no controlan las sugerencias. Se han importado los ajustes equivalentes. Revisa las reglas guardadas y configura sus sustitutos a continuación si los necesitas.",
   "settings.valueSuggestions.legacyMigrationDetails": "Ver las reglas antiguas conservadas",
-  "settings.valueSuggestions.legacyMigrationAdopt": "Cambiar a ajustes por grupos",
-  "settings.valueSuggestions.legacyMigrationConfirm": "¿Cambiar a los ajustes por grupos? Las reglas antiguas dejarán de afectar a las sugerencias, pero permanecerán en el archivo de ajustes. Puede que necesites configurar otras reglas que las sustituyan.",
   "settings.valueSuggestions.frequencyHistory.name": "Frecuencia de selección",
   "settings.valueSuggestions.frequencyHistory.desc": "Cuenta las selecciones correctas solo mientras las sugerencias de esa propiedad, o la sección normal de sus sugerencias personalizadas, usen «Frecuencia de selección». Los recuentos permanecen en esta bóveda y este dispositivo. Borrarlos no cambia las notas ni los valores predefinidos.",
   "settings.valueSuggestions.frequencyHistory.clear": "Borrar recuentos",
@@ -179,10 +177,8 @@ const translations = {
   "notice.settingsSaveFailed": "Property Order: no se han podido guardar los ajustes. Inténtalo de nuevo.",
   "notice.recentHistoryCleared": "Property Order: se ha borrado el historial de nombres de propiedades recientes.",
   "notice.recentHistoryClearFailed": "Property Order: no se ha podido borrar el historial guardado. Se ha vaciado para esta sesión, pero puede volver tras reiniciar.",
-  "notice.recentValueHistoryCleared": "Property Order: se ha borrado el historial de valores de propiedades recientes.",
   "notice.valueFrequencyCleared": "Property Order: se han borrado los recuentos de selecciones.",
   "notice.valueFrequencyClearFailed": "Property Order: se han borrado los recuentos para esta sesión, pero no se han podido eliminar los datos guardados y pueden volver tras reiniciar.",
-  "notice.recentValueHistoryClearFailed": "Property Order: no se ha podido borrar el historial guardado de valores de propiedades. Se ha vaciado para esta sesión, pero puede volver tras reiniciar.",
   "notice.mobileReorderArmed": "Property Order: arrastra ahora el valor seleccionado. Toca en otro lugar o espera para cancelar.",
 } satisfies TranslationDictionary;
 
