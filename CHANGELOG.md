@@ -3,7 +3,7 @@
 All notable changes to Property Order are documented in this file. Release versions and dates
 follow the repository's Git tags; entries summarize the corresponding commit history.
 
-## [Unreleased]
+## [0.12.0]
 
 - Use the grouped value-suggestion model for all users. Import equivalent older settings once and preserve original rules in a read-only archive; retired recent-value and wildcard rules no longer control suggestions.
 
