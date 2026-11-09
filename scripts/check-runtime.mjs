@@ -1,6 +1,8 @@
 import { readFile } from "node:fs/promises";
 
-import { assertRuntimeContract, parseNpmVersion } from "./runtime-contract.mjs";
+import "./check-shared-tools.mjs";
+
+const { assertRuntimeContract, parseNpmVersion } = await import("./runtime-contract.mjs");
 
 const [nodeVersionSource, packageSource] = await Promise.all([
   readFile(".node-version", "utf8"),

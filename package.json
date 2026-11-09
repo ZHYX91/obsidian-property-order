@@ -29,8 +29,11 @@
     "release:post-verify": "node scripts/release.mjs post-verify",
     "bench:usage": "vitest run --config vitest.performance.config.mts --mode quick --reporter=verbose",
     "bench:usage:large": "vitest run --config vitest.performance.config.mts --mode large --reporter=verbose",
-    "postinstall": "node scripts/prepare-lint-dependencies.mjs",
-    "prelint": "node scripts/prepare-lint-dependencies.mjs && node scripts/check-lint-dependencies.mjs"
+    "postinstall": "node scripts/check-shared-tools.mjs && node scripts/prepare-lint-dependencies.mjs",
+    "prelint": "node scripts/check-shared-tools.mjs && node scripts/prepare-lint-dependencies.mjs && node scripts/check-lint-dependencies.mjs",
+    "check:tools": "node scripts/check-shared-tools.mjs",
+    "test:tools": "vitest run tests/scripts/shared-maintenance-tools.test.ts",
+    "prebuild": "node scripts/check-runtime.mjs"
   },
   "keywords": [
     "obsidian",
