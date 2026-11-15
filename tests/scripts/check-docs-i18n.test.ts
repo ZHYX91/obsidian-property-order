@@ -20,6 +20,11 @@ beforeEach(async () => {
   });
   await cp(path.join(projectRoot, "CHANGELOG.md"), path.join(fixtureRoot, "CHANGELOG.md"));
   await cp(path.join(projectRoot, "SECURITY.md"), path.join(fixtureRoot, "SECURITY.md"));
+  await mkdir(path.join(fixtureRoot, "scripts/vendor"), { recursive: true });
+  await cp(
+    path.join(projectRoot, "scripts/vendor/obsidian-release-core.lock.json"),
+    path.join(fixtureRoot, "scripts/vendor/obsidian-release-core.lock.json"),
+  );
 });
 
 afterEach(async () => {

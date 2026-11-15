@@ -152,7 +152,7 @@ The install archive fixes entry order, timestamps, permissions, and irrelevant m
 
 They cover required and optional styles, missing/extra/non-regular entries, tampered bytes, wrong checksums, path escapes, and a historical same-version tag. Ordinary `npm run check` uses non-tag-aware validation; only `npm run release:check` requires a clean commit and the absent-or-exact tag gate.
 
-The repository-local release-core 3.1.1 runtime and thin adapter own one deterministic Candidate Bundle and a generated standalone workflow. An authorized stable version tag push or manual publish dispatch on that tag uses the same pipeline; manual verify mode remains read-only.
+The repository-local release-core runtime (see the [lock file](../scripts/vendor/obsidian-release-core.lock.json) for its exact version and source identity) and thin adapter own one deterministic Candidate Bundle and a generated standalone workflow. An authorized stable version tag push or manual publish dispatch on that tag uses the same pipeline; manual verify mode remains read-only.
 
 CI installs locked dependencies, runs release:check once, source-verifies the Bundle, and pins its artifact ID/digest. The write-capable publication job checks out that exact tagged source without persisted credentials and runs its locked repository release adapter, without installing dependencies or rebuilding.
 

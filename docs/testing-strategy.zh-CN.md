@@ -145,7 +145,7 @@ CI 上传 `dist/` 顶层的 `main.js`、`manifest.json` 与 `styles.css`。Relea
 
 安装 ZIP 必须固定条目顺序、时间、权限和无关 metadata，使相同输入得到相同字节。仓库内精确锁定的 release-core 测试执行相同 ZIP 解析与候选校验代码，覆盖必需/可选样式、缺失/额外/非普通项、篡改字节、错误 checksum、越界路径和同版本历史标签冲突。普通 `npm run check` 运行非 tag-aware 校验；`npm run release:check` 才要求干净提交并执行 absent-or-exact 标签门。
 
-仓库内 release-core 3.1.1 runtime 与薄适配器统一管理确定性的 Candidate Bundle 和生成的独立工作流。获授权的稳定版本 tag push 或该 tag 上的手动 publish 派发共用流水线；手动 verify 模式保持只读。
+仓库内 release-core runtime（精确版本与源码身份见[锁定文件](../scripts/vendor/obsidian-release-core.lock.json)）与薄适配器统一管理确定性的 Candidate Bundle 和生成的独立工作流。获授权的稳定版本 tag push 或该 tag 上的手动 publish 派发共用流水线；手动 verify 模式保持只读。
 
 CI 安装锁定依赖，执行一次 release:check，验证 Bundle 源码，并固定 artifact ID/digest。写权限发布 job 精确 checkout 标签源码且不持久化凭据，运行其中锁定的仓库发布 adapter，不安装依赖或重新构建。
 
