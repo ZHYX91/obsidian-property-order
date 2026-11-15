@@ -13,6 +13,29 @@
   },
   "scenarios": [
     {
+      "id": "unicode-property-key-writeback",
+      "title": "Exact Unicode property keys, value reorder and undo",
+      "surfaces": [
+        "desktop",
+        "android-emulator"
+      ],
+      "requiredCapabilities": {
+        "desktop": [],
+        "android-emulator": [
+          "touch.drag"
+        ]
+      },
+      "steps": [
+        "Open Unicode Property Keys.md in Source mode and record the exact original UTF-8 bytes, including the leading or trailing U+00A0/U+3000 characters and the U+00A0 after the internal colon. Switch to Properties view and record which exact keys the host exposes as list rows.",
+        "For each supported row, reorder beta before alpha using a real pointer or keyboard interaction, wait for persistence, and inspect Source mode. Verify only the selected list changes, then undo once and verify the exact original note returns.",
+        "Move alpha from the supported po_nbsp row with trailing U+00A0 into po_target. Verify both exact keys and all other fields remain intact, then undo once. If the host does not expose a key as a supported list, record that host limitation and verify no write occurs rather than substituting a different key."
+      ],
+      "expected": [
+        "Supported Unicode keys retain their exact characters through reorder and cross-property movement. The ordinary po_nbsp key, other properties, comments and body remain unchanged.",
+        "The visible Properties view and saved YAML agree after each supported operation. One undo restores the original content. Unsupported host rows are recorded separately and never misidentified as a neighboring property."
+      ]
+    },
+    {
       "id": "settings-startup-and-external-reload",
       "title": "Startup migration and external settings replacement",
       "surfaces": [

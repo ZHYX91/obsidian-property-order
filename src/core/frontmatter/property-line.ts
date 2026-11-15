@@ -1,4 +1,8 @@
-import { parseDoubleQuotedScalar, parseScalarValue } from "./scalar";
+import {
+  parseDoubleQuotedScalar,
+  parseScalarValue,
+  trimEndYamlSeparationWhitespace,
+} from "./scalar";
 
 export interface PropertyLine {
   key: string;
@@ -18,7 +22,7 @@ export function parseTopLevelPropertyLine(line: string): PropertyLine | null {
   }
 
   const keyText = line.slice(0, separatorIndex);
-  const key = parsePropertyKey(keyText.trimEnd());
+  const key = parsePropertyKey(trimEndYamlSeparationWhitespace(keyText));
 
   if (key == null) {
     return null;
@@ -46,7 +50,7 @@ function findPropertySeparator(line: string): number {
       continue;
     }
 
-    if (nextCharacter.length === 0 || /[\s[{]/.test(nextCharacter)) {
+    if (nextCharacter.length === 0 || /[ \t[{]/.test(nextCharacter)) {
       return index;
     }
 
@@ -77,7 +81,7 @@ function parsePropertyKey(rawKey: string): string | null {
     return null;
   }
 
-  return rawKey.trim();
+  return rawKey;
 }
 
 function findQuotedKeySeparator(line: string, quote: string): number {
