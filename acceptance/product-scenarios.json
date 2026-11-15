@@ -15,8 +15,16 @@
     {
       "id": "unicode-property-key-writeback",
       "title": "Exact Unicode property keys, value reorder and undo",
-      "surfaces": ["desktop", "android-emulator"],
-      "requiredCapabilities": { "desktop": [], "android-emulator": ["touch.drag"] },
+      "surfaces": [
+        "desktop",
+        "android-emulator"
+      ],
+      "requiredCapabilities": {
+        "desktop": [],
+        "android-emulator": [
+          "touch.drag"
+        ]
+      },
       "steps": [
         "Open Unicode Property Keys.md in Source mode and record the exact original UTF-8 bytes, including the leading or trailing U+00A0/U+3000 characters and the U+00A0 after the internal colon. Switch to Properties view and record which exact keys the host exposes as list rows.",
         "For each supported row, reorder beta before alpha using a real pointer or keyboard interaction, wait for persistence, and inspect Source mode. Verify only the selected list changes, then undo once and verify the exact original note returns.",
