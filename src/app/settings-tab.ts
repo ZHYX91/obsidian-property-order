@@ -246,7 +246,8 @@ export class PropertyOrderSettingTab extends PluginSettingTab {
       addInactiveHint(containerEl, this.t("settings.valueDrag.disabledHint"));
     }
 
-    new Setting(containerEl)
+    const formatSetting = new Setting(containerEl)
+      .setClass("property-order-writeback-format")
       .setName(this.t("settings.writebackFormat.name"))
       .setDesc(this.t("settings.writebackFormat.desc"))
       .addDropdown((dropdown) => {
@@ -260,7 +261,11 @@ export class PropertyOrderSettingTab extends PluginSettingTab {
           });
       });
 
-    this.formatExamples = renderWritebackFormatExamples(containerEl, (key) => this.t(key), this.formatExamplesOpen);
+    this.formatExamples = renderWritebackFormatExamples(
+      formatSetting.settingEl,
+      (key) => this.t(key),
+      this.formatExamplesOpen,
+    );
 
     new Setting(containerEl)
       .setName(this.t("settings.crossPropertyDrag.name"))

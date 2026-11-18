@@ -11,9 +11,10 @@ export function renderWritebackFormatExamples(
   const details = container.createEl("details", { cls: "property-order-format-examples" });
   details.open = open;
   details.createEl("summary", { text: t("settings.writebackFormat.examples") });
-  details.createEl("p", { text: t("settings.writebackFormat.exampleHint") });
-  details.createEl("strong", { text: t("settings.writebackFormat.before") });
-  details.createEl("pre").createEl("code", { text: example });
+  const body = details.createDiv({ cls: "property-order-format-example-body" });
+  body.createEl("p", { text: t("settings.writebackFormat.exampleHint") });
+  body.createEl("strong", { text: t("settings.writebackFormat.before") });
+  body.createEl("pre", { attr: { dir: "ltr" } }).createEl("code", { text: example });
   for (const format of ["preserve", "flow", "block"] satisfies ListWritebackFormat[]) {
     const plan = planFrontmatterListPropertyReorder(example, {
       propertyKey: "tags",
@@ -23,8 +24,8 @@ export function renderWritebackFormatExamples(
       writebackFormat: format,
     });
     if (plan === null) continue;
-    details.createEl("strong", { text: `${t("settings.writebackFormat.after")} — ${t(`settings.writebackFormat.${format}`)}` });
-    details.createEl("pre").createEl("code", { text: plan.content });
+    body.createEl("strong", { text: `${t("settings.writebackFormat.after")} — ${t(`settings.writebackFormat.${format}`)}` });
+    body.createEl("pre", { attr: { dir: "ltr" } }).createEl("code", { text: plan.content });
   }
   return details;
 }

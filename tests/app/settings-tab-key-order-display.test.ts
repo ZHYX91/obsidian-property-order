@@ -41,8 +41,15 @@ describe("Property Order settings tabs", () => {
     ]);
     const examples = () => tab.containerEl.querySelector<HTMLDetailsElement>("details")!;
     tabs()[1]!.click();
-    expect(examples().open).toBe(false);
-    examples().open = true;
+    const help = examples();
+    const formatRow = help.closest(".setting-item")!;
+    expect(formatRow.querySelector("select")?.value).toBe("preserve");
+    expect(formatRow.textContent).toContain("may remove item comments and blank lines");
+    expect(help.querySelector("select, button, input")).toBeNull();
+    expect(help.querySelector("summary")?.textContent).toBe("Format examples");
+    expect(help.open).toBe(false);
+    help.open = true;
+    expect([...help.querySelectorAll("pre")].map((sample) => sample.dir)).toEqual(["ltr", "ltr", "ltr", "ltr"]);
     tabs()[0]!.click();
     tabs()[1]!.click();
     const previous = examples();
