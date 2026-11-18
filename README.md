@@ -51,7 +51,7 @@ Reorder supported top-level YAML text-list values directly in Properties, or mov
 ![Move a value between properties](https://raw.githubusercontent.com/ZHYX91/obsidian-property-order/main/docs/assets/property-order-cross-property-drag.gif)
 
 - **Desktop:** drag a value to its new position or to another supported list property.
-- **Mobile:** long-press a value, choose **Reorder** or **Reorder or move** in Obsidian's native menu, then drag that value. If the host menu cannot be extended, native editing stays available and the plugin does not substitute a look-alike menu.
+- **Mobile:** long-press a value, choose **Reorder** or **Reorder or move** in Obsidian's native menu, then drag that value. If Reorder is missing from the menu, you can still edit the value as usual.
 - **Keyboard:** run **Property Order: Reorder property values** from the command palette. Choose a source property and value, then move it up, down, to a position starting at 1, to first/last, or to the end of another property. No shortcut is assigned by default. The command works when dragging is disabled; the cross-property drag toggle applies only to pointer dragging.
 
 Each completed reorder or move is one undoable edit. Before starting an update, **Escape** or **Cancel** leaves the note unchanged. Once updating starts, wait for completion and use Undo in the editor if needed. Dragging supports wrapped and RTL layouts, scrolling near supported panel edges, and screen-reader status announcements.

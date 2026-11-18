@@ -646,3 +646,23 @@ body.property-order-value-drag-enabled .metadata-property .multi-select-pill {
 .property-order-format-examples pre {
   overflow-x: auto;
 }
+
+/* Light, keyboard-accessible example disclosure, not a functional settings group. */
+.property-order-format-examples {
+  border: 1px solid var(--background-modifier-border);
+  border-radius: var(--radius-s); background: var(--background-secondary);
+  color: var(--text-muted); font-size: var(--font-ui-small);
+  margin-block: var(--size-4-2); padding: 0;
+}
+.property-order-format-examples > summary {
+  color: var(--text-normal); cursor: pointer; display: list-item;
+  font-size: var(--font-ui-small); font-weight: var(--font-medium);
+  list-style: disclosure-closed inside; padding: var(--size-4-2) var(--size-4-3);
+}
+.property-order-format-examples[open] > summary { list-style: disclosure-open inside; }
+.property-order-format-examples > summary:focus-visible {
+  outline: 2px solid var(--interactive-accent); outline-offset: -2px;
+}
+.property-order-format-examples > :not(summary) {
+  margin-inline: var(--size-4-3);
+}

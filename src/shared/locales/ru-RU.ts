@@ -21,6 +21,7 @@ const translations = {
   "settings.writebackFormat.examples": "Примеры формата",
   "settings.writebackFormat.before": "До",
   "settings.writebackFormat.after": "После",
+  "settings.writebackFormat.exampleComment": "Остаётся с alpha",
   "settings.writebackFormat.exampleHint": "По умолчанию формат сохраняется. В примерах beta перемещается перед alpha. Текстовые значения, похожие на числа или логические значения, заключаются в кавычки, например \"12\" и \"true\".",
   "settings.support.name": "Справка и поддержка",
   "settings.support.guide": "Руководство пользователя",

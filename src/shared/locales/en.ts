@@ -19,6 +19,7 @@ const translations = {
   "settings.writebackFormat.examples": "Format examples",
   "settings.writebackFormat.before": "Before",
   "settings.writebackFormat.after": "After",
+  "settings.writebackFormat.exampleComment": "Keep with alpha",
   "settings.writebackFormat.exampleHint": "Preserve is the default. These examples move beta before alpha. Values in a text list that look like numbers or booleans are quoted, such as \"12\" and \"true\".",
   "settings.support.name": "Help and support",
   "settings.support.guide": "User guide",

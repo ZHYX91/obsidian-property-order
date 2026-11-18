@@ -3,7 +3,12 @@
 All notable changes to Property Order are documented in this file. Release versions and dates
 follow the repository's Git tags; entries summarize the corresponding commit history.
 
-## [Unreleased]
+## [0.12.1]
+
+### Changed
+
+- Keep writeback examples expanded when switching settings tabs and collapse them when reopening settings.
+- Clarify how to reorder property values on mobile when Obsidian omits the Reorder command from its long-press menu.
 
 ### Fixed
 

@@ -21,6 +21,7 @@ const translations = {
   "settings.writebackFormat.examples": "Exemples de format",
   "settings.writebackFormat.before": "Avant",
   "settings.writebackFormat.after": "Après",
+  "settings.writebackFormat.exampleComment": "Reste avec alpha",
   "settings.writebackFormat.exampleHint": "Le format actuel est conservé par défaut. Ces exemples placent beta avant alpha. Les valeurs textuelles qui ressemblent à des nombres ou à des booléens sont entre guillemets, comme \"12\" et \"true\".",
   "settings.support.name": "Aide et assistance",
   "settings.support.guide": "Guide d’utilisation",

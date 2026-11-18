@@ -27,21 +27,14 @@ import { renderCustomValueSuggestionEditor } from "./value-suggestion-custom-edi
 import { renderWritebackFormatExamples } from "./writeback-format-examples";
 import {
   applyPropertyOrderControlValue,
-  isPropertyOrderControlKey,
   isPropertyOrderControlValue,
   type PropertyOrderControlKey,
-  type SettingsControlMutation,
 } from "./settings-control-contract";
 import {
   createSettingsTabLayout,
   focusSettingsTab,
   type SettingsTabId,
 } from "./settings-tabs";
-
-// Declarative settings are intentionally inactive. Obsidian 1.13 bypasses
-// display() for non-empty definitions, removing the established top-tab surface
-// and degrading the settings experience. Retain dormant definitions for tests only.
-const ENABLE_DECLARATIVE_SETTINGS = false;
 
 interface PropertyOrderSettingsHost extends Plugin {
   clearRecentPropertyKeys(): boolean;
@@ -64,6 +57,8 @@ type SettingsCleanup = () => void;
 
 export class PropertyOrderSettingTab extends PluginSettingTab {
   private activeTab: SettingsTabId = "general";
+  private formatExamplesOpen = false;
+  private formatExamples: HTMLDetailsElement | null = null;
   private hasUnsavedSettings = false;
   private readonly keyListSettingCleanups = new Map<
     KeyListSettingLifecycle,
@@ -88,53 +83,8 @@ export class PropertyOrderSettingTab extends PluginSettingTab {
   }
 
   override getSettingDefinitions(): SettingDefinitionItem[] {
-    return ENABLE_DECLARATIVE_SETTINGS ? this.getDeclarativeSettingDefinitions() : [];
-  }
-
-  getDeclarativeSettingDefinitions(): SettingDefinitionItem[] {
-    return [
-      {
-        type: "page",
-        name: this.t("settings.tab.general"),
-        items: [this.createSaveStatusDefinition(), ...this.getGeneralSettingDefinitions()],
-      },
-      {
-        type: "page",
-        name: this.t("settings.tab.valueDrag"),
-        items: [this.createSaveStatusDefinition(), ...this.getValueDragSettingDefinitions()],
-      },
-      {
-        type: "page",
-        name: this.t("settings.tab.keyOrder"),
-        items: [this.createSaveStatusDefinition(), ...this.getKeyOrderSettingDefinitions()],
-      },
-    ];
-  }
-
-  override getControlValue(key: string): unknown {
-    if (!isPropertyOrderControlKey(key)) {
-      return undefined;
-    }
-
-    return this.plugin.propertyOrderSettings[key];
-  }
-
-  override async setControlValue(key: string, value: unknown): Promise<void> {
-    if (!isPropertyOrderControlKey(key)) {
-      throw new Error(`Unsupported Property Order setting control: ${key}`);
-    }
-
-    const mutation = applyPropertyOrderControlValue(
-      this.plugin.propertyOrderSettings,
-      key,
-      value,
-    );
-    const surfaceGeneration = this.settingsSurfaceGeneration;
-    await this.persistSettings(mutation.refreshKeySuggestions);
-
-    if (this.isSettingsSurfaceCurrent(surfaceGeneration)) {
-      this.applyDeclarativeRefresh(mutation);
-    }
+    // Nonempty definitions cause Obsidian to bypass our four-tab settings UI.
+    return [];
   }
 
   override display(): void {
@@ -143,6 +93,8 @@ export class PropertyOrderSettingTab extends PluginSettingTab {
   }
 
   override hide(): void {
+    this.formatExamples = null;
+    this.formatExamplesOpen = false;
     this.settingsSurfaceVisible = false;
     this.settingsSurfaceGeneration += 1;
 
@@ -161,198 +113,6 @@ export class PropertyOrderSettingTab extends PluginSettingTab {
     if (this.settingsSurfaceVisible && this.tabLayoutCleanup != null) {
       this.render(null);
     }
-
-    updateDeclarativeSettingTab(this);
-    refreshDeclarativeSettingTabState(this);
-  }
-
-  private getGeneralSettingDefinitions(): SettingDefinitionItem[] {
-    return [
-      {
-        name: this.t("settings.language.name"),
-        desc: this.t("settings.language.desc"),
-        control: {
-          type: "dropdown",
-          key: "language",
-          defaultValue: "auto",
-          options: {
-            auto: this.t("settings.language.auto"),
-            ...Object.fromEntries(SUPPORTED_LOCALES.map(({ id, label }) => [id, label])),
-          },
-        },
-      },
-      {
-        name: this.t("settings.diagnostics.name"),
-        desc: this.t("settings.diagnostics.desc"),
-        control: {
-          type: "toggle",
-          key: "showDiagnostics",
-          defaultValue: false,
-        },
-      },
-    ];
-  }
-
-  private getValueDragSettingDefinitions(): SettingDefinitionItem[] {
-    return [
-      {
-        name: this.t("settings.valueDrag.mobileHint"),
-        searchable: false,
-        visible: Platform.isMobileApp,
-        render: (setting) => {
-          setting.setClass("property-order-settings-hint");
-        },
-      },
-      {
-        name: this.t("settings.valueDrag.enable.name"),
-        desc: this.t("settings.valueDrag.enable.desc"),
-        control: {
-          type: "toggle",
-          key: "enablePropertyValueDrag",
-          defaultValue: true,
-        },
-      },
-      {
-        name: this.t("settings.valueDrag.disabledHint"),
-        searchable: false,
-        visible: () => !this.plugin.propertyOrderSettings.enablePropertyValueDrag,
-        render: (setting) => {
-          setting.setClass("property-order-settings-hint");
-        },
-      },
-      {
-        name: this.t("settings.writebackFormat.name"),
-        desc: this.t("settings.writebackFormat.desc"),
-        control: {
-          type: "dropdown",
-          key: "listWritebackFormat",
-          defaultValue: "preserve",
-          options: {
-            preserve: this.t("settings.writebackFormat.preserve"),
-            flow: this.t("settings.writebackFormat.flow"),
-            block: this.t("settings.writebackFormat.block"),
-          },
-        },
-      },
-      {
-        name: this.t("settings.crossPropertyDrag.name"),
-        desc: this.t("settings.crossPropertyDrag.desc"),
-        control: {
-          type: "toggle",
-          key: "enableCrossPropertyDrag",
-          defaultValue: true,
-          disabled: () => !this.plugin.propertyOrderSettings.enablePropertyValueDrag,
-        },
-      },
-    ];
-  }
-
-  private getKeyOrderSettingDefinitions(): SettingDefinitionItem[] {
-    let availableNames: string[] | null = null;
-    const getAvailableNames = (): string[] => {
-      availableNames ??= getAvailablePropertyNames(this.app);
-      return availableNames;
-    };
-
-    return [
-      {
-        name: this.t("settings.keyOrder.enable.name"),
-        desc: this.t("settings.keyOrder.enable.desc"),
-        control: {
-          type: "toggle",
-          key: "enableNativeKeySuggestionOrder",
-          defaultValue: true,
-        },
-      },
-      {
-        name: this.t("settings.keyOrder.disabledHint"),
-        searchable: false,
-        visible: () => !this.plugin.propertyOrderSettings.enableNativeKeySuggestionOrder,
-        render: (setting) => {
-          setting.setClass("property-order-settings-hint");
-        },
-      },
-      {
-        name: this.t("settings.keyOrder.sortMode.name"),
-        desc: this.t("settings.keyOrder.sortMode.desc"),
-        control: {
-          type: "dropdown",
-          key: "keySuggestionSortMode",
-          defaultValue: "name",
-          options: this.getKeySuggestionSortOptions(),
-        },
-      },
-      {
-        name: this.t("settings.keyOrder.groupByType.name"),
-        desc: this.t("settings.keyOrder.groupByType.desc"),
-        control: {
-          type: "toggle",
-          key: "groupKeySuggestionsByType",
-          defaultValue: false,
-        },
-      },
-      {
-        name: this.t("settings.keyOrder.recentHistory.name"),
-        desc: this.t("settings.keyOrder.recentHistory.desc"),
-        render: (setting) => {
-          this.addClearRecentPropertyKeysButton(setting);
-        },
-      },
-      this.createKeyListDefinition(
-        "pinnedPropertyKeys",
-        this.t("settings.keyOrder.pinned.name"),
-        this.t("settings.keyOrder.pinned.desc"),
-        getAvailableNames,
-      ),
-      this.createKeyListDefinition(
-        "bottomPropertyKeys",
-        this.t("settings.keyOrder.bottom.name"),
-        this.t("settings.keyOrder.bottom.desc"),
-        getAvailableNames,
-      ),
-      this.createKeyListDefinition(
-        "hiddenPropertyKeyPatterns",
-        this.t("settings.keyOrder.hidden.name"),
-        this.t("settings.keyOrder.hidden.desc"),
-        getAvailableNames,
-      ),
-      this.createRuleDiagnosticDefinition(),
-    ];
-  }
-
-  private createKeyListDefinition(
-    key: "bottomPropertyKeys" | "hiddenPropertyKeyPatterns" | "pinnedPropertyKeys",
-    name: string,
-    description: string,
-    getAvailableNames: () => string[],
-  ): SettingDefinitionItem {
-    return {
-      name,
-      desc: description,
-      render: (setting) => {
-        const lifecycle = configureKeyListSetting(
-          setting,
-          this.plugin.propertyOrderSettings[key],
-          async (values) => {
-            this.plugin.propertyOrderSettings[key] = values;
-            this.refreshRuleDiagnostics();
-            await this.persistSettings(true);
-          },
-          this.app,
-          getAvailableNames(),
-          this.t("settings.keyOrder.addExisting.placeholder"),
-        );
-        return this.trackKeyListSetting(lifecycle);
-      },
-    };
-  }
-
-  private createRuleDiagnosticDefinition(): SettingDefinitionItem {
-    return {
-      name: this.t("settings.keyOrder.ruleDiagnostic.name"),
-      desc: this.t("settings.keyOrder.ruleDiagnostic.desc"),
-      render: (setting) => this.configureRuleDiagnosticSetting(setting),
-    };
   }
 
   private getKeySuggestionSortOptions(): Record<KeySuggestionSortMode, string> {
@@ -378,25 +138,10 @@ export class PropertyOrderSettingTab extends PluginSettingTab {
     });
   }
 
-  private createSaveStatusDefinition(): SettingDefinitionItem {
-    return {
-      name: this.t("settings.saveStatus.failed"),
-      searchable: false,
-      render: (setting) => {
-        this.beginSettingsSurfaceRender();
-        const statusEl = this.mountSaveStatus(setting.settingEl, true);
-
-        return () => {
-          if (this.saveStatusEl === statusEl) {
-            this.saveStatusEl = null;
-          }
-        };
-      },
-    };
-  }
-
   private render(focusTab: SettingsTabId | null): void {
     const { containerEl } = this;
+    if (this.formatExamples) this.formatExamplesOpen = this.formatExamples.open;
+    this.formatExamples = null;
     this.resetRenderedSettings();
     this.beginSettingsSurfaceRender();
 
@@ -515,7 +260,7 @@ export class PropertyOrderSettingTab extends PluginSettingTab {
           });
       });
 
-    renderWritebackFormatExamples(containerEl, (key) => this.t(key));
+    this.formatExamples = renderWritebackFormatExamples(containerEl, (key) => this.t(key), this.formatExamplesOpen);
 
     new Setting(containerEl)
       .setName(this.t("settings.crossPropertyDrag.name"))
@@ -973,20 +718,12 @@ export class PropertyOrderSettingTab extends PluginSettingTab {
     const surfaceGeneration = this.settingsSurfaceGeneration;
     const pendingSave = this.persistSettings(mutation.refreshKeySuggestions);
     if (
-      mutation.refreshMode !== "none" &&
+      mutation.rerender &&
       this.isSettingsSurfaceCurrent(surfaceGeneration)
     ) {
       this.render(null);
     }
     await pendingSave;
-  }
-
-  private applyDeclarativeRefresh(mutation: SettingsControlMutation): void {
-    if (mutation.refreshMode === "structure") {
-      updateDeclarativeSettingTab(this);
-    } else if (mutation.refreshMode === "state") {
-      refreshDeclarativeSettingTabState(this);
-    }
   }
 
   private async persistSettings(
@@ -1022,13 +759,11 @@ export class PropertyOrderSettingTab extends PluginSettingTab {
     }
   }
 
-  private mountSaveStatus(parentEl: HTMLElement, reuseParent = false): HTMLElement {
+  private mountSaveStatus(parentEl: HTMLElement): HTMLElement {
     this.saveStatusEl?.remove();
-    const statusEl = reuseParent ? parentEl : parentEl.createDiv();
+    const statusEl = parentEl.createDiv();
     statusEl.classList.add("property-order-settings-save-status");
-    if (!reuseParent) {
-      parentEl.prepend(statusEl);
-    }
+    parentEl.prepend(statusEl);
     this.saveStatusEl = statusEl;
     this.updateSaveStatus();
     return statusEl;
@@ -1240,18 +975,4 @@ function parseLines(value: string): string[] {
     .split(/\r?\n/)
     .map((line) => line.trim())
     .filter(Boolean);
-}
-
-function updateDeclarativeSettingTab(settingTab: object): void {
-  const update: unknown = Reflect.get(settingTab, "update");
-  if (typeof update === "function") {
-    Reflect.apply(update, settingTab, []);
-  }
-}
-
-function refreshDeclarativeSettingTabState(settingTab: object): void {
-  const refreshDomState: unknown = Reflect.get(settingTab, "refreshDomState");
-  if (typeof refreshDomState === "function") {
-    Reflect.apply(refreshDomState, settingTab, []);
-  }
 }

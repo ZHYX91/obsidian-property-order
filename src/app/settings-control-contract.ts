@@ -5,63 +5,55 @@ import {
 } from "../shared/settings";
 import type { PropertyOrderSettings } from "../shared/types";
 
-export const PROPERTY_ORDER_CONTROL_KEYS = [
-  "enableCrossPropertyDrag",
-  "enableNativeKeySuggestionOrder",
-  "enablePropertyValueDrag",
-  "groupKeySuggestionsByType",
-  "keySuggestionSortMode",
-  "language",
-  "listWritebackFormat",
-  "showDiagnostics",
-] as const;
-
-export type PropertyOrderControlKey = (typeof PROPERTY_ORDER_CONTROL_KEYS)[number];
-export type SettingsRefreshMode = "none" | "state" | "structure";
+export type PropertyOrderControlKey =
+  | "enableCrossPropertyDrag"
+  | "enableNativeKeySuggestionOrder"
+  | "enablePropertyValueDrag"
+  | "groupKeySuggestionsByType"
+  | "keySuggestionSortMode"
+  | "language"
+  | "listWritebackFormat"
+  | "showDiagnostics";
 
 export interface SettingsControlMutation {
   readonly refreshKeySuggestions: boolean;
-  readonly refreshMode: SettingsRefreshMode;
+  readonly rerender: boolean;
 }
 
 const CONTROL_MUTATIONS = {
   enableCrossPropertyDrag: {
     refreshKeySuggestions: false,
-    refreshMode: "none",
+    rerender: false,
   },
   enableNativeKeySuggestionOrder: {
     refreshKeySuggestions: true,
-    refreshMode: "state",
+    rerender: true,
   },
   enablePropertyValueDrag: {
     refreshKeySuggestions: false,
-    refreshMode: "state",
+    rerender: true,
   },
   groupKeySuggestionsByType: {
     refreshKeySuggestions: true,
-    refreshMode: "none",
+    rerender: false,
   },
   keySuggestionSortMode: {
     refreshKeySuggestions: true,
-    refreshMode: "none",
+    rerender: false,
   },
   language: {
     refreshKeySuggestions: true,
-    refreshMode: "structure",
+    rerender: true,
   },
   listWritebackFormat: {
     refreshKeySuggestions: false,
-    refreshMode: "none",
+    rerender: false,
   },
   showDiagnostics: {
     refreshKeySuggestions: false,
-    refreshMode: "none",
+    rerender: false,
   },
 } as const satisfies Record<PropertyOrderControlKey, SettingsControlMutation>;
-
-export function isPropertyOrderControlKey(key: string): key is PropertyOrderControlKey {
-  return (PROPERTY_ORDER_CONTROL_KEYS as readonly string[]).includes(key);
-}
 
 export function isPropertyOrderControlValue(
   key: PropertyOrderControlKey,

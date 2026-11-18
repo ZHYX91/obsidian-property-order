@@ -139,62 +139,62 @@ const dataSafetyPhrasesByLocale = {
   "en": [
     "This changes the value type",
     "bracket-list format can discard",
-    "host menu cannot be extended"
+    "edit the value as usual"
   ],
   "zh-CN": [
     "改变值类型",
     "可能丢失项目注释",
-    "宿主菜单无法扩展"
+    "仍可照常编辑属性值"
   ],
   "zh-TW": [
     "改變值的型別",
     "可能遺失項目註解",
-    "宿主選單無法擴充"
+    "仍可照常編輯屬性值"
   ],
   "de-DE": [
     "Datentyp",
     "Kommentare oder Leerzeilen verlieren",
-    "Menüerweiterung nicht verfügbar"
+    "Wert weiterhin wie gewohnt bearbeiten"
   ],
   "fr-FR": [
     "Le type peut donc changer",
     "perdre les commentaires ou lignes vides",
-    "ne peut pas être étendu"
+    "modifier la valeur comme d’habitude"
   ],
   "es-ES": [
     "cambiar el tipo de dato",
     "perder comentarios o líneas en blanco",
-    "no admite la extensión"
+    "seguir editando el valor"
   ],
   "pt-BR": [
     "tipo do valor pode mudar",
     "eliminar comentários ou linhas vazias",
-    "não puder ser estendido"
+    "editar o valor normalmente"
   ],
   "ru-RU": [
     "тип данных",
     "убрать комментарии и пустые строки",
-    "расширение меню недоступно"
+    "редактировать обычным способом"
   ],
   "ja-JP": [
     "値の型も変わる",
     "コメントや空行が失われる",
-    "メニューを拡張できない"
+    "値は通常どおり編集できます"
   ],
   "ko-KR": [
     "값의 유형도 달라질",
     "주석이나 빈 줄이 사라질",
-    "메뉴를 확장할 수 없는"
+    "값은 평소처럼 편집할 수 있습니다"
   ],
   "vi-VN": [
     "kiểu dữ liệu cũng có thể thay đổi",
     "mất chú thích hoặc dòng trống",
-    "không thể mở rộng menu"
+    "sửa giá trị như bình thường"
   ],
   "ar": [
     "نوع القيمة",
     "فقدان التعليقات أو الأسطر الفارغة",
-    "تعذرت إضافة هذا الخيار"
+    "تعديل القيمة كالمعتاد"
   ]
 };
 

@@ -21,6 +21,7 @@ const translations = {
   "settings.writebackFormat.examples": "Ejemplos de formato",
   "settings.writebackFormat.before": "Antes",
   "settings.writebackFormat.after": "Después",
+  "settings.writebackFormat.exampleComment": "Se conserva con alpha",
   "settings.writebackFormat.exampleHint": "Se conserva el formato actual de forma predeterminada. Estos ejemplos mueven beta delante de alpha. Los valores de texto que parecen números o booleanos llevan comillas, como \"12\" y \"true\".",
   "settings.support.name": "Ayuda y soporte",
   "settings.support.guide": "Guía de uso",

@@ -113,11 +113,11 @@ describe("README marketplace link contract", () => {
   it("guards the mobile host-menu fallback explanation", async () => {
     await replaceInReadme(
       "docs/i18n/README.de-DE.md",
-      "Menüerweiterung nicht verfügbar",
+      "Wert weiterhin wie gewohnt bearbeiten",
       "anderes mobiles Menü",
     );
     expect(checkReadmeI18n(fixtureRoot)).toContain(
-      "docs/i18n/README.de-DE.md is missing current drag safety explanation: Menüerweiterung nicht verfügbar",
+      "docs/i18n/README.de-DE.md is missing current drag safety explanation: Wert weiterhin wie gewohnt bearbeiten",
     );
   });
 

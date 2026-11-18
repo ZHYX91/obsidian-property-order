@@ -51,7 +51,7 @@ Reordene diretamente nas propriedades valores de listas de texto YAML de nível 
 ![Mover um valor entre propriedades](../assets/property-order-cross-property-drag.gif)
 
 - **Computador:** arraste um valor para a nova posição ou outra propriedade de lista compatível.
-- **Dispositivo móvel:** pressione um valor por alguns instantes, escolha **Reordenar** ou **Reordenar ou mover** no menu nativo do Obsidian e arraste esse valor. Se o menu não puder ser estendido, a edição nativa continua disponível e o plugin não o substitui por uma imitação.
+- **Dispositivo móvel:** pressione um valor por alguns instantes, escolha **Reordenar** ou **Reordenar ou mover** no menu nativo do Obsidian e arraste esse valor. Se a opção “Reordenar” não aparecer no menu, você ainda pode editar o valor normalmente.
 - **Teclado:** execute **Property Order: Reordenar valores de propriedades** pela paleta de comandos. Escolha a propriedade de origem e o valor e mova-o para cima, para baixo, para uma posição começando em 1, para o início, para o fim ou para o fim de outra propriedade. Não há atalho padrão. O comando funciona com o arraste desativado; a opção entre propriedades afeta apenas o arraste com o ponteiro.
 
 Cada reordenação ou movimento concluído é uma única edição que pode ser desfeita. Antes de iniciar a atualização, **Escape** ou **Cancelar** deixa a nota intacta. Depois do início, aguarde a conclusão e use Desfazer no editor se necessário. O arraste oferece suporte a valores com quebra de linha, layouts da direita para a esquerda, rolagem nas bordas de painéis compatíveis e avisos de estado para leitores de tela.

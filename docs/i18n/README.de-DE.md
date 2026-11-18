@@ -51,7 +51,7 @@ Ordne unterstützte YAML-Textlisten auf oberster Ebene direkt in Properties um o
 ![Einen Wert zwischen Eigenschaften verschieben](../assets/property-order-cross-property-drag.gif)
 
 - **Desktop:** Ziehe einen Wert an seine neue Position oder in eine andere unterstützte Listeneigenschaft.
-- **Mobil:** Halte einen Wert gedrückt, wähle **Neu anordnen** oder **Neu anordnen oder verschieben** im nativen Obsidian-Menü und ziehe dann diesen Wert. Ist die Menüerweiterung nicht verfügbar, bleibt die native Bearbeitung erhalten; das Plugin ersetzt das Menü nicht durch eine Nachbildung.
+- **Mobil:** Halte einen Wert gedrückt, wähle **Neu anordnen** oder **Neu anordnen oder verschieben** im nativen Obsidian-Menü und ziehe dann diesen Wert. Fehlt „Neu anordnen“ im Menü, kannst du den Wert weiterhin wie gewohnt bearbeiten.
 - **Tastatur:** Starte **Property Order: Eigenschaftswerte umordnen** über die Befehlspalette. Wähle Quelleigenschaft und Wert und verschiebe ihn nach oben, unten, an eine Position ab 1, an den Anfang/das Ende oder ans Ende einer anderen Eigenschaft. Es gibt kein voreingestelltes Tastenkürzel. Der Befehl funktioniert auch bei ausgeschaltetem Ziehen; der Schalter für Ziehen zwischen Eigenschaften gilt nur für Zeigeraktionen.
 
 Jedes abgeschlossene Umordnen oder Verschieben ist eine einzelne rückgängig zu machende Bearbeitung. Vor dem Start der Aktualisierung lassen **Escape** oder **Abbrechen** die Notiz unverändert. Sobald sie beginnt, warte auf den Abschluss und nutze bei Bedarf Rückgängig im Editor. Ziehen unterstützt umgebrochene und RTL-Layouts, Scrollen an unterstützten Panelrändern und Statusmeldungen für Screenreader.
