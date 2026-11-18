@@ -19,3 +19,26 @@ export function preserveSettingsView(container: HTMLElement, update: () => void)
     element.scrollLeft = left;
   }
 }
+
+/** Carry only unsubmitted additions across a settings sync, never stored fields. */
+export function preserveValueSuggestionDrafts(
+  container: HTMLElement, render: (draftBehaviors: ReadonlySet<string>) => void,
+): void {
+  const draftSelector = ".property-order-value-behavior-input, .property-order-custom-value-add input";
+  const drafts = new Map<string, HTMLInputElement>();
+  const draftBehaviors = new Set<string>();
+  for (const input of Array.from(container.querySelectorAll<HTMLInputElement>(draftSelector))) {
+    const id = input.dataset.settingsFocus;
+    if (id == null || (!input.value && input !== container.ownerDocument.activeElement)) continue;
+    drafts.set(id, input);
+    const behavior = input.closest<HTMLElement>("[data-behavior]")?.dataset.behavior;
+    if (behavior) draftBehaviors.add(behavior);
+  }
+  preserveSettingsView(container, () => render(draftBehaviors));
+  for (const input of Array.from(container.querySelectorAll<HTMLInputElement>(draftSelector))) {
+    const draft = drafts.get(input.dataset.settingsFocus ?? "");
+    if (!draft) continue;
+    input.value = draft.value;
+    input.setSelectionRange(draft.selectionStart, draft.selectionEnd, draft.selectionDirection ?? "none");
+  }
+}

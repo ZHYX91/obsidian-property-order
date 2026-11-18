@@ -486,6 +486,42 @@ describe("PropertyOrderPlugin settings persistence", () => {
     expect(refresh).toHaveBeenCalledOnce();
   });
 
+  it("keeps local and already-synced rules for different properties on save and reload", async () => {
+    const initial = createDefaultSettings();
+    const { plugin, loadData, saveData } = createPlugin(initial);
+    await plugin.loadSettings();
+    const external = { propertyKey: "priority", behavior: "frequency" as const };
+    const local = { propertyKey: "status", behavior: "name" as const };
+    plugin.propertyOrderSettings.valueSuggestionPropertyAssignments.push(local);
+    loadData.mockResolvedValue({ ...initial, valueSuggestionPropertyAssignments: [external] });
+    await plugin.saveSettings(false, true);
+    const merged = { ...initial, valueSuggestionPropertyAssignments: [external, local] };
+    expect(saveData).toHaveBeenLastCalledWith(merged);
+    expect(plugin.propertyOrderSettings).toEqual(merged);
+
+    loadData.mockResolvedValue(merged);
+    await plugin.onExternalSettingsChange();
+    expect(plugin.propertyOrderSettings).toEqual(merged);
+  });
+
+  it("retains pending edits on sync and refuses an incompatible future rule format on disk", async () => {
+    const initial = createDefaultSettings();
+    const { plugin, loadData, saveData } = createPlugin(initial);
+    await plugin.loadSettings();
+    const local = { propertyKey: "status", behavior: "name" as const };
+    plugin.propertyOrderSettings.valueSuggestionPropertyAssignments.push(local);
+    loadData.mockResolvedValue({ ...initial, schemaVersion: 999, valueSuggestionPropertyAssignments: { futureRules: [] } });
+    await plugin.onExternalSettingsChange();
+    expect(plugin.propertyOrderSettings.valueSuggestionPropertyAssignments).toEqual([local]);
+    await expect(plugin.saveSettings()).rejects.toThrow("future settings format");
+    expect(saveData).not.toHaveBeenCalled();
+    expect(plugin.hasPendingSettingsSave()).toBe(true);
+
+    loadData.mockResolvedValue(initial);
+    await plugin.saveSettings();
+    expect(saveData).toHaveBeenCalledExactlyOnceWith({ ...initial, valueSuggestionPropertyAssignments: [local] });
+  });
+
   it("reloads external settings, preserves local edits, and refreshes live surfaces", async () => {
     const initialSettings = createDefaultSettings();
     const { loadData, plugin } = createPlugin(initialSettings);
@@ -672,6 +708,29 @@ describe("PropertyOrderPlugin settings persistence", () => {
 
 
 describe("keyboard value order command", () => {
+  it("updates the registered command name for local and synced language changes", async () => {
+    const initial = { ...createDefaultSettings(), language: "en" as const };
+    const { plugin, loadData } = createPlugin(initial);
+    const add = vi.spyOn(plugin, "addCommand");
+    const remove = vi.spyOn(plugin, "removeCommand");
+    plugin.onload();
+    await vi.waitFor(() => expect(add).toHaveBeenCalledOnce());
+    const first = add.mock.calls[0][0];
+    expect(first.name).toBe("Reorder property values");
+    plugin.propertyOrderSettings.language = "zh-CN";
+    await plugin.saveSettings();
+    expect(remove).toHaveBeenCalledExactlyOnceWith(first.id);
+    expect(add.mock.lastCall?.[0]).toEqual({ ...first, name: "重排属性值" });
+
+    loadData.mockResolvedValue(initial);
+    await plugin.onExternalSettingsChange();
+    expect(add.mock.lastCall?.[0]).toEqual(first);
+    await plugin.onExternalSettingsChange();
+    expect(add).toHaveBeenCalledTimes(3);
+    plugin.onunload();
+    expect(remove).toHaveBeenLastCalledWith(first.id);
+  });
+
   it("registers a Markdown-only command without a default hotkey and releases its dialog on unload", async () => {
     const { plugin } = createPlugin(createDefaultSettings());
     const addCommand = vi.spyOn(plugin, "addCommand");

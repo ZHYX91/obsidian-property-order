@@ -227,6 +227,69 @@ describe("Value suggestion settings persistence", () => {
     expect(harness.persisted().enableNativeValueSuggestionOrder).toBe(false);
   });
 
+  it("keeps pending preset and new-card drafts, focus and selection across an external refresh", async () => {
+    const harness = await createHarness({
+      valueSuggestionPropertyAssignments: [{ propertyKey: "status", behavior: "custom" }],
+    });
+    vi.mocked(harness.plugin.saveData).mockClear();
+    const addCard = harness.container.querySelector<HTMLSelectElement>(".property-order-value-behavior-add select")!;
+    addCard.value = "name";
+    addCard.parentElement!.querySelector("button")!.click();
+    const getRuleInput = () => harness.container.querySelector<HTMLInputElement>('[data-settings-focus="add:name"]')!;
+    getRuleInput().value = "owner";
+    const getPresetInput = () => harness.container.querySelector<HTMLInputElement>(".is-pinned .property-order-custom-value-add input")!;
+    const originalInput = getPresetInput();
+    getPresetInput().value = "Needs review";
+    getPresetInput().focus();
+    getPresetInput().setSelectionRange(2, 6, "backward");
+
+    vi.mocked(harness.plugin.loadData).mockResolvedValue({ ...harness.persisted(), showDiagnostics: true });
+    await harness.plugin.onExternalSettingsChange();
+    expect(harness.plugin.propertyOrderSettings.showDiagnostics).toBe(true);
+    expect(getPresetInput()).toBe(originalInput);
+
+    vi.mocked(harness.plugin.loadData).mockResolvedValue({ ...harness.persisted(), valueSuggestionDefaultBehavior: "name" });
+    await harness.plugin.onExternalSettingsChange();
+    expect(getPresetInput()).not.toBe(originalInput);
+    expect(getRuleInput().value).toBe("owner");
+    expect(getPresetInput().value).toBe("Needs review");
+    expect(document.activeElement).toBe(getPresetInput());
+    expect([getPresetInput().selectionStart, getPresetInput().selectionEnd, getPresetInput().selectionDirection])
+      .toEqual([2, 6, "backward"]);
+    expect(harness.plugin.saveData).not.toHaveBeenCalled();
+
+    vi.mocked(harness.plugin.loadData).mockResolvedValue({
+      ...harness.persisted(),
+      valueSuggestionPropertyAssignments: [{ propertyKey: "priority", behavior: "custom" }],
+    });
+    await harness.plugin.onExternalSettingsChange();
+    expect(getPresetInput().value).toBe("");
+    expect(document.activeElement).not.toBe(getPresetInput());
+  });
+
+  it("keeps a synced preset discovered during a save when the same page edits another property twice", async () => {
+    const harness = await createHarness({
+      valueSuggestionPropertyAssignments: [{ behavior: "custom", propertyKey: "status" }],
+    });
+    const externalOrder = {
+      bottomValues: [], middleSortMode: "native" as const, middleValues: [], pinnedValues: ["high"], propertyKey: "priority",
+    };
+    vi.mocked(harness.plugin.loadData).mockResolvedValueOnce({
+      ...harness.persisted(), valueSuggestionCustomOrders: [externalOrder],
+    });
+    const add = (value: string) => {
+      const row = harness.container.querySelector<HTMLElement>(".is-pinned .property-order-custom-value-add")!;
+      row.querySelector("input")!.value = value;
+      row.querySelector("button")!.click();
+    };
+    add("first");
+    await vi.waitFor(() => expect(harness.plugin.propertyOrderSettings.valueSuggestionCustomOrders).toContainEqual(externalOrder));
+    add("second");
+    await vi.waitFor(() => expect(harness.persisted().valueSuggestionCustomOrders).toEqual([
+      externalOrder, { ...externalOrder, pinnedValues: ["first", "second"], propertyKey: "status" },
+    ]));
+  });
+
   it.each([false, true])("preserves a later draft when a toggle save finishes (failure: %s)", async (fails) => {
     const harness = await createHarness();
     await addNameRule(harness.container, harness.persisted);
@@ -301,6 +364,7 @@ async function createHarness(
 
   const settingTab = new PropertyOrderSettingTab(app, plugin);
   settingTabs.push(settingTab);
+  Reflect.set(plugin, "settingTab", settingTab);
   Reflect.set(settingTab.containerEl, "empty", function (this: HTMLElement) {
     this.replaceChildren();
   });

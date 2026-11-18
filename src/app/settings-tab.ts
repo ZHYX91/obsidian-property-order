@@ -22,7 +22,7 @@ import type {
 } from "../shared/types";
 import { PropertyNameSuggest } from "./property-name-suggest";
 import { renderValueSuggestionBehaviorGroups } from "./value-suggestion-behavior-groups";
-import { preserveSettingsView } from "./settings-view-state";
+import { preserveSettingsView, preserveValueSuggestionDrafts } from "./settings-view-state";
 import { renderCustomValueSuggestionEditor } from "./value-suggestion-custom-editor";
 import { renderWritebackFormatExamples } from "./writeback-format-examples";
 import {
@@ -107,11 +107,17 @@ export class PropertyOrderSettingTab extends PluginSettingTab {
     this.resetRenderedSettings();
   }
 
-  refreshAfterExternalSettingsChange(): void {
+  refreshAfterExternalSettingsChange(valuePanelChanged: boolean): void {
     this.hasUnsavedSettings = this.plugin.hasPendingSettingsSave();
 
     if (this.settingsSurfaceVisible && this.tabLayoutCleanup != null) {
-      this.render(null);
+      if (this.activeTab === "valueSuggestions" && !valuePanelChanged) {
+        this.updateSaveStatus();
+      } else if (this.activeTab === "valueSuggestions") {
+        preserveValueSuggestionDrafts(this.containerEl, (behaviors) => this.render(null, behaviors));
+      } else {
+        this.render(null);
+      }
     }
   }
 
@@ -138,7 +144,7 @@ export class PropertyOrderSettingTab extends PluginSettingTab {
     });
   }
 
-  private render(focusTab: SettingsTabId | null): void {
+  private render(focusTab: SettingsTabId | null, draftBehaviors?: ReadonlySet<string>): void {
     const { containerEl } = this;
     if (this.formatExamples) this.formatExamplesOpen = this.formatExamples.open;
     this.formatExamples = null;
@@ -172,7 +178,7 @@ export class PropertyOrderSettingTab extends PluginSettingTab {
     this.mountSaveStatus(panelEl);
 
     if (this.activeTab === "valueSuggestions") {
-      this.displayValueSuggestionSettings(panelEl);
+      this.displayValueSuggestionSettings(panelEl, draftBehaviors);
     } else if (this.activeTab === "keyOrder") {
       this.displayKeyOrderSettings(panelEl);
     } else if (this.activeTab === "valueDrag") {
@@ -388,7 +394,7 @@ export class PropertyOrderSettingTab extends PluginSettingTab {
     );
   }
 
-  private displayValueSuggestionSettings(containerEl: HTMLElement): void {
+  private displayValueSuggestionSettings(containerEl: HTMLElement, draftBehaviors?: ReadonlySet<string>): void {
     const surfaceGeneration = this.settingsSurfaceGeneration;
     const settingsAtRender = this.plugin.propertyOrderSettings;
 
@@ -509,6 +515,7 @@ export class PropertyOrderSettingTab extends PluginSettingTab {
       });
     };
     const behaviorLifecycle = renderValueSuggestionBehaviorGroups({
+      draftBehaviors,
       app: this.app,
       containerEl,
       getCustomOrderKeys: () =>

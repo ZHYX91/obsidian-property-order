@@ -40,6 +40,7 @@ export default class PropertyOrderPlugin extends Plugin {
   private readonly pendingSettingsSaveWaiters: SettingsSaveWaiter[] = [];
   private settingsSaveRequested = false;
   private settingsSaveTask: Promise<void> | null = null;
+  private refreshCommandLanguage: (() => void) | null = null;
   private settingTab: PropertyOrderSettingTab | null = null;
   private persistedSettingsBaseline = createDefaultSettings();
   private trackedDocuments = new Set<Document>();
@@ -97,6 +98,7 @@ export default class PropertyOrderPlugin extends Plugin {
         previousSettings,
         externalSettings,
         this.persistedSettingsBaseline,
+        "runtime",
       ),
     );
     const keySuggestionsChanged = !areKeySuggestionSettingsEqual(
@@ -109,7 +111,7 @@ export default class PropertyOrderPlugin extends Plugin {
     );
     this.propertyOrderSettings = mergedSettings;
     this.persistedSettingsBaseline = externalBaseline;
-    this.syncValueDragState();
+    this.syncRuntimeSettings();
 
     if (keySuggestionsChanged) {
       this.refreshKeySuggestionsSafely();
@@ -119,7 +121,9 @@ export default class PropertyOrderPlugin extends Plugin {
       this.refreshValueSuggestionsSafely();
     }
 
-    this.settingTab?.refreshAfterExternalSettingsChange();
+    this.settingTab?.refreshAfterExternalSettingsChange(valueSuggestionsChanged ||
+      previousSettings.language !== mergedSettings.language ||
+      JSON.stringify(previousSettings.valueSuggestionLegacyRules) !== JSON.stringify(mergedSettings.valueSuggestionLegacyRules));
   }
 
   async loadSettings(expectedLifecycleEpoch?: number): Promise<boolean> {
@@ -133,7 +137,7 @@ export default class PropertyOrderPlugin extends Plugin {
       this.propertyOrderSettings = normalizeSettings(storedSettings);
       this.persistedSettingsBaseline = normalizeSettings(storedSettings);
       this.pendingSettingsSave = false;
-      this.syncValueDragState();
+      this.syncRuntimeSettings();
 
       if (
         hasFutureSettingsSchema(storedSettings) ||
@@ -156,11 +160,12 @@ export default class PropertyOrderPlugin extends Plugin {
           this.propertyOrderSettings,
           latestStoredSettings,
           this.persistedSettingsBaseline,
+          hasFutureSettingsSchema(latestStoredSettings) ? "runtime" : "storage",
         );
         const mergedSettings = normalizeSettings(settingsForStorage);
         this.propertyOrderSettings = mergedSettings;
         this.persistedSettingsBaseline = normalizeSettings(latestStoredSettings);
-        this.syncValueDragState();
+        this.syncRuntimeSettings();
 
         if (
           hasFutureSettingsSchema(latestStoredSettings) ||
@@ -180,10 +185,11 @@ export default class PropertyOrderPlugin extends Plugin {
             this.propertyOrderSettings,
             settingsForStorage,
             mergedSettings,
+            "runtime",
           ),
         );
         this.persistedSettingsBaseline = normalizeSettings(settingsForStorage);
-        this.syncValueDragState();
+        this.syncRuntimeSettings();
       } catch (error) {
         if (!this.isLifecycleCurrent(expectedLifecycleEpoch)) {
           return false;
@@ -256,26 +262,36 @@ export default class PropertyOrderPlugin extends Plugin {
       valueOrderController.initialize();
       let keyboardModal: KeyboardValueOrderModal | null = null;
       this.registerController(() => { keyboardModal?.dispose(); keyboardModal = null; });
-      this.addCommand({
-        id: "reorder-property-values",
-        name: t("keyboard.command", this.propertyOrderSettings.language),
-        checkCallback: (checking) => {
-          const view = this.app.workspace.getActiveViewOfType(MarkdownView);
-          if (view?.file == null || !this.isLifecycleCurrent(lifecycleEpoch)) return false;
-          if (!checking) {
-            keyboardModal?.dispose();
-            const draft = valueOrderController.prepareKeyboardReorder(view.containerEl);
-            if (draft !== null) {
-              keyboardModal = new KeyboardValueOrderModal(
-                this.app, draft, (key) => t(key, this.propertyOrderSettings.language),
-                getResolvedLocaleCode(this.propertyOrderSettings.language) === "ar" ? "rtl" : "ltr",
-              );
-              keyboardModal.open();
-            }
+      const commandId = "reorder-property-values";
+      const checkCallback = (checking: boolean): boolean => {
+        const view = this.app.workspace.getActiveViewOfType(MarkdownView);
+        if (view?.file == null || !this.isLifecycleCurrent(lifecycleEpoch)) return false;
+        if (!checking) {
+          keyboardModal?.dispose();
+          const draft = valueOrderController.prepareKeyboardReorder(view.containerEl);
+          if (draft !== null) {
+            keyboardModal = new KeyboardValueOrderModal(
+              this.app, draft, (key) => t(key, this.propertyOrderSettings.language),
+              getResolvedLocaleCode(this.propertyOrderSettings.language) === "ar" ? "rtl" : "ltr",
+            );
+            keyboardModal.open();
           }
-          return true;
-        },
+        }
+        return true;
+      };
+      let registeredName: string | null = null;
+      this.refreshCommandLanguage = () => {
+        const name = t("keyboard.command", this.propertyOrderSettings.language);
+        if (name === registeredName) return;
+        if (registeredName != null) this.removeCommand(commandId);
+        this.addCommand({ id: commandId, name, checkCallback });
+        registeredName = name;
+      };
+      this.registerController(() => {
+        this.refreshCommandLanguage = null;
+        if (registeredName != null) this.removeCommand(commandId);
       });
+      this.refreshCommandLanguage();
 
       this.keySuggestionOrderController = new KeySuggestionOrderController(
         this,
@@ -326,7 +342,7 @@ export default class PropertyOrderPlugin extends Plugin {
     this.settingsSaveRequested = true;
     this.pendingKeySuggestionRefresh ||= refreshKeySuggestions;
     this.pendingValueSuggestionRefresh ||= refreshValueSuggestions;
-    this.syncValueDragState();
+    this.syncRuntimeSettings();
     const result = new Promise<void>((resolve, reject) => {
       this.pendingSettingsSaveWaiters.push({ reject, resolve });
     });
@@ -424,6 +440,7 @@ export default class PropertyOrderPlugin extends Plugin {
             currentSettings,
             settingsForStorage,
             settingsSnapshot,
+            "runtime",
           ),
         );
         const keySettingsChangedExternally = !areKeySuggestionSettingsEqual(
@@ -437,7 +454,7 @@ export default class PropertyOrderPlugin extends Plugin {
         this.propertyOrderSettings = runtimeSettings;
         this.persistedSettingsBaseline = mergedSettings;
         this.pendingSettingsSave = false;
-        this.syncValueDragState();
+        this.syncRuntimeSettings();
 
         if (shouldRefreshKeySuggestions || keySettingsChangedExternally) {
           this.refreshKeySuggestionsSafely();
@@ -445,6 +462,12 @@ export default class PropertyOrderPlugin extends Plugin {
 
         if (shouldRefreshValueSuggestions || valueSettingsChangedExternally) {
           this.refreshValueSuggestionsSafely();
+        }
+
+        // A save can discover a remote rule before the host sends the sync event.
+        // Keep the open editor bound to that merge before accepting another edit.
+        if (!areValueSuggestionSettingsEqual(settingsSnapshot, mergedSettings)) {
+          this.settingTab?.refreshAfterExternalSettingsChange(true);
         }
 
         for (const waiter of saveWaiters) {
@@ -490,11 +513,12 @@ export default class PropertyOrderPlugin extends Plugin {
     );
   }
 
-  private syncValueDragState(): void {
+  private syncRuntimeSettings(): void {
     if (this.unloaded) {
       return;
     }
 
+    this.refreshCommandLanguage?.();
     if (typeof document !== "undefined") {
       this.applyValueDragState(document);
     }

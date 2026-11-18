@@ -26,6 +26,7 @@ export interface ValueSuggestionBehaviorGroupsOptions {
   getAssignments: () => readonly PropertyValueBehaviorAssignment[];
   onAssignmentsChange: (assignments: PropertyValueBehaviorAssignment[]) => Promise<void>;
   onDisplayOrderChange: (displayOrder: ValueSuggestionKeyDisplayOrder) => Promise<void>;
+  draftBehaviors?: ReadonlySet<string>;
   renderCustomEditor?: (container: HTMLElement) => void;
   t: (key: TranslationKey) => string;
 }
@@ -246,7 +247,7 @@ export function renderValueSuggestionBehaviorGroups(
     cards.get(behavior)?.input.focus({ preventScroll: true });
   });
   for (const group of groupPropertyValueBehaviors(options.getAssignments(), displayOrder)) {
-    if (group.propertyKeys.length > 0) mountCard(group.behavior);
+    if (group.propertyKeys.length > 0 || options.draftBehaviors?.has(group.behavior)) mountCard(group.behavior);
   }
   refresh();
   return {

@@ -280,7 +280,7 @@ export function renderCustomValueSuggestionEditor(
       });
       const input = addRow.createEl("input");
       input.type = "text";
-      input.dataset.settingsFocus = `custom-add:${placement}`;
+      input.dataset.settingsFocus = `custom-add:${placement}:${selectedPropertyKey.toLocaleLowerCase()}`;
       input.placeholder = options.t("settings.valueSuggestions.custom.valuePlaceholder");
       const button = addRow.createEl("button");
       button.type = "button";
