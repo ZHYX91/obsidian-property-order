@@ -234,7 +234,7 @@ export function getListTypeMismatchDisplayValue(
   );
 
   if (input != null) {
-    if (input instanceof HTMLInputElement && input.type === "checkbox") {
+    if ("checked" in input && input.type === "checkbox") {
       return input.checked ? "true" : "false";
     }
 
@@ -323,14 +323,7 @@ export function findPropertyContainerAtPoint(
     return directContainer;
   }
 
-  const candidates = searchRoot.querySelectorAll<HTMLElement>(
-    `${METADATA_CONTAINER_SELECTOR} ${PROPERTY_CONTAINER_SELECTOR}`,
-  );
-  return (
-    Array.from(candidates).find((container) =>
-      isPointInsideRect(clientX, clientY, container.getBoundingClientRect()),
-    ) ?? null
-  );
+  return null;
 }
 
 export function findPropertyElementAtPoint(
@@ -349,14 +342,7 @@ export function findPropertyElementAtPoint(
     return directProperty;
   }
 
-  const candidates = searchRoot.querySelectorAll<HTMLElement>(
-    `${METADATA_CONTAINER_SELECTOR} ${PROPERTY_ELEMENT_SELECTOR}`,
-  );
-  return (
-    Array.from(candidates).find((propertyElement) =>
-      isPointInsideRect(clientX, clientY, propertyElement.getBoundingClientRect()),
-    ) ?? null
-  );
+  return null;
 }
 
 function isWithinSearchRoot(
@@ -504,15 +490,13 @@ export function findPropertyListContextByKey(
   const matches = Array.from(
     paneContainer.querySelectorAll<HTMLElement>(PROPERTY_ELEMENT_SELECTOR),
   ).filter(
-    (propertyElement) => resolvePropertyElementContext(propertyElement)?.propertyKey === propertyKey,
+    (propertyElement) =>
+      resolvePropertyElementContext(propertyElement)?.propertyKey === propertyKey &&
+      isPropertyElementExposed(propertyElement, paneContainer),
   );
 
   const [match] = matches;
   return matches.length === 1 && match != null
     ? resolvePropertyElementListContext(match)
     : null;
-}
-
-function isPointInsideRect(clientX: number, clientY: number, rect: DOMRect): boolean {
-  return clientX >= rect.left && clientX <= rect.right && clientY >= rect.top && clientY <= rect.bottom;
 }

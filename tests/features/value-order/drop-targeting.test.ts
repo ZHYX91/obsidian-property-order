@@ -1,6 +1,6 @@
 // @vitest-environment happy-dom
 
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 
 import {
   resolveDropPoint,
@@ -206,6 +206,10 @@ describe("resolveDropPoint", () => {
 
   it("keeps same-property targeting available while cross-property drag is disabled", () => {
     const source = createSourceContext();
+    const container = document.createElement("div");
+    container.getBoundingClientRect = () => rect(0, 60);
+    source.container = container;
+    vi.spyOn(document, "elementFromPoint").mockReturnValueOnce(container);
     expect(resolveDropPoint(source, 10, 10, false, null, null)).toEqual({
       context: source,
       kind: "supported-list",

@@ -22,7 +22,10 @@ export function resolveDropPoint(
   const sourceContainerRect = sourceContext.container.getBoundingClientRect();
 
   if (isPointInsideRect(clientX, clientY, sourceContainerRect)) {
-    return toSupportedResolution(sourceContext);
+    const hit = sourceContext.container.ownerDocument.elementFromPoint(clientX, clientY);
+    if (hit != null && sourceContext.container.contains(hit)) {
+      return toSupportedResolution(sourceContext);
+    }
   }
 
   if (!enableCrossPropertyDrag) {

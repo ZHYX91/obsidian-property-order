@@ -628,6 +628,15 @@ describe("PropertyValueOrderController", () => {
     menuHarness.forEvent.mockReset();
     menuHarness.items.length = 0;
     Platform.isMobileApp = false;
+    // Happy DOM has no layout. Model the topmost native row or editor at the given point.
+    vi.spyOn(document, "elementFromPoint").mockImplementation((x, y) =>
+      [...document.querySelectorAll<HTMLElement>(".metadata-property, .metadata-property-value, .multi-select-container")]
+        .reverse().find((element) => {
+          const rect = element.getBoundingClientRect();
+          return rect.width > 0 && rect.height > 0 &&
+            x >= rect.left && x <= rect.right && y >= rect.top && y <= rect.bottom;
+        }) ?? null,
+    );
   });
 
   afterEach(() => {
@@ -835,6 +844,18 @@ describe("PropertyValueOrderController", () => {
     });
   });
 
+  it("offers only the host menu for mobile pills outside Markdown panes", () => {
+    Platform.isMobileApp = true;
+    const harness = createHarness();
+    const sidebar = harness.container.closest(".metadata-container")!.cloneNode(true) as HTMLElement;
+    document.body.append(sidebar);
+    const event = new MouseEvent("contextmenu", { bubbles: true, cancelable: true });
+    sidebar.querySelector(".multi-select-pill")!.dispatchEvent(event);
+    expect(event.defaultPrevented).toBe(false);
+    expect(menuHarness.forEvent).not.toHaveBeenCalled();
+    harness.cleanup();
+  });
+
   it("adds the default reorder-or-move action without suppressing the native mobile menu", () => {
     Platform.isMobileApp = true;
     const harness = createHarness();
@@ -1016,26 +1037,31 @@ describe("PropertyValueOrderController", () => {
     harness.cleanup();
   });
 
-  it("suppresses the native value context menu during a touch long press", () => {
+  it.each(["touch", "pen"] as const)("suppresses the native value context menu during a %s long press", (pointerType) => {
     vi.useFakeTimers();
     installRafHarness();
     const harness = createHarness();
+    const otherWindow = new HappyDomWindow();
     const hostContextMenu = vi.fn();
     document.addEventListener("contextmenu", hostContextMenu);
+    harness.openWorkspaceWindow(otherWindow as unknown as Window);
 
-    dispatchPointer(harness.pill, "pointerdown", 10, "touch");
-    vi.advanceTimersByTime(TOUCH_LONG_PRESS_MS);
-    const contextMenu = new MouseEvent("contextmenu", {
-      bubbles: true,
-      cancelable: true,
-    });
+    try {
+      dispatchPointer(harness.pill, "pointerdown", 10, pointerType);
+      vi.advanceTimersByTime(TOUCH_LONG_PRESS_MS);
+      const contextMenu = new MouseEvent("contextmenu", { bubbles: true, cancelable: true });
+      expect(harness.pill.dispatchEvent(contextMenu)).toBe(false);
+      expect(contextMenu.defaultPrevented).toBe(true);
+      expect(hostContextMenu).not.toHaveBeenCalled();
 
-    expect(harness.pill.dispatchEvent(contextMenu)).toBe(false);
-    expect(contextMenu.defaultPrevented).toBe(true);
-    expect(hostContextMenu).not.toHaveBeenCalled();
-
-    document.removeEventListener("contextmenu", hostContextMenu);
-    harness.cleanup();
+      const otherMenu = new otherWindow.MouseEvent("contextmenu", { bubbles: true, cancelable: true });
+      expect(otherWindow.document.body.dispatchEvent(otherMenu)).toBe(true);
+      expect(otherMenu.defaultPrevented).toBe(false);
+    } finally {
+      document.removeEventListener("contextmenu", hostContextMenu);
+      harness.cleanup();
+      otherWindow.close();
+    }
   });
 
   it("preserves ordinary mouse context menus", () => {
@@ -1293,6 +1319,31 @@ describe("PropertyValueOrderController", () => {
     await vi.waitFor(() => expect(noticeSpy).toHaveBeenCalledTimes(1));
     expect(harness.editor.transaction).not.toHaveBeenCalled();
     expect(harness.editor.getContent()).toBe("---\nflow: [alpha, beta]\n---\n");
+    harness.cleanup();
+  });
+
+  it.each([
+    ["source", 240],
+    ["destination", 375],
+  ] as const)("does not write through an overlay covering the %s property", async (_target, releaseX) => {
+    const harness = createHarness();
+    harness.settings.enableCrossPropertyDrag = true;
+    harness.frontmatter.destination = [];
+    const original = "---\nflow: [alpha, beta]\ndestination: []\n---\n";
+    harness.editor.setContent(original);
+    addEmptyListProperty(harness, "destination", 310, 450);
+    const overlay = document.createElement("div");
+    harness.leaf.containerEl.append(overlay);
+    vi.mocked(document.elementFromPoint).mockImplementation((x) => x < 120 ? harness.pill : overlay);
+
+    dispatchPointer(harness.pill, "pointerdown", 10);
+    dispatchPointer(harness.pill, "pointermove", 30);
+    dispatchPointer(overlay, "pointerup", releaseX);
+    await waitForDragFinish();
+
+    expect(harness.editor.transaction).not.toHaveBeenCalled();
+    expect(harness.leaf.view.requestSave).not.toHaveBeenCalled();
+    expect(harness.editor.getContent()).toBe(original);
     harness.cleanup();
   });
 
@@ -3195,6 +3246,20 @@ describe("PropertyValueOrderController", () => {
     await vi.waitFor(() => expect(Array.from(harness.leaf.containerEl.querySelectorAll(".multi-select-pill")).map((pill) => pill.textContent)).toEqual(["alpha", "beta"]));
     expect(harness.editor.transaction).toHaveBeenCalledOnce();
     expect(harness.leaf.view.requestSave).toHaveBeenCalledOnce();
+    harness.cleanup();
+  });
+
+  it("reconciles the visible keyboard target even if a hidden duplicate row remains attached", async () => {
+    const harness = createHarness();
+    const row = harness.container.closest<HTMLElement>(".metadata-property")!;
+    const hidden = row.cloneNode(true) as HTMLElement;
+    hidden.hidden = true;
+    row.after(hidden);
+
+    const draft = harness.controller.prepareKeyboardReorder(harness.leaf.containerEl);
+    expect(await draft?.submit({ action: "down", sourceProperty: "flow", sourceIndex: 0 })).toBe(true);
+    expect(Array.from(row.querySelectorAll(".multi-select-pill"), (pill) => pill.textContent)).toEqual(["beta", "alpha"]);
+    expect(noticeSpy).not.toHaveBeenCalled();
     harness.cleanup();
   });
 
