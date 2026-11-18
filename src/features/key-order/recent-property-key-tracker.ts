@@ -8,7 +8,6 @@ import {
 import { resolvePaneFileContext } from "../../obsidian/pane-context";
 import { isSuggestionElementVisible } from "./suggestion-visibility";
 
-const FRONTMATTER_CACHE_METADATA_KEYS = new Set(["position"]);
 const MAX_PENDING_USES_PER_DOCUMENT = 10;
 const PENDING_CONFIRMATION_MAX_AGE_MILLISECONDS = 5_000;
 
@@ -459,9 +458,7 @@ function getFrontmatterKeys(cache: CachedMetadata | null): ReadonlySet<string> |
     return cache == null ? null : new Set();
   }
 
-  return new Set(
-    Object.keys(cache.frontmatter).filter((key) => !FRONTMATTER_CACHE_METADATA_KEYS.has(key)),
-  );
+  return new Set(Object.keys(cache.frontmatter));
 }
 
 function getPropertyKeyEditor(element: HTMLElement | null): HTMLElement | null {

@@ -26,8 +26,8 @@ describe("getPropertyKeyUsage", () => {
           frontmatter: {
             flow: ["alpha"],
             block: ["one"],
-            position: { start: { line: 0 }, end: { line: 3 } },
           },
+          frontmatterPosition: { start: { line: 0 }, end: { line: 3 } },
         },
       ],
       [files[1], { frontmatter: { flow: ["beta"], other: "value" } }],
@@ -46,6 +46,27 @@ describe("getPropertyKeyUsage", () => {
       { key: "flow", count: 2 },
       { key: "block", count: 1 },
       { key: "other", count: 1 },
+    ]);
+  });
+
+  it("counts a real position property and counts case variants only once per note", () => {
+    const caches = [
+      { frontmatter: { Position: "coach", Status: "open", status: ["open", "review"] } },
+      { frontmatter: { position: ["coach", "captain"], status: "done" } },
+    ];
+    const app = {
+      vault: { getMarkdownFiles: () => [0, 1] },
+      metadataCache: { getFileCache: (index: number) => caches[index] },
+    } as unknown as App;
+
+    expect(getCachedPropertyKeyUsage(app)).toEqual([
+      { key: "Position", count: 2 }, { key: "Status", count: 2 },
+    ]);
+    expect(getCachedPropertyValueUsage(app, "STATUS")).toEqual([
+      { value: "open", count: 1 }, { value: "review", count: 1 }, { value: "done", count: 1 },
+    ]);
+    expect(getCachedPropertyValueUsage(app, "position")).toEqual([
+      { value: "coach", count: 2 }, { value: "captain", count: 1 },
     ]);
   });
 
@@ -78,8 +99,8 @@ describe("getPropertyKeyUsage", () => {
               aliases: ["one"],
               project: "benchmark",
               status: "active",
-              position: { start: { line: 0 }, end: { line: 3 } },
             },
+            frontmatterPosition: { start: { line: 0 }, end: { line: 3 } },
           };
         }),
       },
@@ -148,8 +169,8 @@ describe("getPropertyValueUsage", () => {
         {
           frontmatter: {
             status: ["draft", "draft", "done", 2, true, null, { nested: true }],
-            position: { start: { line: 0 }, end: { line: 3 } },
           },
+          frontmatterPosition: { start: { line: 0 }, end: { line: 3 } },
         },
       ],
       [files[1], { frontmatter: { Status: "done" } }],
@@ -289,10 +310,11 @@ describe("getCachedFrontmatterStorageKinds", () => {
           frontmatter: {
             empty: null,
             nested: [{ value: "unsupported" }],
-            position: { start: { line: 0 }, end: { line: 5 } },
+            position: ["coach"],
             scalar: "not-a-list",
             values: ["alpha"],
           },
+          frontmatterPosition: { start: { line: 0 }, end: { line: 5 } },
         })),
       },
     } as unknown as App;
@@ -301,6 +323,7 @@ describe("getCachedFrontmatterStorageKinds", () => {
       new Map([
         ["empty", "scalar"],
         ["nested", "array"],
+        ["position", "array"],
         ["scalar", "scalar"],
         ["values", "array"],
       ]),

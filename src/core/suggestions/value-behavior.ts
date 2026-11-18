@@ -3,7 +3,7 @@ import type {
   ValueSuggestionBehavior,
   ValueSuggestionKeyDisplayOrder,
 } from "../../shared/types";
-import { comparePropertyNames } from "./property-names";
+import { comparePropertyNames, normalizePropertyKeyIdentity } from "./property-names";
 
 export interface PropertyValueBehaviorGroup {
   behavior: ValueSuggestionBehavior;
@@ -156,8 +156,4 @@ export function mergePropertyValueKeyCandidates(
   }
 
   return result.sort(comparePropertyNames);
-}
-
-function normalizePropertyKeyIdentity(propertyKey: string): string {
-  return propertyKey.trim().toLocaleLowerCase();
 }

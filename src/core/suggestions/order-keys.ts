@@ -1,5 +1,5 @@
 import type { PropertyKeyOrderOptions, PropertyType } from "../../shared/types";
-import { comparePropertyNames } from "./property-names";
+import { comparePropertyNames, normalizePropertyKeyIdentity } from "./property-names";
 import { createWildcardMatcher } from "./wildcard";
 
 export interface OrderedPropertyKey {
@@ -88,7 +88,7 @@ export function orderPropertyKeys(
   const recentRankByKey = new Map(
     options.recentKeys.map((key, index) => [key, index]),
   );
-  const usageByKey = new Map(options.usage.map((item) => [item.key, item.count]));
+  const usageByKey = new Map(options.usage.map((item) => [normalizePropertyKeyIdentity(item.key), item.count]));
 
   middleKeys.sort((left, right) => {
     if (options.groupByType) {
@@ -205,7 +205,8 @@ function compareMiddleKeys(
   }
 
   if (sortMode === "usage") {
-    const usageDelta = (usageByKey.get(right) ?? 0) - (usageByKey.get(left) ?? 0);
+    const usageDelta = (usageByKey.get(normalizePropertyKeyIdentity(right)) ?? 0) -
+      (usageByKey.get(normalizePropertyKeyIdentity(left)) ?? 0);
     if (usageDelta !== 0) {
       return usageDelta;
     }

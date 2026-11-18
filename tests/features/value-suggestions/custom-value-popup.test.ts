@@ -131,6 +131,23 @@ describe("custom value fallback popup", () => {
     mount?.cleanup();
   });
 
+  it("refuses an incompatible preset if the input type changes before the click", () => {
+    const { context, input } = createContext();
+    input.value = "12";
+    const commit = vi.fn((value: string) => commitCustomPropertyValueCandidate(context, value));
+    const events = vi.fn();
+    input.addEventListener("input", events);
+    input.addEventListener("keydown", events);
+    const mount = mountCustomValuePopup(context, ["12 months"], commit)!;
+    input.type = "number";
+    mount.container.querySelector<HTMLElement>(".suggestion-item")!.click();
+
+    expect(commit).toHaveReturnedWith(false);
+    expect(input.value).toBe("12");
+    expect(events).not.toHaveBeenCalled();
+    mount.cleanup();
+  });
+
   it("filters preset candidates against the current editor query", () => {
     const { context, input } = createContext();
     input.value = "do";

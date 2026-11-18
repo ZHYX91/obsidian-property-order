@@ -1,8 +1,8 @@
 import type { App, TFile } from "obsidian";
 
+import { normalizePropertyKeyIdentity } from "../core/suggestions/property-names";
 import type { PropertyKeyUsage, PropertyValueUsage } from "../shared/types";
 
-const FRONTMATTER_CACHE_METADATA_KEYS = new Set(["position"]);
 const propertyKeyUsageCache = new WeakMap<App, PropertyKeyUsage[]>();
 const propertyValueUsageCache = new WeakMap<App, Map<string, PropertyValueUsage[]>>();
 
@@ -21,10 +21,6 @@ export function getCachedFrontmatterStorageKinds(
   const properties = new Map<string, CachedFrontmatterStorageKind>();
 
   for (const [key, value] of Object.entries(frontmatter)) {
-    if (FRONTMATTER_CACHE_METADATA_KEYS.has(key)) {
-      continue;
-    }
-
     properties.set(key, Array.isArray(value) ? "array" : "scalar");
   }
 
@@ -32,7 +28,7 @@ export function getCachedFrontmatterStorageKinds(
 }
 
 export function getPropertyKeyUsage(app: App): PropertyKeyUsage[] {
-  const usageByKey = new Map<string, number>();
+  const usageByKey = new Map<string, PropertyKeyUsage>();
 
   for (const file of app.vault.getMarkdownFiles()) {
     const frontmatter = app.metadataCache.getFileCache(file)?.frontmatter;
@@ -41,16 +37,22 @@ export function getPropertyKeyUsage(app: App): PropertyKeyUsage[] {
       continue;
     }
 
+    const seen = new Set<string>();
     for (const key of Object.keys(frontmatter)) {
-      if (FRONTMATTER_CACHE_METADATA_KEYS.has(key)) {
-        continue;
-      }
+      const identity = normalizePropertyKeyIdentity(key);
+      if (seen.has(identity)) continue;
+      seen.add(identity);
 
-      usageByKey.set(key, (usageByKey.get(key) ?? 0) + 1);
+      const usage = usageByKey.get(identity);
+      if (usage == null) {
+        usageByKey.set(identity, { key, count: 1 });
+      } else {
+        usage.count += 1;
+      }
     }
   }
 
-  return Array.from(usageByKey, ([key, count]) => ({ key, count }));
+  return Array.from(usageByKey.values());
 }
 
 export function getCachedPropertyKeyUsage(app: App): PropertyKeyUsage[] {
@@ -73,7 +75,7 @@ export function getPropertyValueUsage(
   app: App,
   propertyKey: string,
 ): PropertyValueUsage[] {
-  const normalizedPropertyKey = normalizePropertyKey(propertyKey);
+  const normalizedPropertyKey = normalizePropertyKeyIdentity(propertyKey);
   const usageByValue = new Map<string, number>();
 
   if (normalizedPropertyKey.length === 0) {
@@ -87,17 +89,12 @@ export function getPropertyValueUsage(
       continue;
     }
 
-    const matchingEntry = Object.entries(frontmatter).find(
-      ([key]) =>
-        !FRONTMATTER_CACHE_METADATA_KEYS.has(key) &&
-        normalizePropertyKey(key) === normalizedPropertyKey,
-    );
-
-    if (matchingEntry == null) {
-      continue;
+    const valuesInFile = new Set<string>();
+    for (const [key, rawValue] of Object.entries(frontmatter)) {
+      if (normalizePropertyKeyIdentity(key) !== normalizedPropertyKey) continue;
+      for (const value of getPrimitiveFrontmatterValues(rawValue)) valuesInFile.add(value);
     }
-
-    for (const value of new Set(getPrimitiveFrontmatterValues(matchingEntry[1]))) {
+    for (const value of valuesInFile) {
       usageByValue.set(value, (usageByValue.get(value) ?? 0) + 1);
     }
   }
@@ -109,7 +106,7 @@ export function getCachedPropertyValueUsage(
   app: App,
   propertyKey: string,
 ): PropertyValueUsage[] {
-  const normalizedPropertyKey = normalizePropertyKey(propertyKey);
+  const normalizedPropertyKey = normalizePropertyKeyIdentity(propertyKey);
   let cache = propertyValueUsageCache.get(app);
 
   if (cache == null) {
@@ -160,8 +157,4 @@ function getPrimitiveFrontmatterValues(value: unknown): string[] {
   }
 
   return result;
-}
-
-function normalizePropertyKey(propertyKey: string): string {
-  return propertyKey.trim().toLocaleLowerCase();
 }

@@ -114,6 +114,15 @@ describe("RecentPropertyKeyTracker", () => {
     vi.restoreAllMocks();
   });
 
+  it("records the addition of a position property from the native key editor", () => {
+    const harness = createHarness({});
+    harness.input.value = "position";
+    harness.input.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", bubbles: true }));
+    harness.tracker.handleMetadataChanged(harness.file, { frontmatter: { position: "coach" } });
+    expect(harness.onConfirmed).toHaveBeenCalledExactlyOnceWith("position");
+    harness.cleanup();
+  });
+
   it("confirms a pointer intent only after the exact file cache contains the key", () => {
     const harness = createHarness({ portaled: true });
     const samePathDifferentFile = { path: harness.file.path } as TFile;

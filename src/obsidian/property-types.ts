@@ -1,5 +1,6 @@
 import { normalizePath, type App } from "obsidian";
 
+import { normalizePropertyKeyIdentity } from "../core/suggestions/property-names";
 import type { PropertyType } from "../shared/types";
 
 export type { PropertyType } from "../shared/types";
@@ -52,7 +53,7 @@ export class PropertyTypeRegistry {
   }
 
   getType(rawKey: string): PropertyType {
-    const key = normalizePropertyKey(rawKey);
+    const key = normalizePropertyKeyIdentity(rawKey);
     return key.length === 0 ? "unknown" : (this.types.get(key) ?? "unknown");
   }
 
@@ -145,7 +146,7 @@ export function parseStoredPropertyTypes(
   const types = createBuiltinPropertyTypes();
 
   for (const [rawKey, rawType] of Object.entries(parsed.types)) {
-    const key = normalizePropertyKey(rawKey);
+    const key = normalizePropertyKeyIdentity(rawKey);
 
     if (key.length === 0 || typeof rawType !== "string") {
       continue;
@@ -161,10 +162,6 @@ export function parseStoredPropertyTypes(
 
 function createBuiltinPropertyTypes(): Map<string, PropertyType> {
   return new Map(BUILTIN_PROPERTY_TYPES);
-}
-
-function normalizePropertyKey(value: string): string {
-  return value.trim();
 }
 
 function arePropertyTypeMapsEqual(

@@ -92,14 +92,13 @@ function createBenchmarkApp(noteCount: number): BenchmarkHarness {
     status: index % 3 === 0 ? "draft" : index % 3 === 1 ? "active" : "done",
     tags: ["benchmark", `group/${index % 32}`],
     [`bucket_${index % BUCKET_COUNT}`]: index,
-    position: {
-      end: { line: 10 + (index % 5) },
-      start: { line: 0 },
-    },
   }));
   const cacheByFile = new Map(files.map((file, index) => [
     file,
-    { frontmatter: frontmatters[index] },
+    {
+      frontmatter: frontmatters[index],
+      frontmatterPosition: { start: { line: 0 }, end: { line: 10 + (index % 5) } },
+    },
   ]));
   let cacheReads = 0;
   let enumerations = 0;

@@ -98,10 +98,10 @@ describe("PropertyValueSelectionTracker", () => {
     }
   });
 
-  it("confirms a clicked native value only after metadata changes", () => {
+  it.each(["status", "position"])("confirms a clicked native %s value only after metadata changes", (propertyKey) => {
     const file = { path: "note.md" } as TFile;
     let cache = { frontmatter: {} } as CachedMetadata;
-    const suggestion = createValueSuggestion("draft");
+    const suggestion = createValueSuggestion("draft", propertyKey);
     const pane = suggestion.row.parentElement as HTMLElement;
     const plugin = createPlugin(pane, file, () => cache);
     const onConfirmed = vi.fn();
@@ -115,11 +115,11 @@ describe("PropertyValueSelectionTracker", () => {
     suggestion.item.dispatchEvent(new MouseEvent("mousedown", { bubbles: true, button: 0 }));
     expect(onConfirmed).not.toHaveBeenCalled();
 
-    cache = { frontmatter: { status: "draft" } } as CachedMetadata;
+    cache = { frontmatter: { [propertyKey]: "draft" } } as CachedMetadata;
     tracker.handleMetadataChanged(file, cache);
 
     expect(onConfirmed).toHaveBeenCalledOnce();
-    expect(onConfirmed).toHaveBeenCalledWith("status", "draft");
+    expect(onConfirmed).toHaveBeenCalledWith(propertyKey, "draft");
     tracker.dispose();
   });
 

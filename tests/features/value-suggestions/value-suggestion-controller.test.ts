@@ -614,6 +614,30 @@ describe("ValueSuggestionOrderController", () => {
     controller.dispose();
   });
 
+  it.each(["native", "fallback"])("keeps incompatible presets out of the %s numeric editor popup", (popup) => {
+    const settings = createDefaultSettings();
+    settings.enableNativeValueSuggestionOrder = true;
+    settings.valueSuggestionPropertyAssignments = [{ behavior: "custom", propertyKey: "duration" }];
+    settings.valueSuggestionCustomOrders = [{
+      propertyKey: "duration", middleSortMode: "native", pinnedValues: ["12 months", "124"],
+      middleValues: [], bottomValues: [],
+    }];
+    const controller = createController(settings);
+    const { container, editor } = createValueMenu(["125"], "duration");
+    editor.type = "number";
+    editor.value = "12";
+    if (popup === "fallback") container.remove();
+    const testable = asTestable(controller);
+    if (popup === "native") testable.enhanceContainer(container);
+    else testable.refreshCustomFallback(document);
+
+    const active = testable.getActiveContainer(document)!;
+    expect(visibleValues(active)).toEqual(popup === "native" ? ["124", "125"] : ["124"]);
+    active.querySelector<HTMLElement>(".suggestion-item")!.click();
+    expect(editor.value).toBe("124");
+    controller.dispose();
+  });
+
   it("filters injected preset-only candidates by the active input query", () => {
     const settings = createDefaultSettings();
     settings.enableNativeValueSuggestionOrder = true;

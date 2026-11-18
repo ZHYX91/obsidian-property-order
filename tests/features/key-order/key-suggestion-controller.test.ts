@@ -939,6 +939,35 @@ describe("KeySuggestionOrderController", () => {
     openedWindow.close();
   });
 
+  it("uses the native spelling for grouped candidates with mixed-case vault usage", async () => {
+    const settings = createDefaultSettings();
+    settings.groupKeySuggestionsByType = true;
+    settings.keySuggestionSortMode = "usage";
+    const frontmatters = [{ status: "open" }, { Status: "done" }, { priority: "high" }];
+    const menu = createMenu(["Priority", "Status", "Unknown"]);
+    const raf = installRafHarness();
+    const controller = createController(settings, {
+      metadataCache: { getFileCache: (index: number) => ({ frontmatter: frontmatters[index] }) },
+      vault: {
+        adapter: {
+          exists: async () => true,
+          read: async () => JSON.stringify({ types: { status: "text", priority: "text" } }),
+        },
+        configDir: ".obsidian",
+        getMarkdownFiles: () => [0, 1, 2],
+      },
+    } as unknown as Partial<App>);
+    const cleanup = controller.initialize();
+    raf.flush();
+    await settlePropertyTypeRefresh();
+    raf.flush();
+
+    expect(visibleKeys(menu)).toEqual(["Status", "Priority", "Unknown"]);
+    expect(menu.querySelector<HTMLElement>(".property-order-suggestion-type-group-start")
+      ?.dataset.propertyOrderTypeGroup).toBe("text");
+    cleanup();
+  });
+
   it("groups native key suggestions with separate display-only labels", async () => {
     const settings = createDefaultSettings();
     settings.groupKeySuggestionsByType = true;
