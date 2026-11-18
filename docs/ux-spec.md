@@ -81,3 +81,7 @@ This document mirrors the authoritative current interaction and presentation con
 - Key suggestions support keyboard navigation while retaining native host selection behavior.
 - Property-value reordering has a command-palette path that does not require first focusing or dragging a pill. Pointer dragging still exposes polite live status. Dialog focus order, cancellation, submission, and real screen-reader announcements each need host/assistive-technology verification; DOM tests alone do not establish that acceptance.
 - The Android release matrix covers native-menu preservation, the armed one-shot drag, property-name suggestions, rotation, narrow layout, and lifecycle. Physical-device haptics, pen differences, and vendor input stacks remain outside automated evidence.
+
+## Writeback examples disclosure
+
+The existing before/after YAML writeback format examples remain one native details guide, initially closed, with a small neutral title and accessible focus. Their expansion survives tab redraw within the current settings window only and is cleared when that window hides; no settings write or storage key is added. The actual format selector, migration conflict status, legacy-rule diagnostics and any pending confirmation remain visible as normal controls.

@@ -7,8 +7,14 @@ const EXAMPLE = "---\ntags:\n  - alpha # Keep with alpha\n\n  - beta\n  - 12\n  
 export function renderWritebackFormatExamples(
   container: HTMLElement,
   t: (key: TranslationKey) => string,
+  expanded: Set<string> = new Set(),
 ): void {
   const details = container.createEl("details", { cls: "property-order-format-examples" });
+  details.open = expanded.has("writeback-formats");
+  details.addEventListener("toggle", () => {
+    if (details.open) expanded.add("writeback-formats");
+    else expanded.delete("writeback-formats");
+  });
   details.createEl("summary", { text: t("settings.writebackFormat.examples") });
   details.createEl("p", { text: t("settings.writebackFormat.exampleHint") });
   details.createEl("strong", { text: t("settings.writebackFormat.before") });

@@ -64,6 +64,7 @@ type SettingsCleanup = () => void;
 
 export class PropertyOrderSettingTab extends PluginSettingTab {
   private activeTab: SettingsTabId = "general";
+  private readonly expandedHelp = new Set<string>();
   private hasUnsavedSettings = false;
   private readonly keyListSettingCleanups = new Map<
     KeyListSettingLifecycle,
@@ -143,6 +144,7 @@ export class PropertyOrderSettingTab extends PluginSettingTab {
   }
 
   override hide(): void {
+    this.expandedHelp.clear();
     this.settingsSurfaceVisible = false;
     this.settingsSurfaceGeneration += 1;
 
@@ -515,7 +517,7 @@ export class PropertyOrderSettingTab extends PluginSettingTab {
           });
       });
 
-    renderWritebackFormatExamples(containerEl, (key) => this.t(key));
+    renderWritebackFormatExamples(containerEl, (key) => this.t(key), this.expandedHelp);
 
     new Setting(containerEl)
       .setName(this.t("settings.crossPropertyDrag.name"))
