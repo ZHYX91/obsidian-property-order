@@ -19,7 +19,6 @@ import type {
 export function parseBlockSequence(lines: string[]): {
   items: BlockItemToken[];
   preambleLines: string[];
-  trailingLines: string[];
 } | null {
   const items: BlockItemToken[] = [];
   const preambleLines: string[] = [];
@@ -29,7 +28,7 @@ export function parseBlockSequence(lines: string[]): {
 
   for (const line of lines) {
     const trimmed = trimYamlSeparationWhitespace(line);
-    const itemMatch = /^([ \t]*)-([ \t]*)(.*)$/.exec(line);
+    const itemMatch = /^([ \t]*)-([ \t]*)([^\r\n]*)$/.exec(line);
 
     if (itemMatch == null && (trimmed.length === 0 || trimmed.startsWith("#"))) {
       if (hasSeenItem) {
@@ -77,7 +76,7 @@ export function parseBlockSequence(lines: string[]): {
     return null;
   }
 
-  return { items, preambleLines, trailingLines: pendingLines };
+  return { items, preambleLines };
 }
 
 export function toBlockRenderContext(property: PropertyMatch): BlockRenderContext {
@@ -89,7 +88,6 @@ export function toBlockRenderContext(property: PropertyMatch): BlockRenderContex
     keyText: property.keyText,
     hasTrailingNewline: false,
     preambleLines: [],
-    trailingLines: [],
     items: [],
     inlineComment: property.inlineComment,
   };
@@ -142,7 +140,7 @@ export function isSupportedBlockScalar(raw: string): boolean {
     return isValidQuotedScalar(trimmed);
   }
 
-  if (/^(?:[[\]{?}&*!|>]|-(?:[ \t]|$))/.test(trimmed) || /[[\]{}]/.test(trimmed)) {
+  if (/^(?:[[\]{}&*!|>]|[-?](?:[ \t]|$))/.test(trimmed)) {
     return false;
   }
 
@@ -186,7 +184,6 @@ export function renderBlockProperty(
     }
   }
 
-  renderedLines.push(...property.trailingLines);
   const blockProperty = renderedLines.join(newline);
   return property.hasTrailingNewline ? `${blockProperty}${newline}` : blockProperty;
 }

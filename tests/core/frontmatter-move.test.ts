@@ -4,8 +4,27 @@ import {
   getFrontmatterListPropertyValues,
   moveFrontmatterListPropertyValue,
 } from "../../src/core/frontmatter";
+import { expectFrontmatterPropertyChanges } from "../helpers/frontmatter-oracle";
 
 describe("moveFrontmatterListPropertyValue", () => {
+  it("keeps standalone comments when a move empties a block source and fills an empty target", () => {
+    const input = "---\nsource:\n  - a\n# Available reviewers\ntarget:\n# Review date\ndate: tomorrow\n---\nBody";
+    const result = moveFrontmatterListPropertyValue(input, {
+      sourcePropertyKey: "source", sourceIndex: 0, targetPropertyKey: "target", targetSlot: 0,
+      writebackFormat: "flow", normalizeAsTextList: true,
+    });
+    expect(result).toBe("---\nsource: []\n# Available reviewers\ntarget: [a]\n# Review date\ndate: tomorrow\n---\nBody");
+  });
+
+  it.each(["Project [A]", "ticket {draft}", "?draft", "a\u2028b", "a\u2029b"])("moves plain block text %j into a flow list", (value) => {
+    const input = `---\nsource:\n  - ${value}\n  - other\ntarget: [?draft, end]\n---\nBody`;
+    const result = moveFrontmatterListPropertyValue(input, {
+      sourcePropertyKey: "source", sourceIndex: 0, targetPropertyKey: "target", targetSlot: 1,
+      writebackFormat: "preserve", normalizeAsTextList: true,
+    });
+    expectFrontmatterPropertyChanges(input, result ?? "", { source: ["other"], target: ["?draft", value, "end"] });
+  });
+
   it("moves into an indentless scalar sequence without mistaking colon values for properties", () => {
     const input = [
       "---",

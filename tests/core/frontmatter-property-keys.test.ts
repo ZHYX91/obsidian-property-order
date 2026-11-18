@@ -26,7 +26,7 @@ function readYaml(content: string) {
 }
 
 describe.each(["plain", "quoted"])("%s YAML property key identity", (style) => {
-  it.each(["tags", ...unicodeKeys])("reorders the exact key %j", (key) => {
+  it.each(["tags", "status[en]", "phase:{draft}", ...unicodeKeys])("reorders the exact key %j", (key) => {
     const keyText = style === "quoted" ? JSON.stringify(key) : key;
     const input = `---\n${keyText}: [alpha, beta]\nunrelated: retained\n---\nBody\n`;
     expect(readYaml(input)).toEqual({ [key]: ["alpha", "beta"], unrelated: "retained" });
@@ -50,6 +50,14 @@ describe.each(["plain", "quoted"])("%s YAML property key identity", (style) => {
 });
 
 describe("YAML property key separation", () => {
+  it.each(["status[en]", "phase:{draft}"])("reorders a list after an unquoted %j key", (key) => {
+    const input = `---\n${key}: active\nitems: [first, last]\n---\nBody\n`;
+    expect(readYaml(input)).toEqual({ [key]: "active", items: ["first", "last"] });
+    expect(reorderFrontmatterListProperty(input, {
+      propertyKey: "items", sourceIndex: 1, targetSlot: 0, writebackFormat: "preserve",
+    })).toBe(input.replace("[first, last]", "[last, first]"));
+  });
+
   it.each(["tags  ", "tags\t"])("preserves ASCII separator spacing in %j", (keyText) => {
     const input = `---\n${keyText}: [alpha, beta]\n---\nBody\n`;
     expect(readYaml(input)).toEqual({ tags: ["alpha", "beta"] });
@@ -62,7 +70,7 @@ describe("YAML property key separation", () => {
     })).toBe(`---\n${keyText}: [beta, alpha]\n---\nBody\n`);
   });
 
-  it.each(unicodeKeys)("rejects a quoted duplicate of the exact key %j", (key) => {
+  it.each(["status[en]", ...unicodeKeys])("rejects a quoted duplicate of the exact key %j", (key) => {
     const input = `---\n${key}: [alpha, beta]\n${JSON.stringify(key)}: [gamma]\n---\nBody\n`;
     expect(getFrontmatterListPropertyValues(input, key)).toBeNull();
     expect(diagnoseFrontmatterReorder(input, key)).toBe("unsupported_property");

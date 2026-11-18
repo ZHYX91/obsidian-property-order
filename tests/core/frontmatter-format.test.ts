@@ -4,10 +4,21 @@ import {
   diagnoseFrontmatterReorder,
   getFrontmatterListPropertyScalars,
   getFrontmatterListPropertyValues,
+  planFrontmatterListPropertyReorder,
   reorderFrontmatterListProperty,
 } from "../../src/core/frontmatter";
 
 describe("reorderFrontmatterListProperty normalized formats", () => {
+  it.each(["\n", "\r\n", "\r"])("leaves the next key's comments outside the flow edit (%j)", (newline) => {
+    const untouched = ["", "# Next review date", "reviewDate: tomorrow", "---", "Body", ""].join(newline);
+    const input = ["---", "items:", "  - a # item comment", "  - b", untouched].join(newline);
+    const plan = planFrontmatterListPropertyReorder(input, {
+      propertyKey: "items", sourceIndex: 1, targetSlot: 0, writebackFormat: "flow", normalizeAsTextList: true,
+    });
+    expect(plan?.content).toBe(["---", "items: [b, a]", untouched].join(newline));
+    expect(plan?.changes[0]?.toOffset).toBe(input.indexOf(untouched));
+  });
+
   it("rewrites a block list as a flow list when requested", () => {
     const input = ["---", "tags:", "  -    alpha", "  - beta", "---"].join("\n");
 

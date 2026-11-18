@@ -50,7 +50,7 @@ function findPropertySeparator(line: string): number {
       continue;
     }
 
-    if (nextCharacter.length === 0 || /[ \t[{]/.test(nextCharacter)) {
+    if (nextCharacter.length === 0 || /[ \t]/.test(nextCharacter)) {
       return index;
     }
 
@@ -77,7 +77,7 @@ function parsePropertyKey(rawKey: string): string | null {
     return parseDoubleQuotedScalar(rawKey);
   }
 
-  if (/[[\]{}]/.test(rawKey) || /(^|[ \t])#/.test(rawKey)) {
+  if (/^[[\]{}]/.test(rawKey) || /(^|[ \t])#/.test(rawKey)) {
     return null;
   }
 

@@ -207,6 +207,8 @@ describe("reorderFrontmatterListProperty syntax boundaries", () => {
   it.each([
     "tags: [one, [two, three], four]",
     "tags: [one, {name: nested}, four]",
+    "tags: [one, ? key, four]",
+    ["tags:", "  - ? key", "  - other"].join("\n"),
     ["tags:", "  - one", "    - nested"].join("\n"),
     ["tags:", "  - - nested", "  - other"].join("\n"),
     ["tags:", "  - name: nested", "  - other"].join("\n"),
