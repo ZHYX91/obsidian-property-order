@@ -21,6 +21,7 @@ const translations = {
   "settings.writebackFormat.examples": "Ví dụ định dạng",
   "settings.writebackFormat.before": "Trước",
   "settings.writebackFormat.after": "Sau",
+  "settings.writebackFormat.exampleComment": "Giữ cùng alpha",
   "settings.writebackFormat.exampleHint": "Mặc định giữ định dạng hiện tại. Các ví dụ chuyển beta lên trước alpha. Giá trị văn bản trông giống số hoặc boolean sẽ có dấu ngoặc kép, như \"12\" và \"true\".",
   "settings.support.name": "Trợ giúp và hỗ trợ",
   "settings.support.guide": "Hướng dẫn sử dụng",

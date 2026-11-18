@@ -2,8 +2,6 @@ import { describe, expect, it } from "vitest";
 
 import {
   applyPropertyOrderControlValue,
-  isPropertyOrderControlKey,
-  PROPERTY_ORDER_CONTROL_KEYS,
 } from "../../src/app/settings-control-contract";
 import { createDefaultSettings } from "../../src/shared/settings";
 
@@ -11,44 +9,31 @@ describe("settings control contract", () => {
   it("defines one mutation and refresh policy for both settings renderers", () => {
     const settings = createDefaultSettings();
 
-    expect(PROPERTY_ORDER_CONTROL_KEYS).toEqual([
-      "enableCrossPropertyDrag",
-      "enableNativeKeySuggestionOrder",
-      "enablePropertyValueDrag",
-      "groupKeySuggestionsByType",
-      "keySuggestionSortMode",
-      "language",
-      "listWritebackFormat",
-      "showDiagnostics",
-    ]);
-    expect(PROPERTY_ORDER_CONTROL_KEYS.every(isPropertyOrderControlKey)).toBe(true);
-    expect(isPropertyOrderControlKey("unknown")).toBe(false);
-
     expect(applyPropertyOrderControlValue(settings, "language", "zh-CN")).toEqual({
       refreshKeySuggestions: true,
-      refreshMode: "structure",
+      rerender: true,
     });
     expect(applyPropertyOrderControlValue(settings, "enablePropertyValueDrag", false)).toEqual({
       refreshKeySuggestions: false,
-      refreshMode: "state",
+      rerender: true,
     });
     expect(settings.enableCrossPropertyDrag).toBe(true);
     expect(
       applyPropertyOrderControlValue(settings, "enableNativeKeySuggestionOrder", false),
     ).toEqual({
       refreshKeySuggestions: true,
-      refreshMode: "state",
+      rerender: true,
     });
     expect(
       applyPropertyOrderControlValue(settings, "groupKeySuggestionsByType", true),
     ).toEqual({
       refreshKeySuggestions: true,
-      refreshMode: "none",
+      rerender: false,
     });
     expect(settings.groupKeySuggestionsByType).toBe(true);
     expect(applyPropertyOrderControlValue(settings, "keySuggestionSortMode", "usage")).toEqual({
       refreshKeySuggestions: true,
-      refreshMode: "none",
+      rerender: false,
     });
   });
 

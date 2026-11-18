@@ -21,6 +21,7 @@ const translations = {
   "settings.writebackFormat.examples": "格式範例",
   "settings.writebackFormat.before": "修改前",
   "settings.writebackFormat.after": "修改後",
+  "settings.writebackFormat.exampleComment": "隨 alpha 一起移動",
   "settings.writebackFormat.exampleHint": "預設保留目前格式。以下範例將 beta 移到 alpha 前。文字清單中看似數字或布林值的內容會加引號，例如 \"12\" 和 \"true\"。",
   "settings.support.name": "說明與支援",
   "settings.support.guide": "使用指南",

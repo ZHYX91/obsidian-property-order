@@ -21,6 +21,7 @@ const translations = {
   "settings.writebackFormat.examples": "形式の例",
   "settings.writebackFormat.before": "変更前",
   "settings.writebackFormat.after": "変更後",
+  "settings.writebackFormat.exampleComment": "alpha と一緒に移動",
   "settings.writebackFormat.exampleHint": "既定では現在の形式を保持します。以下は beta を alpha の前に移す例です。文字列リストで数値や真偽値に見える値には、\"12\" や \"true\" のように引用符が付きます。",
   "settings.support.name": "ヘルプとサポート",
   "settings.support.guide": "使い方ガイド",

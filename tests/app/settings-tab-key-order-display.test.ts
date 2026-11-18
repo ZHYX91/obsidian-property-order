@@ -30,7 +30,48 @@ afterEach(() => {
   vi.restoreAllMocks();
 });
 
-describe("PropertyOrderSettingTab imperative key-suggestion controls", () => {
+describe("Property Order settings tabs", () => {
+  it("keeps help open while switching tabs and ignores events from a closed session", () => {
+    const tab = mountSettingsTab(createDefaultSettings(), vi.fn(async () => undefined));
+    expect(tab.getSettingDefinitions()).toEqual([]);
+    tab.display();
+    const tabs = () => [...tab.containerEl.querySelectorAll<HTMLButtonElement>("[role=tab]")];
+    expect(tabs().map((button) => button.textContent)).toEqual([
+      "General", "Value order", "Key suggestions", "Value suggestions",
+    ]);
+    const examples = () => tab.containerEl.querySelector<HTMLDetailsElement>("details")!;
+    tabs()[1]!.click();
+    expect(examples().open).toBe(false);
+    examples().open = true;
+    tabs()[0]!.click();
+    tabs()[1]!.click();
+    const previous = examples();
+    expect(previous.open).toBe(true);
+    tab.hide();
+    previous.dispatchEvent(new Event("toggle"));
+    tab.display();
+    expect(examples().open).toBe(false);
+    tab.hide();
+  });
+
+  it("previews a key rule without saving it and releases the preview on close", () => {
+    const settings = createDefaultSettings();
+    settings.pinnedPropertyKeys = ["status"];
+    const save = vi.fn(async () => undefined);
+    const tab = mountSettingsTab(settings, save);
+    tab.display();
+    tab.containerEl.querySelectorAll<HTMLButtonElement>("[role=tab]")[2]!.click();
+    const input = tab.containerEl.querySelector<HTMLInputElement>('input[placeholder="Property name..."]')!;
+    input.value = "status";
+    input.dispatchEvent(new Event("input"));
+    expect(tab.containerEl.textContent).toContain("Result: pinned");
+    expect(save).not.toHaveBeenCalled();
+    tab.hide();
+    tab.display();
+    expect(tab.containerEl.textContent).toContain("Enter a property name to test the current rules.");
+    tab.hide();
+  });
+
   it("renders, persists, refreshes, and rerenders the property-type grouping toggle", async () => {
     const settings = createDefaultSettings();
     let persisted = cloneSettings(settings);
@@ -41,23 +82,7 @@ describe("PropertyOrderSettingTab imperative key-suggestion controls", () => {
         refreshKeySuggestions();
       }
     });
-    const app = {
-      metadataCache: { getFileCache: vi.fn() },
-      vault: { getMarkdownFiles: vi.fn(() => []) },
-    } as unknown as App;
-    const plugin = {
-      clearRecentPropertyKeys: vi.fn(() => true),
-      clearPropertyValueFrequency: vi.fn(() => true),
-      getPropertyValueFrequency: vi.fn(() => []),
-      hasPendingSettingsSave: vi.fn(() => false),
-      propertyOrderSettings: settings,
-      saveSettings,
-    };
-    const settingTab = new PropertyOrderSettingTab(app, plugin as never);
-    Reflect.set(settingTab.containerEl, "empty", function (this: HTMLElement) {
-      this.replaceChildren();
-    });
-    document.body.appendChild(settingTab.containerEl);
+    const settingTab = mountSettingsTab(settings, saveSettings);
 
     settingTab.display();
     const keySuggestionsTab = Array.from(
@@ -83,6 +108,27 @@ describe("PropertyOrderSettingTab imperative key-suggestion controls", () => {
     expect(rerenderedToggle.checked).toBe(true);
   });
 });
+
+function mountSettingsTab(settings: PropertyOrderSettings, saveSettings: (refreshKeys?: boolean) => Promise<void>) {
+  const app = {
+    metadataCache: { getFileCache: vi.fn() },
+    vault: { getMarkdownFiles: vi.fn(() => []) },
+  } as unknown as App;
+  const plugin = {
+    clearRecentPropertyKeys: vi.fn(() => true),
+    clearPropertyValueFrequency: vi.fn(() => true),
+    getPropertyValueFrequency: vi.fn(() => []),
+    hasPendingSettingsSave: vi.fn(() => false),
+    propertyOrderSettings: settings,
+    saveSettings,
+  };
+  const settingTab = new PropertyOrderSettingTab(app, plugin as never);
+  Reflect.set(settingTab.containerEl, "empty", function (this: HTMLElement) {
+    this.replaceChildren();
+  });
+  document.body.appendChild(settingTab.containerEl);
+  return settingTab;
+}
 
 function getGroupingToggle(container: HTMLElement): HTMLInputElement {
   const row = container.querySelector<HTMLElement>(

@@ -21,6 +21,7 @@ const translations = {
   "settings.writebackFormat.examples": "أمثلة التنسيق",
   "settings.writebackFormat.before": "قبل",
   "settings.writebackFormat.after": "بعد",
+  "settings.writebackFormat.exampleComment": "يبقى مع alpha",
   "settings.writebackFormat.exampleHint": "يُحفظ التنسيق الحالي افتراضيًا. تنقل هذه الأمثلة beta قبل alpha. توضع القيم النصية التي تشبه الأرقام أو القيم المنطقية بين علامتي اقتباس، مثل \"12\" و\"true\".",
   "settings.support.name": "المساعدة والدعم",
   "settings.support.guide": "دليل الاستخدام",

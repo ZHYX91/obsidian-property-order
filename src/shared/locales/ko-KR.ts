@@ -21,6 +21,7 @@ const translations = {
   "settings.writebackFormat.examples": "형식 예시",
   "settings.writebackFormat.before": "변경 전",
   "settings.writebackFormat.after": "변경 후",
+  "settings.writebackFormat.exampleComment": "alpha와 함께 유지",
   "settings.writebackFormat.exampleHint": "기본값은 현재 형식 유지입니다. 예시는 beta를 alpha 앞으로 이동합니다. 텍스트 목록에서 숫자나 불리언처럼 보이는 값에는 \"12\", \"true\"와 같이 따옴표가 붙습니다.",
   "settings.support.name": "도움말 및 지원",
   "settings.support.guide": "사용 안내서",

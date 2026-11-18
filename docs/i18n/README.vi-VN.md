@@ -51,7 +51,7 @@ Số lần chọn chỉ tăng khi Obsidian xác nhận giá trị đã được 
 ![Di chuyển giá trị giữa các thuộc tính](../assets/property-order-cross-property-drag.gif)
 
 - **Máy tính:** kéo giá trị đến vị trí mới hoặc thuộc tính danh sách khác được hỗ trợ.
-- **Thiết bị di động:** nhấn giữ giá trị, chọn **Sắp xếp lại** hoặc **Sắp xếp lại hoặc di chuyển** trong menu gốc của Obsidian, rồi kéo giá trị đó. Nếu không thể mở rộng menu, chức năng chỉnh sửa gốc vẫn dùng được và plugin không thay bằng menu mô phỏng.
+- **Thiết bị di động:** nhấn giữ giá trị, chọn **Sắp xếp lại** hoặc **Sắp xếp lại hoặc di chuyển** trong menu gốc của Obsidian, rồi kéo giá trị đó. Nếu menu không có mục “Sắp xếp lại”, bạn vẫn có thể sửa giá trị như bình thường.
 - **Bàn phím:** chạy **Property Order: Sắp xếp lại giá trị thuộc tính** từ bảng lệnh. Chọn thuộc tính nguồn và giá trị, rồi chuyển lên, xuống, đến vị trí tính từ 1, đầu/cuối danh sách hoặc cuối thuộc tính khác. Không có phím tắt mặc định. Lệnh vẫn hoạt động khi tắt kéo; tùy chọn kéo giữa các thuộc tính chỉ áp dụng cho thao tác kéo bằng con trỏ.
 
 Mỗi lần đổi thứ tự hay di chuyển hoàn tất là một chỉnh sửa có thể hoàn tác bằng một bước. Trước khi cập nhật bắt đầu, **Escape** hoặc **Hủy** giữ nguyên ghi chú. Khi đã bắt đầu, hãy đợi hoàn tất rồi dùng Hoàn tác trong trình soạn thảo nếu cần. Kéo hỗ trợ giá trị xuống dòng, giao diện từ phải sang trái, cuộn gần các cạnh bảng được hỗ trợ và thông báo trạng thái cho trình đọc màn hình.

@@ -21,6 +21,7 @@ const translations = {
   "settings.writebackFormat.examples": "Formatbeispiele",
   "settings.writebackFormat.before": "Vorher",
   "settings.writebackFormat.after": "Nachher",
+  "settings.writebackFormat.exampleComment": "Bleibt bei alpha",
   "settings.writebackFormat.exampleHint": "Standardmäßig bleibt das Format erhalten. Die Beispiele verschieben beta vor alpha. Zahlen- oder wahrheitswertähnliche Werte in Textlisten erhalten Anführungszeichen, etwa \"12\" und \"true\".",
   "settings.support.name": "Hilfe und Support",
   "settings.support.guide": "Benutzerhandbuch",

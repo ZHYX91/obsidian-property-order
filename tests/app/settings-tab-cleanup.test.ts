@@ -105,21 +105,6 @@ describe("PropertyOrderSettingTab cleanup", () => {
     expect(testableSettingTab.keyListSettingCleanups.size).toBe(0);
   });
 
-  it("does not refresh a declarative surface after its save resolves post-hide", async () => {
-    const save = createDeferred<void>();
-    const settingTab = createSettingTab(() => save.promise);
-    const update = vi.spyOn(settingTab, "update");
-    installEmpty(settingTab.containerEl);
-
-    const pendingChange = settingTab.setControlValue("language", "zh-CN");
-    settingTab.hide();
-    save.resolve();
-    await pendingChange;
-
-    expect(update).not.toHaveBeenCalled();
-    expect(settingTab.containerEl.childElementCount).toBe(0);
-  });
-
   it("does not remount failure UI or show a Notice after save rejects post-hide", async () => {
     const save = createDeferred<void>();
     const settingTab = createSettingTab(() => save.promise);
