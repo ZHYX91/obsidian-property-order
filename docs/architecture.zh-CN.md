@@ -73,7 +73,7 @@ translation_status: source
 `core/interaction/pointer-drag.ts` 是纯状态机。它把 mouse/touch/pen 的按下、移动、长按计时、释放和中断转换为 `start`、`cancel`、`finish` 等动作，不访问 DOM。`value-drag-controller.ts` 只编排动作和资源生命周期：
 
 1. 从发起 pill、Properties 容器和 pane 捕获 source 属性、source 索引、精确 pill 节点、文件路径以及该 leaf 的公开 `MarkdownView.editor`。编辑器文本是唯一的内容与冲突基底；可见 pill 顺序必须与 YAML 一致，source 才可参与操作。
-   点命中几何回退只查询该发起 pane，重叠或相邻 pane 不会因为全 document 扫描而成为目标。
+   松手时必须实际指向发起拖动的窗格中的可见目标。浮层挡住属性行时，即便指针仍在该行范围内，也会取消此次拖放。
 
 2. 由 `drop-targeting.ts` 在同一 pane 内解析一个明确状态：受支持列表、受支持的类型不匹配列表、已确认非列表或未知。正常列表使用 Obsidian 原生多值容器。
 
@@ -112,7 +112,7 @@ translation_status: source
 
 移动端的 `PropertyValueOrderController` 监听 Obsidian 原生属性值 `contextmenu`，通过公开的 `Menu.forEvent` 只追加一项操作，不抑制或替换宿主菜单。用户选择后，只把该 pill 置为 15 秒单次待拖动状态；下一次 touch/pen 按下走纯状态机的 `startOnMove` 路径，移动达到鼠标级阈值后开始拖拽，并只消费一次。点击其他位置、Escape、超时、插件卸载、DOM 失效和事务清理都会取消该状态。仅在已经待拖动的按压期间抑制第二次原生菜单和默认触摸移动。若无法取得共享菜单，辅助函数 fail open，不改变宿主行为。
 
-桌面应用中的触屏 Windows 设备保留直接两阶段触摸路径：pill 使用 `touch-action: manipulation`，进入 dragging 后才由临时 capture、non-passive `touchmove` listener 阻止默认动作；capture `contextmenu` listener 只抑制活动桌面触摸拖拽产生的原生菜单，普通鼠标右键不受影响。
+桌面应用中的触屏 Windows 设备保留直接两阶段触摸路径：pill 使用 `touch-action: manipulation`，进入 dragging 后才由临时 capture、non-passive `touchmove` listener 阻止默认动作；触屏或手写笔已开始拖动时，捕获阶段的 `contextmenu` 监听器会阻止原生菜单弹出。普通鼠标右键仍可打开菜单。
 
 浮动预览锁定 source pill 的实际渲染宽高，并以单行省略方式显示；定位使用预览自身 document 的 visual viewport，缺失时回退到该 window 的 layout viewport。过大的预览会缩小，每次移动都限制在 viewport 边距内，因此窄桌面窗口和次级窗口不会把预览挤成屏外竖条。`drag-dom.ts` 按计算后的 inline direction 处理插入几何，包括 RTL 换行；它只滚动命中点下可滚动祖先或 pane root，每帧步长最多 20 像素。document 所有的 polite live status 播报拖拽开始与目标变化，每条取消路径都与预览、指示器和 cursor 状态一起清除该 status。
 
@@ -187,7 +187,7 @@ Value suggestions 提供默认行为选择和“本页属性排列”。后者�
 
 窄布局会纵向堆叠添加控件并把 Custom 两栏折叠为单列，但不改变持久化行为。
 
-设置保存失败时，设置页保留当前内存快照，显示本地化 Notice 和带 `role="alert"` 的未保存状态，并提供重试按钮。重试保留失败批次所需的属性名或属性值候选刷新；成功后清除未保存状态。每次保存前重新读取 `data.json`，并相对上次持久化基线执行三方合并：当前设置界面修改过的键优先，外部并发修改的其他键保留，未来 schema 的未知字段保持原样。Obsidian 的公开 `onExternalSettingsChange()` hook 使用同一合并规则，并刷新设置 surface 与受影响的运行时状态。模块级存储队列保证旧实例的在途写入先完成、替代实例再读取；已卸载实例不得启动新保存，因此旧实例延迟写入不能覆盖替代实例已经读取并编辑的设置。
+设置保存失败时，设置页保留当前内存快照，显示本地化 Notice 和带 `role="alert"` 的未保存状态，并提供重试按钮。重试保留失败批次所需的属性名或属性值候选刷新；成功后清除未保存状态。每次保存前重新读取 `data.json`，并相对上次持久化基线执行三方合并：当前设置界面修改过的键优先，外部并发修改的其他键保留，未来 schema 的未知字段保持原样。属性行为规则和自定义候选按属性名分别合并，忽略名称大小写。两端同时改动同一属性的同一条规则时，以本地编辑为准。Obsidian 的 `onExternalSettingsChange()` 也使用这个合并规则。设置页刷新后会恢复同一属性、同一输入栏中尚未提交的规则或候选文本。切换插件语言时，命令面板中的名称也随之更新。模块级存储队列保证旧实例的在途写入先完成、替代实例再读取；已卸载实例不得启动新保存，因此旧实例延迟写入不能覆盖替代实例已经读取并编辑的设置。
 
 controller 不缓存会影响后续交互的旧设置：value drag 在下一次指针事件读取当前设置；key-order 设置变化后立即重新增强或恢复菜单，无需重载插件。
 
