@@ -227,6 +227,31 @@ describe("Value suggestion settings persistence", () => {
     expect(harness.persisted().enableNativeValueSuggestionOrder).toBe(false);
   });
 
+  it.each([["pinned", "bottom"], ["bottom", "pinned"]])(
+    "submitting a %s preset retains the unsubmitted %s draft in the mounted settings page",
+    async (placement, other) => {
+      const { container, persisted } = await createHarness({
+        valueSuggestionPropertyAssignments: [{ behavior: "custom", propertyKey: "status" }],
+      });
+      const field = (section: string) =>
+        container.querySelector<HTMLInputElement>(`[data-settings-focus="custom-add:${section}:status"]`)!;
+      field(other).value = "Review next week";
+      field(other).setSelectionRange(2, 7, "backward");
+      field(placement).value = "Ready";
+      field(placement).focus();
+      field(placement).dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", bubbles: true }));
+      await vi.waitFor(() => {
+        const order = persisted().valueSuggestionCustomOrders[0];
+        expect(placement === "pinned" ? order?.pinnedValues : order?.bottomValues).toEqual(["Ready"]);
+      });
+      expect(field(placement).value).toBe("");
+      expect(field(other).value).toBe("Review next week");
+      expect([field(other).selectionStart, field(other).selectionEnd, field(other).selectionDirection])
+        .toEqual([2, 7, "backward"]);
+      expect(document.activeElement).toBe(field(placement));
+    },
+  );
+
   it("keeps pending preset and new-card drafts, focus and selection across an external refresh", async () => {
     const harness = await createHarness({
       valueSuggestionPropertyAssignments: [{ propertyKey: "status", behavior: "custom" }],

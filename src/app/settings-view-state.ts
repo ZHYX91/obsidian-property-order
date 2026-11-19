@@ -20,17 +20,17 @@ export function preserveSettingsView(container: HTMLElement, update: () => void)
   }
 }
 
-/** Carry only unsubmitted additions across a settings sync, never stored fields. */
+/** Carry only unsubmitted additions across a settings redraw, never stored fields. */
 export function preserveValueSuggestionDrafts(
   container: HTMLElement, render: (draftBehaviors: ReadonlySet<string>) => void,
 ): void {
   const draftSelector = ".property-order-value-behavior-input, .property-order-custom-value-add input";
-  const drafts = new Map<string, HTMLInputElement>();
+  const drafts = new Map<string, { value: string; start: number | null; end: number | null; direction: HTMLInputElement["selectionDirection"] }>();
   const draftBehaviors = new Set<string>();
   for (const input of Array.from(container.querySelectorAll<HTMLInputElement>(draftSelector))) {
     const id = input.dataset.settingsFocus;
     if (id == null || (!input.value && input !== container.ownerDocument.activeElement)) continue;
-    drafts.set(id, input);
+    drafts.set(id, { value: input.value, start: input.selectionStart, end: input.selectionEnd, direction: input.selectionDirection });
     const behavior = input.closest<HTMLElement>("[data-behavior]")?.dataset.behavior;
     if (behavior) draftBehaviors.add(behavior);
   }
@@ -39,6 +39,6 @@ export function preserveValueSuggestionDrafts(
     const draft = drafts.get(input.dataset.settingsFocus ?? "");
     if (!draft) continue;
     input.value = draft.value;
-    input.setSelectionRange(draft.selectionStart, draft.selectionEnd, draft.selectionDirection ?? "none");
+    input.setSelectionRange(draft.start, draft.end, draft.direction ?? "none");
   }
 }

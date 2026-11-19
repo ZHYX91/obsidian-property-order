@@ -22,7 +22,7 @@ import type {
 } from "../shared/types";
 import { PropertyNameSuggest } from "./property-name-suggest";
 import { renderValueSuggestionBehaviorGroups } from "./value-suggestion-behavior-groups";
-import { preserveSettingsView, preserveValueSuggestionDrafts } from "./settings-view-state";
+import { preserveValueSuggestionDrafts } from "./settings-view-state";
 import { renderCustomValueSuggestionEditor } from "./value-suggestion-custom-editor";
 import { renderWritebackFormatExamples } from "./writeback-format-examples";
 import {
@@ -484,7 +484,7 @@ export class PropertyOrderSettingTab extends PluginSettingTab {
 
     const renderCustom = (container: HTMLElement): void => {
       if (!this.isSettingsSurfaceCurrent(surfaceGeneration)) return;
-      preserveSettingsView(container, () => {
+      preserveValueSuggestionDrafts(container, () => {
         // Build off-document in the settings window's realm, then swap atomically.
         const staging = container.createDiv();
         staging.remove();
