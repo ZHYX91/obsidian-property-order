@@ -131,6 +131,58 @@ describe("keyboard value order dialog", () => {
     expect(modal.contentEl.isConnected).toBe(false);
   });
 
+  it.each([
+    ["en", 390],
+    ["en", 760],
+    ["zh-CN", 390],
+    ["zh-CN", 760],
+  ] as const)("keeps focus during Move to first and returns it to the invoker (%s, %d px)", async (locale, width) => {
+    const originalWidth = window.innerWidth;
+    Object.defineProperty(window, "innerWidth", { configurable: true, value: width });
+    const invoker = document.createElement("button");
+    invoker.textContent = "Open reorder dialog";
+    document.body.append(invoker);
+    invoker.focus();
+    const draft = createDraft();
+    const translate = (key: TranslationKey) => getTranslation(locale, key);
+    const modal = new KeyboardValueOrderModal({} as never, draft, translate);
+    try {
+      modal.open();
+      const value = modal.contentEl.querySelectorAll("select")[1]!;
+      value.value = "1";
+      value.dispatchEvent(new Event("change"));
+      const first = button(modal, translate("keyboard.first"));
+      first.focus();
+      first.click();
+      const status = modal.contentEl.querySelector<HTMLElement>('[role="status"]')!;
+      expect(document.activeElement).toBe(status);
+      expect(status.tabIndex).toBe(-1);
+      expect(first.disabled).toBe(true);
+      await vi.waitFor(() => expect(draft.cancel).toHaveBeenCalledOnce());
+      await Promise.resolve();
+      expect(document.activeElement).toBe(invoker);
+    } finally {
+      modal.close();
+      invoker.remove();
+      Object.defineProperty(window, "innerWidth", { configurable: true, value: originalWidth });
+    }
+  });
+
+  it("does not steal focus from a new target after a keyboard edit closes", async () => {
+    const invoker = document.createElement("button");
+    const another = document.createElement("button");
+    document.body.append(invoker, another);
+    invoker.focus();
+    const draft = createDraft();
+    const modal = new KeyboardValueOrderModal({} as never, draft, t);
+    modal.open();
+    button(modal, "Move down").click();
+    await vi.waitFor(() => expect(draft.cancel).toHaveBeenCalledOnce());
+    another.focus();
+    await Promise.resolve();
+    expect(document.activeElement).toBe(another);
+  });
+
   it("waits for a submitted edit, prevents duplicate activation and does not treat closing as cancellation", async () => {
     const draft = createDraft();
     let resolve: (value: boolean) => void = () => undefined;

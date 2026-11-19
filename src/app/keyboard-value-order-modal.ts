@@ -7,13 +7,22 @@ export class KeyboardValueOrderModal extends Modal {
   private disposed = false;
   private pending = false;
   private failed = false;
+  private readonly returnFocusTarget: HTMLElement | null;
+  private restoreFocusOnClose = true;
 
   constructor(
     app: App,
     private readonly draft: KeyboardReorderDraft,
     private readonly t: (key: TranslationKey) => string,
     private readonly direction: "ltr" | "rtl" = "ltr",
-  ) { super(app); }
+  ) {
+    super(app);
+    // Capture the command invoker before Obsidian moves focus into the modal.
+    const ownerDocument = this.contentEl.ownerDocument;
+    const active = ownerDocument.activeElement as HTMLElement | null;
+    this.returnFocusTarget = active !== ownerDocument.body && typeof active?.focus === "function"
+      ? active : null;
+  }
 
   override onOpen(): void {
     if (this.disposed) return;
@@ -45,7 +54,7 @@ export class KeyboardValueOrderModal extends Modal {
     const move = actions.createEl("button", { text: this.t("keyboard.move") });
     const cancel = actions.createEl("button", { text: this.t("keyboard.cancel") });
     for (const button of [up, down, first, last, atPosition, move, cancel]) button.type = "button";
-    const status = root.createEl("p", { attr: { role: "status", "aria-live": "polite" } });
+    const status = root.createEl("p", { attr: { role: "status", "aria-live": "polite", tabindex: "-1" } });
     const updateControls = (): void => {
       const locked = this.pending || this.failed;
       const values = sourceProperties.find((property) => property.key === source.value)?.values ?? [];
@@ -87,6 +96,9 @@ export class KeyboardValueOrderModal extends Modal {
       if (this.disposed || this.pending || this.failed) return;
       if (action === "position" && (targetIndex === undefined || !Number.isInteger(targetIndex) ||
           targetIndex < 0 || targetIndex >= Number(position.max) || targetIndex === Number(value.value))) return;
+      // A disabled action button loses focus immediately. Keep keyboard and
+      // screen-reader focus in the dialog while its asynchronous write runs.
+      status.focus({ preventScroll: true });
       this.pending = true;
       updateControls();
       status.textContent = this.t("keyboard.pending");
@@ -110,6 +122,7 @@ export class KeyboardValueOrderModal extends Modal {
         this.failed = true;
         updateControls();
         status.textContent = this.t("keyboard.retry");
+        cancel.focus({ preventScroll: true });
       }
     };
     up.addEventListener("click", () => { void apply("up"); });
@@ -128,6 +141,7 @@ export class KeyboardValueOrderModal extends Modal {
   }
 
   dispose(): void {
+    this.restoreFocusOnClose = false;
     this.pending = false;
     this.close();
   }
@@ -136,5 +150,15 @@ export class KeyboardValueOrderModal extends Modal {
     this.disposed = true;
     this.draft.cancel();
     this.contentEl.replaceChildren();
+    const target = this.restoreFocusOnClose ? this.returnFocusTarget : null;
+    if (target === null) return;
+    // Obsidian may restore focus itself. Only supply a fallback after the
+    // overlay is removed, and never override another focus destination.
+    queueMicrotask(() => {
+      const doc = target.ownerDocument;
+      if (!target.isConnected || target.matches(":disabled")) return;
+      const active = doc.activeElement;
+      if (active === doc.body || active === null) target.focus({ preventScroll: true });
+    });
   }
 }
