@@ -10,6 +10,7 @@ import {
   type CustomCandidatePlacement,
 } from "../core/suggestions/custom-value-order";
 import { groupPropertyValueBehaviors } from "../core/suggestions/value-behavior";
+import { preserveValueSuggestionEditorDrafts } from "./settings-view-state";
 import { planCustomPropertyValueCandidates } from "../core/suggestions/value-candidates";
 import {
   getCachedPropertyValueUsage,
@@ -108,9 +109,11 @@ export function renderCustomValueSuggestionEditor(
     const pendingSave = options.onCustomOrdersChange(
       upsertPropertyValueCustomOrder(options.customOrders, nextOrder),
     );
-    // Reflect the active settings immediately. A delayed save must not replace
-    // a newer draft or switch back to a property the user has already left.
-    options.rerender(selectedPropertyKey);
+    // Reflect the active settings immediately without discarding text in the
+    // other placement input or losing the user's current focus and selection.
+    preserveValueSuggestionEditorDrafts(options.containerEl, () => {
+      options.rerender(selectedPropertyKey);
+    });
     await pendingSave;
   };
 
