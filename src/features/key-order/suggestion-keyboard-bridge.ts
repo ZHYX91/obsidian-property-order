@@ -19,6 +19,7 @@ interface SuggestionKeyboardBridgeOptions {
     event: KeyboardEvent,
   ) => void;
   onEscapeIntent?: (event: KeyboardEvent) => void;
+  navigateWindow?: (container: HTMLElement, target: (current: number, count: number, pageSize: number) => number) => boolean;
   onSynchronizationFailure: (container: HTMLElement) => void;
   supportsEmacsNavigation: boolean;
   targetWindow: Window;
@@ -43,6 +44,14 @@ export function registerSuggestionKeyboardBridge(
     const container = options.getActiveContainer();
 
     if (container == null || !hasActiveContext(container)) {
+      return;
+    }
+
+    const navigation = getNavigationAction(event, options.supportsEmacsNavigation);
+    if (navigation != null && options.navigateWindow?.(container, (current, count, pageSize) =>
+      getNavigationTargetIndex(navigation, current, count, pageSize))) {
+      event.preventDefault();
+      event.stopImmediatePropagation();
       return;
     }
 
@@ -95,8 +104,6 @@ export function registerSuggestionKeyboardBridge(
       return;
     }
 
-    const navigation = getNavigationAction(event, options.supportsEmacsNavigation);
-
     if (navigation == null) {
       return;
     }
@@ -112,8 +119,8 @@ export function registerSuggestionKeyboardBridge(
     const targetIndex = getNavigationTargetIndex(
       navigation,
       currentIndex,
-      visibleElements,
-      container,
+      visibleElements.length,
+      navigation.startsWith("page-") && currentIndex >= 0 ? getVisiblePageSize(container, visibleElements[currentIndex]) : 1,
     );
     const targetElement = visibleElements[targetIndex];
 
@@ -329,31 +336,30 @@ function getNavigationAction(
 function getNavigationTargetIndex(
   action: NavigationAction,
   currentIndex: number,
-  visibleElements: HTMLElement[],
-  container: HTMLElement,
+  count: number,
+  pageSize: number,
 ): number {
   if (action === "first") {
     return 0;
   }
 
   if (action === "last") {
-    return visibleElements.length - 1;
+    return count - 1;
   }
 
   if (currentIndex < 0) {
     return action === "previous" || action === "page-previous"
-      ? visibleElements.length - 1
+      ? count - 1
       : 0;
   }
 
   if (action === "page-next" || action === "page-previous") {
-    const pageSize = getVisiblePageSize(container, visibleElements[currentIndex]);
     const direction = action === "page-next" ? 1 : -1;
-    return clamp(currentIndex + pageSize * direction, 0, visibleElements.length - 1);
+    return clamp(currentIndex + pageSize * direction, 0, count - 1);
   }
 
   const direction = action === "next" ? 1 : -1;
-  return (currentIndex + direction + visibleElements.length) % visibleElements.length;
+  return (currentIndex + direction + count) % count;
 }
 
 function getVisiblePageSize(container: HTMLElement, selectedElement: HTMLElement): number {

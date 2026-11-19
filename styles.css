@@ -241,6 +241,33 @@ body.property-order-value-drag-enabled .metadata-property .multi-select-pill {
   overflow-y: auto;
 }
 
+.property-order-windowed-values {
+  position: relative;
+  flex: none;
+}
+
+.property-order-value-font-probe {
+  position: absolute;
+  visibility: hidden;
+  width: 1em;
+  height: 1em;
+  pointer-events: none;
+}
+
+.property-order-windowed-values > .suggestion-item {
+  position: absolute;
+  inset-inline: 0;
+  margin: 0;
+  box-sizing: border-box;
+  overflow: hidden;
+  white-space: nowrap;
+}
+
+.property-order-windowed-values .suggestion-title {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
 .property-order-preset-value-item::after {
   color: var(--text-muted);
   content: "•";

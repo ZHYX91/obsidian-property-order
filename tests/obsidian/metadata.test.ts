@@ -341,3 +341,64 @@ describe("getCachedFrontmatterStorageKinds", () => {
     expect(getCachedFrontmatterStorageKinds(app, file)).toBeNull();
   });
 });
+
+describe("file-level usage changes", () => {
+  it("keeps warm fields across body edits and invalidates only changed or deleted values", () => {
+    const file = { path: "alpha.md" } as TFile;
+    const other = { path: "beta.md" } as TFile;
+    const files = [file, other];
+    const frontmatter = { Status: ["open", "open"], status: ["queued"], owner: "A" };
+    const cache = new Map([[file, { frontmatter }], [other, { frontmatter: { ...frontmatter } }]]);
+    const read = vi.fn((f: TFile) => cache.get(f) ?? null);
+    const app = { vault: { getMarkdownFiles: () => files }, metadataCache: { getFileCache: read } } as unknown as App;
+    const keys = getCachedPropertyKeyUsage(app);
+    const status = getCachedPropertyValueUsage(app, "status");
+    const owner = getCachedPropertyValueUsage(app, "owner");
+    const event = { file: { path: file.path } as TFile, metadata: { frontmatter } };
+    expect(invalidatePropertyKeyUsage(app, event)).toBe(false);
+    expect(invalidatePropertyValueUsage(app, event)).toBe(false);
+    expect(invalidatePropertyKeyUsage(app, "resolved")).toBe(false);
+    expect(invalidatePropertyValueUsage(app, "resolved")).toBe(false);
+    expect(getCachedPropertyKeyUsage(app)).toBe(keys);
+    expect(getCachedPropertyValueUsage(app, "status")).toBe(status);
+    expect(getCachedPropertyValueUsage(app, "owner")).toBe(owner);
+    expect(read).toHaveBeenCalledTimes(6);
+
+    frontmatter.owner = "B";
+    expect(invalidatePropertyValueUsage(app, event)).toBe(true);
+    expect(getCachedPropertyValueUsage(app, "status")).toBe(status);
+    expect(getCachedPropertyValueUsage(app, "owner")).toEqual([
+      { value: "B", count: 1 }, { value: "A", count: 1 },
+    ]);
+    files.shift();
+    expect(invalidatePropertyKeyUsage(app, { file, metadata: null })).toBe(true);
+    expect(invalidatePropertyValueUsage(app, { file, metadata: null })).toBe(true);
+    expect(getCachedPropertyValueUsage(app, "status")).toEqual([
+      { value: "open", count: 1 }, { value: "queued", count: 1 },
+    ]);
+    expect(getCachedPropertyKeyUsage(app)).toEqual([{ key: "Status", count: 1 }, { key: "owner", count: 1 }]);
+  });
+
+  it("refreshes incomplete caches on resolution and retains an unconditional fallback", () => {
+    const file = { path: "new.md" } as TFile;
+    let ready = false;
+    const app = { vault: { getMarkdownFiles: () => [file] }, metadataCache: {
+      getFileCache: () => ready ? { frontmatter: { tag: "ready" } } : null,
+    } } as unknown as App;
+    expect(getCachedPropertyValueUsage(app, "tag")).toEqual([]);
+    expect(getCachedPropertyKeyUsage(app)).toEqual([]);
+    const event = { file, metadata: {} };
+    invalidatePropertyValueUsage(app, event);
+    invalidatePropertyKeyUsage(app, event);
+    ready = true;
+    expect(invalidatePropertyValueUsage(app, "resolved")).toBe(true);
+    expect(invalidatePropertyKeyUsage(app, "resolved")).toBe(true);
+    expect(getCachedPropertyValueUsage(app, "tag")).toEqual([{ value: "ready", count: 1 }]);
+    expect(getCachedPropertyKeyUsage(app)).toEqual([{ key: "tag", count: 1 }]);
+    ready = false;
+    invalidatePropertyValueUsage(app);
+    invalidatePropertyKeyUsage(app);
+    expect(getCachedPropertyValueUsage(app, "tag")).toEqual([]);
+    expect(getCachedPropertyKeyUsage(app)).toEqual([]);
+  });
+});

@@ -158,25 +158,30 @@ export class KeySuggestionOrderController {
 
       const changedRef = this.plugin.app.metadataCache.on("changed", (file, _data, cache) => {
         this.recentKeyTracker.handleMetadataChanged(file, cache);
-        this.invalidateUsage();
+        this.invalidateUsage({ file, metadata: cache });
       });
       this.registerControllerEvent(changedRef, () => {
         this.plugin.app.metadataCache.offref(changedRef);
       });
       const deletedRef = this.plugin.app.metadataCache.on("deleted", (file) => {
         this.recentKeyTracker.handleFileDeleted(file);
-        this.invalidateUsage();
+        this.invalidateUsage({ file, metadata: null });
       });
       this.registerControllerEvent(deletedRef, () => {
         this.plugin.app.metadataCache.offref(deletedRef);
       });
       const resolvedRef = this.plugin.app.metadataCache.on("resolved", () => {
-        this.invalidateUsage();
+        this.invalidateUsage("resolved");
         this.requestPropertyTypeRefresh();
       });
       this.registerControllerEvent(resolvedRef, () => {
         this.plugin.app.metadataCache.offref(resolvedRef);
       });
+      const vault = this.plugin.app.vault;
+      if (vault?.on) {
+        const renameRef = vault.on("rename", () => this.invalidateUsage());
+        this.registerControllerEvent(renameRef, () => vault.offref(renameRef));
+      }
       this.requestPropertyTypeRefresh(true);
     } catch (error) {
       this.dispose();
@@ -472,12 +477,12 @@ export class KeySuggestionOrderController {
     this.restoreDetachedContainers(targetDocument);
   }
 
-  private invalidateUsage(): void {
+  private invalidateUsage(change?: Parameters<typeof invalidatePropertyKeyUsage>[1]): void {
     if (!this.initialized) {
       return;
     }
 
-    invalidatePropertyKeyUsage(this.plugin.app);
+    if (!invalidatePropertyKeyUsage(this.plugin.app, change)) return;
 
     if (this.getSettings().keySuggestionSortMode !== "usage") {
       return;

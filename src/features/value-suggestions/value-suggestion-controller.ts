@@ -155,7 +155,7 @@ export class ValueSuggestionOrderController {
 
       const changedRef = this.plugin.app.metadataCache.on("changed", (file, _data, cache) => {
         this.selectionTracker.handleMetadataChanged(file, cache);
-        this.invalidateUsage();
+        this.invalidateUsage({ file, metadata: cache });
       });
       this.registerControllerEvent(changedRef, () => {
         this.plugin.app.metadataCache.offref(changedRef);
@@ -163,18 +163,23 @@ export class ValueSuggestionOrderController {
 
       const deletedRef = this.plugin.app.metadataCache.on("deleted", (file) => {
         this.selectionTracker.handleFileDeleted(file);
-        this.invalidateUsage();
+        this.invalidateUsage({ file, metadata: null });
       });
       this.registerControllerEvent(deletedRef, () => {
         this.plugin.app.metadataCache.offref(deletedRef);
       });
 
       const resolvedRef = this.plugin.app.metadataCache.on("resolved", () => {
-        this.invalidateUsage();
+        this.invalidateUsage("resolved");
       });
       this.registerControllerEvent(resolvedRef, () => {
         this.plugin.app.metadataCache.offref(resolvedRef);
       });
+      const vault = this.plugin.app.vault;
+      if (vault?.on) {
+        const renameRef = vault.on("rename", () => this.invalidateUsage());
+        this.registerControllerEvent(renameRef, () => vault.offref(renameRef));
+      }
     } catch (error) {
       this.dispose();
       throw error;
@@ -403,6 +408,10 @@ export class ValueSuggestionOrderController {
         parentScope: this.plugin.app.scope,
         getActiveContainer: () => this.getActiveContainer(targetDocument),
         getSuggestionElements: getPropertyValueSuggestionElements,
+        navigateWindow: (container, target) => {
+          const mount = this.customFallbacks.get(targetDocument);
+          return mount?.container === container && mount.navigate(target);
+        },
         hasActiveContext: hasActivePropertyValueSuggestionContext,
         onActivationIntent: (element) => {
           this.selectionTracker.captureSuggestionActivation(element);
@@ -909,12 +918,12 @@ export class ValueSuggestionOrderController {
       getPropertyValueInputText(getPropertyValueInput(current)) === owner.query;
   }
 
-  private invalidateUsage(): void {
+  private invalidateUsage(change?: Parameters<typeof invalidatePropertyValueUsage>[1]): void {
     if (!this.initialized) {
       return;
     }
 
-    invalidatePropertyValueUsage(this.plugin.app);
+    if (!invalidatePropertyValueUsage(this.plugin.app, change)) return;
     this.usageRevision += 1;
 
     if (!this.getSettings().enableNativeValueSuggestionOrder) {
