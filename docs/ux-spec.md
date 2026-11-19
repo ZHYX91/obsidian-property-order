@@ -85,3 +85,5 @@ This document mirrors the authoritative current interaction and presentation con
 ## Writeback examples disclosure
 
 The format selector and its guidance stay visible. “Format examples” sits directly below them. A small chevron opens the before/after YAML samples. Keyboard focus is visible and touch gets a larger target. Each sample keeps its own code background and reads left to right in every locale. Examples start closed, keep their state when switching tabs in the same settings window, and close when settings are dismissed.
+
+The two suggestion-order selectors show the explanation for the selected mode and update it immediately when another mode is chosen. The legacy-rule notice stays visible. Its read-only archive uses the same disclosure as format examples and remembers its own expansion until settings close.

@@ -8,7 +8,7 @@ export function renderWritebackFormatExamples(
   open = false,
 ): HTMLDetailsElement {
   const example = `---\ntags:\n  - alpha # ${t("settings.writebackFormat.exampleComment")}\n\n  - beta\n  - 12\n  - true\n---\n`;
-  const details = container.createEl("details", { cls: "property-order-format-examples" });
+  const details = container.createEl("details", { cls: "property-order-format-examples property-order-help-disclosure" });
   details.open = open;
   details.createEl("summary", { text: t("settings.writebackFormat.examples") });
   const body = details.createDiv({ cls: "property-order-format-example-body" });
