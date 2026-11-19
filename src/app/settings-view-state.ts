@@ -42,3 +42,36 @@ export function preserveValueSuggestionDrafts(
     input.setSelectionRange(draft.selectionStart, draft.selectionEnd, draft.selectionDirection ?? "none");
   }
 }
+
+/** Preserve independent, unsubmitted value-editor inputs across a local rerender. */
+export function preserveValueSuggestionEditorDrafts(container: HTMLElement, update: () => void): void {
+  const selector = ".property-order-custom-value-add input, .property-order-value-behavior-input";
+  const active = container.ownerDocument.activeElement;
+  const activeFocus = active instanceof (container.ownerDocument.defaultView?.HTMLElement ?? HTMLElement)
+    && container.contains(active) ? active.dataset.settingsFocus : undefined;
+  const drafts = Array.from(container.querySelectorAll<HTMLInputElement>(selector))
+    .filter((input) => input.value.length > 0)
+    .map((input) => ({
+      focus: input.dataset.settingsFocus,
+      value: input.value,
+      start: input.selectionStart,
+      end: input.selectionEnd,
+      direction: input.selectionDirection,
+    }));
+  preserveSettingsView(container, update);
+  for (const draft of drafts) {
+    if (draft.focus == null) continue;
+    const input = Array.from(container.querySelectorAll<HTMLInputElement>(selector))
+      .find((candidate) => candidate.dataset.settingsFocus === draft.focus);
+    if (input === undefined) continue;
+    input.value = draft.value;
+    if (draft.start !== null && draft.end !== null) {
+      input.setSelectionRange(draft.start, draft.end, draft.direction ?? "none");
+    }
+  }
+  if (activeFocus != null) {
+    Array.from(container.querySelectorAll<HTMLElement>("[data-settings-focus]"))
+      .find((element) => element.dataset.settingsFocus === activeFocus)
+      ?.focus({ preventScroll: true });
+  }
+}
