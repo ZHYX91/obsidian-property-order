@@ -1,6 +1,6 @@
 // @vitest-environment happy-dom
 import { expect, it } from "vitest";
-import { preserveSettingsView, preserveValueSuggestionEditorDrafts } from "../../src/app/settings-view-state";
+import { preserveSettingsView, preserveValueSuggestionDrafts } from "../../src/app/settings-view-state";
 
 it("restores ancestor scrolling and the corresponding control after a local replacement", () => {
   const page = document.body.createDiv();
@@ -22,7 +22,7 @@ it("restores ancestor scrolling and the corresponding control after a local repl
 
 it("preserves both custom value placement drafts and restores the active input after rerender", () => {
   const page = document.body.createDiv();
-  const editor = page.createDiv();
+  const editor = page.createDiv({ cls: "property-order-custom-value-add" });
   const pinned = editor.createEl("input");
   pinned.dataset.settingsFocus = "custom-add:pinned";
   pinned.value = "keep pinned draft";
@@ -32,7 +32,7 @@ it("preserves both custom value placement drafts and restores the active input a
   bottom.focus();
   bottom.setSelectionRange(5, 10);
 
-  preserveValueSuggestionEditorDrafts(editor, () => {
+  preserveValueSuggestionDrafts(editor, () => {
     editor.replaceChildren();
     const nextPinned = editor.createEl("input");
     nextPinned.dataset.settingsFocus = "custom-add:pinned";
