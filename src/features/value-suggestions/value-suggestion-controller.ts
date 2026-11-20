@@ -43,6 +43,7 @@ import {
 } from "../key-order/suggestion-visibility";
 import {
   commitCustomPropertyValueCandidate,
+  getCustomValueValidator,
   getPropertyValueInput,
   getPropertyValueInputText,
   mountCustomValuePopup,
@@ -667,14 +668,16 @@ export class ValueSuggestionOrderController {
       values: nativeValues,
     };
 
-    const rawQuery = getPropertyValueInputText(getPropertyValueInput(context));
+    const input = getPropertyValueInput(context);
+    const rawQuery = getPropertyValueInputText(input);
     const owner: ValueSuggestionOwner = { context, query: rawQuery };
     const query = rawQuery.toLocaleLowerCase();
-    if (query.length > 0) {
-      plannedValues = plannedValues.filter(
-        (planned) =>
-          !planned.isPreset ||
-          planned.value.toLocaleLowerCase().includes(query),
+    if (groupedPlan.behavior === "custom") {
+      const acceptsValue = getCustomValueValidator(input);
+      const nativeValueSet = new Set(nativeValues);
+      plannedValues = plannedValues.filter(({ isPreset, value }) =>
+        !isPreset || (value.toLocaleLowerCase().includes(query) &&
+          (nativeValueSet.has(value) || acceptsValue(value))),
       );
     }
 

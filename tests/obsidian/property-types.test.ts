@@ -54,6 +54,9 @@ describe("PropertyTypeRegistry", () => {
     expect(harness.exists).toHaveBeenCalledWith(".config/obsidian/types.json");
     expect(harness.read).toHaveBeenCalledWith(".config/obsidian/types.json");
     expect(registry.getType("status")).toBe("text");
+    expect(registry.getTypes(["Status", "RATING", "Tags"])).toEqual(new Map([
+      ["Status", "text"], ["RATING", "number"], ["Tags", "tags"],
+    ]));
     expect(registry.getType("people")).toBe("list");
     expect(registry.getType("rating")).toBe("number");
     expect(registry.getType("checkbox")).toBe("checkbox");
@@ -92,10 +95,10 @@ describe("PropertyTypeRegistry", () => {
     }));
 
     expect(types?.get("custom")).toBe("unknown");
-    expect(types?.get("inheritedConstructor")).toBe("unknown");
-    expect(types?.get("inheritedPrototype")).toBe("unknown");
-    expect(types?.get("inheritedString")).toBe("unknown");
-    expect(types?.get("legacyTime")).toBe("datetime");
+    expect(types?.get("inheritedconstructor")).toBe("unknown");
+    expect(types?.get("inheritedprototype")).toBe("unknown");
+    expect(types?.get("inheritedstring")).toBe("unknown");
+    expect(types?.get("legacytime")).toBe("datetime");
     expect(types?.has("malformed")).toBe(false);
   });
 

@@ -1,4 +1,5 @@
 import { isSupportedPluginLocale } from "./locale-catalog";
+import { normalizePropertyKeyIdentity } from "../core/suggestions/property-names";
 import { createWildcardMatcher } from "../core/suggestions/wildcard";
 
 import type {
@@ -138,22 +139,90 @@ export function prepareSettingsForStorage(
   settings: PropertyOrderSettings,
   storedValue: unknown,
   persistedSettingsBaseline: PropertyOrderSettings = settings,
+  target: "storage" | "runtime" = "storage",
 ): Record<string, unknown> {
   const settingsSnapshot = cloneSettings(settings);
 
   const storedSettings = normalizeSettings(storedValue);
+  const futureSchema = hasFutureSettingsSchema(storedValue);
   const preparedValue =
-    hasFutureSettingsSchema(storedValue) && isRecord(storedValue)
+    futureSchema && isRecord(storedValue)
       ? { ...storedValue }
       : { ...cloneSettings(storedSettings) };
 
   for (const key of getPersistedSettingKeys()) {
-    if (!areSettingValuesEqual(settingsSnapshot[key], persistedSettingsBaseline[key])) {
+    if (areSettingValuesEqual(settingsSnapshot[key], persistedSettingsBaseline[key])) continue;
+    if (key === "valueSuggestionPropertyAssignments" || key === "valueSuggestionCustomOrders") {
+      if (futureSchema && key in preparedValue && !Array.isArray(preparedValue[key])) {
+        if (target === "storage") throw new Error(`Unrecognized future settings format for ${key}`);
+        preparedValue[key] = settingsSnapshot[key];
+      } else {
+        preparedValue[key] = mergePropertyRules(
+          settingsSnapshot[key], persistedSettingsBaseline[key], preparedValue[key], futureSchema,
+        );
+      }
+    } else {
       preparedValue[key] = cloneSettingValue(settingsSnapshot[key]);
     }
   }
 
   return preparedValue;
+}
+
+type PropertyRule = PropertyValueBehaviorAssignment | PropertyValueCustomOrder;
+
+function mergePropertyRules(
+  local: readonly PropertyRule[],
+  baseline: readonly PropertyRule[],
+  stored: unknown,
+  futureSchema: boolean,
+): unknown[] {
+  const baseByKey = new Map(baseline.map((row, index) =>
+    [normalizePropertyKeyIdentity(row.propertyKey), { row, index }] as const,
+  ));
+  const localByKey = new Map(local.map((row) => [normalizePropertyKeyIdentity(row.propertyKey), row]));
+  // Rule editors move edited entries to the end (most recent). Keep the
+  // unchanged prefix in the external order, then replay the local tail.
+  const unchangedPrefix = new Set<string>();
+  let lastIndex = -1;
+  for (const [key, row] of localByKey) {
+    const base = baseByKey.get(key);
+    if (!base || base.index < lastIndex || JSON.stringify(row) !== JSON.stringify(base.row)) break;
+    unchangedPrefix.add(key);
+    lastIndex = base.index;
+  }
+
+  const storedByKey = new Map<string, Record<string, unknown>>();
+  const result: unknown[] = [];
+  for (const entry of Array.isArray(stored) ? stored : []) {
+    if (!isRecord(entry) || typeof entry.propertyKey !== "string") {
+      result.push(entry);
+      continue;
+    }
+    const key = normalizePropertyKeyIdentity(entry.propertyKey);
+    storedByKey.set(key, entry);
+    if (unchangedPrefix.has(key) || (!baseByKey.has(key) && !localByKey.has(key))) result.push(entry);
+  }
+  for (const [key, row] of localByKey) {
+    if (unchangedPrefix.has(key)) continue;
+    const storedRow = storedByKey.get(key);
+    const base = baseByKey.get(key)?.row;
+    if (JSON.stringify(row) !== JSON.stringify(base)) {
+      const mergedRow = { ...storedRow, ...row };
+      if (futureSchema && base && storedRow) {
+        // A known field may now use a value that this version cannot represent.
+        for (const [field, value] of Object.entries(row)) {
+          if (field in storedRow && JSON.stringify(value) === JSON.stringify(Reflect.get(base, field))) {
+            Reflect.set(mergedRow, field, storedRow[field]);
+          }
+        }
+      }
+      result.push(mergedRow);
+    } else if (storedRow) {
+      result.push(storedRow);
+    }
+  }
+  return result;
 }
 
 export function migrateSettings(value: Record<string, unknown>): Record<string, unknown> {

@@ -24,8 +24,9 @@ export function mountCustomValuePopup(
 
   const rawQuery = getPropertyValueInputText(input);
   const query = rawQuery.toLocaleLowerCase();
+  const acceptsValue = getCustomValueValidator(input);
   const visibleValues = values.filter(
-    (value) => query.length === 0 || value.toLocaleLowerCase().includes(query),
+    (value) => (query.length === 0 || value.toLocaleLowerCase().includes(query)) && acceptsValue(value),
   );
 
   if (visibleValues.length === 0) {
@@ -165,7 +166,8 @@ export function commitCustomPropertyValueCandidate(
   const input = getPropertyValueInput(context);
   const targetWindow = context.editor.ownerDocument.defaultView;
 
-  if (input == null || targetWindow == null || !context.editor.isConnected) {
+  if (input == null || targetWindow == null || !context.editor.isConnected ||
+    !getCustomValueValidator(input)(value)) {
     return false;
   }
 
@@ -216,6 +218,25 @@ export function getPropertyValueInput(
     ? context.editor
     : context.editor.querySelector<HTMLElement>(selector);
 }
+
+export function getCustomValueValidator(input: HTMLElement | null): (value: string) => boolean {
+  if (input == null || input.matches(":disabled, [readonly]")) return () => false;
+  if (!input.matches("input, textarea")) return () => input.matches("[contenteditable=true]");
+
+  // Test on a detached control. Assigning an incompatible preset to the live
+  // editor can silently turn its existing value into an empty string.
+  const probe = input.cloneNode(false) as HTMLInputElement | HTMLTextAreaElement;
+  if (probe.tagName === "INPUT" && !CUSTOM_VALUE_INPUT_TYPES.has(probe.type)) return () => false;
+  return (value) => {
+    probe.value = value;
+    return probe.value === value && (probe.type !== "number" || Number.isFinite(Number(value)));
+  };
+}
+
+const CUSTOM_VALUE_INPUT_TYPES = new Set([
+  "text", "search", "tel", "url", "email", "number",
+  "date", "datetime-local", "month", "time", "week",
+]);
 
 export function getPropertyValueInputText(input: HTMLElement | null): string {
   if (input == null) return "";

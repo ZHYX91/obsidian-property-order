@@ -352,7 +352,6 @@ export function findProperty(
     }
 
     if (rest.length === 0 || rest.startsWith("#")) {
-      const blockLines: string[] = [];
       let blockEndLine = index + 1;
 
       while (blockEndLine < lines.length) {
@@ -366,17 +365,22 @@ export function findProperty(
           break;
         }
 
-        blockLines.push(candidate);
         blockEndLine += 1;
       }
 
-      const parsedSequence = parseBlockSequence(blockLines);
+      // A standalone comment or blank line after the last item may belong to
+      // the next key or the document. Keep that suffix outside the edit range.
+      while (blockEndLine > index + 1 && /^[ \t]*(?:#|$)/.test(lines[blockEndLine - 1])) {
+        blockEndLine -= 1;
+      }
+
+      const parsedSequence = parseBlockSequence(lines.slice(index + 1, blockEndLine));
 
       if (parsedSequence == null) {
         return null;
       }
 
-      const { items, preambleLines, trailingLines } = parsedSequence;
+      const { items, preambleLines } = parsedSequence;
       const endOffset =
         blockEndLine < lines.length ? lineOffsets[blockEndLine] : frontmatterBody.length;
 
@@ -387,7 +391,6 @@ export function findProperty(
         end: endOffset,
         hasTrailingNewline: frontmatterBody.slice(lineOffsets[index], endOffset).endsWith(newline),
         preambleLines,
-        trailingLines,
         items,
         inlineComment,
       };
@@ -472,7 +475,7 @@ function renderEmptyProperty(
     ];
 
     if (property.kind === "block") {
-      renderedLines.push(...property.preambleLines, ...property.trailingLines);
+      renderedLines.push(...property.preambleLines);
     }
 
     const renderedProperty = renderedLines.join(newline);

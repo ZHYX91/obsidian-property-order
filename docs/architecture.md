@@ -74,7 +74,7 @@ The keyboard command captures source properties, values, the file object, and ed
 `core/interaction/pointer-drag.ts` is the pure state machine. It converts mouse/touch/pen press, movement, long-press timing, release, and interruption into actions such as `start`, `cancel`, and `finish`, without DOM access. `value-drag-controller.ts` only orchestrates actions and resource lifetimes:
 
 1. Capture the source property, source index, exact pill nodes, file path, and the leaf's public `MarkdownView.editor` from the initiating pill, Properties container, and pane. Editor text is the sole content and conflict base. Visible pill order and YAML must agree before the source can be used.
-   Point-hit geometry fallback queries remain scoped to that originating pane, so an overlapping or adjacent pane cannot become the target through a document-wide scan.
+   A drop must hit a visible target in the originating pane. An overlay covering a row cancels the drop even when the pointer is inside that row’s bounds.
 
 2. Let `drop-targeting.ts` resolve one explicit state in the same pane: supported list, supported type-mismatch list, confirmed non-list, or unknown. Normal lists use Obsidian's native multi-value container.
 
@@ -117,7 +117,7 @@ Ineffective writes, active leaf/file/editor change, disappearing or reused DOM, 
 
 On mobile, `PropertyValueOrderController` listens for Obsidian's native property-value `contextmenu` event and uses public `Menu.forEvent` to append one action without suppressing or replacing the host menu. Selecting it arms only that pill for 15 seconds. Its next touch/pen press uses the pure state machine's `startOnMove` path, starts after the mouse-sized movement threshold, and consumes the arm once. Other taps, Escape, timeout, unload, DOM invalidation, and transaction cleanup cancel the state. During the armed press only, a second native context menu and default touch movement are suppressed. If the shared menu cannot be obtained, the helper fails open without changing host behavior.
 
-In the desktop app, touch handling retains the direct two-phase path for touch-capable Windows devices: pills use `touch-action: manipulation`, and a temporary capture, non-passive `touchmove` listener suppresses the browser default only after dragging begins. A capture `contextmenu` listener prevents that active desktop touch drag from opening the native value menu; ordinary mouse context menus remain available.
+In the desktop app, touch handling retains the direct two-phase path for touch-capable Windows devices: pills use `touch-action: manipulation`, and a temporary capture, non-passive `touchmove` listener suppresses the browser default only after dragging begins. The capture `contextmenu` listener suppresses the native menu during an active touch or pen drag. An ordinary mouse right-click still opens the menu.
 
 The floating preview locks the source pill's rendered dimensions, stays on one clipped line, and is positioned against its own document's visual viewport (falling back to that window's layout viewport). Oversized previews are reduced and every position is clamped inside the viewport margin, including narrow desktop views and secondary windows. `drag-dom.ts` follows computed inline direction for insertion geometry, including wrapped RTL rows; it edge-scrolls only scrollable hit ancestors or the pane root with a maximum 20-pixel step per frame. A document-owned polite live status announces drag start and target changes, and every cancellation path removes that status together with the preview, indicator, and cursor state.
 
@@ -222,7 +222,7 @@ Keys already in another group remain selectable and require confirmation before 
 
 If settings persistence fails, the UI retains the current in-memory snapshot, shows a localized Notice and an unsaved banner with `role="alert"`, and offers Retry. A retry retains the key- or value-suggestion refresh required by the failed batch; successful persistence clears the unsaved state.
 
-Every save rereads `data.json` and performs a three-way merge against the last persisted baseline: settings changed in the current UI win for their keys, concurrently changed external keys are retained, and future-schema unknown fields remain untouched. Obsidian's public `onExternalSettingsChange()` hook applies the same merge and refreshes the settings surface plus affected runtime state.
+Every save rereads `data.json` and performs a three-way merge against the last persisted baseline: settings changed in the current UI win for their keys, concurrently changed external keys are retained, and future-schema unknown fields remain untouched. Behavior assignments and custom presets are merged per property name, ignoring case. For a conflicting edit to the same property rule, the local edit takes precedence. Obsidian’s `onExternalSettingsChange()` applies the same merge. The settings page restores unsubmitted rule and preset text for the same field and property after a refresh. Changing the plugin language also updates the command palette entry.
 
 A module-level storage queue orders old-instance writes before a replacement instance loads; unloaded instances cannot start another save, so a delayed old write cannot overwrite settings already loaded and edited by the replacement.
 

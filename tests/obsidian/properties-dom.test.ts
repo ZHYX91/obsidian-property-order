@@ -16,6 +16,7 @@ import {
   resolvePropertyContainerContext,
   resolvePropertyElementContext,
   resolvePropertyPillContext,
+  type PropertyContainerContext,
 } from "../../src/obsidian/properties-dom";
 
 function createPill(insideMetadata: boolean): HTMLElement {
@@ -63,7 +64,7 @@ describe("Properties DOM", () => {
     expect(findPropertyContainerAtPoint(10, 20, targetDocument)).toBeNull();
   });
 
-  it("limits fallback geometry scans to the supplied pane", () => {
+  it("rejects a topmost hit outside the pane even when a row underneath overlaps", () => {
     const scopedPane = document.createElement("div");
     const scopedMetadata = document.createElement("div");
     scopedMetadata.className = "metadata-container";
@@ -89,12 +90,12 @@ describe("Properties DOM", () => {
 
     expect(
       findPropertyContainerAtPoint(10, 20, targetDocument, scopedPane),
-    ).toBe(scopedContainer);
+    ).toBeNull();
     expect(
       findPropertyElementAtPoint(10, 20, targetDocument, scopedPane),
-    ).toBe(scopedProperty);
-    expect(scopedRect).toHaveBeenCalledOnce();
-    expect(scopedPropertyRect).toHaveBeenCalledOnce();
+    ).toBeNull();
+    expect(scopedRect).not.toHaveBeenCalled();
+    expect(scopedPropertyRect).not.toHaveBeenCalled();
     expect(outsideRect).not.toHaveBeenCalled();
   });
 
@@ -164,6 +165,30 @@ describe("Properties DOM", () => {
       container: value,
       editorKind: "list-type-mismatch",
     });
+  });
+
+  it("reads checked state without depending on the main window's input constructor", () => {
+    const container = document.createElement("div");
+    const input = document.createElement("input");
+    input.type = "checkbox";
+    container.append(input);
+    const context: PropertyContainerContext = {
+      container,
+      editorKind: "list-type-mismatch",
+      pills: [],
+      propertyElement: container,
+      propertyKey: "flag",
+    };
+    // A pop-out's inputs do not inherit the main window's HTMLInputElement.
+    vi.stubGlobal("HTMLInputElement", class MainWindowInput {});
+    try {
+      input.checked = true;
+      expect(getListTypeMismatchDisplayValue(context)).toBe("true");
+      input.checked = false;
+      expect(getListTypeMismatchDisplayValue(context)).toBe("false");
+    } finally {
+      vi.unstubAllGlobals();
+    }
   });
 
   it("reads a mixed list rendered as the native unknown-value item", () => {

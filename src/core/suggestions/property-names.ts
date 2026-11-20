@@ -110,3 +110,7 @@ function compareCodePoints(left: string, right: string): number {
 
   return left < right ? -1 : 1;
 }
+
+export function normalizePropertyKeyIdentity(key: string): string {
+  return key.trim().toLocaleLowerCase();
+}

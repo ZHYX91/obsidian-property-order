@@ -108,8 +108,6 @@ export function renderCustomValueSuggestionEditor(
     const pendingSave = options.onCustomOrdersChange(
       upsertPropertyValueCustomOrder(options.customOrders, nextOrder),
     );
-    // Reflect the active settings immediately. A delayed save must not replace
-    // a newer draft or switch back to a property the user has already left.
     options.rerender(selectedPropertyKey);
     await pendingSave;
   };
@@ -280,7 +278,7 @@ export function renderCustomValueSuggestionEditor(
       });
       const input = addRow.createEl("input");
       input.type = "text";
-      input.dataset.settingsFocus = `custom-add:${placement}`;
+      input.dataset.settingsFocus = `custom-add:${placement}:${selectedPropertyKey.toLocaleLowerCase()}`;
       input.placeholder = options.t("settings.valueSuggestions.custom.valuePlaceholder");
       const button = addRow.createEl("button");
       button.type = "button";

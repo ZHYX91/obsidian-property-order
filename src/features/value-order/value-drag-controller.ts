@@ -486,7 +486,7 @@ export class PropertyValueOrderController {
   };
 
   private readonly handlePointerMove = (event: PointerEvent): void => {
-    if (!this.isPointerEventFromInteractionDocument(event)) {
+    if (!this.isEventFromInteractionDocument(event)) {
       return;
     }
 
@@ -518,7 +518,7 @@ export class PropertyValueOrderController {
   };
 
   private readonly handlePointerUp = async (event: PointerEvent): Promise<void> => {
-    if (!this.isPointerEventFromInteractionDocument(event)) {
+    if (!this.isEventFromInteractionDocument(event)) {
       return;
     }
 
@@ -558,14 +558,14 @@ export class PropertyValueOrderController {
   };
 
   private readonly handlePointerCancel = (event: PointerEvent): void => {
-    if (!this.isPointerEventFromInteractionDocument(event)) {
+    if (!this.isEventFromInteractionDocument(event)) {
       return;
     }
 
     this.applyActions(this.transition({ type: "cancel", pointerId: event.pointerId }));
   };
 
-  private isPointerEventFromInteractionDocument(event: PointerEvent): boolean {
+  private isEventFromInteractionDocument(event: Event): boolean {
     const interactionDocument =
       this.dragState?.document ?? this.pressedPill?.ownerDocument;
 
@@ -611,13 +611,18 @@ export class PropertyValueOrderController {
   };
 
   private readonly handleContextMenu = (event: MouseEvent): void => {
+    if (!this.isEventFromInteractionDocument(event)) {
+      return;
+    }
+
     if (Platform.isMobileApp) {
       this.handleMobileContextMenu(event);
       return;
     }
 
+    const pointerType = this.dragState?.pointerType ?? this.pressedPointerType;
     if (
-      (this.dragState?.pointerType ?? this.pressedPointerType) !== "touch" ||
+      (pointerType !== "touch" && pointerType !== "pen") ||
       (this.interactionState.phase !== "pressing" &&
         this.interactionState.phase !== "dragging")
     ) {
@@ -646,7 +651,11 @@ export class PropertyValueOrderController {
 
     const pill = resolveDraggablePropertyPill(event.target);
 
-    if (pill == null) {
+    if (
+      pill == null ||
+      resolvePropertyPillContext(pill) == null ||
+      resolvePaneFileContext(this.plugin, pill) == null
+    ) {
       return;
     }
 

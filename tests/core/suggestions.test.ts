@@ -28,7 +28,7 @@ describe("orderPropertyKeys", () => {
       sortMode: "usage",
       usage: [
         { key: "alpha", count: 3 },
-        { key: "beta", count: 8 },
+        { key: "BETA", count: 8 },
         { key: "gamma", count: 3 },
       ],
     });

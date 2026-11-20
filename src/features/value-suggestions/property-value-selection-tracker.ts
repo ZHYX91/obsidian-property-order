@@ -292,7 +292,7 @@ function getEditorFrontmatterValues(
   try {
     const content = editor.getValue();
     const cachedKey = Object.keys(cache.frontmatter ?? {}).find(
-      (key) => key !== "position" && equalPropertyKey(key, propertyKey),
+      (key) => equalPropertyKey(key, propertyKey),
     );
     const scalars = getFrontmatterListPropertyScalars(content, propertyKey, true) ??
       (cachedKey != null && cachedKey !== propertyKey
@@ -318,7 +318,7 @@ function getFrontmatterValues(cache: CachedMetadata, propertyKey: string): strin
 
   const normalizedPropertyKey = propertyKey.trim().toLocaleLowerCase();
   const entry = Object.entries(frontmatter).find(
-    ([key]) => key !== "position" && key.trim().toLocaleLowerCase() === normalizedPropertyKey,
+    ([key]) => key.trim().toLocaleLowerCase() === normalizedPropertyKey,
   );
 
   if (entry == null) {

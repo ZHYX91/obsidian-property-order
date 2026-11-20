@@ -154,7 +154,7 @@ function isSupportedScalarToken(raw: string): boolean {
     return isValidQuotedScalar(raw);
   }
 
-  if (/^(?:[?&*!|>]|-(?:[ \t]|$))/.test(raw)) {
+  if (/^(?:[&*!|>]|[-?](?:[ \t]|$))/.test(raw)) {
     return false;
   }
 

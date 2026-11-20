@@ -8,6 +8,7 @@ export class Plugin {
   addSettingTab(_settingTab: unknown): void {}
 
   addCommand(_command: unknown): void {}
+  removeCommand(_id: string): void {}
 
   loadData(): Promise<unknown> {
     return Promise.resolve(null);

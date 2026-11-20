@@ -313,6 +313,44 @@ describe("normalizeSettings", () => {
     });
   });
 
+  it("merges custom presets by property while honoring local edits, remote deletions and future fields", () => {
+    const order = (propertyKey: string, ...pinnedValues: string[]) => ({
+      propertyKey, bottomValues: [], middleSortMode: "native" as const, middleValues: [], pinnedValues,
+    });
+    const baseline = normalizeSettings({
+      ...createDefaultSettings(),
+      valueSuggestionCustomOrders: [order("remove"), order("remote"), order("Deleted"), order("Status", "old")],
+    });
+    const local = normalizeSettings({
+      ...baseline,
+      valueSuggestionCustomOrders: [order("remote"), order("Deleted"), order("status", "local"), order("added")],
+    });
+    const remote = {
+      schemaVersion: 999,
+      valueSuggestionCustomOrders: [
+        order("remove", "also edited"),
+        { ...order("Status", "other edit"), middleSortMode: "future-sort", futureSetting: true },
+        order("remote", "synced"), order("external"), { futureShape: true },
+      ],
+    };
+    expect(prepareSettingsForStorage(local, remote, baseline)).toEqual({
+      schemaVersion: 999,
+      valueSuggestionCustomOrders: [
+        order("remote", "synced"), order("external"), { futureShape: true },
+        { ...order("status", "local"), middleSortMode: "future-sort", futureSetting: true }, order("added"),
+      ],
+    });
+  });
+
+  it("preserves recent rule order without resurrecting an unchanged externally removed rule", () => {
+    const rule = (propertyKey: string, behavior = "name") => ({ propertyKey, behavior });
+    const baseline = normalizeSettings({ ...createDefaultSettings(), valueSuggestionPropertyAssignments: ["a", "b", "c", "d"].map((k) => rule(k)) });
+    const local = normalizeSettings({ ...baseline, valueSuggestionPropertyAssignments: ["c", "d", "a", "b"].map((k) => rule(k)) });
+    const remote = { ...baseline, valueSuggestionPropertyAssignments: [rule("a", "custom"), rule("c"), rule("d"), rule("x")] };
+    expect(prepareSettingsForStorage(local, remote, baseline).valueSuggestionPropertyAssignments)
+      .toEqual([rule("c"), rule("d"), rule("x"), rule("a", "custom")]);
+  });
+
   it("does not classify malformed or current schemas as future", () => {
     expect(hasFutureSettingsSchema({ schemaVersion: CURRENT_SETTINGS_SCHEMA_VERSION })).toBe(
       false,

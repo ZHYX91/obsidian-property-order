@@ -57,7 +57,6 @@ export interface BlockPropertyMatch {
   end: number;
   hasTrailingNewline: boolean;
   preambleLines: string[];
-  trailingLines: string[];
   items: BlockItemToken[];
   inlineComment: string;
 }
@@ -69,7 +68,6 @@ export interface BlockRenderContext {
   keyText: string;
   hasTrailingNewline: boolean;
   preambleLines: string[];
-  trailingLines: string[];
   items: BlockItemToken[];
   inlineComment: string;
 }
