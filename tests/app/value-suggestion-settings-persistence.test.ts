@@ -1,6 +1,7 @@
 // @vitest-environment happy-dom
 
 import { Notice, Setting, type App } from "obsidian";
+import { Window as HappyDomWindow } from "happy-dom";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import PropertyOrderPlugin from "../../src/app/plugin";
@@ -255,6 +256,33 @@ describe("Value suggestion settings persistence", () => {
       }
     },
   );
+
+  it("restores the focused candidate when Obsidian adopts the settings tab into a popout", async () => {
+    const { container, persisted } = await createHarness({
+      valueSuggestionPropertyAssignments: [{ behavior: "custom", propertyKey: "status" }],
+      valueSuggestionCustomOrders: [{
+        propertyKey: "status", middleSortMode: "native", middleValues: ["cancelled"], pinnedValues: [], bottomValues: [],
+      }],
+    });
+    const popout = new HappyDomWindow();
+    try {
+      // Happy DOM shares HTMLElement across windows. Chromium gives the popout
+      // a different constructor while adopted controls keep their opener's prototype.
+      Object.defineProperty(popout, "HTMLElement", { value: class extends HTMLElement {} });
+      const popupDocument = popout.document as unknown as Document;
+      popupDocument.body.appendChild(container);
+      const pin = container.querySelector<HTMLButtonElement>('.is-middle [data-settings-focus="candidate:cancelled:⇧"]')!;
+      pin.focus();
+      expect(popupDocument.activeElement).toBe(pin);
+      expect(pin).not.toBeInstanceOf(popout.HTMLElement);
+      pin.click();
+      await vi.waitFor(() => expect(persisted().valueSuggestionCustomOrders[0]?.pinnedValues).toEqual(["cancelled"]));
+      const undoMove = container.querySelector('.is-pinned [data-settings-focus="candidate:cancelled:↔"]');
+      expect(popupDocument.activeElement).toBe(undoMove);
+    } finally {
+      popout.close();
+    }
+  });
 
   it.each([["pinned", "bottom"], ["bottom", "pinned"]])(
     "submitting a %s preset retains the unsubmitted %s draft in the mounted settings page",

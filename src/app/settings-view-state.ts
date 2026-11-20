@@ -5,11 +5,10 @@ export function preserveSettingsView(container: HTMLElement, update: () => void)
     positions.push({ element, top: element.scrollTop, left: element.scrollLeft });
   }
   const active = container.ownerDocument.activeElement;
-  const focused = active instanceof (container.ownerDocument.defaultView?.HTMLElement ?? HTMLElement) && container.contains(active)
-    ? active.dataset
-    : undefined;
-  const focusId = focused?.settingsFocus;
-  const focusGroup = focused?.settingsFocusGroup;
+  // Obsidian's settings popout adopts nodes created in the opener's JavaScript realm.
+  const focused = container.contains(active) ? active : null;
+  const focusId = focused?.getAttribute("data-settings-focus");
+  const focusGroup = focused?.getAttribute("data-settings-focus-group") ?? undefined;
   update();
   if (focusId != null) {
     const controls = Array.from(container.querySelectorAll<HTMLElement>("[data-settings-focus]:not(:disabled)"))
