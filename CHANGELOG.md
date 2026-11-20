@@ -13,7 +13,7 @@ follow the repository's Git tags; entries summarize the corresponding commit his
 ### Fixed
 
 - Preserve the next property's comments and blank lines when converting a list to bracket format. Accept supported punctuation in plain keys and list items.
-- Preserve independent suggestion rule edits and pending input across settings refreshes. Restore keyboard focus after moving a property value.
+- Preserve independent suggestion rule edits and pending input across settings refreshes. Keep keyboard focus on the same candidate when moving it between groups, and restore focus after reordering a note's property values.
 - Keep numeric properties intact when a saved preset is no longer a valid number, and cancel drops when a floating element covers the source or target.
 - Refresh translated commands when switching languages and handle property key casing consistently in counts and type groups.
 

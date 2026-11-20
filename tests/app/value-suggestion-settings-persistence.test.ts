@@ -227,6 +227,35 @@ describe("Value suggestion settings persistence", () => {
     expect(harness.persisted().enableNativeValueSuggestionOrder).toBe(false);
   });
 
+  it.each([["pinned", "⇧"], ["bottom", "⇩"]] as const)(
+    "keeps keyboard focus on the same candidate as it moves to %s and back",
+    async (placement, moveAction) => {
+      const { container, persisted } = await createHarness({
+        valueSuggestionPropertyAssignments: [{ behavior: "custom", propertyKey: "status" }],
+        valueSuggestionCustomOrders: [{
+          propertyKey: "status", middleSortMode: "native",
+          middleValues: ["active", "cancelled"], pinnedValues: ["planned"], bottomValues: ["deferred"],
+        }],
+      });
+      const draft = () => container.querySelector<HTMLInputElement>('.is-pinned .property-order-custom-value-add input')!;
+      draft().value = "Keep this input";
+      draft().setSelectionRange(2, 8, "backward");
+      const row = (section: string) =>
+        Array.from(container.querySelectorAll<HTMLElement>(`.is-${section} .property-order-custom-value-item`))
+          .find((item) => item.querySelector(".property-order-custom-value-label")?.textContent === "cancelled")!;
+      for (const [source, action, destination] of [["middle", moveAction, placement], [placement, "↔", "middle"]] as const) {
+        const control = Array.from(row(source).querySelectorAll("button")).find((button) => button.textContent === action)!;
+        control.focus();
+        control.click();
+        await vi.waitFor(() => expect(persisted().valueSuggestionCustomOrders[0]?.[`${destination}Values`]).toContain("cancelled"));
+        const enabled = Array.from(row(destination).querySelectorAll("button:not(:disabled)"));
+        expect(enabled).toContain(document.activeElement);
+        expect(draft().value).toBe("Keep this input");
+        expect([draft().selectionStart, draft().selectionEnd, draft().selectionDirection]).toEqual([2, 8, "backward"]);
+      }
+    },
+  );
+
   it.each([["pinned", "bottom"], ["bottom", "pinned"]])(
     "submitting a %s preset retains the unsubmitted %s draft in the mounted settings page",
     async (placement, other) => {

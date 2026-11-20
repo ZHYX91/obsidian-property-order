@@ -175,6 +175,7 @@ export function renderCustomValueSuggestionEditor(
       const actions = row.createDiv({
         cls: "property-order-custom-value-actions",
       });
+      const focusGroup = JSON.stringify([selectedPropertyKey, item.value]);
 
       const addAction = (
         text: string,
@@ -187,6 +188,7 @@ export function renderCustomValueSuggestionEditor(
         button.textContent = text;
         button.title = labelText;
         button.dataset.settingsFocus = `candidate:${item.value}:${text}`;
+        button.dataset.settingsFocusGroup = focusGroup;
         button.setAttribute("aria-label", `${labelText}: ${item.value}`);
         button.disabled = disabled;
         button.addEventListener("click", onClick);

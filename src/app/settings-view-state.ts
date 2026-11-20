@@ -5,14 +5,19 @@ export function preserveSettingsView(container: HTMLElement, update: () => void)
     positions.push({ element, top: element.scrollTop, left: element.scrollLeft });
   }
   const active = container.ownerDocument.activeElement;
-  const focusId = active instanceof (container.ownerDocument.defaultView?.HTMLElement ?? HTMLElement) && container.contains(active)
-    ? active.dataset.settingsFocus
+  const focused = active instanceof (container.ownerDocument.defaultView?.HTMLElement ?? HTMLElement) && container.contains(active)
+    ? active.dataset
     : undefined;
+  const focusId = focused?.settingsFocus;
+  const focusGroup = focused?.settingsFocusGroup;
   update();
   if (focusId != null) {
-    Array.from(container.querySelectorAll<HTMLElement>("[data-settings-focus]"))
-      .find((element) => element.dataset.settingsFocus === focusId)
-      ?.focus({ preventScroll: true });
+    const controls = Array.from(container.querySelectorAll<HTMLElement>("[data-settings-focus]:not(:disabled)"))
+      .filter((element) => element.dataset.settingsFocusGroup === focusGroup);
+    // A move can remove its own action. Continue from the moved item's first enabled control.
+    const target = controls.find((element) => element.dataset.settingsFocus === focusId)
+      ?? (focusGroup === undefined ? undefined : controls[0]);
+    target?.focus({ preventScroll: true });
   }
   for (const { element, top, left } of positions) {
     element.scrollTop = top;
