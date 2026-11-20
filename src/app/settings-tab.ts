@@ -13,7 +13,7 @@ import { getPropertyNameSuggestions } from "../core/suggestions/property-names";
 import { getResolvedLocaleCode, t, type TranslationKey } from "../shared/i18n";
 import { SUPPORTED_LOCALES } from "../shared/locale-catalog";
 import { getCachedPropertyKeyUsage } from "../obsidian/metadata";
-import { isValueSuggestionDefaultBehavior } from "../shared/settings";
+import { isKeySuggestionSortMode, isValueSuggestionDefaultBehavior } from "../shared/settings";
 import type {
   KeySuggestionSortMode,
   PropertyOrderSettings,
@@ -57,8 +57,8 @@ type SettingsCleanup = () => void;
 
 export class PropertyOrderSettingTab extends PluginSettingTab {
   private activeTab: SettingsTabId = "general";
-  private formatExamplesOpen = false;
-  private formatExamples: HTMLDetailsElement | null = null;
+  private readonly expandedHelp = new Set<"format" | "archive">();
+  private activeHelp: { key: "format" | "archive"; details: HTMLDetailsElement } | null = null;
   private hasUnsavedSettings = false;
   private readonly keyListSettingCleanups = new Map<
     KeyListSettingLifecycle,
@@ -93,8 +93,8 @@ export class PropertyOrderSettingTab extends PluginSettingTab {
   }
 
   override hide(): void {
-    this.formatExamples = null;
-    this.formatExamplesOpen = false;
+    this.activeHelp = null;
+    this.expandedHelp.clear();
     this.settingsSurfaceVisible = false;
     this.settingsSurfaceGeneration += 1;
 
@@ -113,6 +113,11 @@ export class PropertyOrderSettingTab extends PluginSettingTab {
     if (this.settingsSurfaceVisible && this.tabLayoutCleanup != null) {
       this.render(null);
     }
+  }
+
+  private restoreHelp(key: "format" | "archive", details: HTMLDetailsElement): void {
+    details.open = this.expandedHelp.has(key);
+    this.activeHelp = { key, details };
   }
 
   private getKeySuggestionSortOptions(): Record<KeySuggestionSortMode, string> {
@@ -140,8 +145,12 @@ export class PropertyOrderSettingTab extends PluginSettingTab {
 
   private render(focusTab: SettingsTabId | null): void {
     const { containerEl } = this;
-    if (this.formatExamples) this.formatExamplesOpen = this.formatExamples.open;
-    this.formatExamples = null;
+    if (this.activeHelp) {
+      const { key, details } = this.activeHelp;
+      if (details.open) this.expandedHelp.add(key);
+      else this.expandedHelp.delete(key);
+      this.activeHelp = null;
+    }
     this.resetRenderedSettings();
     this.beginSettingsSurfaceRender();
 
@@ -246,7 +255,8 @@ export class PropertyOrderSettingTab extends PluginSettingTab {
       addInactiveHint(containerEl, this.t("settings.valueDrag.disabledHint"));
     }
 
-    new Setting(containerEl)
+    const formatSetting = new Setting(containerEl)
+      .setClass("property-order-writeback-format")
       .setName(this.t("settings.writebackFormat.name"))
       .setDesc(this.t("settings.writebackFormat.desc"))
       .addDropdown((dropdown) => {
@@ -260,7 +270,8 @@ export class PropertyOrderSettingTab extends PluginSettingTab {
           });
       });
 
-    this.formatExamples = renderWritebackFormatExamples(containerEl, (key) => this.t(key), this.formatExamplesOpen);
+    const details = renderWritebackFormatExamples(formatSetting.settingEl, (key) => this.t(key));
+    this.restoreHelp("format", details);
 
     new Setting(containerEl)
       .setName(this.t("settings.crossPropertyDrag.name"))
@@ -299,22 +310,25 @@ export class PropertyOrderSettingTab extends PluginSettingTab {
       addInactiveHint(containerEl, this.t("settings.keyOrder.disabledHint"));
     }
 
-    new Setting(containerEl)
+    const keyMode = this.plugin.propertyOrderSettings.keySuggestionSortMode;
+    const keyOrder = new Setting(containerEl)
       .setName(this.t("settings.keyOrder.sortMode.name"))
-      .setDesc(this.t("settings.keyOrder.sortMode.desc"))
-      .addDropdown((dropdown) => {
-        for (const [value, label] of Object.entries(
-          this.getKeySuggestionSortOptions(),
-        )) {
-          dropdown.addOption(value, label);
-        }
+      .setDesc(this.t(`settings.keyOrder.sortMode.help.${keyMode}`));
+    keyOrder.addDropdown((dropdown) => {
+      for (const [value, label] of Object.entries(
+        this.getKeySuggestionSortOptions(),
+      )) {
+        dropdown.addOption(value, label);
+      }
 
-        dropdown
-          .setValue(this.plugin.propertyOrderSettings.keySuggestionSortMode)
-          .onChange(async (value) => {
-            await this.applyImperativeControlValue("keySuggestionSortMode", value);
-          });
-      });
+      dropdown
+        .setValue(keyMode)
+        .onChange(async (value) => {
+          if (!isKeySuggestionSortMode(value)) return;
+          keyOrder.setDesc(this.t(`settings.keyOrder.sortMode.help.${value}`));
+          await this.applyImperativeControlValue("keySuggestionSortMode", value);
+        });
+    });
 
     new Setting(containerEl)
       .setName(this.t("settings.keyOrder.groupByType.name"))
@@ -422,7 +436,8 @@ export class PropertyOrderSettingTab extends PluginSettingTab {
       });
       message.textContent = this.t("settings.valueSuggestions.legacyRulesArchived");
 
-      const details = migrationEl.createEl("details");
+      const details = migrationEl.createEl("details", { cls: "property-order-help-disclosure" });
+      this.restoreHelp("archive", details);
       const summary = details.createEl("summary");
       summary.textContent = this.t("settings.valueSuggestions.legacyMigrationDetails");
       const legacyRules = details.createEl("pre");
@@ -441,27 +456,29 @@ export class PropertyOrderSettingTab extends PluginSettingTab {
 
     }
 
-    new Setting(containerEl)
+    const valueMode = settingsAtRender.valueSuggestionDefaultBehavior;
+    const valueOrder = new Setting(containerEl)
       .setName(this.t("settings.valueSuggestions.sortMode.name"))
-      .setDesc(this.t("settings.valueSuggestions.sortMode.desc"))
-      .addDropdown((dropdown) => {
-        for (const [value, label] of Object.entries(
-          this.getValueSuggestionDefaultBehaviorOptions(),
-        )) {
-          dropdown.addOption(value, label);
-        }
+      .setDesc(this.t(`settings.valueSuggestions.sortMode.help.${valueMode}`));
+    valueOrder.addDropdown((dropdown) => {
+      for (const [value, label] of Object.entries(
+        this.getValueSuggestionDefaultBehaviorOptions(),
+      )) {
+        dropdown.addOption(value, label);
+      }
 
-        dropdown
-          .setValue(settingsAtRender.valueSuggestionDefaultBehavior)
-          .onChange(async (value) => {
-            if (!isValueSuggestionDefaultBehavior(value)) {
-              return;
-            }
+      dropdown
+        .setValue(valueMode)
+        .onChange(async (value) => {
+          if (!isValueSuggestionDefaultBehavior(value)) {
+            return;
+          }
 
-            this.plugin.propertyOrderSettings.valueSuggestionDefaultBehavior = value;
-            await this.persistSettings(false, true);
-          });
-      });
+          valueOrder.setDesc(this.t(`settings.valueSuggestions.sortMode.help.${value}`));
+          this.plugin.propertyOrderSettings.valueSuggestionDefaultBehavior = value;
+          await this.persistSettings(false, true);
+        });
+    });
 
     const frequencySetting = new Setting(containerEl)
       .setName(this.t("settings.valueSuggestions.frequencyHistory.name"))

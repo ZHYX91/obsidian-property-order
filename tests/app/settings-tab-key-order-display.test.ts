@@ -41,8 +41,15 @@ describe("Property Order settings tabs", () => {
     ]);
     const examples = () => tab.containerEl.querySelector<HTMLDetailsElement>("details")!;
     tabs()[1]!.click();
-    expect(examples().open).toBe(false);
-    examples().open = true;
+    const help = examples();
+    const formatRow = help.closest(".setting-item")!;
+    expect(formatRow.querySelector("select")?.value).toBe("preserve");
+    expect(formatRow.textContent).toContain("may remove item comments and blank lines");
+    expect(help.querySelector("select, button, input")).toBeNull();
+    expect(help.querySelector("summary")?.textContent).toBe("Format examples");
+    expect(help.open).toBe(false);
+    help.open = true;
+    expect([...help.querySelectorAll("pre")].map((sample) => sample.dir)).toEqual(["ltr", "ltr", "ltr", "ltr"]);
     tabs()[0]!.click();
     tabs()[1]!.click();
     const previous = examples();
@@ -51,6 +58,45 @@ describe("Property Order settings tabs", () => {
     previous.dispatchEvent(new Event("toggle"));
     tab.display();
     expect(examples().open).toBe(false);
+    tab.hide();
+  });
+
+  it("keeps migration guidance visible and remembers the archive only within this session", () => {
+    const settings = createDefaultSettings();
+    settings.valueSuggestionLegacyRules = {
+      sortMode: "native", sortOverrides: [], pinnedValues: ["status = open"], bottomValues: [], hiddenPatterns: [],
+    };
+    const tab = mountSettingsTab(settings, vi.fn(async () => undefined));
+    tab.display();
+    const choose = (index: number) => tab.containerEl.querySelectorAll<HTMLButtonElement>("[role=tab]")[index]!.click();
+    const archive = () => tab.containerEl.querySelector<HTMLDetailsElement>(".property-order-value-suggestion-migration details")!;
+    choose(3);
+    expect(archive().open).toBe(false);
+    expect(archive().previousElementSibling?.textContent).toBeTruthy();
+    archive().open = true;
+    choose(1);
+    expect(tab.containerEl.querySelector<HTMLDetailsElement>("details")?.open).toBe(false);
+    choose(3);
+    expect(archive().open).toBe(true);
+    tab.hide();
+    tab.display();
+    expect(archive().open).toBe(false);
+    tab.hide();
+  });
+
+  it("shows only the chosen sorting explanation and updates it before saving", () => {
+    const tab = mountSettingsTab(createDefaultSettings(), vi.fn(async () => undefined));
+    tab.display();
+    const cases = [[2, "usage", "notes containing the property"], [3, "none", "still allows typing"]] as const;
+    for (const [page, mode, expected] of cases) {
+      tab.containerEl.querySelectorAll<HTMLButtonElement>("[role=tab]")[page]!.click();
+      const select = tab.containerEl.querySelector<HTMLSelectElement>(".setting-item select")!;
+      const row = select.closest<HTMLElement>(".setting-item")!;
+      expect(row.dataset.settingDescription).not.toContain(expected);
+      select.value = mode;
+      select.dispatchEvent(new Event("change"));
+      expect(row.dataset.settingDescription).toContain(expected);
+    }
     tab.hide();
   });
 

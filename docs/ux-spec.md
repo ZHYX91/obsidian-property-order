@@ -84,4 +84,6 @@ This document mirrors the authoritative current interaction and presentation con
 
 ## Writeback examples disclosure
 
-The existing before/after YAML writeback format examples remain one native details guide, initially closed, with a small neutral title and accessible focus. Their expansion survives tab redraw within the current settings window only and is cleared when that window hides; no settings write or storage key is added. The actual format selector, migration conflict status, legacy-rule diagnostics and any pending confirmation remain visible as normal controls.
+The format selector and its guidance stay visible. “Format examples” sits directly below them. A small chevron opens the before/after YAML samples. Keyboard focus is visible and touch gets a larger target. Each sample keeps its own code background and reads left to right in every locale. Examples start closed, keep their state when switching tabs in the same settings window, and close when settings are dismissed.
+
+The two suggestion-order selectors show the explanation for the selected mode and update it immediately when another mode is chosen. The legacy-rule notice stays visible. Its read-only archive uses the same disclosure as format examples and remembers its own expansion until settings close.
