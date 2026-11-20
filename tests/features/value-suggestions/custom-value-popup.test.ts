@@ -6,6 +6,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   commitCustomPropertyValueCandidate,
   mountCustomValuePopup,
+  getCustomValueValidator,
 } from "../../../src/features/value-suggestions/custom-value-popup";
 import { registerSuggestionKeyboardBridge } from "../../../src/features/key-order/suggestion-keyboard-bridge";
 import type { PropertyValueSuggestionContext } from "../../../src/obsidian/native-suggest-dom";
@@ -148,6 +149,14 @@ describe("custom value fallback popup", () => {
     mount.cleanup();
   });
 
+  it.each(["text", "search", "tel"])("preserves native %s input sanitization", (type) => {
+    const { input } = createContext();
+    input.type = type;
+    const accepts = getCustomValueValidator(input);
+    expect(["  ID  ", "含 空格", "", "x\ty"].every(accepts)).toBe(true);
+    expect(["x\ny", "x\r", "\r\n"].some(accepts)).toBe(false);
+  });
+
   it("filters preset candidates against the current editor query", () => {
     const { context, input } = createContext();
     input.value = "do";
@@ -242,6 +251,82 @@ describe("custom value fallback popup", () => {
       keyboard();
       mount.cleanup();
     }
+  });
+
+  it("reveals a restored candidate after positioning and respects a scrolled-away selection", () => {
+    const { context } = createContext();
+    let height = 500;
+    vi.spyOn(window, "innerHeight", "get").mockImplementation(() => height);
+    vi.spyOn(HTMLElement.prototype, "clientHeight", "get").mockImplementation(function (this: HTMLElement) {
+      return Number.parseFloat(this.style.maxHeight) || 0;
+    });
+    vi.spyOn(context.editor, "getBoundingClientRect").mockReturnValue({
+      left: 20, top: 100, bottom: 130, width: 100,
+    } as DOMRect);
+    const values = Array.from({ length: 500 }, (_, i) => String(i));
+    const mount = mountCustomValuePopup(context, values, () => undefined, "300")!;
+    const row = () => mount.container.querySelector<HTMLElement>(".is-selected")!;
+    const visible = () => Number.parseFloat(row().style.top) >= mount.container.scrollTop &&
+      Number.parseFloat(row().style.top) + Number.parseFloat(row().style.height) <=
+        mount.container.scrollTop + mount.container.clientHeight;
+    expect(visible()).toBe(true);
+    height = 220;
+    window.dispatchEvent(new Event("resize"));
+    expect(visible()).toBe(true);
+    mount.container.scrollTop = 320;
+    mount.container.dispatchEvent(new Event("scroll"));
+    height = 160;
+    window.dispatchEvent(new Event("resize"));
+    expect(mount.container.scrollTop).toBe(320);
+    expect(mount.getSelectedValue()).toBe("300");
+    mount.cleanup();
+  });
+
+  it("keeps long lists bounded while scrolling, navigating, composing and committing", () => {
+    const { context, input } = createContext();
+    input.setAttribute("aria-controls", "host-popup");
+    const values = Array.from({ length: 5000 }, (_, i) => `Ticket ${i}`);
+    const commit = vi.fn();
+    const mount = mountCustomValuePopup(context, values, commit)!;
+    const keyboard = registerSuggestionKeyboardBridge({
+      getActiveContainer: () => mount.container,
+      hasActiveContext: () => true,
+      navigateWindow: (_container, target) => mount.navigate(target),
+      onSynchronizationFailure: vi.fn(),
+      supportsEmacsNavigation: true,
+      targetWindow: window,
+    });
+    const press = (key: string, extra: KeyboardEventInit = {}) =>
+      input.dispatchEvent(new KeyboardEvent("keydown", { bubbles: true, cancelable: true, key, ...extra }));
+    try {
+      expect(mount.container.querySelectorAll(".suggestion-item")).toHaveLength(32);
+      mount.container.scrollTop = 50000;
+      mount.container.dispatchEvent(new Event("scroll"));
+      expect(mount.getSelectedValue()).toBe("Ticket 0");
+      expect(mount.container.querySelectorAll(".suggestion-item").length).toBeLessThanOrEqual(33);
+      press("End", { isComposing: true });
+      expect(mount.getSelectedValue()).toBe("Ticket 0");
+      press("End");
+      expect(mount.getSelectedValue()).toBe("Ticket 4999");
+      const active = document.getElementById(input.getAttribute("aria-activedescendant")!);
+      expect(active?.getAttribute("aria-posinset")).toBe("5000");
+      expect(active?.getAttribute("aria-setsize")).toBe("5000");
+      press("n", { ctrlKey: true });
+      expect(mount.getSelectedValue()).toBe("Ticket 0");
+      press("PageDown");
+      expect(mount.getSelectedValue()).not.toBe("Ticket 0");
+      press("Home");
+      press("ArrowUp");
+      press("Tab");
+      expect(commit).toHaveBeenCalledWith("Ticket 4999");
+      mount.container.querySelector<HTMLElement>(".is-selected .suggestion-title")?.click();
+      expect(commit).toHaveBeenCalledTimes(2);
+    } finally {
+      keyboard();
+      mount.cleanup();
+    }
+    expect(input.getAttribute("aria-controls")).toBe("host-popup");
+    expect(input.hasAttribute("aria-activedescendant")).toBe(false);
   });
 
   it("commits through the focused native editor input path", () => {

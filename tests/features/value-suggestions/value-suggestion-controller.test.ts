@@ -6,6 +6,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { PropertyValueFrequencyStore } from "../../../src/features/value-suggestions/property-value-frequency-store";
 import { ValueSuggestionOrderController } from "../../../src/features/value-suggestions/value-suggestion-controller";
+import { getCachedPropertyValueUsage } from "../../../src/obsidian/metadata";
 import { createDefaultSettings } from "../../../src/shared/settings";
 import type { PropertyOrderSettings } from "../../../src/shared/types";
 
@@ -711,6 +712,27 @@ describe("ValueSuggestionOrderController", () => {
     controller.dispose();
   });
 
+  it("invalidates the warm vocabulary when a rename changes Markdown membership", () => {
+    const file = { path: "old.md" } as TFile;
+    const files = [file];
+    const app = createApp({ files, frontmatterByFile: new Map([[file, { status: "open" }]]) });
+    const handlers = new Map<string, () => void>();
+    const offref = vi.fn();
+    Object.assign(app.vault, {
+      on: (name: string, callback: () => void) => { handlers.set(name, callback); return { name }; },
+      offref,
+    });
+    const controller = createController(createDefaultSettings(), app);
+    controller.initialize();
+    expect(getCachedPropertyValueUsage(app, "status")).toEqual([{ value: "open", count: 1 }]);
+    files.pop();
+    file.path = "renamed.txt";
+    handlers.get("rename")!();
+    expect(getCachedPropertyValueUsage(app, "status")).toEqual([]);
+    controller.dispose();
+    expect(offref).toHaveBeenCalledWith({ name: "rename" });
+  });
+
   it("preserves a non-first fallback selection across metadata refresh and commits it", () => {
     const raf = installRafHarness();
     const files = ["one.md", "two.md"].map((path) => ({ path }) as TFile);
@@ -755,6 +777,12 @@ describe("ValueSuggestionOrderController", () => {
       files[0] as never,
       {} as never,
       { frontmatter: { status: "alpha", touched: true } } as never,
+    );
+    expect(raf.pending()).toBe(0);
+    expect(document.querySelector(".property-order-custom-value-popup")).toBe(fallback);
+    frontmatterByFile.set(files[0]!, { status: ["alpha", "gamma"] });
+    metadataEvents.get("changed")?.(
+      files[0] as never, "" as never, { frontmatter: { status: ["alpha", "gamma"] } } as never,
     );
     expect(raf.pending()).toBe(1);
     raf.flush();
