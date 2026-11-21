@@ -2101,6 +2101,18 @@ describe("ValueSuggestionOrderController", () => {
       return { controller, editor, raf, row, selected: selected! };
     }
 
+    it.each(["new draft", ""])("preserves a native input handler's replacement draft %j", (replacement) => {
+      const { editor, selected } = createPresetPopup();
+      const committed: string[] = [];
+      editor.addEventListener("input", () => { editor.value = replacement; }, { once: true });
+      editor.addEventListener("keydown", (event) => {
+        if (event.key === "Enter") committed.push(editor.value);
+      });
+      selected.click();
+      expect(committed).toEqual([]);
+      expect(editor.value).toBe(replacement);
+    });
+
     it.each(["input", "keydown"] as const)("does not send Enter events to another field after a %s redraw", (redrawEvent) => {
       const { editor, row, selected } = createPresetPopup();
       const received: string[] = [];

@@ -177,8 +177,8 @@ export function commitCustomPropertyValueCandidate(
     inputType: "insertText",
   }));
 
-  // An input listener can synchronously redraw or reassign the native editor.
-  if (!stillEditingProperty()) return false;
+  // The host can consume this input or start another draft in the same editor.
+  if (!stillEditingProperty() || getPropertyValueInputText(input) !== value) return false;
   const keydown = new targetWindow.KeyboardEvent("keydown", {
     bubbles: true,
     cancelable: true,
