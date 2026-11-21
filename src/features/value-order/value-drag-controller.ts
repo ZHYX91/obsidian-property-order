@@ -228,8 +228,6 @@ export class PropertyValueOrderController {
             request.sourceIndex < 0 || request.sourceIndex >= values.values.length) return false;
         const pill = source.editorKind === "list-type-mismatch" ? source.container : source.pills[request.sourceIndex];
         if (pill === undefined) return false;
-        const sourceContext = resolvePropertyPillContext(pill);
-        if (sourceContext === null) return false;
         const destination = request.action === "move"
           ? contexts.find((context) => context.propertyKey === request.targetProperty)
           : source;
@@ -243,7 +241,8 @@ export class PropertyValueOrderController {
           slot = targetIndex + (targetIndex > request.sourceIndex ? 1 : 0);
         }
         const session: ValueEditSession = {
-          context: sourceContext,
+          // Commit validation must check the original row even if Obsidian has reused the pill.
+          context: { ...source, pill, sourceIndex: request.sourceIndex },
           document: pane.container.ownerDocument,
           editor: pane.editor,
           expectedContent,

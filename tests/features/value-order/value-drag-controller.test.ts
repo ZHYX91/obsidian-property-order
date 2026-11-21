@@ -3197,6 +3197,27 @@ describe("PropertyValueOrderController", () => {
     harness.cleanup();
   });
 
+  it("rejects a keyboard move when the host reuses the selected pill in another property", async () => {
+    const harness = createHarness();
+    const other = addScalarBackedListProperty(harness, "other", "delta");
+    addEmptyListProperty(harness, "destination");
+    const original = "---\nflow: [alpha, beta]\nother: [delta]\ndestination: []\n---\n";
+    harness.editor.setContent(original);
+    const draft = harness.controller.prepareKeyboardReorder(harness.leaf.containerEl)!;
+    const selected = harness.pill;
+    selected.replaceWith(selected.cloneNode(true));
+    other.pill.replaceWith(selected);
+    selected.textContent = "delta";
+
+    expect(await draft.submit({
+      action: "move", sourceProperty: "flow", sourceIndex: 0, targetProperty: "destination",
+    })).toBe(false);
+    expect(harness.editor.getContent()).toBe(original);
+    expect(harness.editor.transaction).not.toHaveBeenCalled();
+    expect(harness.leaf.view.requestSave).not.toHaveBeenCalled();
+    harness.cleanup();
+  });
+
   it.each(["rename", "replacement", "vault-replacement", "editor", "content", "dom"])("rejects a stale position draft after %s", async (change) => {
     const harness = createHarness();
     const original = harness.editor.getContent();
