@@ -3,6 +3,10 @@
 All notable changes to Property Order are documented in this file. Release versions and dates
 follow the repository's Git tags; entries summarize the corresponding commit history.
 
+## [Unreleased]
+
+- Cancel a keyboard value move if Properties reuses the selected value, replaces its visible row, or shows two candidate rows for the same field.
+
 ## [0.12.3]
 
 - Keep suggestions and usage counts separate for property names that differ by a non-breaking or ideographic space.

@@ -3218,6 +3218,37 @@ describe("PropertyValueOrderController", () => {
     harness.cleanup();
   });
 
+  it.each(["hidden-source", "hidden-target", "ambiguous-target", "hidden-on-blur"])("rejects a keyboard draft after a row becomes %s", async (change) => {
+    const harness = createHarness();
+    const destination = addScalarBackedListProperty(harness, "target", "gamma");
+    const original = "---\nflow: [alpha, beta]\ntarget: [gamma]\n---\n";
+    harness.editor.setContent(original);
+    const draft = harness.controller.prepareKeyboardReorder(harness.leaf.containerEl)!;
+    const row = change === "hidden-source"
+      ? harness.container.closest<HTMLElement>(".metadata-property")!
+      : destination.property;
+    const redraw = () => {
+      row.after(row.cloneNode(true));
+      if (change !== "ambiguous-target") row.hidden = true;
+    };
+    if (change === "hidden-on-blur") {
+      const input = document.createElement("input");
+      row.append(input);
+      input.focus();
+      input.addEventListener("blur", redraw, { once: true });
+    } else {
+      redraw();
+    }
+
+    expect(await draft.submit({
+      action: "move", sourceProperty: "flow", sourceIndex: 0, targetProperty: "target",
+    })).toBe(false);
+    expect(harness.editor.getContent()).toBe(original);
+    expect(harness.editor.transaction).not.toHaveBeenCalled();
+    expect(harness.leaf.view.requestSave).not.toHaveBeenCalled();
+    harness.cleanup();
+  });
+
   it.each(["rename", "replacement", "vault-replacement", "editor", "content", "dom"])("rejects a stale position draft after %s", async (change) => {
     const harness = createHarness();
     const original = harness.editor.getContent();

@@ -255,13 +255,16 @@ export class PropertyValueOrderController {
           paneView: pane.view,
           restoreEditorFocus: false,
         };
+        const selectedRows = source === destination ? [source] : [source, destination];
+        const areSelectedRowsCurrent = () => selectedRows.every((row) =>
+          findPropertyListContextByKey(pane.container, row.propertyKey)?.propertyElement === row.propertyElement);
         this.editSession = session;
         return this.commitValueEdit(session, {
           context: destination,
           kind: "drop",
           mode: request.action === "move" ? "move" : "reorder",
           slot,
-        });
+        }, areSelectedRowsCurrent);
       },
     };
   }
@@ -1146,9 +1149,13 @@ export class PropertyValueOrderController {
     await this.commitValueEdit(dragState, target);
   }
 
-  private async commitValueEdit(dragState: ValueEditSession, target: DropTarget): Promise<boolean> {
+  private async commitValueEdit(
+    dragState: ValueEditSession,
+    target: DropTarget,
+    areSelectedRowsCurrent?: () => boolean,
+  ): Promise<boolean> {
     try {
-      if (!this.isEditSessionActive(dragState)) {
+      if (!this.isEditSessionActive(dragState) || areSelectedRowsCurrent?.() === false) {
         return false;
       }
 
@@ -1177,7 +1184,7 @@ export class PropertyValueOrderController {
       const writebackResult = await writePropertyValueDrop({
         canFinalize: () => this.isOriginalDocumentActive(dragState),
         canWrite: () =>
-          this.isEditReadyForWrite(dragState, target),
+          this.isEditReadyForWrite(dragState, target) && areSelectedRowsCurrent?.() !== false,
         editor: dragState.editor,
         expectedContent: dragState.expectedContent,
         sourceContext: dragState.context,
