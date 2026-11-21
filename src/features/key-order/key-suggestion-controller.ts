@@ -16,6 +16,7 @@ import { PropertyTypeRegistry } from "../../obsidian/property-types";
 import {
   getCachedPropertyKeyUsage,
   invalidatePropertyKeyUsage,
+  renameAffectsMarkdownUsage,
 } from "../../obsidian/metadata";
 import {
   findSuggestionContainers,
@@ -179,7 +180,9 @@ export class KeySuggestionOrderController {
       });
       const vault = this.plugin.app.vault;
       if (vault?.on) {
-        const renameRef = vault.on("rename", () => this.invalidateUsage());
+        const renameRef = vault.on("rename", (file, oldPath) => {
+          if (renameAffectsMarkdownUsage(file, oldPath)) this.invalidateUsage();
+        });
         this.registerControllerEvent(renameRef, () => vault.offref(renameRef));
       }
       this.requestPropertyTypeRefresh(true);
