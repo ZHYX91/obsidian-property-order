@@ -9,7 +9,7 @@ import {
 } from "obsidian";
 
 import { explainPropertyKeyRules } from "../core/suggestions/order-keys";
-import { getPropertyNameSuggestions } from "../core/suggestions/property-names";
+import { getPropertyNameSuggestions, trimPropertyKey } from "../core/suggestions/property-names";
 import { getResolvedLocaleCode, t, type TranslationKey } from "../shared/i18n";
 import { SUPPORTED_LOCALES } from "../shared/locale-catalog";
 import { getCachedPropertyKeyUsage } from "../obsidian/metadata";
@@ -997,6 +997,6 @@ function getAvailablePropertyNames(app: App): string[] {
 function parseLines(value: string): string[] {
   return value
     .split(/\r?\n/)
-    .map((line) => line.trim())
+    .map(trimPropertyKey)
     .filter(Boolean);
 }

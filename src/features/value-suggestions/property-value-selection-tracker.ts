@@ -1,3 +1,4 @@
+import { normalizePropertyKeyIdentity } from "../../core/suggestions/property-names";
 import type { CachedMetadata, Editor, Plugin, TFile } from "obsidian";
 
 import { getFrontmatterListPropertyScalars } from "../../core/frontmatter";
@@ -109,7 +110,7 @@ export class PropertyValueSelectionTracker {
 
         // All documents observe the same cache change. Each newly present
         // occurrence can confirm only one activation, including across popouts.
-        const key = pending.propertyKey.trim().toLocaleLowerCase();
+        const key = normalizePropertyKeyIdentity(pending.propertyKey);
         const byValue = claimedOccurrences.get(key) ?? new Map<string, Set<number>>();
         claimedOccurrences.set(key, byValue);
         const claimed = byValue.get(pending.value) ?? new Set<number>();
@@ -306,7 +307,7 @@ function getEditorFrontmatterValues(
 }
 
 function equalPropertyKey(left: string, right: string): boolean {
-  return left.trim().toLocaleLowerCase() === right.trim().toLocaleLowerCase();
+  return normalizePropertyKeyIdentity(left) === normalizePropertyKeyIdentity(right);
 }
 
 function getFrontmatterValues(cache: CachedMetadata, propertyKey: string): string[] {
@@ -316,9 +317,9 @@ function getFrontmatterValues(cache: CachedMetadata, propertyKey: string): strin
     return [];
   }
 
-  const normalizedPropertyKey = propertyKey.trim().toLocaleLowerCase();
+  const normalizedPropertyKey = normalizePropertyKeyIdentity(propertyKey);
   const entry = Object.entries(frontmatter).find(
-    ([key]) => key.trim().toLocaleLowerCase() === normalizedPropertyKey,
+    ([key]) => normalizePropertyKeyIdentity(key) === normalizedPropertyKey,
   );
 
   if (entry == null) {

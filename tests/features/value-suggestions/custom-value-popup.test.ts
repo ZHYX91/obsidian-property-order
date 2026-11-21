@@ -228,8 +228,12 @@ describe("custom value fallback popup", () => {
 
   it("keeps aria-selected aligned with exact keyboard selection in a fallback", () => {
     const { context, input } = createContext();
+    input.setAttribute("aria-controls", "native-list");
+    input.setAttribute("aria-activedescendant", "native-option");
     const mount = mountCustomValuePopup(context, ["alpha", " alpha", " "], () => undefined)!;
+    expect(input.getAttribute("aria-controls")?.split(" ")).toContain(mount.container.id);
     const keyboard = registerSuggestionKeyboardBridge({
+      navigateWindow: (_container, target) => mount.navigate(target),
       getActiveContainer: () => mount.container,
       hasActiveContext: () => true,
       onSynchronizationFailure: vi.fn(),
@@ -243,6 +247,7 @@ describe("custom value fallback popup", () => {
           bubbles: true, cancelable: true, key: "ArrowDown",
         }));
         const selected = mount.container.querySelector(".is-selected");
+        expect(input.ownerDocument.getElementById(input.getAttribute("aria-activedescendant")!)).toBe(selected);
         expect(selected?.textContent).toBe(value);
         expect(Array.from(mount.container.querySelectorAll('[aria-selected="true"]')))
           .toEqual([selected]);
@@ -250,6 +255,8 @@ describe("custom value fallback popup", () => {
     } finally {
       keyboard();
       mount.cleanup();
+      expect(input.getAttribute("aria-controls")).toBe("native-list");
+      expect(input.getAttribute("aria-activedescendant")).toBe("native-option");
     }
   });
 

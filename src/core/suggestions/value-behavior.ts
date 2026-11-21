@@ -3,7 +3,7 @@ import type {
   ValueSuggestionBehavior,
   ValueSuggestionKeyDisplayOrder,
 } from "../../shared/types";
-import { comparePropertyNames, normalizePropertyKeyIdentity } from "./property-names";
+import { comparePropertyNames, normalizePropertyKeyIdentity, trimPropertyKey } from "./property-names";
 
 export interface PropertyValueBehaviorGroup {
   behavior: ValueSuggestionBehavior;
@@ -45,7 +45,7 @@ export function movePropertyValueBehavior(
   rawPropertyKey: string,
   toBehavior: ValueSuggestionBehavior,
 ): PropertyValueBehaviorMove {
-  const propertyKey = rawPropertyKey.trim();
+  const propertyKey = trimPropertyKey(rawPropertyKey);
   const identity = normalizePropertyKeyIdentity(propertyKey);
   const existing = assignments.find(
     (assignment) => normalizePropertyKeyIdentity(assignment.propertyKey) === identity,
@@ -146,7 +146,7 @@ export function mergePropertyValueKeyCandidates(
     ...assignments.map((assignment) => assignment.propertyKey),
     ...customOrderKeys,
   ]) {
-    const propertyKey = rawKey.trim();
+    const propertyKey = trimPropertyKey(rawKey);
     const identity = normalizePropertyKeyIdentity(propertyKey);
     if (identity.length === 0 || seen.has(identity)) {
       continue;

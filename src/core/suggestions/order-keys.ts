@@ -1,5 +1,5 @@
 import type { PropertyKeyOrderOptions, PropertyType } from "../../shared/types";
-import { comparePropertyNames, normalizePropertyKeyIdentity } from "./property-names";
+import { comparePropertyNames, normalizePropertyKeyIdentity, trimPropertyKey } from "./property-names";
 import { createWildcardMatcher } from "./wildcard";
 
 export interface OrderedPropertyKey {
@@ -42,7 +42,7 @@ export function explainPropertyKeyRules(
   rawKey: string,
   rules: PropertyKeyRules,
 ): PropertyKeyRuleExplanation {
-  const key = rawKey.trim();
+  const key = trimPropertyKey(rawKey);
   const hiddenPattern = findMatchingPattern(rules.hiddenPatterns, key);
   const pinnedPattern = findMatchingPattern(rules.pinnedKeys, key);
   const bottomPattern = findMatchingPattern(rules.bottomKeys, key);
@@ -67,9 +67,9 @@ export function orderPropertyKeys(
   keys: string[],
   options: PropertyKeyOrderOptions,
 ): OrderedPropertyKey[] {
-  const normalizedKeys = dedupePreservingOrder(keys.map((key) => key.trim()).filter(Boolean));
+  const normalizedKeys = dedupePreservingOrder(keys.map(trimPropertyKey).filter(Boolean));
   const hiddenMatchers = options.hiddenPatterns
-    .map((pattern) => pattern.trim())
+    .map((pattern) => trimPropertyKey(pattern))
     .filter(Boolean)
     .map(createWildcardMatcher);
   const visibleKeys = normalizedKeys.filter(
@@ -143,7 +143,7 @@ function expandKeyPatterns(patterns: string[], keys: string[]): string[] {
   const seen = new Set<string>();
 
   for (const rawPattern of patterns) {
-    const pattern = rawPattern.trim();
+    const pattern = trimPropertyKey(rawPattern);
 
     if (pattern.length === 0) {
       continue;
@@ -170,7 +170,7 @@ function findMatchingPattern(patterns: string[], key: string): string | null {
   }
 
   for (const rawPattern of patterns) {
-    const pattern = rawPattern.trim();
+    const pattern = trimPropertyKey(rawPattern);
     if (pattern.length > 0 && createWildcardMatcher(pattern)(key)) {
       return pattern;
     }

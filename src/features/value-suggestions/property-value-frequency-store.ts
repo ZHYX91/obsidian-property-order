@@ -1,3 +1,4 @@
+import { trimPropertyKey, normalizePropertyKeyIdentity } from "../../core/suggestions/property-names";
 import type { App } from "obsidian";
 
 import type { PropertyValueUsage } from "../../shared/types";
@@ -71,7 +72,7 @@ export class PropertyValueFrequencyStore {
 
     this.entries.delete(propertyKey);
     this.entries.set(propertyKey, {
-      propertyKey: existing?.propertyKey ?? rawPropertyKey.trim(),
+      propertyKey: existing?.propertyKey ?? trimPropertyKey(rawPropertyKey),
       values,
     });
 
@@ -150,7 +151,7 @@ export class PropertyValueFrequencyStore {
       }
 
       entries.set(propertyKey, {
-        propertyKey: candidate.propertyKey.trim(),
+        propertyKey: trimPropertyKey(candidate.propertyKey),
         values,
       });
     }
@@ -191,6 +192,6 @@ function isStoredPropertyValueFrequency(
 }
 
 function normalizePropertyKey(value: string): string | null {
-  const propertyKey = value.trim().toLocaleLowerCase();
+  const propertyKey = normalizePropertyKeyIdentity(value);
   return propertyKey.length === 0 ? null : propertyKey;
 }

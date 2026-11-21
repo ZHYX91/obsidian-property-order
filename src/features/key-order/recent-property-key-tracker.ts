@@ -1,3 +1,4 @@
+import { trimPropertyKey } from "../../core/suggestions/property-names";
 import type { CachedMetadata, Plugin, TFile } from "obsidian";
 
 import {
@@ -220,12 +221,12 @@ export class RecentPropertyKeyTracker {
     let typedKeyBeforeDispatch: string | null = null;
 
     if (includeTypedFallback) {
-      typedKeyBeforeDispatch = getPropertyKeyEditorValue(
+      typedKeyBeforeDispatch = trimPropertyKey(getPropertyKeyEditorValue(
         editor,
         activeElement ?? editor,
-      )?.trim() ?? null;
+      ) ?? "");
 
-      if (typedKeyBeforeDispatch != null && typedKeyBeforeDispatch.length > 0) {
+      if (typedKeyBeforeDispatch.length > 0) {
         rawKeys.push(typedKeyBeforeDispatch);
       }
     }
@@ -291,7 +292,7 @@ export class RecentPropertyKeyTracker {
       return null;
     }
 
-    const keys = Array.from(new Set(rawKeys.map((key) => key.trim())))
+    const keys = Array.from(new Set(rawKeys.map(trimPropertyKey)))
       .filter((key) => key.length > 0 && !beforeKeys.has(key));
 
     if (keys.length === 0) {
@@ -386,7 +387,7 @@ export class RecentPropertyKeyTracker {
       return;
     }
 
-    const key = getPropertyKeyEditorValue(editor, editor)?.trim() ?? "";
+    const key = trimPropertyKey(getPropertyKeyEditorValue(editor, editor) ?? "");
 
     if (
       key.length > 0 &&

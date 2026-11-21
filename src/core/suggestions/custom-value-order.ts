@@ -1,3 +1,4 @@
+import { trimPropertyKey, normalizePropertyKeyIdentity } from "./property-names";
 import type {
   PropertyValueCustomOrder,
   ValueSuggestionMiddleSortMode,
@@ -13,7 +14,7 @@ export function createEmptyPropertyValueCustomOrder(
     middleSortMode: "native",
     middleValues: [],
     pinnedValues: [],
-    propertyKey: propertyKey.trim(),
+    propertyKey: trimPropertyKey(propertyKey),
   };
 }
 
@@ -85,9 +86,9 @@ export function upsertPropertyValueCustomOrder(
   orders: readonly PropertyValueCustomOrder[],
   order: PropertyValueCustomOrder,
 ): PropertyValueCustomOrder[] {
-  const identity = normalizeKey(order.propertyKey);
+  const identity = normalizePropertyKeyIdentity(order.propertyKey);
   const next = orders
-    .filter((candidate) => normalizeKey(candidate.propertyKey) !== identity)
+    .filter((candidate) => normalizePropertyKeyIdentity(candidate.propertyKey) !== identity)
     .map(cloneOrder);
   next.push(cloneOrder(order));
   return next;
@@ -97,8 +98,8 @@ export function getPropertyValueCustomOrder(
   orders: readonly PropertyValueCustomOrder[],
   propertyKey: string,
 ): PropertyValueCustomOrder {
-  const identity = normalizeKey(propertyKey);
-  const existing = orders.find((candidate) => normalizeKey(candidate.propertyKey) === identity);
+  const identity = normalizePropertyKeyIdentity(propertyKey);
+  const existing = orders.find((candidate) => normalizePropertyKeyIdentity(candidate.propertyKey) === identity);
   return existing == null
     ? createEmptyPropertyValueCustomOrder(propertyKey)
     : cloneOrder(existing);
@@ -122,8 +123,4 @@ function cloneOrder(order: PropertyValueCustomOrder): PropertyValueCustomOrder {
     middleValues: [...order.middleValues],
     pinnedValues: [...order.pinnedValues],
   };
-}
-
-function normalizeKey(propertyKey: string): string {
-  return propertyKey.trim().toLocaleLowerCase();
 }

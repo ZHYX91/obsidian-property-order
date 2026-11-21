@@ -1,3 +1,5 @@
+import { trimPropertyKey } from "../core/suggestions/property-names";
+import { resolvePropertyKey } from "./properties-dom";
 export interface SuggestionItem {
   element: HTMLElement;
   key: string;
@@ -96,9 +98,9 @@ export function getActivePropertyValueSuggestionContext(
   const activeElement = asHtmlElement(targetDocument.activeElement);
   const editor = activeElement?.closest<HTMLElement>(PROPERTY_VALUE_EDITOR_SELECTOR) ?? null;
   const row = editor?.closest<HTMLElement>(PROPERTY_ROW_SELECTOR) ?? null;
-  const propertyKey = row?.getAttribute("data-property-key")?.trim() ?? "";
+  const propertyKey = row == null ? null : resolvePropertyKey(row);
 
-  if (editor == null || row == null || propertyKey.length === 0) {
+  if (editor == null || row == null || propertyKey == null) {
     return null;
   }
 
@@ -209,7 +211,7 @@ function getSuggestionItemsWithExtractor(
 }
 
 function extractSuggestionText(element: HTMLElement): string {
-  return extractSuggestionTextElement(element).trim();
+  return trimPropertyKey(extractSuggestionTextElement(element));
 }
 
 function extractPropertyValueSuggestionText(element: HTMLElement): string {
