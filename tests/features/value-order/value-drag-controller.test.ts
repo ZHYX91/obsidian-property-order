@@ -1637,6 +1637,41 @@ describe("PropertyValueOrderController", () => {
     harness.cleanup();
   });
 
+  it.each(["hidden source", "hidden target", "ambiguous target"])(
+    "cancels pointer writeback after a blur redraw (%s)",
+    async (replacement) => {
+      const raf = installRafHarness();
+      const harness = createHarness();
+      const original = "---\nflow: [alpha, beta]\ntarget: [current]\n---\n";
+      harness.frontmatter.target = ["current"];
+      harness.editor.setContent(original);
+      const target = addScalarBackedListProperty(harness, "target", "current");
+      const row = replacement === "hidden source"
+        ? harness.container.closest<HTMLElement>(".metadata-property")!
+        : target.property;
+      const input = document.createElement("input");
+      target.property.appendChild(input);
+      const redraw = vi.fn(() => {
+        row.after(row.cloneNode(true));
+        if (replacement !== "ambiguous target") row.hidden = true;
+      });
+      input.addEventListener("blur", redraw, { once: true });
+
+      dispatchPointer(harness.pill, "pointerdown", 10);
+      dispatchPointer(document, "pointermove", 550);
+      raf.flush();
+      input.focus();
+      dispatchPointer(document, "pointerup", 550);
+      await waitForDragFinish();
+
+      expect(redraw).toHaveBeenCalledOnce();
+      expect(harness.editor.transaction).not.toHaveBeenCalled();
+      expect(harness.editor.getContent()).toBe(original);
+      expect(harness.leaf.view.requestSave).not.toHaveBeenCalled();
+      harness.cleanup();
+    },
+  );
+
   it("revalidates the frozen source order after target blur side effects", async () => {
     const raf = installRafHarness();
     const harness = createHarness();

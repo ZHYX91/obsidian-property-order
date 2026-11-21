@@ -27,8 +27,7 @@ import {
   getContainerPills,
   isPropertyPillTarget,
   resolveDraggablePropertyPill,
-  resolveListTypeMismatchContext,
-  resolvePropertyContainerContext,
+  type PropertyContainerContext,
   getVisiblePropertyListContexts,
   resolvePropertyPillContext,
 } from "../../obsidian/properties-dom";
@@ -255,16 +254,13 @@ export class PropertyValueOrderController {
           paneView: pane.view,
           restoreEditorFocus: false,
         };
-        const selectedRows = source === destination ? [source] : [source, destination];
-        const areSelectedRowsCurrent = () => selectedRows.every((row) =>
-          findPropertyListContextByKey(pane.container, row.propertyKey)?.propertyElement === row.propertyElement);
         this.editSession = session;
         return this.commitValueEdit(session, {
           context: destination,
           kind: "drop",
           mode: request.action === "move" ? "move" : "reorder",
           slot,
-        }, areSelectedRowsCurrent);
+        });
       },
     };
   }
@@ -1152,10 +1148,9 @@ export class PropertyValueOrderController {
   private async commitValueEdit(
     dragState: ValueEditSession,
     target: DropTarget,
-    areSelectedRowsCurrent?: () => boolean,
   ): Promise<boolean> {
     try {
-      if (!this.isEditSessionActive(dragState) || areSelectedRowsCurrent?.() === false) {
+      if (!this.isEditSessionActive(dragState) || !this.isRowCurrent(dragState, target.context)) {
         return false;
       }
 
@@ -1183,8 +1178,7 @@ export class PropertyValueOrderController {
 
       const writebackResult = await writePropertyValueDrop({
         canFinalize: () => this.isOriginalDocumentActive(dragState),
-        canWrite: () =>
-          this.isEditReadyForWrite(dragState, target) && areSelectedRowsCurrent?.() !== false,
+        canWrite: () => this.isEditReadyForWrite(dragState, target),
         editor: dragState.editor,
         expectedContent: dragState.expectedContent,
         sourceContext: dragState.context,
@@ -1335,7 +1329,7 @@ export class PropertyValueOrderController {
     if (
       !this.isEditSessionActive(dragState) ||
       !this.isOriginalDocumentActive(dragState) ||
-      !this.isTargetContextCurrent(dragState, target)
+      !this.isRowCurrent(dragState, target.context)
     ) {
       return false;
     }
@@ -1358,66 +1352,23 @@ export class PropertyValueOrderController {
   }
 
   private isEditSessionActive(dragState: ValueEditSession): boolean {
-    return this.isEditSessionOwned(dragState) && this.isSourceContextCurrent(dragState);
+    const source = dragState.context;
+    const selectedPill = source.editorKind === "list-type-mismatch"
+      ? source.container
+      : source.pills[source.sourceIndex];
+    return this.isEditSessionOwned(dragState) && source.pill === selectedPill &&
+      this.isRowCurrent(dragState, source);
   }
 
-  private isTargetContextCurrent(dragState: ValueEditSession, target: DropTarget): boolean {
-    const { container, propertyElement, propertyKey } = target.context;
-
-    if (
-      !container.isConnected ||
-      container.ownerDocument !== dragState.document ||
-      !propertyElement.isConnected ||
-      propertyElement.ownerDocument !== dragState.document ||
-      !propertyElement.contains(container) ||
-      !dragState.paneContainer.contains(propertyElement)
-    ) {
-      return false;
-    }
-
-    const currentContext =
-      target.context.editorKind === "list-type-mismatch"
-        ? resolveListTypeMismatchContext(propertyElement)
-        : resolvePropertyContainerContext(container);
-    return (
-      currentContext?.propertyKey === propertyKey &&
-      currentContext.container === container &&
-      currentContext.editorKind === target.context.editorKind &&
-      currentContext.pills.length === target.context.pills.length &&
-      currentContext.pills.every((pill, index) => pill === target.context.pills[index])
-    );
-  }
-
-  private isSourceContextCurrent(dragState: ValueEditSession): boolean {
-    const { container, pill, propertyElement } = dragState.context;
-    const { document: targetDocument, paneContainer } = dragState;
-
-    const currentContext =
-      dragState.context.editorKind === "list-type-mismatch"
-        ? resolveListTypeMismatchContext(propertyElement)
-        : resolvePropertyContainerContext(container);
-
-    return (
-      pill.isConnected &&
-      pill.ownerDocument === targetDocument &&
-      container.isConnected &&
-      container.ownerDocument === targetDocument &&
-      container.contains(pill) &&
-      propertyElement.isConnected &&
-      propertyElement.ownerDocument === targetDocument &&
-      propertyElement.contains(container) &&
-      paneContainer.isConnected &&
-      paneContainer.ownerDocument === targetDocument &&
-      paneContainer.contains(propertyElement) &&
-      currentContext?.propertyKey === dragState.context.propertyKey &&
-      currentContext.container === container &&
-      currentContext.editorKind === dragState.context.editorKind &&
-      (dragState.context.editorKind === "list-type-mismatch" ||
-        (currentContext.pills.length === dragState.context.pills.length &&
-          currentContext.pills.every(
-            (currentPill, index) => currentPill === dragState.context.pills[index],
-          )))
-    );
+  private isRowCurrent(session: ValueEditSession, row: PropertyContainerContext): boolean {
+    if (session.paneContainer.ownerDocument !== session.document) return false;
+    const current = findPropertyListContextByKey(session.paneContainer, row.propertyKey);
+    return current?.propertyElement === row.propertyElement &&
+      current.container === row.container &&
+      current.editorKind === row.editorKind &&
+      (row.editorKind === "list-type-mismatch" ||
+        (current.pills.length === row.pills.length &&
+          current.pills.every((pill, index) => pill === row.pills[index])));
   }
 
   private clearPressState(): void {

@@ -5,7 +5,7 @@ follow the repository's Git tags; entries summarize the corresponding commit his
 
 ## [Unreleased]
 
-- Cancel a keyboard value move if Properties reuses the selected value, replaces its visible row, or shows two candidate rows for the same field.
+- Cancel keyboard and drag moves if Properties reuses the selected value, hides or replaces a selected row, or shows two candidate rows for the same field.
 
 ## [0.12.3]
 
