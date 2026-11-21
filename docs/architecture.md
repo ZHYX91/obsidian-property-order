@@ -42,7 +42,8 @@ Dependencies point inward toward the pure core:
 
 `src/core/frontmatter/index.ts` keeps the stable public API while responsibilities are split across:
 
-- `bounds.ts`: BOM, frontmatter delimiter bounds, and LF/CRLF/CR detection.
+- `bounds.ts` reads physical lines through the first closing delimiter, accounting for a BOM and each LF, CRLF or CR separator independently.
+- `property-reader.ts` indexes the top-level keys and UTF-16 offsets in one immutable frontmatter snapshot. Duplicate keys have no editable entry. Keyboard choices and multi-row alignment share the index across all visible properties.
 - `property-line.ts`: top-level property-head scanning, including safely decoded quoted keys and keys containing colons.
 - `flow-list.ts`: bracket-list scanning and safe item separation.
 - `block-list.ts`: bullet items, comments, blank lines, and item-style recognition.
@@ -51,7 +52,7 @@ Dependencies point inward toward the pure core:
 - `rewrite.ts`: same-property reorder, cross-property move, and output-format selection.
 - `diagnostics.ts` and `types.ts`: diagnosable results and shared models.
 
-The pure rewrite replaces only the affected source/target property slices; it never stringifies the whole YAML document. Body text and unaffected properties remain textually unchanged. In `preserve` mode, affected lists also retain every representable quote, comment, blank line, item style, and the input newline convention. Runtime drag writeback commits that minimal logical change through Obsidian's editor so unsaved text and undo history remain authoritative. Obsidian 1.12.7 serializes an edited CRLF/CR note as LF even for an ordinary manual edit; Property Order deliberately does not add a second Vault write to fight that host behavior.
+The pure rewrite replaces only the affected source/target property slices; it never stringifies the whole YAML document. Body text and unaffected properties remain textually unchanged. In `preserve` mode, affected lists also retain every representable quote, comment, blank line, item style, and the original physical line separators where possible. A growing block follows its local line-ending convention and keeps its final separator before the next key or closing delimiter. Runtime drag writeback commits that minimal logical change through Obsidian's editor so unsaved text and undo history remain authoritative. Obsidian 1.12.7 serializes an edited CRLF/CR note as LF even for an ordinary manual edit; Property Order deliberately does not add a second Vault write to fight that host behavior.
 
 Scalar parsing mirrors the YAML core-schema types exposed by Obsidian: null, boolean, number (including infinity and NaN), and string remain distinct, and Metadata/writeback conflict snapshots compare both kind and canonical value. The generic pure YAML API preserves these types by default. Runtime drag has already confirmed an Obsidian native multi-value text editor, so `text-list.ts` converts non-string items in every affected property into strings during a successful operation. Conversion uses original token spelling: `0xFF` becomes `"0xFF"`, not `"255"`, and an empty block item becomes `""`; existing string tokens retain their spelling under `preserve`.
 

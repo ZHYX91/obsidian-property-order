@@ -1,6 +1,6 @@
-import { detectNewline, extractFrontmatterBounds, splitLines } from "./bounds";
+import { extractFrontmatterBounds, physicalLines } from "./bounds";
 import { parseTopLevelPropertyLine } from "./property-line";
-import { findProperty } from "./rewrite";
+import { indexFrontmatterProperties } from "./property-reader";
 import type { FrontmatterDiagnosis } from "./types";
 
 export function diagnoseFrontmatterReorder(
@@ -13,10 +13,10 @@ export function diagnoseFrontmatterReorder(
     return "no_frontmatter";
   }
 
-  const lines = splitLines(frontmatter.body, detectNewline(frontmatter.body));
+  const lines = physicalLines(frontmatter.body);
   let hasMatchingProperty = false;
 
-  for (const line of lines) {
+  for (const { text: line } of lines) {
     const propertyLine = parseTopLevelPropertyLine(line);
 
     if (propertyLine == null || propertyLine.key !== propertyKey) {
@@ -31,5 +31,5 @@ export function diagnoseFrontmatterReorder(
     return "property_not_found";
   }
 
-  return findProperty(frontmatter.body, propertyKey) == null ? "unsupported_property" : "ok";
+  return indexFrontmatterProperties(frontmatter.body)(propertyKey) == null ? "unsupported_property" : "ok";
 }

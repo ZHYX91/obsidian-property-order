@@ -97,6 +97,7 @@ import {
   MOBILE_REORDER_ARM_TIMEOUT_MS,
   PropertyValueOrderController,
 } from "../../../src/features/value-order/value-drag-controller";
+import * as frontmatterBounds from "../../../src/core/frontmatter/bounds";
 import { getFrontmatterTextListPropertyValues } from "../../../src/core/frontmatter";
 import { TOUCH_LONG_PRESS_MS } from "../../../src/core/interaction/pointer-drag";
 import { createDefaultSettings } from "../../../src/shared/settings";
@@ -3133,6 +3134,43 @@ describe("PropertyValueOrderController", () => {
     });
     expect(harness.editor.transaction).not.toHaveBeenCalled();
     harness.cleanup();
+  });
+
+  it("reorders the YAML row even when the body repeats it after a mixed-line-ending delimiter", async () => {
+    const harness = createHarness();
+    try {
+      const source = "---\r\nintro: ok\r\nreal: y\nflow: [alpha, beta]\n---\nParagraph\r\nflow: [alpha, beta]\r\n---\r\nOutro";
+      harness.editor.setContent(source);
+      const draft = harness.controller.prepareKeyboardReorder(harness.leaf.containerEl);
+      expect(draft?.properties).toEqual([{ key: "flow", values: ["alpha", "beta"], canSource: true }]);
+      expect(await draft?.submit({ action: "down", sourceProperty: "flow", sourceIndex: 0 })).toBe(true);
+      expect(harness.editor.transaction).toHaveBeenCalledOnce();
+      expect(harness.editor.getContent()).toBe(source.replace("real: y\nflow: [alpha, beta]", "real: y\nflow: [beta, alpha]"));
+    } finally {
+      harness.cleanup();
+    }
+  });
+
+  it("reads one Markdown snapshot when preparing a keyboard draft with many visible rows", () => {
+    const harness = createHarness();
+    const row = harness.container.closest<HTMLElement>(".metadata-property")!;
+    const yaml = ["flow: [alpha, beta]"];
+    for (let n = 1; n < 80; n++) {
+      const copy = row.cloneNode(true) as HTMLElement;
+      copy.dataset.propertyKey = "row" + n;
+      row.after(copy);
+      yaml.push("row" + n + ": [alpha, beta]");
+    }
+    harness.editor.setContent(["---", ...yaml, "---", "body"].join("\n"));
+    const reads = vi.spyOn(frontmatterBounds, "extractFrontmatterBounds");
+    try {
+      const draft = harness.controller.prepareKeyboardReorder(harness.leaf.containerEl);
+      expect(draft?.properties).toHaveLength(80);
+      expect(reads).toHaveBeenCalledTimes(1);
+    } finally {
+      reads.mockRestore();
+      harness.cleanup();
+    }
   });
 
   it("rejects a dragged value changed in the editor before release", async () => {

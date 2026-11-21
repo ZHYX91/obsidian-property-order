@@ -16,6 +16,7 @@ import {
   type SupportedPointerType,
 } from "../../core/interaction/pointer-drag";
 import {
+  createTextListReader,
   getFrontmatterListPropertyScalars,
 } from "../../core/frontmatter";
 import { t, type TranslationKey } from "../../shared/i18n";
@@ -186,8 +187,9 @@ export class PropertyValueOrderController {
     const pane = resolvePaneFileContext(this.plugin, paneElement);
     const expectedContent = pane === null ? null : this.readExpectedContent(pane.editor);
     if (pane === null || expectedContent === null) return null;
+    const read = createTextListReader(expectedContent);
     const choices = new Map(getVisiblePropertyListContexts(pane.container).flatMap((context) => {
-      const aligned = readAlignedPropertyList(context, expectedContent);
+      const aligned = readAlignedPropertyList(context, read);
       if (aligned === null) return [];
       const property = Object.freeze({
         key: context.propertyKey, values: Object.freeze(aligned.values), canSource: aligned.canSource,

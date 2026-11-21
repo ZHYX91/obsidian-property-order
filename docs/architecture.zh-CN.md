@@ -41,7 +41,8 @@ translation_status: source
 
 `src/core/frontmatter/index.ts` 只暴露稳定的公开 API，职责由以下文件承担：
 
-- `bounds.ts`：BOM、frontmatter 起止边界和 LF/CRLF/CR 换行识别。
+- `bounds.ts` 按物理行读取到第一个闭合分隔线，识别 BOM，并逐行区分 LF、CRLF 和 CR。
+- `property-reader.ts` 为一份不可变的 frontmatter 快照建立顶层属性键和 UTF-16 偏移索引。重复键没有可编辑条目。键盘排序与多行对齐检查可用同一份索引读取各个可见属性。
 - `property-line.ts`：扫描顶层属性头，安全解码带引号的键，并支持键名中的冒号。
 - `flow-list.ts`：中括号列表扫描和安全分隔。
 - `block-list.ts`：无序列表项目、注释、空行和项目样式识别。
@@ -50,7 +51,7 @@ translation_status: source
 - `rewrite.ts`：同属性排序、跨属性移动和目标格式选择。
 - `diagnostics.ts`、`types.ts`：可诊断结果与共享模型。
 
-纯写回只替换受影响的 source/target 属性片段，不对整个 YAML 文档 stringify。frontmatter 之外的正文和未受影响属性保持文本不变；`preserve` 模式还应保留受影响列表可保留的引号、注释、空行、项目样式和输入换行。真实拖拽通过 Obsidian editor 提交最小逻辑变更，以未保存正文和撤销历史为准。Obsidian 1.12.7 即使进行普通手动编辑，也会把已编辑的 CRLF/CR 笔记序列化为 LF；Property Order 不为对抗该宿主行为再追加第二次 Vault 写入。
+纯写回只替换受影响的 source/target 属性片段，不对整个 YAML 文档 stringify。frontmatter 之外的正文和未受影响属性保持文本不变；`preserve` 模式还应保留受影响列表可保留的引号、注释、空行、项目样式和各物理行原有的换行符。列表增加行时沿用所在属性的换行方式，并保留下一属性或闭合分隔线前的末尾换行。真实拖拽通过 Obsidian editor 提交最小逻辑变更，以未保存正文和撤销历史为准。Obsidian 1.12.7 即使进行普通手动编辑，也会把已编辑的 CRLF/CR 笔记序列化为 LF；Property Order 不为对抗该宿主行为再追加第二次 Vault 写入。
 
 标量解析与 Obsidian 暴露的 YAML core schema 类型保持一致：null、boolean、number（包括 infinity/NaN）和 string 必须彼此区分，Metadata/writeback 冲突快照同时比较标量类型和规范值。通用纯 YAML API 默认保留这些类型；真实拖拽已由 Obsidian 原生多值编辑器确认是文本列表，因此在成功操作中由 `text-list.ts` 把受影响属性的非字符串项目转换成字符串。转换使用原始 token：`0xFF` 变成 `"0xFF"` 而不是 `"255"`，空 block 项变成 `""`；已有字符串 token 在 `preserve` 下保持原写法。
 

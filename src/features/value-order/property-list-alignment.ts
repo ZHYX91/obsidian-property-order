@@ -1,4 +1,4 @@
-import { getFrontmatterListPropertyScalars, getFrontmatterTextListProperty, getFrontmatterTextListPropertyValues, type FrontmatterScalar } from "../../core/frontmatter";
+import { getFrontmatterListPropertyScalars, createTextListReader, type FrontmatterScalar } from "../../core/frontmatter";
 import { findPropertyListContextByKey, getListTypeMismatchDisplayValue, getPropertyPillValueEvidence, type PropertyContainerContext } from "../../obsidian/properties-dom";
 import { arePropertyListValuesAligned } from "./value-alignment";
 
@@ -6,25 +6,24 @@ export function isSourceContextAlignedWithContent(
   context: PropertyContainerContext,
   content: string,
 ): boolean {
-  return readAlignedPropertyList(context, content)?.canSource === true;
+  return readAlignedPropertyList(context, createTextListReader(content))?.canSource === true;
 }
 
 export function isTargetContextAlignedWithContent(
   context: PropertyContainerContext,
   content: string,
 ): boolean {
-  return readAlignedPropertyList(context, content) !== null;
+  return readAlignedPropertyList(context, createTextListReader(content)) !== null;
 }
 
-export function readAlignedPropertyList(context: PropertyContainerContext, content: string) {
-  if (context.editorKind === "multi-select") {
-    const values = getFrontmatterTextListPropertyValues(content, context.propertyKey);
-    return values !== null && arePropertyListValuesAligned(values, getPropertyPillValueEvidence(context))
-      ? { values, canSource: true } : null;
-  }
-  const property = getFrontmatterTextListProperty(content, context.propertyKey);
+export function readAlignedPropertyList(context: PropertyContainerContext, read: ReturnType<typeof createTextListReader>) {
+  const property = read(context.propertyKey);
   if (property === null) return null;
   const { values, scalars } = property;
+  if (context.editorKind === "multi-select") {
+    return arePropertyListValuesAligned(values, getPropertyPillValueEvidence(context))
+      ? { values, canSource: true } : null;
+  }
   const display = getListTypeMismatchDisplayValue(context);
   if (display === null || !matchesMismatchDisplay(values, scalars, display)) return null;
   return { values, canSource: values.length <= 1 };
@@ -35,11 +34,12 @@ export function arePropertiesAlignedWithContent(
   propertyKeys: readonly string[],
   content: string,
 ): boolean {
+  const read = createTextListReader(content);
   return propertyKeys.every((propertyKey) => {
     const context = findPropertyListContextByKey(paneContainer, propertyKey);
     return (
       context != null &&
-      isTargetContextAlignedWithContent(context, content)
+      readAlignedPropertyList(context, read) !== null
     );
   });
 }
