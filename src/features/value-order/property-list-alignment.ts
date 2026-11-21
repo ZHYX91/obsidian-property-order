@@ -1,4 +1,4 @@
-import { getFrontmatterListPropertyScalars, getFrontmatterTextListPropertyValues, type FrontmatterScalar } from "../../core/frontmatter";
+import { getFrontmatterListPropertyScalars, getFrontmatterTextListProperty, getFrontmatterTextListPropertyValues, type FrontmatterScalar } from "../../core/frontmatter";
 import { findPropertyListContextByKey, getListTypeMismatchDisplayValue, getPropertyPillValueEvidence, type PropertyContainerContext } from "../../obsidian/properties-dom";
 import { arePropertyListValuesAligned } from "./value-alignment";
 
@@ -6,44 +6,28 @@ export function isSourceContextAlignedWithContent(
   context: PropertyContainerContext,
   content: string,
 ): boolean {
-  return isListContextAlignedWithContent(context, content, false);
+  return readAlignedPropertyList(context, content)?.canSource === true;
 }
 
 export function isTargetContextAlignedWithContent(
   context: PropertyContainerContext,
   content: string,
 ): boolean {
-  return isListContextAlignedWithContent(context, content, true);
+  return readAlignedPropertyList(context, content) !== null;
 }
 
-export function isListContextAlignedWithContent(
-  context: PropertyContainerContext,
-  content: string,
-  allowMultipleMismatchValues: boolean,
-): boolean {
-  if (context.editorKind === "list-type-mismatch") {
-    return isListTypeMismatchContextAlignedWithContent(
-      context,
-      content,
-      allowMultipleMismatchValues,
-    );
+export function readAlignedPropertyList(context: PropertyContainerContext, content: string) {
+  if (context.editorKind === "multi-select") {
+    const values = getFrontmatterTextListPropertyValues(content, context.propertyKey);
+    return values !== null && arePropertyListValuesAligned(values, getPropertyPillValueEvidence(context))
+      ? { values, canSource: true } : null;
   }
-
-  return isMultiSelectContextAlignedWithContent(context, content);
-}
-
-export function isMultiSelectContextAlignedWithContent(
-  context: PropertyContainerContext,
-  content: string,
-): boolean {
-  if (context.editorKind !== "multi-select") {
-    return false;
-  }
-
-  const expectedValues = getFrontmatterTextListPropertyValues(content, context.propertyKey);
-  const visibleValues = getPropertyPillValueEvidence(context);
-
-  return arePropertyListValuesAligned(expectedValues, visibleValues);
+  const property = getFrontmatterTextListProperty(content, context.propertyKey);
+  if (property === null) return null;
+  const { values, scalars } = property;
+  const display = getListTypeMismatchDisplayValue(context);
+  if (display === null || !matchesMismatchDisplay(values, scalars, display)) return null;
+  return { values, canSource: values.length <= 1 };
 }
 
 export function arePropertiesAlignedWithContent(
@@ -55,37 +39,16 @@ export function arePropertiesAlignedWithContent(
     const context = findPropertyListContextByKey(paneContainer, propertyKey);
     return (
       context != null &&
-      isListContextAlignedWithContent(context, content, true)
+      isTargetContextAlignedWithContent(context, content)
     );
   });
 }
 
-
-function isListTypeMismatchContextAlignedWithContent(
-  context: PropertyContainerContext,
-  content: string,
-  allowMultipleValues: boolean,
+function matchesMismatchDisplay(
+  expectedTextValues: readonly string[],
+  expectedScalars: readonly FrontmatterScalar[],
+  displayedValue: string,
 ): boolean {
-  const expectedTextValues = getFrontmatterTextListPropertyValues(
-    content,
-    context.propertyKey,
-  );
-  const expectedScalars = getFrontmatterListPropertyScalars(
-    content,
-    context.propertyKey,
-    true,
-  );
-  const displayedValue = getListTypeMismatchDisplayValue(context);
-
-  if (
-    expectedTextValues == null ||
-    expectedScalars == null ||
-    displayedValue == null ||
-    expectedTextValues.length !== expectedScalars.length
-  ) {
-    return false;
-  }
-
   if (expectedTextValues.length === 0) {
     return displayedValue === "" || displayedValue === "null" || displayedValue === "~";
   }
@@ -96,10 +59,6 @@ function isListTypeMismatchContextAlignedWithContent(
       expectedScalar != null &&
       (displayedValue === expectedTextValues[0] || displayedValue === expectedScalar.value)
     );
-  }
-
-  if (!allowMultipleValues) {
-    return false;
   }
 
   const displayedScalars = parseMismatchDisplayScalars(displayedValue);

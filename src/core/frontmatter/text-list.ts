@@ -26,13 +26,13 @@ function normalizeTextListItem(item: PropertyItem): void {
 }
 
 function normalizeFlowItem(item: ListItemToken): void {
-  const scalar = toRawTextScalar(item.raw);
+  const scalar: FrontmatterScalar = { kind: "string", value: textListItemValue(item) };
   item.raw = serializeNormalizedScalar(scalar);
   item.scalar = scalar;
 }
 
 function normalizeBlockItem(item: BlockItemToken): void {
-  const scalar = toRawTextScalar(item.rawValue);
+  const scalar: FrontmatterScalar = { kind: "string", value: textListItemValue(item) };
   const rawValue = serializeNormalizedScalar(scalar);
   const dashSpace = item.dashSpace.length > 0 ? item.dashSpace : " ";
   item.dashSpace = dashSpace;
@@ -43,9 +43,9 @@ function normalizeBlockItem(item: BlockItemToken): void {
   item.scalar = scalar;
 }
 
-function toRawTextScalar(raw: string): FrontmatterScalar {
-  return {
-    kind: "string",
-    value: trimYamlSeparationWhitespace(raw),
-  };
+/** Text properties display the original spelling of a non-string YAML scalar. */
+export function textListItemValue(item: PropertyItem): string {
+  return item.scalar.kind === "string"
+    ? item.scalar.value
+    : trimYamlSeparationWhitespace("raw" in item ? item.raw : item.rawValue);
 }

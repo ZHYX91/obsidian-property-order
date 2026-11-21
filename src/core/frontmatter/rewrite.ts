@@ -22,7 +22,7 @@ import {
   trimStartYamlSeparationWhitespace,
   trimYamlSeparationWhitespace,
 } from "./scalar";
-import { normalizeTextListItems } from "./text-list";
+import { normalizeTextListItems, textListItemValue } from "./text-list";
 import type {
   FlowPropertyMatch,
   FrontmatterRewritePlan,
@@ -181,20 +181,23 @@ export function planFrontmatterListPropertyMove(
   ]);
 }
 
+function readListProperty(
+  content: string,
+  propertyKey: string,
+  coerceScalarToList: boolean,
+): PropertyMatch | null {
+  const frontmatter = extractFrontmatterBounds(content);
+  if (frontmatter == null) return null;
+  return findProperty(frontmatter.body, propertyKey) ??
+    (coerceScalarToList ? findCoercibleScalarProperty(frontmatter.body, propertyKey) : null);
+}
+
 export function getFrontmatterListPropertyValues(
   content: string,
   propertyKey: string,
   coerceScalarToList = false,
 ): string[] | null {
-  const frontmatter = extractFrontmatterBounds(content);
-  const property =
-    frontmatter == null
-      ? null
-      : findProperty(frontmatter.body, propertyKey) ??
-        (coerceScalarToList
-          ? findCoercibleScalarProperty(frontmatter.body, propertyKey)
-          : null);
-  return property == null ? null : property.items.map((item) => item.scalar.value);
+  return readListProperty(content, propertyKey, coerceScalarToList)?.items.map((item) => item.scalar.value) ?? null;
 }
 
 export function getFrontmatterListPropertyScalars(
@@ -202,31 +205,19 @@ export function getFrontmatterListPropertyScalars(
   propertyKey: string,
   coerceScalarToList = false,
 ): FrontmatterScalar[] | null {
-  const frontmatter = extractFrontmatterBounds(content);
-  const property =
-    frontmatter == null
-      ? null
-      : findProperty(frontmatter.body, propertyKey) ??
-        (coerceScalarToList
-          ? findCoercibleScalarProperty(frontmatter.body, propertyKey)
-          : null);
-  return property == null ? null : property.items.map((item) => item.scalar);
+  return readListProperty(content, propertyKey, coerceScalarToList)?.items.map((item) => item.scalar) ?? null;
 }
 
-export function getFrontmatterTextListPropertyValues(
-  content: string,
-  propertyKey: string,
-): string[] | null {
-  const frontmatter = extractFrontmatterBounds(content);
-  const property =
-    frontmatter == null
-      ? null
-      : findProperty(frontmatter.body, propertyKey) ??
-        findCoercibleScalarProperty(frontmatter.body, propertyKey);
+export function getFrontmatterTextListPropertyValues(content: string, propertyKey: string): string[] | null {
+  return readListProperty(content, propertyKey, true)?.items.map(textListItemValue) ?? null;
+}
 
-  return property == null
-    ? null
-    : normalizeTextListItems(property.items).map((item) => item.scalar.value);
+export function getFrontmatterTextListProperty(content: string, propertyKey: string) {
+  const property = readListProperty(content, propertyKey, true);
+  return property == null ? null : {
+    values: property.items.map(textListItemValue),
+    scalars: property.items.map((item) => item.scalar),
+  };
 }
 
 function findCoercibleScalarProperty(

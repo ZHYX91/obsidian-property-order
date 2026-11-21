@@ -2,6 +2,7 @@ export { diagnoseFrontmatterReorder } from "./diagnostics";
 export {
   getFrontmatterListPropertyScalars,
   getFrontmatterListPropertyValues,
+  getFrontmatterTextListProperty,
   getFrontmatterTextListPropertyValues,
   moveFrontmatterListPropertyValue,
   planFrontmatterListPropertyMove,

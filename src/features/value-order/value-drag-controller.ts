@@ -17,7 +17,6 @@ import {
 } from "../../core/interaction/pointer-drag";
 import {
   getFrontmatterListPropertyScalars,
-  getFrontmatterTextListPropertyValues,
 } from "../../core/frontmatter";
 import { t, type TranslationKey } from "../../shared/i18n";
 import type { PropertyOrderSettings } from "../../shared/types";
@@ -58,7 +57,7 @@ import {
 } from "./writeback";
 import { addMobileReorderMenuItem } from "./mobile-reorder-menu";
 import { PropertyValueReconciler } from "./property-value-reconciler";
-import { isSourceContextAlignedWithContent, isTargetContextAlignedWithContent } from "./property-list-alignment";
+import { isSourceContextAlignedWithContent, isTargetContextAlignedWithContent, readAlignedPropertyList } from "./property-list-alignment";
 import type { KeyboardReorderDraft } from "./keyboard-reorder";
 import type { ValueEditSession } from "./value-edit-session";
 
@@ -187,13 +186,15 @@ export class PropertyValueOrderController {
     const pane = resolvePaneFileContext(this.plugin, paneElement);
     const expectedContent = pane === null ? null : this.readExpectedContent(pane.editor);
     if (pane === null || expectedContent === null) return null;
-    const contexts = getVisiblePropertyListContexts(pane.container)
-      .filter((context) => isTargetContextAlignedWithContent(context, expectedContent));
-    const properties = Object.freeze(contexts.map((context) => Object.freeze({
-      key: context.propertyKey,
-      values: Object.freeze(getFrontmatterTextListPropertyValues(expectedContent, context.propertyKey) ?? []),
-      canSource: isSourceContextAlignedWithContent(context, expectedContent),
-    })));
+    const choices = new Map(getVisiblePropertyListContexts(pane.container).flatMap((context) => {
+      const aligned = readAlignedPropertyList(context, expectedContent);
+      if (aligned === null) return [];
+      const property = Object.freeze({
+        key: context.propertyKey, values: Object.freeze(aligned.values), canSource: aligned.canSource,
+      });
+      return [[context.propertyKey, { context, property }] as const];
+    }));
+    const properties = Object.freeze(Array.from(choices.values(), (choice) => choice.property));
     if (!properties.some((property) => property.canSource && property.values.length > 0)) {
       new Notice(this.t("keyboard.unavailable"));
       return null;
@@ -221,16 +222,20 @@ export class PropertyValueOrderController {
           new Notice(this.t("notice.contentChanged"));
           return false;
         }
-        const source = contexts.find((context) => context.propertyKey === request.sourceProperty);
-        const values = properties.find((property) => property.key === request.sourceProperty);
-        if (source === undefined || values?.canSource !== true || !Number.isInteger(request.sourceIndex) ||
+        const choice = choices.get(request.sourceProperty);
+        if (choice === undefined) return false;
+        const { context: source, property: values } = choice;
+        if (!values.canSource || !Number.isInteger(request.sourceIndex) ||
             request.sourceIndex < 0 || request.sourceIndex >= values.values.length) return false;
         const pill = source.editorKind === "list-type-mismatch" ? source.container : source.pills[request.sourceIndex];
         if (pill === undefined) return false;
-        const destination = request.action === "move"
-          ? contexts.find((context) => context.propertyKey === request.targetProperty)
-          : source;
-        if (destination === undefined || (request.action === "move" && destination === source)) return false;
+        let destination = source;
+        if (request.action === "move") {
+          if (request.targetProperty === undefined) return false;
+          const target = choices.get(request.targetProperty);
+          if (target === undefined || target.context === source) return false;
+          destination = target.context;
+        }
         let slot: number | "append" = "append";
         if (request.action !== "move") {
           const targetIndex = request.action === "up" ? request.sourceIndex - 1

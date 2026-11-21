@@ -3350,13 +3350,14 @@ describe("PropertyValueOrderController", () => {
     harness.cleanup();
   });
 
-  it.each(["hidden", "aria", "display", "duplicate", "unsupported"])("does not offer hidden or ambiguous native lists: %s", (change) => {
+  it.each(["hidden", "aria", "display", "duplicate", "duplicate-scalar", "unsupported"])("does not offer hidden or ambiguous native lists: %s", (change) => {
     const harness = createHarness();
     const property = harness.container.closest<HTMLElement>(".metadata-property");
     if (change === "hidden" && property) property.hidden = true;
     if (change === "aria") property?.setAttribute("aria-hidden", "true");
     if (change === "display" && property) property.style.display = "none";
     if (change === "duplicate" && property) property.after(property.cloneNode(true));
+    if (change === "duplicate-scalar") addScalarProperty(harness, "flow");
     if (change === "unsupported") harness.editor.setContent("---\nflow: [{nested: alpha}, beta]\n---\n");
     expect(harness.controller.prepareKeyboardReorder(harness.leaf.containerEl)).toBeNull();
     expect(harness.editor.transaction).not.toHaveBeenCalled();
