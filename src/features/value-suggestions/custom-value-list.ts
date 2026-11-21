@@ -23,10 +23,9 @@ export function renderCustomValueList(
   let rowHeight = 32;
   let firstRendered = -1;
   let lastViewportHeight: number | null = null;
-  if (windowed) {
-    container.id = id;
-    input.setAttribute("aria-controls", [previousControls, id].filter(Boolean).join(" "));
-  }
+  container.id = id;
+  input.setAttribute("aria-controls", [previousControls, id].filter(Boolean).join(" "));
+  input.setAttribute("aria-activedescendant", `${id}-${selected}`);
 
   const addRow = (index: number): void => {
     if (rows.has(index)) return;
@@ -38,8 +37,8 @@ export function renderCustomValueList(
     row.dataset.propertyOrderIndex = String(index);
     row.setAttribute("role", "option");
     row.setAttribute("aria-selected", String(index === selected));
+    row.id = `${id}-${index}`;
     if (windowed) {
-      row.id = `${id}-${index}`;
       row.setAttribute("aria-setsize", String(values.length));
       row.setAttribute("aria-posinset", String(index + 1));
       row.style.top = `${index * rowHeight}px`;
@@ -137,21 +136,24 @@ export function renderCustomValueList(
       return () => observer.disconnect();
     },
     navigate(target: TargetIndex): boolean {
-      if (!windowed) return false;
-      const pageSize = Math.max(1, Math.floor(container.clientHeight / rowHeight) - 1);
       const old = rows.get(selected);
+      const height = windowed ? rowHeight : old?.getBoundingClientRect().height ?? 0;
+      const pageSize = height > 0 ? Math.max(1, Math.floor(container.clientHeight / height) - 1) : 1;
       old?.setAttribute("aria-selected", "false");
       old?.classList.remove("is-selected");
       selected = target(selected, values.length, pageSize);
-      revealSelection();
+      if (windowed) revealSelection();
       const active = rows.get(selected)!;
+      if (!windowed) {
+        active.scrollIntoView?.({ block: "nearest" });
+        input.setAttribute("aria-activedescendant", active.id);
+      }
       active.setAttribute("aria-selected", "true");
       active.classList.add("is-selected");
       return true;
     },
     cleanup(): void {
-      if (!windowed) return;
-      container.removeEventListener("scroll", renderWindow);
+      if (windowed) container.removeEventListener("scroll", renderWindow);
       if (input.getAttribute("aria-activedescendant") === `${id}-${selected}`) {
         if (previousActive == null) input.removeAttribute("aria-activedescendant");
         else input.setAttribute("aria-activedescendant", previousActive);

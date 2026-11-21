@@ -359,7 +359,7 @@ function asElement(target: EventTarget | null): Element | null {
     : null;
 }
 
-function resolvePropertyKey(propertyElement: HTMLElement): string | null {
+export function resolvePropertyKey(propertyElement: HTMLElement): string | null {
   const attributeCandidates = [
     propertyElement.getAttribute("data-property-key"),
     propertyElement.dataset.propertyKey,

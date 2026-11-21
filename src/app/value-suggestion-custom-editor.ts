@@ -1,3 +1,4 @@
+import { normalizePropertyKeyIdentity } from "../core/suggestions/property-names";
 import { Setting, type App } from "obsidian";
 
 import {
@@ -328,7 +329,7 @@ export function renderCustomValueSuggestionEditor(
 }
 
 function equalKey(left: string, right: string): boolean {
-  return left.trim().toLocaleLowerCase() === right.trim().toLocaleLowerCase();
+  return normalizePropertyKeyIdentity(left) === normalizePropertyKeyIdentity(right);
 }
 
 function isMiddleSortMode(value: string): value is ValueSuggestionMiddleSortMode {

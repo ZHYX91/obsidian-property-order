@@ -1,3 +1,4 @@
+import { normalizePropertyKeyIdentity } from "../../core/suggestions/property-names";
 import {
   applyNativeChildMutation,
   createAppliedState,
@@ -1252,9 +1253,9 @@ export class ValueSuggestionOrderController {
 
   private shouldTrackPropertyValueFrequency(propertyKey: string): boolean {
     const settings = this.getSettings();
-    const normalizedKey = propertyKey.trim().toLocaleLowerCase();
+    const normalizedKey = normalizePropertyKeyIdentity(propertyKey);
     const assignment = settings.valueSuggestionPropertyAssignments.find(
-      (candidate) => candidate.propertyKey.trim().toLocaleLowerCase() === normalizedKey,
+      (candidate) => normalizePropertyKeyIdentity(candidate.propertyKey) === normalizedKey,
     );
     const behavior = assignment?.behavior ?? settings.valueSuggestionDefaultBehavior;
 
@@ -1268,7 +1269,7 @@ export class ValueSuggestionOrderController {
 
     return settings.valueSuggestionCustomOrders.some(
       (order) =>
-        order.propertyKey.trim().toLocaleLowerCase() === normalizedKey &&
+        normalizePropertyKeyIdentity(order.propertyKey) === normalizedKey &&
         order.middleSortMode === "frequency",
     );
   }
@@ -1353,5 +1354,5 @@ function getPropertyValueSuggestionElements(container: HTMLElement): HTMLElement
 }
 
 function equalPropertyKey(left: string, right: string): boolean {
-  return left.trim().toLocaleLowerCase() === right.trim().toLocaleLowerCase();
+  return normalizePropertyKeyIdentity(left) === normalizePropertyKeyIdentity(right);
 }

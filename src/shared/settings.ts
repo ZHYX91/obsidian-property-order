@@ -1,5 +1,5 @@
 import { isSupportedPluginLocale } from "./locale-catalog";
-import { normalizePropertyKeyIdentity } from "../core/suggestions/property-names";
+import { normalizePropertyKeyIdentity, trimPropertyKey } from "../core/suggestions/property-names";
 import { createWildcardMatcher } from "../core/suggestions/wildcard";
 
 import type {
@@ -300,7 +300,7 @@ function normalizeStringList(value: unknown): string[] {
     new Set(
       value
         .filter((item): item is string => typeof item === "string")
-        .map((item) => item.trim())
+        .map(trimPropertyKey)
         .filter(Boolean),
     ),
   );
@@ -395,7 +395,7 @@ function normalizePropertyKey(value: unknown): string | null {
     return null;
   }
 
-  const propertyKey = value.trim();
+  const propertyKey = trimPropertyKey(value);
   return propertyKey.length === 0 ? null : propertyKey;
 }
 
@@ -521,7 +521,7 @@ function migrateLegacyValueSuggestionModel(
       continue;
     }
 
-    const propertyKey = rawRule.slice(0, separatorIndex).trim();
+    const propertyKey = trimPropertyKey(rawRule.slice(0, separatorIndex));
     const legacyBehavior = rawRule.slice(separatorIndex + 1).trim();
     if (propertyKey.length === 0 ||
         !["native", "name", "recent", "usage", "none"].includes(legacyBehavior)) {

@@ -1,3 +1,4 @@
+import { trimPropertyKey } from "../../core/suggestions/property-names";
 import type { App } from "obsidian";
 
 export const RECENT_PROPERTY_KEY_STORAGE_KEY =
@@ -133,6 +134,6 @@ function normalizeKeys(values: readonly unknown[]): string[] {
 }
 
 function normalizeKey(value: string): string | null {
-  const key = value.trim();
+  const key = trimPropertyKey(value);
   return key.length === 0 ? null : key;
 }

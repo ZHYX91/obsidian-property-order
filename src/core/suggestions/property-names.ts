@@ -90,7 +90,7 @@ function dedupePropertyNames(values: string[]): string[] {
   const result: string[] = [];
 
   for (const rawValue of values) {
-    const value = rawValue.trim();
+    const value = trimPropertyKey(rawValue);
 
     if (value.length === 0 || seen.has(value)) {
       continue;
@@ -111,6 +111,11 @@ function compareCodePoints(left: string, right: string): number {
   return left < right ? -1 : 1;
 }
 
+/** Plain YAML keys retain non-breaking and ideographic spaces as data. */
+export function trimPropertyKey(value: string): string {
+  return value.replace(/^[ \t\r\n]+|[ \t\r\n]+$/g, "");
+}
+
 export function normalizePropertyKeyIdentity(key: string): string {
-  return key.trim().toLocaleLowerCase();
+  return trimPropertyKey(key).toLocaleLowerCase();
 }

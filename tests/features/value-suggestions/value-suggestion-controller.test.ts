@@ -7,7 +7,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { PropertyValueFrequencyStore } from "../../../src/features/value-suggestions/property-value-frequency-store";
 import { ValueSuggestionOrderController } from "../../../src/features/value-suggestions/value-suggestion-controller";
 import { getCachedPropertyValueUsage } from "../../../src/obsidian/metadata";
-import { createDefaultSettings } from "../../../src/shared/settings";
+import { createDefaultSettings, normalizeSettings } from "../../../src/shared/settings";
 import type { PropertyOrderSettings } from "../../../src/shared/types";
 
 interface RafHarness {
@@ -731,6 +731,36 @@ describe("ValueSuggestionOrderController", () => {
     expect(getCachedPropertyValueUsage(app, "status")).toEqual([]);
     controller.dispose();
     expect(offref).toHaveBeenCalledWith({ name: "rename" });
+  });
+
+  it.each(["status\u00a0", "\u3000status"])("uses the authored key %j for its own rules and cached candidates", (spaced) => {
+    const raf = installRafHarness();
+    const file = { path: "One.md" } as TFile;
+    const app = createApp({
+      files: [file],
+      frontmatterByFile: new Map([[file, { status: "Draft", [spaced]: "Invoiced" }]]),
+    });
+    const settings = normalizeSettings({
+      ...createDefaultSettings(),
+      enableNativeValueSuggestionOrder: true,
+      valueSuggestionPropertyAssignments: [
+        { propertyKey: "status", behavior: "none" }, { propertyKey: spaced, behavior: "custom" },
+      ],
+      valueSuggestionCustomOrders: [
+        { propertyKey: spaced, middleSortMode: "note-count", pinnedValues: ["Preset"] },
+      ],
+    });
+    const { container, row } = createValueMenu([], "status");
+    container.remove();
+    row.createDiv({ cls: "metadata-property-key" }).createEl("input").value = spaced;
+    const controller = createController(settings, app);
+    controller.initialize();
+    raf.flush();
+
+    const popup = document.querySelector<HTMLElement>(".property-order-custom-value-popup");
+    expect(popup).not.toBeNull();
+    expect(visibleValues(popup!)).toEqual(["Preset", "Invoiced"]);
+    expect(getCachedPropertyValueUsage(app, "status")).toEqual([{ value: "Draft", count: 1 }]);
   });
 
   it("preserves a non-first fallback selection across metadata refresh and commits it", () => {

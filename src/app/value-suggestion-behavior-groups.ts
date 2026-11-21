@@ -6,7 +6,7 @@ import {
   movePropertyValueBehavior,
   removePropertyValueBehavior,
 } from "../core/suggestions/value-behavior";
-import { getPropertyNameSuggestions } from "../core/suggestions/property-names";
+import { getPropertyNameSuggestions, trimPropertyKey } from "../core/suggestions/property-names";
 import { getCachedPropertyKeyUsage } from "../obsidian/metadata";
 import type {
   PropertyValueBehaviorAssignment,
@@ -146,7 +146,7 @@ export function renderValueSuggestionBehaviorGroups(
       await pendingSave;
     };
     const addProperty = async (rawKey: string): Promise<void> => {
-      const key = rawKey.trim();
+      const key = trimPropertyKey(rawKey);
       if (!key || closed) return;
       const current = getPropertyValueBehavior(options.getAssignments(), key);
       if (current != null && current !== behavior &&
