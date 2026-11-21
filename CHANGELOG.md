@@ -3,6 +3,12 @@
 All notable changes to Property Order are documented in this file. Release versions and dates
 follow the repository's Git tags; entries summarize the corresponding commit history.
 
+## [0.12.3]
+
+- Keep suggestions and usage counts separate for property names that differ by a non-breaking or ideographic space.
+- Expose the active option in short value-suggestion lists to screen readers and restore the input attributes when the list closes.
+- Use the theme accent for format examples and legacy-rule details.
+
 ## [0.12.2]
 
 ### Changed

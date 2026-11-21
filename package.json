@@ -1,6 +1,6 @@
 {
   "name": "obsidian-property-order",
-  "version": "0.12.2",
+  "version": "0.12.3",
   "description": "Reorder property values and customize native property name and value suggestions.",
   "main": "dist/main.js",
   "scripts": {
@@ -33,7 +33,7 @@
     "prelint": "node scripts/check-shared-tools.mjs && node scripts/prepare-lint-dependencies.mjs && node scripts/check-lint-dependencies.mjs",
     "check:tools": "node scripts/check-shared-tools.mjs",
     "test:tools": "vitest run tests/scripts/shared-maintenance-tools.test.ts",
-    "prebuild": "node scripts/check-runtime.mjs"
+    "prebuild": "node scripts/check-runtime.mjs --build"
   },
   "keywords": [
     "obsidian",
