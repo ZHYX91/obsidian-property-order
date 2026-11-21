@@ -178,7 +178,7 @@ describe("Value suggestion settings persistence", () => {
     const active = harness.container.querySelector<HTMLElement>('[role="tab"][aria-selected="true"]');
     active?.dispatchEvent(new KeyboardEvent("keydown", { key: "ArrowLeft", bubbles: true }));
     const next = harness.container.querySelector<HTMLElement>('[role="tab"][aria-selected="true"]');
-    expect(next?.id).toBe("property-order-settings-tab-valueDrag");
+    expect(next?.dataset.tabId).toBe("valueDrag");
     expect(document.activeElement).toBe(next);
     next?.dispatchEvent(new KeyboardEvent("keydown", { key: "Home", bubbles: true }));
 
