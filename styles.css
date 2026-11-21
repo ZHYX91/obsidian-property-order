@@ -673,9 +673,15 @@ body.property-order-value-drag-enabled .metadata-property .multi-select-pill {
   min-inline-size: 0;
   container-type: inline-size;
   margin: 0;
+}
+
+.property-order-help-disclosure {
+  background-color: var(--background-primary);
+  background-color: color-mix(in srgb, var(--interactive-accent) 5%, var(--background-primary));
+  border: 1px solid var(--background-modifier-border);
+  border-radius: var(--radius-s);
+  box-sizing: border-box;
   padding: 0;
-  border: 0;
-  background: transparent;
 }
 
 .property-order-help-disclosure > summary {
@@ -686,6 +692,7 @@ body.property-order-value-drag-enabled .metadata-property .multi-select-pill {
   box-sizing: border-box;
   min-block-size: 32px;
   padding-block: 0.35em;
+  padding-inline: 8px;
   align-content: center;
   color: var(--text-muted);
   font-size: var(--font-ui-small);
@@ -706,8 +713,9 @@ body.property-order-value-drag-enabled .metadata-property .multi-select-pill {
   content: "";
   justify-self: center;
   box-sizing: border-box;
-  inline-size: 7px;
-  block-size: 7px;
+  inline-size: 8px;
+  block-size: 8px;
+  color: var(--interactive-accent);
   border-right: 1.5px solid currentColor;
   border-bottom: 1.5px solid currentColor;
   transform: translateY(-0.1em) rotate(-45deg);
@@ -740,9 +748,32 @@ body.property-order-value-drag-enabled .metadata-property .multi-select-pill {
   }
 }
 
+@media (forced-colors: active) {
+  .property-order-help-disclosure > summary:focus-visible {
+    outline-color: Highlight;
+  }
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .property-order-help-disclosure > summary::before {
+    transition: transform 120ms ease;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .property-order-help-disclosure > summary::before {
+    transition: none;
+  }
+}
+
+.property-order-help-disclosure[open] > :is(.property-order-format-example-body, .property-order-legacy-value-rules) {
+  border-inline-start: 2px solid var(--interactive-accent);
+  margin-inline: 14px 8px;
+  padding-inline-start: 10px;
+}
+
 .property-order-format-example-body {
   margin-block: 6px 12px;
-  margin-inline-start: 18px;
   min-inline-size: 0;
   color: var(--text-normal);
   font-size: var(--font-ui-small);
@@ -762,7 +793,7 @@ body.property-order-value-drag-enabled .metadata-property .multi-select-pill {
 }
 
 @container (max-width: 24rem) {
-  .property-order-format-example-body {
-    margin-inline-start: 0;
+  .property-order-help-disclosure[open] > .property-order-format-example-body {
+    margin-inline-start: 8px;
   }
 }

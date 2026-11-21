@@ -4,6 +4,12 @@ import { describe, expect, it } from "vitest";
 const styles = readFileSync(new URL("../../styles.css", import.meta.url), "utf8");
 
 describe("settings tab layout CSS", () => {
+  it("keeps the theme accent on the disclosure chevron and the logical content edge", () => {
+    expect(styles).toMatch(/\.property-order-help-disclosure\s*\{[^}]*background-color: color-mix\(in srgb, var\(--interactive-accent\) 5%, var\(--background-primary\)\);[^}]*border: 1px solid var\(--background-modifier-border\);/s);
+    expect(styles).toMatch(/\.property-order-help-disclosure > [^{]*summary::before\s*\{[^}]*color: var\(--interactive-accent\);/s);
+    expect(styles).toMatch(/\.property-order-help-disclosure\[open\] > [^{]+\{[^}]*border-inline-start: 2px solid var\(--interactive-accent\);/s);
+  });
+
   it("keeps the tab list on one horizontally scrollable row", () => {
     expect(styles).toMatch(
       /\.property-order-settings-tabs\s*\{[^}]*flex-wrap:\s*nowrap;[^}]*overflow-x:\s*auto;[^}]*overflow-y:\s*hidden;/s,
