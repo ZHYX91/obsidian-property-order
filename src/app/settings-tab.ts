@@ -9,11 +9,11 @@ import {
 } from "obsidian";
 
 import { explainPropertyKeyRules } from "../core/suggestions/order-keys";
-import { getPropertyNameSuggestions, trimPropertyKey } from "../core/suggestions/property-names";
+import { getPropertyNameSuggestions } from "../core/suggestions/property-names";
 import { getResolvedLocaleCode, t, type TranslationKey } from "../shared/i18n";
 import { SUPPORTED_LOCALES } from "../shared/locale-catalog";
 import { getCachedPropertyKeyUsage } from "../obsidian/metadata";
-import { isKeySuggestionSortMode, isValueSuggestionDefaultBehavior } from "../shared/settings";
+import { isKeySuggestionSortMode, isValueSuggestionDefaultBehavior, type PersistedSettingKey } from "../shared/settings";
 import type {
   KeySuggestionSortMode,
   PropertyOrderSettings,
@@ -22,10 +22,11 @@ import type {
 } from "../shared/types";
 import { PropertyNameSuggest } from "./property-name-suggest";
 import { renderValueSuggestionBehaviorGroups } from "./value-suggestion-behavior-groups";
-import { preserveValueSuggestionDrafts } from "./settings-view-state";
+import { parseKeyRuleLines, preserveSettingsDrafts } from "./settings-drafts";
 import { renderCustomValueSuggestionEditor } from "./value-suggestion-custom-editor";
 import { renderWritebackFormatExamples } from "./writeback-format-examples";
 import {
+  SETTINGS_PANEL,
   applyPropertyOrderControlValue,
   isPropertyOrderControlValue,
   type PropertyOrderControlKey,
@@ -89,7 +90,7 @@ export class PropertyOrderSettingTab extends PluginSettingTab {
 
   override display(): void {
     this.hasUnsavedSettings = this.plugin.hasPendingSettingsSave();
-    this.render(null);
+    this.redrawCurrentTab();
   }
 
   override hide(): void {
@@ -107,18 +108,17 @@ export class PropertyOrderSettingTab extends PluginSettingTab {
     this.resetRenderedSettings();
   }
 
-  refreshAfterExternalSettingsChange(valuePanelChanged: boolean): void {
+  refreshAfterExternalSettingsChange(changed: readonly PersistedSettingKey[]): void {
     this.hasUnsavedSettings = this.plugin.hasPendingSettingsSave();
-
-    if (this.settingsSurfaceVisible && this.tabLayoutCleanup != null) {
-      if (this.activeTab === "valueSuggestions" && !valuePanelChanged) {
-        this.updateSaveStatus();
-      } else if (this.activeTab === "valueSuggestions") {
-        preserveValueSuggestionDrafts(this.containerEl, (behaviors) => this.render(null, behaviors));
-      } else {
-        this.render(null);
-      }
+    if (!this.settingsSurfaceVisible || this.tabLayoutCleanup == null) return;
+    if (changed.some((key) => key === "language" || SETTINGS_PANEL[key] === this.activeTab)) {
+      this.redrawCurrentTab();
     }
+  }
+
+  private redrawCurrentTab(): void {
+    preserveSettingsDrafts(this.containerEl, (draftBehaviors) => this.render(null, draftBehaviors));
+    this.refreshRuleDiagnostics();
   }
 
   private restoreHelp(key: "format" | "archive", details: HTMLDetailsElement): void {
@@ -352,54 +352,24 @@ export class PropertyOrderSettingTab extends PluginSettingTab {
       .setDesc(this.t("settings.keyOrder.recentHistory.desc"));
     this.addClearRecentPropertyKeysButton(recentHistorySetting);
 
-    this.trackKeyListSetting(
-      addKeyListSetting(
-        containerEl,
-        this.t("settings.keyOrder.pinned.name"),
-        this.t("settings.keyOrder.pinned.desc"),
-        this.plugin.propertyOrderSettings.pinnedPropertyKeys,
+    for (const [key, label] of [
+      ["pinnedPropertyKeys", "pinned"],
+      ["bottomPropertyKeys", "bottom"],
+      ["hiddenPropertyKeyPatterns", "hidden"],
+    ] as const) {
+      const setting = new Setting(containerEl)
+        .setName(this.t(`settings.keyOrder.${label}.name`))
+        .setDesc(this.t(`settings.keyOrder.${label}.desc`));
+      this.trackKeyListSetting(configureKeyListSetting(
+        setting, key, this.plugin.propertyOrderSettings[key],
         async (values) => {
-          this.plugin.propertyOrderSettings.pinnedPropertyKeys = values;
+          this.plugin.propertyOrderSettings[key] = values;
           this.refreshRuleDiagnostics();
           await this.persistSettings(true);
         },
-        this.app,
-        availableNames,
-        this.t("settings.keyOrder.addExisting.placeholder"),
-      ),
-    );
-    this.trackKeyListSetting(
-      addKeyListSetting(
-        containerEl,
-        this.t("settings.keyOrder.bottom.name"),
-        this.t("settings.keyOrder.bottom.desc"),
-        this.plugin.propertyOrderSettings.bottomPropertyKeys,
-        async (values) => {
-          this.plugin.propertyOrderSettings.bottomPropertyKeys = values;
-          this.refreshRuleDiagnostics();
-          await this.persistSettings(true);
-        },
-        this.app,
-        availableNames,
-        this.t("settings.keyOrder.addExisting.placeholder"),
-      ),
-    );
-    this.trackKeyListSetting(
-      addKeyListSetting(
-        containerEl,
-        this.t("settings.keyOrder.hidden.name"),
-        this.t("settings.keyOrder.hidden.desc"),
-        this.plugin.propertyOrderSettings.hiddenPropertyKeyPatterns,
-        async (values) => {
-          this.plugin.propertyOrderSettings.hiddenPropertyKeyPatterns = values;
-          this.refreshRuleDiagnostics();
-          await this.persistSettings(true);
-        },
-        this.app,
-        availableNames,
-        this.t("settings.keyOrder.addExisting.placeholder"),
-      ),
-    );
+        this.app, availableNames, this.t("settings.keyOrder.addExisting.placeholder"),
+      ));
+    }
 
     this.configureRuleDiagnosticSetting(
       new Setting(containerEl)
@@ -420,17 +390,13 @@ export class PropertyOrderSettingTab extends PluginSettingTab {
           .setValue(settingsAtRender.enableNativeValueSuggestionOrder)
           .onChange(async (value) => {
             this.plugin.propertyOrderSettings.enableNativeValueSuggestionOrder = value;
-            const pendingSave = this.persistSettings(false, true);
-            if (this.isSettingsSurfaceCurrent(surfaceGeneration)) {
-              this.render(null);
-            }
-            await pendingSave;
+            disabledHint.hidden = value;
+            await this.persistSettings(false, true);
           });
       });
 
-    if (!settingsAtRender.enableNativeValueSuggestionOrder) {
-      addInactiveHint(containerEl, this.t("settings.valueSuggestions.disabledHint"));
-    }
+    const disabledHint = addInactiveHint(containerEl, this.t("settings.valueSuggestions.disabledHint"));
+    disabledHint.hidden = settingsAtRender.enableNativeValueSuggestionOrder;
 
     const archivedRules = settingsAtRender.valueSuggestionLegacyRules;
     if (archivedRules !== null) {
@@ -501,7 +467,7 @@ export class PropertyOrderSettingTab extends PluginSettingTab {
 
     const renderCustom = (container: HTMLElement): void => {
       if (!this.isSettingsSurfaceCurrent(surfaceGeneration)) return;
-      preserveValueSuggestionDrafts(container, () => {
+      preserveSettingsDrafts(container, () => {
         // Build off-document in the settings window's realm, then swap atomically.
         const staging = container.createDiv();
         staging.remove();
@@ -600,14 +566,14 @@ export class PropertyOrderSettingTab extends PluginSettingTab {
   }
 
   private configureRuleDiagnosticSetting(setting: Setting): SettingsCleanup {
-    let propertyName = "";
+    let input: HTMLInputElement | undefined;
     const resultEl = setting.descEl.createDiv({
       cls: "property-order-rule-diagnostic-result",
     });
     resultEl.setAttribute("aria-live", "polite");
 
     const refresh = () => {
-      resultEl.textContent = this.formatRuleDiagnostic(propertyName);
+      resultEl.textContent = this.formatRuleDiagnostic(input?.value ?? "");
     };
     setting
       .setClass("property-order-rule-diagnostic-setting")
@@ -615,10 +581,9 @@ export class PropertyOrderSettingTab extends PluginSettingTab {
         text
           .setPlaceholder(this.t("settings.keyOrder.ruleDiagnostic.placeholder"))
           .setValue("")
-          .onChange((value) => {
-            propertyName = value;
-            refresh();
-          });
+          .onChange(refresh);
+        input = text.inputEl;
+        input.dataset.settingsFocus = "key-rule-diagnostic";
         text.inputEl.setAttribute(
           "aria-label",
           this.t("settings.keyOrder.ruleDiagnostic.name"),
@@ -745,7 +710,7 @@ export class PropertyOrderSettingTab extends PluginSettingTab {
       mutation.rerender &&
       this.isSettingsSurfaceCurrent(surfaceGeneration)
     ) {
-      this.render(null);
+      this.redrawCurrentTab();
     }
     await pendingSave;
   }
@@ -857,35 +822,16 @@ function reportSettingsCleanupError(error: unknown): void {
   console.error("Property Order: failed to clean up settings resource", error);
 }
 
-function addInactiveHint(containerEl: HTMLElement, text: string): void {
-  containerEl.createDiv({
+function addInactiveHint(containerEl: HTMLElement, text: string): HTMLElement {
+  return containerEl.createDiv({
     cls: "property-order-settings-hint",
     text,
   });
 }
 
-function addKeyListSetting(
-  containerEl: HTMLElement,
-  name: string,
-  description: string,
-  values: string[],
-  onChange: (values: string[]) => Promise<void>,
-  app: App,
-  availableNames: string[],
-  placeholder: string,
-): KeyListSettingLifecycle {
-  return configureKeyListSetting(
-    new Setting(containerEl).setName(name).setDesc(description),
-    values,
-    onChange,
-    app,
-    availableNames,
-    placeholder,
-  );
-}
-
 function configureKeyListSetting(
   setting: Setting,
+  key: "pinnedPropertyKeys" | "bottomPropertyKeys" | "hiddenPropertyKeyPatterns",
   values: string[],
   onChange: (values: string[]) => Promise<void>,
   app: App,
@@ -910,9 +856,10 @@ function configureKeyListSetting(
       textArea
         .setValue(currentValues.join("\n"))
         .onChange((value) => {
-          currentValues = parseLines(value);
+          currentValues = parseKeyRuleLines(value);
           pendingSave.schedule();
         });
+      textArea.inputEl.dataset.settingsFocus = `rules:${key}`;
       textArea.inputEl.rows = 5;
       textArea.inputEl.cols = 32;
       textArea.inputEl.addClass("property-order-key-list-input");
@@ -923,6 +870,7 @@ function configureKeyListSetting(
         .setPlaceholder(placeholder)
         .setValue("");
       text.inputEl.addClass("property-order-property-name-input");
+      text.inputEl.dataset.settingsFocus = `add-key:${key}`;
 
       propertyNameSuggest = new PropertyNameSuggest(app, text.inputEl, {
         availableNames,
@@ -992,11 +940,4 @@ function getAvailablePropertyNames(app: App): string[] {
     [],
     "",
   );
-}
-
-function parseLines(value: string): string[] {
-  return value
-    .split(/\r?\n/)
-    .map(trimPropertyKey)
-    .filter(Boolean);
 }

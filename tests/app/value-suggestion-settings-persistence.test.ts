@@ -372,6 +372,29 @@ describe("Value suggestion settings persistence", () => {
     ]));
   });
 
+  it("audit regression: toggling value suggestions preserves the current preset draft", async () => {
+    const harness = await createHarness({
+      valueSuggestionPropertyAssignments: [{ propertyKey: "status", behavior: "custom" }],
+    });
+    const getField = () => harness.container.querySelector<HTMLInputElement>(
+      ".is-pinned .property-order-custom-value-add input",
+    )!;
+    const draft = getField();
+    draft.value = "Needs review";
+    draft.focus();
+    draft.setSelectionRange(2, 7, "backward");
+    draft.dispatchEvent(new Event("input", { bubbles: true }));
+
+    await toggles[0]!.onChange!(false);
+
+    expect(getField()).toBe(draft);
+    expect(document.activeElement).toBe(draft);
+    expect([draft.selectionStart, draft.selectionEnd, draft.selectionDirection]).toEqual([2, 7, "backward"]);
+    expect(getField().value).toBe("Needs review");
+    expect(harness.persisted().enableNativeValueSuggestionOrder).toBe(false);
+    expect(harness.persisted().valueSuggestionCustomOrders).toEqual([]);
+  });
+
   it.each([false, true])("preserves a later draft when a toggle save finishes (failure: %s)", async (fails) => {
     const harness = await createHarness();
     await addNameRule(harness.container, harness.persisted);

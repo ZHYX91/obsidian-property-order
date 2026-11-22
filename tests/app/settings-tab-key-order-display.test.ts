@@ -3,6 +3,8 @@
 import { Setting, type App } from "obsidian";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
+import PropertyOrderPlugin from "../../src/app/plugin";
+import { PropertyNameSuggest } from "../../src/app/property-name-suggest";
 import { PropertyOrderSettingTab } from "../../src/app/settings-tab";
 import { createDefaultSettings } from "../../src/shared/settings";
 import type { PropertyOrderSettings } from "../../src/shared/types";
@@ -116,6 +118,105 @@ describe("Property Order settings tabs", () => {
     tab.display();
     expect(tab.containerEl.textContent).toContain("Enter a property name to test the current rules.");
     tab.hide();
+  });
+
+  it("audit regression: a second edit keeps key rules discovered by the previous save", async () => {
+    const app = {
+      metadataCache: { getFileCache: vi.fn() },
+      vault: { getMarkdownFiles: vi.fn(() => []) },
+      workspace: { iterateAllLeaves: vi.fn() },
+    } as unknown as App;
+    const plugin = new (PropertyOrderPlugin as unknown as new () => PropertyOrderPlugin)();
+    plugin.app = app;
+    let storedSettings = createDefaultSettings();
+    storedSettings.pinnedPropertyKeys = ["status"];
+    vi.spyOn(plugin, "loadData").mockImplementation(async () => cloneSettings(storedSettings));
+    vi.spyOn(plugin, "saveData").mockImplementation(async (data) => {
+      storedSettings = cloneSettings(data as PropertyOrderSettings);
+    });
+    await plugin.loadSettings();
+
+    const tab = new PropertyOrderSettingTab(app, plugin);
+    Reflect.set(plugin, "settingTab", tab);
+    Reflect.set(tab.containerEl, "empty", function (this: HTMLElement) {
+      this.replaceChildren();
+    });
+    document.body.appendChild(tab.containerEl);
+    try {
+      tab.display();
+      tab.containerEl.querySelectorAll<HTMLButtonElement>("[role=tab]")[2]!.click();
+
+      const getSearch = () => tab.containerEl.querySelector<HTMLInputElement>(
+        ".property-order-key-list-setting .property-order-property-name-input",
+      )!;
+      const search = getSearch();
+      search.value = "pending lookup";
+      search.focus();
+      search.setSelectionRange(2, 7, "backward");
+      storedSettings.showDiagnostics = true;
+      await plugin.onExternalSettingsChange();
+      expect(getSearch()).toBe(search);
+      expect(document.activeElement).toBe(search);
+
+      // Sync changes disk before Obsidian sends the external-settings event.
+      storedSettings.pinnedPropertyKeys.push("owner");
+      getGroupingToggle(tab.containerEl).click();
+      await vi.waitFor(() => {
+        expect(plugin.propertyOrderSettings.pinnedPropertyKeys).toEqual(["status", "owner"]);
+      });
+
+      const restored = getSearch();
+      expect(restored.value).toBe("pending lookup");
+      expect(document.activeElement).toBe(restored);
+      expect([restored.selectionStart, restored.selectionEnd, restored.selectionDirection])
+        .toEqual([2, 7, "backward"]);
+      const pinned = tab.containerEl.querySelector<HTMLTextAreaElement>(
+        ".property-order-key-list-setting textarea",
+      )!;
+      pinned.value += "\npriority";
+      pinned.dispatchEvent(new Event("input"));
+      await vi.waitFor(() => expect(storedSettings.pinnedPropertyKeys).toContain("priority"));
+      expect(storedSettings.pinnedPropertyKeys).toEqual(["status", "owner", "priority"]);
+    } finally {
+      tab.hide();
+    }
+  });
+
+  it("keeps the caret and the debounced sibling rule while applying an external rule", () => {
+    const settings = createDefaultSettings();
+    const tab = mountSettingsTab(settings, vi.fn(async () => undefined));
+    tab.display();
+    tab.containerEl.querySelectorAll<HTMLButtonElement>("[role=tab]")[2]!.click();
+    const getBottom = () => tab.containerEl.querySelectorAll("textarea")[1]!;
+    const bottom = getBottom();
+    bottom.value = " later \n";
+    bottom.dispatchEvent(new Event("input"));
+    bottom.focus();
+    bottom.setSelectionRange(1, 4, "forward");
+
+    settings.hiddenPropertyKeyPatterns = ["remote-*"];
+    tab.refreshAfterExternalSettingsChange(["hiddenPropertyKeyPatterns"]);
+    expect(tab.containerEl.querySelectorAll("textarea")[2]!.value).toBe("remote-*");
+    expect(settings.bottomPropertyKeys).toEqual(["later"]);
+    expect(getBottom().value).toBe(" later \n");
+    expect(document.activeElement).toBe(getBottom());
+    expect([getBottom().selectionStart, getBottom().selectionEnd]).toEqual([1, 4]);
+    tab.hide();
+  });
+
+  it.each([true, false])("applies a queued key suggestion only while its input is mounted (%s)", async (replace) => {
+    const input = document.body.createEl("input");
+    const onSelect = vi.fn(async () => undefined);
+    const suggest = new PropertyNameSuggest({} as App, input, {
+      availableNames: ["owner"], getExcludedNames: () => [], onSelect,
+    });
+    suggest.selectSuggestion("owner");
+    if (replace) input.remove();
+    await Promise.resolve();
+
+    if (replace) expect(onSelect).not.toHaveBeenCalled();
+    else expect(onSelect).toHaveBeenCalledExactlyOnceWith("owner");
+    input.remove();
   });
 
   it("renders, persists, refreshes, and rerenders the property-type grouping toggle", async () => {
