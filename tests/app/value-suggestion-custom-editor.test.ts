@@ -183,6 +183,62 @@ describe("renderCustomValueSuggestionEditor", () => {
     expect(rerender).toHaveBeenCalledWith("priority");
   });
 
+  it("bounds large sections and keeps a candidate focused when it moves across pages", () => {
+    const container = document.body.createDiv();
+    const values = Array.from({ length: 1000 }, (_, index) => `Value ${index + 1}`);
+    let order: PropertyValueCustomOrder = {
+      propertyKey: "status", middleSortMode: "native",
+      pinnedValues: [], middleValues: values, bottomValues: [],
+    };
+    const render = () => preserveSettingsView(container, () => {
+      const staging = document.createElement("div");
+      renderCustomValueSuggestionEditor({
+        app: createApp(), assignments: customAssignments(), containerEl: staging,
+        customOrders: [order], displayOrder: "name", getFrequency: () => [],
+        onCustomOrdersChange: async (orders) => { order = orders[0]; },
+        rerender: render, selectedPropertyKey: "status", t: (key) => key,
+      });
+      container.replaceChildren(...Array.from(staging.childNodes));
+    });
+    render();
+    const middle = () => container.querySelector<HTMLElement>(".is-middle")!;
+    const rows = () => middle().querySelectorAll(".property-order-custom-value-item");
+    const page = () => middle().querySelector<HTMLInputElement>('input[type="number"]')!;
+    const nav = () => middle().querySelector<HTMLElement>(".property-order-candidate-pages")!;
+    const lastValue = "Value 1000";
+
+    expect(rows()).toHaveLength(32);
+    const [previous, next] = nav().querySelectorAll("button");
+    expect(previous.disabled).toBe(true);
+    next.click();
+    expect(page().value).toBe("2");
+    expect(rows()).toHaveLength(32);
+    previous.click();
+    expect(page().value).toBe("1");
+    page().value = "32";
+    page().dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", bubbles: true }));
+    expect(rows().length).toBeLessThanOrEqual(32);
+    expect(nav().querySelectorAll("button")[1].disabled).toBe(true);
+    expect(middle().textContent).toContain(lastValue);
+
+    const pin = middle().querySelector<HTMLButtonElement>('[data-settings-focus="candidate:Value 1000:⇧"]')!;
+    pin.focus();
+    pin.click();
+    expect(order.pinnedValues).toContain(lastValue);
+    expect(page().value).toBe("32");
+    expect(container.querySelector(".is-pinned")?.contains(document.activeElement)).toBe(true);
+    // Deliberately move the middle view away: the focus target should reopen its page.
+    page().value = "1";
+    page().dispatchEvent(new Event("change"));
+    const unpin = container.querySelector<HTMLButtonElement>('.is-pinned [data-settings-focus="candidate:Value 1000:↔"]')!;
+    unpin.focus();
+    unpin.click();
+    expect(page().value).toBe("32");
+    expect(document.activeElement?.getAttribute("data-settings-focus-group"))
+      .toBe(JSON.stringify(["status", lastValue]));
+    expect(rows().length).toBeLessThanOrEqual(32);
+  });
+
   it("persists button moves, preset removal, manual additions, and middle sort changes", async () => {
     const container = document.createElement("div");
     const changes: PropertyValueCustomOrder[][] = [];

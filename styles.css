@@ -472,6 +472,22 @@ body.property-order-value-drag-enabled .metadata-property .multi-select-pill {
   gap: var(--size-2-1);
 }
 
+.property-order-candidate-pages,
+.property-order-candidate-pages label {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--size-2-2);
+}
+
+.property-order-candidate-pages {
+  margin-block-end: var(--size-2-2);
+}
+
+.property-order-candidate-pages input {
+  width: 5em;
+}
+
 .property-order-custom-value-item {
   align-items: center;
   background: var(--background-secondary);
