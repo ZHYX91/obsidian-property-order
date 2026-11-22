@@ -1,3 +1,5 @@
+import { captureCandidatePages } from "./candidate-pages";
+
 // Keep the surrounding settings page stable during a local DOM update.
 export function preserveSettingsView(container: HTMLElement, update: () => void): void {
   const positions: Array<{ element: HTMLElement; top: number; left: number }> = [];
@@ -9,7 +11,9 @@ export function preserveSettingsView(container: HTMLElement, update: () => void)
   const focused = container.contains(active) ? active : null;
   const focusId = focused?.getAttribute("data-settings-focus");
   const focusGroup = focused?.getAttribute("data-settings-focus-group") ?? undefined;
+  const restorePages = captureCandidatePages(container);
   update();
+  restorePages();
   if (focusId != null) {
     const controls = Array.from(container.querySelectorAll<HTMLElement>("[data-settings-focus]:not(:disabled)"))
       .filter((element) => element.dataset.settingsFocusGroup === focusGroup);

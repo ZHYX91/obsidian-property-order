@@ -1,3 +1,4 @@
+import { renderCandidatePages } from "./candidate-pages";
 import { normalizePropertyKeyIdentity } from "../core/suggestions/property-names";
 import { Setting, type App } from "obsidian";
 
@@ -152,7 +153,7 @@ export function renderCustomValueSuggestionEditor(
       cls: "property-order-custom-value-list",
     });
 
-    for (const item of values) {
+    renderCandidatePages(list, values, selectedPropertyKey, placement, (key) => options.t(key), (item, index) => {
       const row = list.createDiv({
         cls: "property-order-custom-value-item",
       });
@@ -196,7 +197,6 @@ export function renderCustomValueSuggestionEditor(
       };
 
       if (placement === "pinned") {
-        const index = order.pinnedValues.indexOf(item.value);
         addAction(
           "↑",
           options.t("settings.valueSuggestions.custom.moveUp"),
@@ -226,7 +226,6 @@ export function renderCustomValueSuggestionEditor(
       }
 
       if (placement === "bottom") {
-        const index = order.bottomValues.indexOf(item.value);
         addAction(
           "↑",
           options.t("settings.valueSuggestions.custom.moveUp"),
@@ -254,7 +253,7 @@ export function renderCustomValueSuggestionEditor(
           () => void persist(removeCustomPreset(order, item.value)),
         );
       }
-    }
+    });
 
     if (placement === "middle") {
       new Setting(section)
