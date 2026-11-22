@@ -1,3 +1,6 @@
+import { confirmsAuthoredPropertyKey } from "./property-key-source";
+import { normalizePropertyKeyIdentity, trimPropertyKey } from "../core/suggestions/property-names";
+
 export interface PropertyContainerContext {
   container: HTMLElement;
   editorKind: "list-type-mismatch" | "multi-select";
@@ -392,8 +395,9 @@ export function resolvePropertyKey(propertyElement: HTMLElement): string | null 
       // stale or mid-rerender and targeting must fail closed.
       if (
         hostIdentity != null &&
-        normalizeHostPropertyKeyIdentity(normalizedCandidate) !==
-          normalizeHostPropertyKeyIdentity(hostIdentity)
+        normalizePropertyKeyIdentity(normalizedCandidate) !==
+          normalizePropertyKeyIdentity(hostIdentity) &&
+        !confirmsAuthoredPropertyKey(propertyElement, normalizedCandidate, hostIdentity)
       ) {
         return null;
       }
@@ -430,19 +434,14 @@ export function resolvePropertyKey(propertyElement: HTMLElement): string | null 
   return normalizePropertyKey(fallbackLabel);
 }
 
-function normalizeHostPropertyKeyIdentity(propertyKey: string): string {
-  return propertyKey.trim().toLowerCase();
-}
-
 function normalizePropertyKey(
   candidate: string | null | undefined,
   preserveEdgeWhitespace = false,
 ): string | null {
-  if (candidate == null || candidate.trim().length === 0) {
-    return null;
-  }
-
-  return preserveEdgeWhitespace ? candidate : candidate.trim();
+  if (candidate == null) return null;
+  const key = trimPropertyKey(candidate);
+  if (!key) return null;
+  return preserveEdgeWhitespace ? candidate : key;
 }
 
 export function hasNativeListTypeEvidence(propertyElement: HTMLElement): boolean {

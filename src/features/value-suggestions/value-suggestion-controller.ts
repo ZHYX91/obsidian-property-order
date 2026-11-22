@@ -23,6 +23,7 @@ import {
 } from "../../obsidian/metadata";
 import {
   findSuggestionContainers,
+  findNativeValuePopups,
   getActivePropertyValueSuggestionContext,
   getPropertyValueSuggestionContext,
   getPropertyValueSuggestionItems,
@@ -41,7 +42,7 @@ import {
 import {
   isSuggestionElementVisible,
   PLUGIN_HIDDEN_SUGGESTION_CLASS,
-} from "../key-order/suggestion-visibility";
+} from "../../obsidian/suggestion-visibility";
 import {
   commitCustomPropertyValueCandidate,
   getCustomValueValidator,
@@ -58,7 +59,7 @@ const VALUE_SUGGESTIONS_SUPPRESSED_CLASS =
 const PLUGIN_PRESET_VALUE_ITEM_CLASS = "property-order-preset-value-item";
 
 const OBSERVER_OPTIONS: MutationObserverInit = {
-  attributeFilter: ["aria-hidden", "hidden"],
+  attributeFilter: ["aria-controls", "aria-owns", "aria-hidden", "hidden", "id"],
   attributes: true,
   characterData: true,
   childList: true,
@@ -824,14 +825,16 @@ export class ValueSuggestionOrderController {
       // native item index, so letting this bubble can commit a second value.
       event.preventDefault();
       event.stopImmediatePropagation();
+      const popup = resolvePropertyValueSuggestionContainer(item);
       if (
-        !item.isConnected ||
+        popup == null || !item.isConnected ||
         !isSuggestionElementVisible(item) ||
-        !this.isSuggestionOwnerActive(owner)
+        !this.isSuggestionOwnerActive(owner) ||
+        getPropertyValueSuggestionContext(popup)?.editor !== owner.context.editor
       ) {
         return;
       }
-      if (commitCustomPropertyValueCandidate(owner.context, value)) {
+      if (this.commitPreset(owner.context, value)) {
         this.hideCustomFallback(owner.context.editor.ownerDocument);
       }
     });
@@ -1003,6 +1006,8 @@ export class ValueSuggestionOrderController {
   ): boolean {
     for (const mutation of mutations) {
       const mutationElement = getElementAtOrAboveNode(mutation.target);
+      if ((mutation.attributeName === "aria-controls" || mutation.attributeName === "aria-owns") &&
+        mutationElement?.closest(".metadata-property-value")) return true;
       const targetMayAffectTrackedDescendants = mutation.type === "attributes";
 
       if (
@@ -1151,7 +1156,7 @@ export class ValueSuggestionOrderController {
         ) {
           return;
         }
-        if (commitCustomPropertyValueCandidate(context, value)) {
+        if (!this.hasVisibleNativeValuePopup(targetDocument) && this.commitPreset(context, value)) {
           this.closeCustomFallbackSession(targetDocument);
           this.hideCustomFallback(targetDocument);
         }
@@ -1167,14 +1172,12 @@ export class ValueSuggestionOrderController {
   }
 
   private hasVisibleNativeValuePopup(targetDocument: Document): boolean {
-    return findSuggestionContainers(targetDocument)
-      .map(resolvePropertyValueSuggestionContainer)
-      .some((container) =>
-        container != null &&
-        container.isConnected &&
-        isSuggestionElementVisible(container) &&
-        isPropertyValueSuggestionContainer(container)
-      );
+    return findNativeValuePopups(targetDocument).some(isSuggestionElementVisible);
+  }
+
+  private commitPreset(context: PropertyValueSuggestionContext, value: string): boolean {
+    return this.selectionTracker.trackCustomCommit(context, value, () =>
+      commitCustomPropertyValueCandidate(context, value));
   }
 
   private ensureCustomFallbackSession(

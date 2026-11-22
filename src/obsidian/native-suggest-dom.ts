@@ -1,5 +1,7 @@
 import { trimPropertyKey } from "../core/suggestions/property-names";
 import { resolvePropertyKey } from "./properties-dom";
+import { isSuggestionElementVisible } from "./suggestion-visibility";
+
 export interface SuggestionItem {
   element: HTMLElement;
   key: string;
@@ -74,22 +76,21 @@ export function isLikelyPropertyKeySuggestionContainer(
     return false;
   }
 
-  const activeElement = asHtmlElement(container.ownerDocument.activeElement);
-
-  return (
-    activeElement?.closest(PROPERTY_KEY_EDITOR_SELECTOR) != null ||
-    container.closest(PROPERTY_KEY_EDITOR_SELECTOR) != null
-  );
+  const focusedEditor = container.ownerDocument.activeElement?.closest<HTMLElement>(PROPERTY_KEY_EDITOR_SELECTOR);
+  return focusedEditor != null
+    ? findOwnedNativePopup(focusedEditor, "key") === container
+    : container.closest(PROPERTY_KEY_EDITOR_SELECTOR) != null;
 }
 
 export function isPropertyKeySuggestionContainer(
   container: HTMLElement,
   items = getSuggestionItems(container),
 ): boolean {
-  return (
-    container.matches(PROPERTY_KEY_SUGGESTION_SELECTOR) ||
-    isLikelyPropertyKeySuggestionContainer(container, items)
-  );
+  if (container.matches(PROPERTY_KEY_SUGGESTION_SELECTOR)) {
+    const focusedEditor = container.ownerDocument.activeElement?.closest<HTMLElement>(PROPERTY_KEY_EDITOR_SELECTOR);
+    return focusedEditor == null || findOwnedNativePopup(focusedEditor, "key") === container;
+  }
+  return isLikelyPropertyKeySuggestionContainer(container, items);
 }
 
 export function getActivePropertyValueSuggestionContext(
@@ -110,7 +111,14 @@ export function getActivePropertyValueSuggestionContext(
 export function getPropertyValueSuggestionContext(
   container: HTMLElement,
 ): PropertyValueSuggestionContext | null {
-  return getActivePropertyValueSuggestionContext(container.ownerDocument);
+  const context = getActivePropertyValueSuggestionContext(container.ownerDocument);
+  if (context == null) return null;
+  if (container.matches(PROPERTY_ORDER_CUSTOM_VALUE_POPUP_SELECTOR)) {
+    const active = container.ownerDocument.activeElement;
+    return container.id && active?.getAttribute("aria-controls")?.split(/\s+/).includes(container.id) &&
+      !findNativeValuePopups(container.ownerDocument).some(isSuggestionElementVisible) ? context : null;
+  }
+  return findOwnedNativePopup(context.editor, "value") === container ? context : null;
 }
 
 export function isPropertyValueSuggestionContainer(
@@ -120,7 +128,6 @@ export function isPropertyValueSuggestionContainer(
   return (
     resolvePropertyValueSuggestionContainer(container) === container &&
     items.length > 0 &&
-    !isPropertyKeySuggestionContainer(container, items) &&
     getPropertyValueSuggestionContext(container) != null
   );
 }
@@ -184,17 +191,64 @@ export function hasPropertyKeySuggestionContext(
 export function hasActivePropertyKeySuggestionContext(
   container: HTMLElement,
 ): boolean {
-  const activeElement = container.ownerDocument.activeElement;
-  const containingEditor = container.closest<HTMLElement>(
-    PROPERTY_KEY_EDITOR_SELECTOR,
+  const editor = container.ownerDocument.activeElement?.closest<HTMLElement>(PROPERTY_KEY_EDITOR_SELECTOR);
+  return editor != null && findOwnedNativePopup(editor, "key") === container;
+}
+
+export function findNativeValuePopups(targetDocument: Document): HTMLElement[] {
+  return Array.from(targetDocument.querySelectorAll<HTMLElement>(".suggestion-container")).filter(
+    (popup) => resolvePropertyValueSuggestionContainer(popup) === popup &&
+      !popup.matches(PROPERTY_KEY_SUGGESTION_SELECTOR) && popup.closest(PROPERTY_KEY_EDITOR_SELECTOR) == null &&
+      popup.querySelector(".suggestion-item, .menu-item") != null,
   );
+}
 
-  if (containingEditor != null) {
-    return activeElement != null &&
-      (activeElement === containingEditor || containingEditor.contains(activeElement));
+// Obsidian portals popups to the window body. Use explicit control relationships
+// or structural ownership first. An unlabelled portal is usable only on its own.
+function findOwnedNativePopup(editor: HTMLElement, kind: "key" | "value"): HTMLElement | null {
+  const doc = editor.ownerDocument;
+  const active = doc.activeElement;
+  const candidates = kind === "value" ? findNativeValuePopups(doc) :
+    Array.from(new Set(findSuggestionContainers(doc).map(resolveSuggestionContainer)))
+      .filter((popup): popup is HTMLElement => popup != null &&
+        popup.closest(PROPERTY_ORDER_CUSTOM_VALUE_POPUP_SELECTOR) == null &&
+        popup.closest(PROPERTY_VALUE_EDITOR_SELECTOR) == null &&
+        popup.querySelector(".suggestion-item, .menu-item") != null);
+  const viable = new Set(candidates.filter(isSuggestionElementVisible));
+  if (!viable.size) return null;
+
+  const linked = new Set<HTMLElement>();
+  let expectsPopup = false;
+  for (const control of Array.from(doc.querySelectorAll<HTMLElement>("[aria-controls], [aria-owns]"))) {
+    const ownControl = control.contains(active) && (editor.contains(control) ||
+      (control.matches('[role="combobox"]') && control.contains(editor)));
+    const ids = [control.getAttribute("aria-controls"), control.getAttribute("aria-owns")].join(" ");
+    for (const id of ids.split(/[ \t\r\n\f]+/).filter(Boolean)) {
+      const targets = doc.querySelectorAll<HTMLElement>("#" + CSS.escape(id));
+      if (targets.length === 1 && targets[0].closest(PROPERTY_ORDER_CUSTOM_VALUE_POPUP_SELECTOR)) continue;
+      if (ownControl) {
+        expectsPopup = true;
+        if (targets.length > 1) return null;
+      }
+      for (const target of Array.from(targets)) {
+        const popup = candidates.find((candidate) => candidate.contains(target));
+        if (!popup) continue;
+        if (ownControl) linked.add(popup);
+        else viable.delete(popup);
+      }
+    }
   }
-
-  return activeElement?.closest(PROPERTY_KEY_EDITOR_SELECTOR) != null;
+  const nested: HTMLElement[] = [];
+  const portals: HTMLElement[] = [];
+  for (const popup of viable) {
+    const containingEditor = popup.closest(PROPERTY_KEY_EDITOR_SELECTOR + ", " + PROPERTY_VALUE_EDITOR_SELECTOR);
+    if (containingEditor != null && containingEditor !== editor) continue;
+    if (expectsPopup && !linked.has(popup)) continue;
+    if (containingEditor === editor) nested.push(popup);
+    else portals.push(popup);
+  }
+  const matches = !expectsPopup && nested.length ? nested : [...nested, ...portals];
+  return matches.length === 1 ? matches[0] : null;
 }
 
 function getSuggestionItemsWithExtractor(

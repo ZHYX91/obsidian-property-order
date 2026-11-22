@@ -7,6 +7,7 @@ import {
   findSuggestionContainers,
   getSuggestionItemParent,
   getSuggestionItems,
+  hasActivePropertyKeySuggestionContext,
   isLikelyPropertyKeySuggestionContainer,
   isPropertyKeySuggestionContainer,
   resolveSuggestionContainer,
@@ -88,6 +89,36 @@ describe("native suggestion DOM adapter", () => {
     keyInput.focus();
 
     expect(isLikelyPropertyKeySuggestionContainer(container)).toBe(true);
+  });
+
+  it("binds two property-name portals to their own editors and yields ambiguous ownership", () => {
+    const editors = ["first", "second"].map((id) => {
+      const input = document.createElement("input");
+      input.className = "metadata-property-key";
+      const container = document.createElement("div");
+      container.className = "suggestion-container";
+      const list = document.createElement("div");
+      list.id = id;
+      list.append(suggestionItem("tags"), suggestionItem("aliases"));
+      container.append(list);
+      input.setAttribute("aria-owns", id);
+      document.body.append(input, container);
+      return { container, input };
+    });
+    const [first, second] = editors;
+    first.input.focus();
+    expect(hasActivePropertyKeySuggestionContext(first.container)).toBe(true);
+    expect(isPropertyKeySuggestionContainer(second.container)).toBe(false);
+    second.input.focus();
+    expect(hasActivePropertyKeySuggestionContext(first.container)).toBe(false);
+    expect(isPropertyKeySuggestionContainer(second.container)).toBe(true);
+    // A stale duplicate ID cannot prove which list receives keystrokes.
+    first.container.firstElementChild!.id = "second";
+    expect(hasActivePropertyKeySuggestionContext(second.container)).toBe(false);
+    first.input.removeAttribute("aria-owns");
+    second.input.removeAttribute("aria-owns");
+    expect(isPropertyKeySuggestionContainer(first.container)).toBe(false);
+    expect(isPropertyKeySuggestionContainer(second.container)).toBe(false);
   });
 
   it("rejects value suggestions even inside a Properties row", () => {

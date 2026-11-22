@@ -1,5 +1,5 @@
 import { getSuggestionItems, type SuggestionItem } from "../../obsidian/native-suggest-dom";
-import { PLUGIN_HIDDEN_SUGGESTION_CLASS } from "./suggestion-visibility";
+import { PLUGIN_HIDDEN_SUGGESTION_CLASS } from "../../obsidian/suggestion-visibility";
 
 export interface SuggestionElementSnapshot {
   ariaHiddenAttribute: string | null;
