@@ -27,6 +27,8 @@ const translations = {
   "settings.support.guide": "Guide d’utilisation",
   "settings.support.issue": "Signaler un problème",
   "settings.tabsLabel": "Catégories des paramètres de Property Order",
+  "settings.tabs.earlier": "Afficher les onglets précédents",
+  "settings.tabs.later": "Afficher les onglets suivants",
   "settings.tab.general": "Général",
   "settings.tab.valueDrag": "Glisser les valeurs",
   "settings.tab.keyOrder": "Suggestions de noms de propriétés",

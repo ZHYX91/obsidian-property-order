@@ -27,6 +27,8 @@ const translations = {
   "settings.support.guide": "Hướng dẫn sử dụng",
   "settings.support.issue": "Báo cáo sự cố",
   "settings.tabsLabel": "Các mục cài đặt Property Order",
+  "settings.tabs.earlier": "Hiện các thẻ phía trước",
+  "settings.tabs.later": "Hiện các thẻ phía sau",
   "settings.tab.general": "Chung",
   "settings.tab.valueDrag": "Kéo giá trị",
   "settings.tab.keyOrder": "Gợi ý tên thuộc tính",

@@ -27,6 +27,8 @@ const translations = {
   "settings.support.guide": "사용 안내서",
   "settings.support.issue": "문제 보고",
   "settings.tabsLabel": "Property Order 설정 분류",
+  "settings.tabs.earlier": "앞쪽 탭 표시",
+  "settings.tabs.later": "뒤쪽 탭 표시",
   "settings.tab.general": "일반",
   "settings.tab.valueDrag": "값 드래그",
   "settings.tab.keyOrder": "속성 이름 후보",

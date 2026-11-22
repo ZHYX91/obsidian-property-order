@@ -27,6 +27,8 @@ const translations = {
   "settings.support.guide": "使い方ガイド",
   "settings.support.issue": "問題を報告",
   "settings.tabsLabel": "Property Order の設定カテゴリー",
+  "settings.tabs.earlier": "前のタブを表示",
+  "settings.tabs.later": "後のタブを表示",
   "settings.tab.general": "一般",
   "settings.tab.valueDrag": "値のドラッグ",
   "settings.tab.keyOrder": "プロパティ名の候補",

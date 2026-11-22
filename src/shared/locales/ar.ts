@@ -27,6 +27,8 @@ const translations = {
   "settings.support.guide": "دليل الاستخدام",
   "settings.support.issue": "الإبلاغ عن مشكلة",
   "settings.tabsLabel": "أقسام إعدادات Property Order",
+  "settings.tabs.earlier": "إظهار علامات التبويب السابقة",
+  "settings.tabs.later": "إظهار علامات التبويب التالية",
   "settings.tab.general": "عام",
   "settings.tab.valueDrag": "سحب القيم",
   "settings.tab.keyOrder": "اقتراحات أسماء الخصائص",

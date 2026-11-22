@@ -172,6 +172,84 @@ body.property-order-value-drag-enabled .metadata-property .multi-select-pill {
   display: none !important;
 }
 
+.property-order-settings-tab-strip {
+  --tab-scroll-size: 32px;
+  container-type: inline-size;
+  display: grid;
+  grid-template-columns: 0 minmax(0, 1fr) 0;
+  min-inline-size: 0;
+}
+
+.property-order-settings-tab-strip.has-overflow {
+  grid-template-columns: var(--tab-scroll-size) minmax(0, 1fr) var(--tab-scroll-size);
+}
+
+.property-order-settings-tab-strip > .property-order-settings-tabs {
+  grid-column: 2;
+  grid-row: 1;
+  min-inline-size: 0;
+}
+
+.property-order-settings-tab-strip > button.property-order-settings-tab-scroll {
+  align-items: center;
+  align-self: stretch;
+  appearance: none;
+  background: transparent;
+  border: 0;
+  box-shadow: none;
+  color: var(--text-accent);
+  cursor: pointer;
+  display: flex;
+  grid-column: 1;
+  grid-row: 1;
+  height: auto;
+  justify-content: center;
+  padding: 0;
+}
+
+.property-order-settings-tab-strip > button.property-order-settings-tab-scroll[data-direction="later"] {
+  grid-column: 3;
+}
+
+.property-order-settings-tab-strip > button.property-order-settings-tab-scroll[hidden] {
+  display: none;
+}
+
+.property-order-settings-tab-scroll::before {
+  border-right: 2px solid currentColor;
+  border-top: 2px solid currentColor;
+  content: "";
+  height: 7px;
+  transform: rotate(-135deg);
+  width: 7px;
+}
+
+.property-order-settings-tab-scroll[data-direction="later"]::before,
+.property-order-settings-tab-scroll[data-direction="earlier"]:dir(rtl)::before {
+  transform: rotate(45deg);
+}
+
+.property-order-settings-tab-scroll[data-direction="later"]:dir(rtl)::before {
+  transform: rotate(-135deg);
+}
+
+.property-order-settings-tab-scroll:focus-visible {
+  outline: 2px solid var(--interactive-accent);
+  outline-offset: -2px;
+}
+
+@container (max-width: 420px) {
+  .property-order-settings-tab-strip > .property-order-settings-tabs > button.property-order-settings-tab {
+    padding-inline: 8px !important;
+  }
+}
+
+@media (pointer: coarse) {
+  .property-order-settings-tab-strip {
+    --tab-scroll-size: 44px;
+  }
+}
+
 .property-order-settings-tabs {
   align-items: stretch;
   display: flex;
