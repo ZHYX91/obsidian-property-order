@@ -20,6 +20,8 @@ export interface SettingsTabScrollLayout {
   readonly tabOffsetWidth: number;
 }
 
+let nextLayoutId = 0;
+
 export function createSettingsTabLayout(
   containerEl: HTMLElement,
   tabs: SettingsTabDefinition[],
@@ -27,6 +29,8 @@ export function createSettingsTabLayout(
   ariaLabel: string,
   onSelect: (tabId: SettingsTabId) => void,
 ): SettingsTabLayout {
+  const layoutId = `property-order-settings-${++nextLayoutId}`;
+  const panelId = `${layoutId}-panel`;
   const tabBarEl = containerEl.createDiv();
   tabBarEl.className = "property-order-settings-tabs";
   tabBarEl.setAttribute("role", "tablist");
@@ -46,10 +50,11 @@ export function createSettingsTabLayout(
       : "property-order-settings-tab";
     buttonEl.type = "button";
     buttonEl.textContent = tab.label;
-    buttonEl.id = getTabElementId(tab.id);
+    buttonEl.dataset.tabId = tab.id;
+    buttonEl.id = `${layoutId}-tab-${tab.id}`;
     buttonEl.setAttribute("role", "tab");
     buttonEl.setAttribute("aria-selected", String(isActive));
-    buttonEl.setAttribute("aria-controls", getPanelElementId(tab.id));
+    buttonEl.setAttribute("aria-controls", panelId);
     buttonEl.tabIndex = isActive ? 0 : -1;
     buttonEl.addEventListener("click", () => selectTab(tab.id, activeTab, buttonEl, onSelect));
     buttonEl.addEventListener("keydown", (event) => {
@@ -72,12 +77,11 @@ export function createSettingsTabLayout(
     return buttonEl;
   });
 
-  const activeDefinition = tabs[activeIndex];
   const panelEl = containerEl.createDiv();
   panelEl.className = "property-order-settings-panel";
-  panelEl.id = getPanelElementId(activeDefinition.id);
+  panelEl.id = panelId;
   panelEl.setAttribute("role", "tabpanel");
-  panelEl.setAttribute("aria-labelledby", getTabElementId(activeDefinition.id));
+  panelEl.setAttribute("aria-labelledby", buttons[activeIndex].id);
   panelEl.tabIndex = 0;
 
   const activeTabEl = buttons[activeIndex];
@@ -195,14 +199,6 @@ function isRightToLeft(element: HTMLElement): boolean {
     return true;
   }
   return element.ownerDocument.defaultView?.getComputedStyle(element).direction === "rtl";
-}
-
-function getTabElementId(tabId: SettingsTabId): string {
-  return `property-order-settings-tab-${tabId}`;
-}
-
-function getPanelElementId(tabId: SettingsTabId): string {
-  return `property-order-settings-panel-${tabId}`;
 }
 
 function finiteNonNegative(value: number): number {
