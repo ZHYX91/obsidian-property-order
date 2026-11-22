@@ -10,6 +10,12 @@ describe("settings tab layout CSS", () => {
     expect(styles).toMatch(/\.property-order-help-disclosure\[open\] > [^{]+\{[^}]*border-inline-start: 2px solid var\(--interactive-accent\);/s);
   });
 
+  it("uses compact tab padding when the settings strip is at most 600px wide", () => {
+    expect(styles).toMatch(
+      /@container \(max-width:\s*600px\)\s*\{\s*\.property-order-settings-tab-strip > \.property-order-settings-tabs > button\.property-order-settings-tab\s*\{[^}]*padding-inline:\s*8px/s,
+    );
+  });
+
   it("keeps the tab list on one horizontally scrollable row", () => {
     expect(styles).toMatch(
       /\.property-order-settings-tabs\s*\{[^}]*flex-wrap:\s*nowrap;[^}]*overflow-x:\s*auto;[^}]*overflow-y:\s*hidden;/s,

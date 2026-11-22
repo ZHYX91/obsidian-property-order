@@ -198,13 +198,17 @@ body.property-order-value-drag-enabled .metadata-property .multi-select-pill {
   border: 0;
   box-shadow: none;
   color: var(--text-accent);
-  cursor: pointer;
+  cursor: var(--cursor, default);
   display: flex;
   grid-column: 1;
   grid-row: 1;
   height: auto;
   justify-content: center;
   padding: 0;
+}
+
+.property-order-settings-tab-strip > button.property-order-settings-tab-scroll:hover {
+  background: var(--background-modifier-hover);
 }
 
 .property-order-settings-tab-strip > button.property-order-settings-tab-scroll[data-direction="later"] {
@@ -219,9 +223,10 @@ body.property-order-value-drag-enabled .metadata-property .multi-select-pill {
   border-right: 2px solid currentColor;
   border-top: 2px solid currentColor;
   content: "";
-  height: 7px;
+  box-sizing: border-box;
+  height: 8px;
   transform: rotate(-135deg);
-  width: 7px;
+  width: 8px;
 }
 
 .property-order-settings-tab-scroll[data-direction="later"]::before,
@@ -238,7 +243,7 @@ body.property-order-value-drag-enabled .metadata-property .multi-select-pill {
   outline-offset: -2px;
 }
 
-@container (max-width: 420px) {
+@container (max-width: 600px) {
   .property-order-settings-tab-strip > .property-order-settings-tabs > button.property-order-settings-tab {
     padding-inline: 8px !important;
   }
