@@ -266,8 +266,14 @@ function installTabOverflow(
     const focus = strip.ownerDocument.activeElement;
     const canScrollEarlier = overflow && firstClippedTab(!rtl) !== undefined;
     const canScrollLater = overflow && firstClippedTab(rtl) !== undefined;
+    const viewport = canScrollEarlier && earlier.hidden ? list.getBoundingClientRect() : undefined;
     earlier.hidden = !canScrollEarlier;
     later.hidden = !canScrollLater;
+    // Keep the same content in view when a scroll reveals the start control.
+    if (viewport !== undefined) {
+      const resized = list.getBoundingClientRect();
+      list.scrollLeft += rtl ? resized.right - viewport.right : resized.left - viewport.left;
+    }
     if ((focus === earlier && earlier.hidden) || (focus === later && later.hidden)) {
       const next = [earlier, later].find((button) => !button.hidden) ?? active;
       next.focus({ preventScroll: true });
