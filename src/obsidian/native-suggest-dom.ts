@@ -217,6 +217,13 @@ function findOwnedNativePopup(editor: HTMLElement, kind: "key" | "value"): HTMLE
   const viable = new Set(candidates.filter(isSuggestionElementVisible));
   if (!viable.size) return null;
 
+  // Other controls can claim only IDs inside a candidate popup. Do not resolve
+  // every unrelated tab/panel relationship in the workspace on the input path.
+  const candidateIds = new Set<string>();
+  for (const popup of candidates) {
+    if (popup.id) candidateIds.add(popup.id);
+    for (const target of popup.querySelectorAll<HTMLElement>("[id]")) candidateIds.add(target.id);
+  }
   const linked = new Set<HTMLElement>();
   let expectsPopup = false;
   for (const control of Array.from(doc.querySelectorAll<HTMLElement>("[aria-controls], [aria-owns]"))) {
@@ -224,6 +231,7 @@ function findOwnedNativePopup(editor: HTMLElement, kind: "key" | "value"): HTMLE
       (control.matches('[role="combobox"]') && control.contains(editor)));
     const ids = [control.getAttribute("aria-controls"), control.getAttribute("aria-owns")].join(" ");
     for (const id of ids.split(/[ \t\r\n\f]+/).filter(Boolean)) {
+      if (!ownControl && !candidateIds.has(id)) continue;
       const targets = doc.querySelectorAll<HTMLElement>("#" + CSS.escape(id));
       if (targets.length === 1 && targets[0].closest(PROPERTY_ORDER_CUSTOM_VALUE_POPUP_SELECTOR)) continue;
       if (ownControl) {
