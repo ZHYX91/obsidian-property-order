@@ -25,7 +25,7 @@ the candidate:
 }
 ```
 
-For external replacement, use schema 7, language `zh-CN`, and
+For external replacement, use schema 8, language `zh-CN`, and
 `pinnedPropertyKeys: ["startup_new"]`. For the future-schema control, use schema
 999 with those same known values and `futureOption: {"mode":"keep"}`.
 

@@ -164,6 +164,49 @@ module.exports = class PropertyOrderAcceptanceProvider extends Plugin {
       callback: restoreValueRules,
     });
     this.addRibbonIcon("rotate-ccw", "Acceptance: restore grouped value behaviors", restoreValueRules);
+    this.addCommand({
+      id: "prepare-release-settings",
+      name: "Acceptance: prepare release settings with 65 candidates",
+      callback: async () => {
+        const fixture = this.resolveConditionFixture();
+        if (fixture == null) return;
+        Object.assign(fixture.plugin.propertyOrderSettings, {
+          pinnedPropertyKeys: ["status"],
+          groupKeySuggestionsByType: false,
+        });
+        await fixture.plugin.saveSettings(true, false);
+        await applyGroupedValueSettings({
+          assignments: [{ propertyKey: "status", behavior: "custom" }],
+          customOrders: [{
+            ...customStatusOrder,
+            middleValues: Array.from({ length: 65 }, (_, index) =>
+              `candidate-${String(index + 1).padStart(2, "0")}`),
+          }],
+          notice: "Acceptance provider: release settings prepared.",
+        });
+      },
+    });
+    this.addCommand({
+      id: "schedule-external-owner",
+      name: "Acceptance: add owner to stored key rules in 20 seconds",
+      callback: () => this.scheduleExternalOwner(),
+    });
+    this.addCommand({
+      id: "read-release-settings",
+      name: "Acceptance: record stored release settings",
+      callback: async () => {
+        const fixture = this.resolveConditionFixture();
+        if (fixture == null) return;
+        const stored = await fixture.plugin.loadData();
+        const order = stored?.valueSuggestionCustomOrders?.find((entry) => entry.propertyKey === "status");
+        this.recordCondition("stored release settings read", {
+          pinnedPropertyKeys: stored?.pinnedPropertyKeys,
+          groupKeySuggestionsByType: stored?.groupKeySuggestionsByType,
+          normalCandidateCount: order?.middleValues.length,
+          pinnedCandidates: order?.pinnedValues,
+        });
+      },
+    });
 
     this.addCommand({
       id: "open-first-source-value-menu",
@@ -278,6 +321,32 @@ module.exports = class PropertyOrderAcceptanceProvider extends Plugin {
     }, delay);
     this.observationTimers.set(timer, fixture.window);
     this.recordCondition(`read-only UI observation scheduled in ${delay / 1000} seconds`);
+  }
+
+  scheduleExternalOwner() {
+    const fixture = this.resolveConditionFixture();
+    const directory = fixture?.plugin.manifest.dir;
+    if (fixture == null || !directory) return;
+    const file = `${directory}/data.json`;
+    const timer = fixture.window.setTimeout(async () => {
+      this.observationTimers.delete(timer);
+      try {
+        const stored = await fixture.plugin.loadData();
+        if (!Array.isArray(stored?.pinnedPropertyKeys) || stored.pinnedPropertyKeys.join("\n") !== "status") {
+          this.recordCondition("external key rule skipped because the fixture changed");
+          return;
+        }
+        stored.pinnedPropertyKeys = ["status", "owner"];
+        // Write only the disposable fixture's storage. The product's external
+        // reload and save merge paths remain under the real host's control.
+        await this.app.vault.adapter.write(file, JSON.stringify(stored, null, 2));
+        this.recordCondition("external owner rule written to fixture storage");
+      } catch {
+        this.recordCondition("external key rule fixture write failed");
+      }
+    }, 20_000);
+    this.observationTimers.set(timer, fixture.window);
+    this.recordCondition("external owner rule scheduled");
   }
 
   resolveConditionFixture() {

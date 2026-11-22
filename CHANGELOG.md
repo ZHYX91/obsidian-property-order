@@ -3,13 +3,13 @@
 All notable changes to Property Order are documented in this file. Release versions and dates
 follow the repository's Git tags; entries summarize the corresponding commit history.
 
-## [Unreleased]
+## [0.12.4]
 
-- Keep a preset value’s Enter key from committing to another field if Properties redraws the active editor, consumes the preset, or substitutes a new draft.
-
-- Cancel a pending drag when the originally pressed value, its YAML spelling, the destination list or the applicable drag preference changes before drop.
-
-- Cancel keyboard and drag moves if Properties reuses the selected value, hides or replaces a selected row, or shows two candidate rows for the same field.
+- Cancel dragging and keyboard moves when the selected property or its YAML changes, and cancel pending drags when the destination list or drag setting changes.
+- Keep preset selection in the focused property editor, count only confirmed selections, and preserve exact property names containing Unicode spaces.
+- Refresh open settings after a sync or save while preserving drafts and keyboard focus. Link each settings tab to its own panel.
+- Page long custom candidate lists and follow a moved candidate with keyboard focus.
+- Reuse property usage counts when attachments are renamed.
 
 ## [0.12.3]
 
