@@ -1,9 +1,10 @@
 // @vitest-environment happy-dom
 
 import { Window as HappyDomWindow } from "happy-dom";
-import { Platform, type App, type Plugin, type TFile } from "obsidian";
+import { MarkdownView, Platform, type App, type Plugin, type TFile, type WorkspaceLeaf } from "obsidian";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
+import { bindTestPropertyKeySource } from "../../helpers/property-key-source";
 import { PropertyValueFrequencyStore } from "../../../src/features/value-suggestions/property-value-frequency-store";
 import { ValueSuggestionOrderController } from "../../../src/features/value-suggestions/value-suggestion-controller";
 import { KeySuggestionOrderController } from "../../../src/features/key-order/key-suggestion-controller";
@@ -189,6 +190,109 @@ describe("ValueSuggestionOrderController", () => {
     Platform.isMacOS = false;
     Platform.isMobileApp = false;
     vi.restoreAllMocks();
+  });
+
+  it("audit regression: activates the native popup controlled by the focused editor", () => {
+    const raf = installRafHarness();
+    const settings = createDefaultSettings();
+    settings.enableNativeValueSuggestionOrder = true;
+    settings.valueSuggestionDefaultBehavior = "name";
+    const status = createValueMenu(["draft", "done"], "status");
+    const owner = createValueMenu(["Alice", "Bob"], "owner");
+    status.container.id = "status-menu";
+    owner.container.id = "owner-menu";
+    status.editor.setAttribute("aria-controls", status.container.id);
+    owner.editor.setAttribute("aria-controls", owner.container.id);
+    status.editor.focus();
+
+    const activated = vi.fn();
+    status.container.addEventListener("click", () => activated("status"));
+    owner.container.addEventListener("click", () => activated("owner"));
+    const controller = createController(settings);
+    controller.initialize();
+    raf.flush();
+    status.editor.dispatchEvent(new KeyboardEvent("keydown", {
+      bubbles: true,
+      cancelable: true,
+      key: "Enter",
+    }));
+
+    expect(activated.mock.calls).toEqual([["status"]]);
+  });
+
+  it("yields two unlabelled popups to native input and resumes when one is hidden", async () => {
+    const raf = installRafHarness();
+    const settings = createDefaultSettings();
+    settings.enableNativeValueSuggestionOrder = true;
+    settings.valueSuggestionPropertyAssignments = [{ propertyKey: "status", behavior: "custom" }];
+    settings.valueSuggestionCustomOrders = [{
+      propertyKey: "status", middleSortMode: "name", middleValues: [], pinnedValues: ["preset"], bottomValues: [],
+    }];
+    const status = createValueMenu(["b", "a"]);
+    const controller = createController(settings);
+    controller.initialize();
+    raf.flush();
+    const preset = status.container.querySelector<HTMLElement>("[data-property-order-preset-value]")!;
+    const other = createValueMenu(["z", "y"], "owner");
+    status.editor.focus();
+
+    // The competing portal appeared after the last frame. Neither keyboard
+    // nor a still-mounted injected row may commit via the former owner.
+    preset.click();
+    const enter = new KeyboardEvent("keydown", { bubbles: true, cancelable: true, key: "Enter" });
+    status.editor.dispatchEvent(enter);
+    expect(enter.defaultPrevented).toBe(false);
+    expect(status.editor.value).toBe("");
+    raf.flush();
+    expect(allValues(status.container)).toEqual(["b", "a"]);
+    expect(allValues(other.container)).toEqual(["z", "y"]);
+    expect(document.querySelector(".property-order-custom-value-popup")).toBeNull();
+
+    other.container.hidden = true;
+    await new Promise<void>((resolve) => window.setTimeout(resolve, 0));
+    raf.flush();
+    expect(visibleValues(status.container)).toEqual(["preset", "a", "b"]);
+  });
+
+  it("counts a native-popup preset once when its click commits and metadata confirms the new value", () => {
+    const raf = installRafHarness();
+    const file = { path: "note.md" } as TFile;
+    const byFile = new Map<TFile, Record<string, unknown>>([[file, { status: [] }]]);
+    const events = new Map<string, (...args: never[]) => void>();
+    const app = createApp({ files: [file], frontmatterByFile: byFile, metadataEvents: events });
+    const status = createValueMenu(["existing"]);
+    const view = Object.assign(Object.create(MarkdownView.prototype) as MarkdownView, {
+      file, containerEl: status.row, editor: {
+        getValue: () => "---\nstatus: []\n---", offsetToPos: vi.fn(), transaction: vi.fn(),
+      },
+    });
+    const leaf = { view, containerEl: status.row } as unknown as WorkspaceLeaf;
+    vi.mocked(app.workspace.iterateAllLeaves).mockImplementation((visit) => { visit(leaf); });
+    const store = {
+      getCounts: vi.fn(() => []), increment: vi.fn(() => true),
+    } as unknown as PropertyValueFrequencyStore;
+    const settings = normalizeSettings({
+      ...createDefaultSettings(), enableNativeValueSuggestionOrder: true,
+      valueSuggestionPropertyAssignments: [{ propertyKey: "status", behavior: "custom" }],
+      valueSuggestionCustomOrders: [{
+        propertyKey: "status", middleSortMode: "frequency", pinnedValues: ["preset"], middleValues: [], bottomValues: [],
+      }],
+    });
+    const controller = createController(settings, app, store);
+    controller.initialize();
+    raf.flush();
+    const preset = status.container.querySelector<HTMLElement>("[data-property-order-preset-value]")!;
+    preset.dispatchEvent(new MouseEvent("mousedown", { bubbles: true, button: 0 }));
+    preset.click();
+    expect(status.editor.value).toBe("preset");
+    expect(store.increment).not.toHaveBeenCalled();
+
+    const updated = { frontmatter: { status: ["preset"] } };
+    byFile.set(file, updated.frontmatter);
+    const changed = events.get("changed") as unknown as (file: TFile, data: string, metadata: typeof updated) => void;
+    changed(file, "", updated);
+    changed(file, "", updated);
+    expect(store.increment).toHaveBeenCalledExactlyOnceWith("status", "preset");
   });
 
   it("ignores unrelated body mutations after tracking a popup but detects candidate lifecycle changes", () => {
@@ -784,6 +888,10 @@ describe("ValueSuggestionOrderController", () => {
     const { container, row } = createValueMenu([], "status");
     container.remove();
     row.createDiv({ cls: "metadata-property-key" }).createEl("input").value = spaced;
+    // The active editor contains the authored key only. Vault vocabulary can
+    // also include the ordinary key in other notes or their cached revisions.
+    let lines = ["---", spaced + ": Invoiced", "---"];
+    listenerCleanups.add(bindTestPropertyKeySource(row, () => lines));
     const controller = createController(settings, app);
     controller.initialize();
     raf.flush();
@@ -792,6 +900,10 @@ describe("ValueSuggestionOrderController", () => {
     expect(popup).not.toBeNull();
     expect(visibleValues(popup!)).toEqual(["Preset", "Invoiced"]);
     expect(getCachedPropertyValueUsage(app, "status")).toEqual([{ value: "Draft", count: 1 }]);
+    lines = ["---", "status: Draft", spaced + ": Invoiced", "---"];
+    controller.refresh();
+    raf.flush();
+    expect(document.querySelector(".property-order-custom-value-popup")).toBeNull();
   });
 
   it("preserves a non-first fallback selection across metadata refresh and commits it", () => {

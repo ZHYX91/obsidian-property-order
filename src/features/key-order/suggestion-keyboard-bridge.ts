@@ -1,7 +1,7 @@
 import { Scope, type Keymap } from "obsidian";
 
 import { hasActivePropertyKeySuggestionContext } from "../../obsidian/native-suggest-dom";
-import { isSuggestionElementVisible } from "./suggestion-visibility";
+import { isSuggestionElementVisible } from "../../obsidian/suggestion-visibility";
 
 const SELECTED_SUGGESTION_CLASS = "is-selected";
 type SuggestionActivation = "enter" | "tab";

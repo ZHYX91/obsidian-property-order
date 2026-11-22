@@ -123,6 +123,61 @@ describe("PropertyValueSelectionTracker", () => {
     tracker.dispose();
   });
 
+  it("audit regression: a cancelled press on an injected preset cannot confirm a later edit", () => {
+    const file = { path: "note.md" } as TFile;
+    const cache = { frontmatter: { status: [] } } as CachedMetadata;
+    const suggestion = createValueSuggestion("draft");
+    suggestion.item.classList.add("property-order-preset-value-item");
+    suggestion.item.dataset.propertyOrderPresetValue = "true";
+    const plugin = createPlugin(
+      suggestion.row.parentElement as HTMLElement,
+      file,
+      () => cache,
+      () => "---\nstatus: []\n---",
+    );
+    const onConfirmed = vi.fn();
+    const tracker = new PropertyValueSelectionTracker({
+      getEnabled: () => true,
+      onConfirmed,
+      plugin,
+    });
+    tracker.registerDocument(document);
+
+    try {
+      suggestion.item.dispatchEvent(new MouseEvent("mousedown", { bubbles: true, button: 0 }));
+      document.body.dispatchEvent(new MouseEvent("mouseup", { bubbles: true, button: 0 }));
+      suggestion.editor.dispatchEvent(new KeyboardEvent("keydown", { bubbles: true, key: "Escape" }));
+      tracker.handleMetadataChanged(file, { frontmatter: { status: ["draft"] } } as CachedMetadata);
+
+      expect(onConfirmed).not.toHaveBeenCalled();
+    } finally {
+      tracker.dispose();
+    }
+  });
+
+  it.each([false, true])("counts an injected preset only after acceptance and cache confirmation (%s)", (accepted) => {
+    const file = { path: "note.md" } as TFile;
+    let cache = { frontmatter: { status: [] } } as CachedMetadata;
+    const suggestion = createValueSuggestion("draft");
+    const context = { row: suggestion.row, editor: suggestion.editor, propertyKey: "status" };
+    const plugin = createPlugin(suggestion.row.parentElement!, file, () => cache);
+    const onConfirmed = vi.fn();
+    const tracker = new PropertyValueSelectionTracker({ getEnabled: () => true, onConfirmed, plugin });
+    tracker.registerDocument(document);
+    try {
+      tracker.trackCustomCommit(context, "draft", () => {
+        cache = { frontmatter: { status: ["draft"] } } as CachedMetadata;
+        tracker.handleMetadataChanged(file, cache);
+        expect(onConfirmed).not.toHaveBeenCalled();
+        return accepted;
+      });
+      tracker.handleMetadataChanged(file, cache);
+      expect(onConfirmed.mock.calls).toEqual(accepted ? [["status", "draft"]] : []);
+    } finally {
+      tracker.dispose();
+    }
+  });
+
   it("does not confirm when metadata is unchanged or the selected value is absent", () => {
     const file = { path: "note.md" } as TFile;
     let cache = { frontmatter: { status: "draft" } } as CachedMetadata;
@@ -225,9 +280,10 @@ describe("PropertyValueSelectionTracker", () => {
     const file = { path: "note.md" } as TFile;
     let cache = { frontmatter: {} } as CachedMetadata;
     const first = createValueSuggestion("draft");
-    const second = createValueSuggestion("done");
+    const secondItem = first.container.createDiv({ cls: "suggestion-item" });
+    secondItem.createDiv({ cls: "suggestion-title", text: "done" });
     const plugin = createPlugin(
-      second.row.parentElement as HTMLElement,
+      first.row.parentElement as HTMLElement,
       file,
       () => cache,
     );
@@ -238,9 +294,8 @@ describe("PropertyValueSelectionTracker", () => {
       plugin,
     });
 
-    second.editor.focus();
     tracker.captureSuggestionActivation(first.item);
-    tracker.captureSuggestionActivation(second.item);
+    tracker.captureSuggestionActivation(secondItem);
 
     cache = { frontmatter: { status: "draft" } } as CachedMetadata;
     tracker.handleMetadataChanged(file, cache);
@@ -430,6 +485,10 @@ describe("PropertyValueSelectionTracker", () => {
   it("retains a committed source selection when a stale peer pane becomes active", () => {
     const first = createValueSuggestion("draft");
     const second = createValueSuggestion("done");
+    for (const [popup, id] of [[first, "first-menu"], [second, "second-menu"]] as const) {
+      popup.container.id = id;
+      popup.editor.setAttribute("aria-controls", id);
+    }
     const file = { path: "note.md" } as TFile;
     let cache = { frontmatter: { status: [] } } as CachedMetadata;
     let firstContent = "---\nstatus: []\n---";

@@ -1,3 +1,5 @@
+export { parse as parseYaml } from "yaml";
+
 export class Plugin {
   app: unknown;
 

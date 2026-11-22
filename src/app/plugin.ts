@@ -1,5 +1,7 @@
 import { MarkdownView, Notice, Plugin } from "obsidian";
 
+import { bindPropertyKeySource, releasePropertyKeySource } from "../obsidian/property-key-source";
+
 import { KeySuggestionOrderController } from "../features/key-order/key-suggestion-controller";
 import { PropertyValueOrderController } from "../features/value-order/value-drag-controller";
 import { ValueSuggestionOrderController } from "../features/value-suggestions/value-suggestion-controller";
@@ -228,6 +230,7 @@ export default class PropertyOrderPlugin extends Plugin {
           } catch (error) {
             console.error("Property Order: failed to clean a closed window drag state", error);
           } finally {
+            releasePropertyKeySource(targetWindow.document, this);
             this.trackedDocuments.delete(targetWindow.document);
           }
         },
@@ -374,6 +377,7 @@ export default class PropertyOrderPlugin extends Plugin {
 
   private clearTrackedDocumentState(): void {
     for (const trackedDocument of this.trackedDocuments) {
+      releasePropertyKeySource(trackedDocument, this);
       try {
         trackedDocument.body.classList.remove(VALUE_DRAG_ENABLED_CLASS);
       } catch (error) {
@@ -517,10 +521,12 @@ export default class PropertyOrderPlugin extends Plugin {
   private applyValueDragState(targetDocument: Document): void {
     if (this.unloaded) {
       targetDocument.body.classList.remove(VALUE_DRAG_ENABLED_CLASS);
+      releasePropertyKeySource(targetDocument, this);
       this.trackedDocuments.delete(targetDocument);
       return;
     }
 
+    bindPropertyKeySource(targetDocument, this);
     this.trackedDocuments.add(targetDocument);
     targetDocument.body.classList.toggle(
       VALUE_DRAG_ENABLED_CLASS,

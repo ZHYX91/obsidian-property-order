@@ -1,6 +1,7 @@
 // @vitest-environment happy-dom
 
 import { afterEach, describe, expect, it } from "vitest";
+import { bindTestPropertyKeySource } from "../../helpers/property-key-source";
 
 import { isSourceContextAlignedWithContent } from "../../../src/features/value-order/property-list-alignment";
 import { resolvePropertyContainerContext } from "../../../src/obsidian/properties-dom";
@@ -44,6 +45,10 @@ describe("authored property key alignment", () => {
     row.append(keyContainer, container);
     metadata.append(row);
     document.body.append(metadata);
+    // Some hosts expose a lossy data attribute. The owning editor supplies
+    // independent evidence; the ordinary and spaced keys can both exist.
+    let lines = ["---", key + ": [alpha, beta]", "---", "Body"];
+    const release = bindTestPropertyKeySource(metadata, () => lines);
     const context = resolvePropertyContainerContext(container);
     expect(context?.propertyKey).toBe(key);
     expect(context).not.toBeNull();
@@ -58,5 +63,12 @@ describe("authored property key alignment", () => {
         `---\n${key}: [newer, beta]\n---\nBody\n`,
       )).toBe(false);
     }
+    if (key.trim() !== key) {
+      lines = ["---", key + ": [alpha, beta]", key.trim() + ": [alpha, beta]", "---", "Body"];
+      expect(resolvePropertyContainerContext(container)).toBeNull();
+      lines = ["---", key.trim() + ": [alpha, beta]", "---", "Body"];
+      expect(resolvePropertyContainerContext(container)).toBeNull();
+    }
+    release();
   });
 });

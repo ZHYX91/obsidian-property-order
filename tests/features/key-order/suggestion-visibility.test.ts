@@ -5,7 +5,7 @@ import { describe, expect, it } from "vitest";
 import {
   isSuggestionElementVisible,
   PLUGIN_HIDDEN_SUGGESTION_CLASS,
-} from "../../../src/features/key-order/suggestion-visibility";
+} from "../../../src/obsidian/suggestion-visibility";
 
 describe("isSuggestionElementVisible", () => {
   it("accepts a connected suggestion whose ancestry is visible", () => {

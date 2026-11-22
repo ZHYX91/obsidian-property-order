@@ -324,6 +324,35 @@ describe("Properties DOM", () => {
     expect(resolvePropertyContainerContext(container)).toBeNull();
   });
 
+  it("audit regression: refuses a row and key input that differ by a leading non-breaking space", () => {
+    const metadata = document.createElement("div");
+    metadata.className = "metadata-container";
+    metadata.innerHTML = [
+      '<div class="metadata-property" data-property-key="status">',
+      '<div class="metadata-property-key"><input></div>',
+      '<div class="multi-select-container"></div>',
+      "</div>",
+    ].join("");
+    document.body.appendChild(metadata);
+    const input = metadata.querySelector<HTMLInputElement>("input")!;
+    const container = metadata.querySelector<HTMLElement>(".multi-select-container")!;
+    input.value = "\u00a0status";
+
+    expect(resolvePropertyContainerContext(container)).toBeNull();
+  });
+
+  it("audit regression: preserves a native property key consisting of a non-breaking space", () => {
+    const metadata = document.createElement("div");
+    metadata.className = "metadata-container";
+    const property = document.createElement("div");
+    property.className = "metadata-property";
+    property.dataset.propertyKey = "\u00a0";
+    metadata.appendChild(property);
+    document.body.appendChild(metadata);
+
+    expect(resolvePropertyElementContext(property)?.propertyKey).toBe("\u00a0");
+  });
+
   it("fails closed while the native property key editor contains an uncommitted value", () => {
     const metadata = document.createElement("div");
     metadata.className = "metadata-container";

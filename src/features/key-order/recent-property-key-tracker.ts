@@ -7,7 +7,7 @@ import {
   resolveSuggestionContainer,
 } from "../../obsidian/native-suggest-dom";
 import { resolvePaneFileContext } from "../../obsidian/pane-context";
-import { isSuggestionElementVisible } from "./suggestion-visibility";
+import { isSuggestionElementVisible } from "../../obsidian/suggestion-visibility";
 
 const MAX_PENDING_USES_PER_DOCUMENT = 10;
 const PENDING_CONFIRMATION_MAX_AGE_MILLISECONDS = 5_000;

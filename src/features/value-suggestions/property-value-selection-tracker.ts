@@ -7,9 +7,10 @@ import {
   getPropertyValueSuggestionItems,
   isPropertyValueSuggestionContainer,
   resolvePropertyValueSuggestionContainer,
+  type PropertyValueSuggestionContext,
 } from "../../obsidian/native-suggest-dom";
 import { resolvePaneFileContext, type PaneFileContext } from "../../obsidian/pane-context";
-import { isSuggestionElementVisible } from "../key-order/suggestion-visibility";
+import { isSuggestionElementVisible } from "../../obsidian/suggestion-visibility";
 
 const MAX_PENDING_USES_PER_DOCUMENT = 10;
 const PENDING_CONFIRMATION_MAX_AGE_MILLISECONDS = 5_000;
@@ -56,19 +57,10 @@ export class PropertyValueSelectionTracker {
         this.captureSuggestionActivation(asHtmlElement(event.target));
       }
     };
-    const handleClick = (event: MouseEvent): void => {
-      const target = asHtmlElement(event.target);
-      if (event.button === 0 && target?.closest(".property-order-custom-value-popup") != null) {
-        this.captureActivation(target, true);
-      }
-    };
-
     targetDocument.addEventListener("mousedown", handleMouseDown, true);
-    targetDocument.addEventListener("click", handleClick, true);
 
     const cleanup = (): void => {
       targetDocument.removeEventListener("mousedown", handleMouseDown, true);
-      targetDocument.removeEventListener("click", handleClick, true);
       this.documentCleanups.delete(targetDocument);
       this.pendingByDocument.delete(targetDocument);
     };
@@ -149,53 +141,54 @@ export class PropertyValueSelectionTracker {
   }
 
   captureSuggestionActivation(target: HTMLElement | null): void {
-    this.captureActivation(target, false);
+    const itemElement = target?.closest<HTMLElement>(".suggestion-item, .menu-item");
+    // Native rows may commit on mousedown. Plugin rows commit in their own click handler.
+    if (!itemElement || itemElement.dataset.propertyOrderPresetValue === "true" ||
+      !isSuggestionElementVisible(itemElement)) return;
+    const container = resolvePropertyValueSuggestionContainer(itemElement);
+    if (!container || container.dataset.propertyOrderValueEnhanced !== "true" ||
+      !isPropertyValueSuggestionContainer(container)) return;
+    const context = getPropertyValueSuggestionContext(container);
+    const item = getPropertyValueSuggestionItems(container).find(({ element }) => element === itemElement);
+    if (context && item) {
+      const pending = this.prepareUse(context, item.key);
+      if (pending) this.enqueue(pending);
+    }
   }
 
-  private captureActivation(target: HTMLElement | null, customPopupClicked: boolean): void {
-    if (!this.getEnabled()) {
-      return;
+  trackCustomCommit(context: PropertyValueSuggestionContext, value: string, commit: () => boolean): boolean {
+    const doc = context.editor.ownerDocument;
+    const registration = this.documentCleanups.get(doc);
+    let pending: PendingPropertyValueUse | null = null;
+    try {
+      if (registration) pending = this.prepareUse(context, value);
+    } catch (error) {
+      console.error("Property Order: failed to capture the preset selection", error);
     }
-
-    const itemElement = target?.closest<HTMLElement>(".suggestion-item, .menu-item") ?? null;
-    const pluginPopup =
-      itemElement?.closest<HTMLElement>(".property-order-custom-value-popup") ?? null;
-    // A fallback mousedown only preserves input focus. The keyboard bridge also
-    // announces intent before dispatching its activation click. Neither is a
-    // fallback commit: capture once at click, before the popup's commit handler.
-    // Native suggestions retain their existing mousedown/keyboard contract.
-    if (pluginPopup != null && !customPopupClicked) {
-      return;
+    const committed = commit();
+    if (committed && pending && this.getEnabled() && this.documentCleanups.get(doc) === registration) {
+      try {
+        this.enqueue(pending);
+        // A host commit can synchronously update Metadata Cache before it returns.
+        const cache = this.plugin.app.metadataCache.getFileCache(pending.file);
+        if (cache && countValue(getFrontmatterValues(cache, pending.propertyKey), value) > pending.beforeCount) {
+          this.handleMetadataChanged(pending.file, cache);
+        }
+      } catch (error) {
+        console.error("Property Order: failed to track the committed preset", error);
+      }
     }
-    const container =
-      pluginPopup ??
-      (itemElement == null ? null : resolvePropertyValueSuggestionContainer(itemElement));
+    return committed;
+  }
 
-    if (
-      itemElement == null ||
-      container == null ||
-      !isSuggestionElementVisible(itemElement) ||
-      container.dataset.propertyOrderValueEnhanced !== "true" ||
-      (pluginPopup == null && !isPropertyValueSuggestionContainer(container))
-    ) {
-      return;
-    }
-
-    const context = getPropertyValueSuggestionContext(container);
-    const item = getPropertyValueSuggestionItems(container).find(
-      ({ element }) => element === itemElement,
-    );
-
-    if (context == null || item == null) {
-      return;
-    }
-
+  private prepareUse(context: PropertyValueSuggestionContext, value: string): PendingPropertyValueUse | null {
+    if (!this.getEnabled() || value.length === 0) return null;
     const paneContext = resolvePaneFileContext(this.plugin, context.editor);
     const file = paneContext?.file ?? null;
     const cache = file == null ? null : this.plugin.app.metadataCache.getFileCache(file);
 
     if (paneContext == null || file == null || cache == null) {
-      return;
+      return null;
     }
 
     const editorValues = getEditorFrontmatterValues(
@@ -203,13 +196,7 @@ export class PropertyValueSelectionTracker {
       context.propertyKey,
       cache,
     );
-    const value = item.key;
-
-    if (value.length === 0) {
-      return;
-    }
-
-    const pending: PendingPropertyValueUse = {
+    return {
       // A lagging pane must not make an existing cached value look newly added.
       beforeCount: Math.max(
         countValue(getFrontmatterValues(cache, context.propertyKey), value),
@@ -222,22 +209,27 @@ export class PropertyValueSelectionTracker {
       source: paneContext,
       value,
     };
+  }
+
+  private enqueue(pending: PendingPropertyValueUse): void {
+    const doc = pending.source.container.ownerDocument;
+    const cache = this.plugin.app.metadataCache.getFileCache(pending.file);
     // A second list selection can precede the first Metadata Cache update.
     // Check each earlier intent's own pane; a newly active peer can lag behind
     // that pane. Cancelled, switched-file or unreadable source intents still
     // yield to the next activation. Only Metadata Cache confirms a selection.
-    const queue = this.getLivePendingQueue(itemElement.ownerDocument, pending.createdAt).filter(
+    const queue = this.getLivePendingQueue(doc, pending.createdAt).filter(
       (candidate) =>
         candidate.file !== pending.file ||
         !equalPropertyKey(candidate.propertyKey, pending.propertyKey) ||
         (
-          countValue(getPendingEditorValues(candidate, cache) ?? [], candidate.value) >
+          cache != null && countValue(getPendingEditorValues(candidate, cache) ?? [], candidate.value) >
             candidate.beforeCount
         ),
     );
     queue.push(pending);
     this.setPendingQueue(
-      itemElement.ownerDocument,
+      doc,
       queue.slice(-MAX_PENDING_USES_PER_DOCUMENT),
     );
   }

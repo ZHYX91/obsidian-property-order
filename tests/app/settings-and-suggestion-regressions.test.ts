@@ -142,7 +142,13 @@ function valueHarness() {
   tracker.registerDocument(document);
   cleanups.push(() => tracker.dispose());
   const onCommit = vi.fn(() => { content = "---\nstatus: [open, draft]\n---"; });
-  const mount = mountCustomValuePopup({ editor, row, propertyKey: "status" }, ["draft"], onCommit)!;
+  const context = { editor, row, propertyKey: "status" };
+  const mount = mountCustomValuePopup(context, ["draft"], (value) => {
+    tracker.trackCustomCommit(context, value, () => {
+      onCommit();
+      return true;
+    });
+  })!;
   cleanups.push(() => mount.cleanup());
   const item = mount.container.querySelector<HTMLElement>(".suggestion-item")!;
   const updateCache = () => {

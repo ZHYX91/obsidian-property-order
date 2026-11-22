@@ -41,12 +41,12 @@ import {
 import {
   isSuggestionElementVisible,
   PLUGIN_HIDDEN_SUGGESTION_CLASS,
-} from "./suggestion-visibility";
+} from "../../obsidian/suggestion-visibility";
 import { RecentPropertyKeyStore } from "./recent-property-key-store";
 import { RecentPropertyKeyTracker } from "./recent-property-key-tracker";
 
 const OBSERVER_OPTIONS: MutationObserverInit = {
-  attributeFilter: ["aria-hidden", "hidden"],
+  attributeFilter: ["aria-controls", "aria-owns", "aria-hidden", "hidden", "id"],
   attributes: true,
   childList: true,
   subtree: true,
@@ -332,8 +332,7 @@ export class KeySuggestionOrderController {
         keyboard.synchronizeScope(active && state.windowFocused);
 
       const synchronizeFocus = (): void => {
-        const container = this.getActiveContainer(targetDocument);
-        if (container != null && hasActivePropertyKeySuggestionContext(container) &&
+        if (targetDocument.activeElement?.closest(".metadata-property-key") &&
           this.getSettings().enableNativeKeySuggestionOrder) {
           this.scheduleSuggestionEnhancement(targetDocument);
         } else {
@@ -452,6 +451,11 @@ export class KeySuggestionOrderController {
 
     for (const mutation of mutations) {
       const mutationRoot = getElementAtOrAboveNode(mutation.target);
+      if ((mutation.attributeName === "aria-controls" || mutation.attributeName === "aria-owns") &&
+        mutationRoot?.closest(".metadata-property-key")) {
+        this.scheduleSuggestionEnhancement(targetDocument);
+        continue;
+      }
       const targetIsRelated =
         mutationRoot != null &&
         this.isSuggestionRelatedNode(
@@ -461,18 +465,18 @@ export class KeySuggestionOrderController {
         );
 
       if (targetIsRelated) {
-        this.scheduleSuggestionEnhancement(mutationRoot);
+        this.scheduleSuggestionEnhancement(targetDocument);
         continue;
       }
 
-      for (const node of Array.from(mutation.addedNodes)) {
+      for (const node of [...mutation.addedNodes, ...mutation.removedNodes]) {
         const addedRoot = getElementAtOrAboveNode(node);
 
         if (
           addedRoot != null &&
           this.isSuggestionRelatedNode(targetDocument, addedRoot, true)
         ) {
-          this.scheduleSuggestionEnhancement(addedRoot);
+          this.scheduleSuggestionEnhancement(targetDocument);
         }
       }
     }
@@ -859,6 +863,7 @@ export class KeySuggestionOrderController {
       matchesAppliedState(snapshot.appliedState, items) &&
       !needsForcedUsageRefresh
     ) {
+      this.activeContainers.set(container.ownerDocument, container);
       return;
     }
 
