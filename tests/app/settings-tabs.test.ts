@@ -72,15 +72,23 @@ describe("createSettingsTabLayout", () => {
     const later = strip.querySelector<HTMLButtonElement>('[data-direction="later"]')!;
     const buttons = Array.from(list.querySelectorAll<HTMLElement>("[role=tab]"));
     const rtl = direction === "rtl";
-    const width = 100;
+    const tabWidth = 80;
+    const arrowWidth = 32;
     let available = 164;
     Object.defineProperty(strip, "clientWidth", { get: () => available });
-    Object.defineProperty(list, "scrollWidth", { get: () => buttons.length * 80 });
-    vi.spyOn(list, "getBoundingClientRect").mockReturnValue({ left: 0, right: width, width } as DOMRect);
+    Object.defineProperty(list, "scrollWidth", { get: () => buttons.length * tabWidth });
+    // Visible arrows occupy space at opposite physical edges in LTR and RTL.
+    vi.spyOn(list, "getBoundingClientRect").mockImplementation(() => {
+      const left = (rtl ? later : earlier).hidden ? 0 : arrowWidth;
+      const right = available - ((rtl ? earlier : later).hidden ? 0 : arrowWidth);
+      return { left, right, width: right - left } as DOMRect;
+    });
     for (const [index, button] of buttons.entries()) {
       vi.spyOn(button, "getBoundingClientRect").mockImplementation(() => {
-        const left = (rtl ? width - (index + 1) * 80 : index * 80) - list.scrollLeft;
-        return { left, right: left + 80, width: 80 } as DOMRect;
+        const viewport = list.getBoundingClientRect();
+        const start = rtl ? viewport.right - (index + 1) * tabWidth : viewport.left + index * tabWidth;
+        const left = start - list.scrollLeft;
+        return { left, right: left + tabWidth, width: tabWidth } as DOMRect;
       });
     }
     // Mimic the scroll event fired after native wheel or touch interaction.
@@ -88,8 +96,20 @@ describe("createSettingsTabLayout", () => {
     expect(earlier.hidden).toBe(true);
     expect(later.hidden).toBe(false);
     expect(later.getAttribute("aria-label")).toBe(scrollLabels.later);
+    // When touch or wheel scrolling reveals the opposite arrow, the tab under
+    // the pointer should not jump sideways to make space for the new control.
+    list.scrollLeft = rtl ? -20 : 20;
+    const anchor = buttons[1]!;
+    const before = anchor.getBoundingClientRect().left;
+    list.dispatchEvent(new Event("scroll"));
+    expect(earlier.hidden).toBe(false);
+    expect(anchor.getBoundingClientRect().left).toBe(before);
+
     later.click();
-    expect(list.scrollLeft).toBe(rtl ? -60 : 60);
+    const revealed = anchor.getBoundingClientRect();
+    const viewport = list.getBoundingClientRect();
+    expect(revealed.left).toBeGreaterThanOrEqual(viewport.left);
+    expect(revealed.right).toBeLessThanOrEqual(viewport.right);
     expect(earlier.hidden).toBe(false);
     expect(later.hidden).toBe(false);
     for (let index = 2; index < buttons.length; index++) later.click();
@@ -98,7 +118,7 @@ describe("createSettingsTabLayout", () => {
     expect(buttons[0]?.getAttribute("aria-selected")).toBe("true");
     expect(select).not.toHaveBeenCalled();
 
-    available = buttons.length * 80;
+    available = buttons.length * tabWidth;
     list.dispatchEvent(new Event("scroll"));
     expect(strip.classList.contains("has-overflow")).toBe(false);
     expect(earlier.hidden).toBe(true);
