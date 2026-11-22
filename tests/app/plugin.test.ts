@@ -558,6 +558,26 @@ describe("PropertyOrderPlugin settings persistence", () => {
     expect(refreshSettings).toHaveBeenCalledOnce();
   });
 
+  it("keeps a successful merged save when the settings panel has already gone away", async () => {
+    const initial = createDefaultSettings();
+    const { loadData, plugin, saveData } = createPlugin(initial);
+    await plugin.loadSettings();
+    const failure = new Error("Settings panel unavailable");
+    const error = vi.spyOn(console, "error").mockImplementation(() => undefined);
+    Reflect.set(plugin, "settingTab", {
+      refreshAfterExternalSettingsChange: () => { throw failure; },
+    });
+    plugin.propertyOrderSettings.showDiagnostics = true;
+    loadData.mockResolvedValueOnce({ ...initial, pinnedPropertyKeys: ["owner"] });
+
+    await plugin.saveSettings();
+
+    expect(saveData).toHaveBeenCalledOnce();
+    expect(plugin.hasPendingSettingsSave()).toBe(false);
+    expect(plugin.propertyOrderSettings.pinnedPropertyKeys).toEqual(["owner"]);
+    expect(error).toHaveBeenCalledWith("Property Order: failed to refresh the settings panel", failure);
+  });
+
   it("refreshes open key menus when external settings change only the language", async () => {
     const initialSettings = {
       ...createDefaultSettings(),

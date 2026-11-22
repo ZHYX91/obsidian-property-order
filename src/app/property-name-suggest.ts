@@ -36,6 +36,7 @@ export class PropertyNameSuggest extends AbstractInputSuggest<string> {
 
   override selectSuggestion(name: string): void {
     queueMicrotask(() => {
+      if (!this.inputEl.isConnected) return;
       this.inputEl.value = "";
       this.inputEl.blur();
       this.close();

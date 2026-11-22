@@ -2,8 +2,30 @@ import {
   isKeySuggestionSortMode,
   isListWritebackFormat,
   isPluginLanguage,
+  type PersistedSettingKey,
 } from "../shared/settings";
 import type { PropertyOrderSettings } from "../shared/types";
+import type { SettingsTabId } from "./settings-tabs";
+
+export const SETTINGS_PANEL = {
+  language: "general",
+  showDiagnostics: "general",
+  enablePropertyValueDrag: "valueDrag",
+  listWritebackFormat: "valueDrag",
+  enableCrossPropertyDrag: "valueDrag",
+  enableNativeKeySuggestionOrder: "keyOrder",
+  keySuggestionSortMode: "keyOrder",
+  groupKeySuggestionsByType: "keyOrder",
+  pinnedPropertyKeys: "keyOrder",
+  bottomPropertyKeys: "keyOrder",
+  hiddenPropertyKeyPatterns: "keyOrder",
+  enableNativeValueSuggestionOrder: "valueSuggestions",
+  valueSuggestionDefaultBehavior: "valueSuggestions",
+  valueSuggestionPropertyAssignments: "valueSuggestions",
+  valueSuggestionCustomOrders: "valueSuggestions",
+  valueSuggestionKeyDisplayOrder: "valueSuggestions",
+  valueSuggestionLegacyRules: "valueSuggestions",
+} as const satisfies Record<PersistedSettingKey, SettingsTabId>;
 
 export type PropertyOrderControlKey =
   | "enableCrossPropertyDrag"

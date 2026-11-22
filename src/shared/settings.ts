@@ -150,8 +150,7 @@ export function prepareSettingsForStorage(
       ? { ...storedValue }
       : { ...cloneSettings(storedSettings) };
 
-  for (const key of getPersistedSettingKeys()) {
-    if (areSettingValuesEqual(settingsSnapshot[key], persistedSettingsBaseline[key])) continue;
+  for (const key of getChangedSettingKeys(settingsSnapshot, persistedSettingsBaseline)) {
     if (key === "valueSuggestionPropertyAssignments" || key === "valueSuggestionCustomOrders") {
       if (futureSchema && key in preparedValue && !Array.isArray(preparedValue[key])) {
         if (target === "storage") throw new Error(`Unrecognized future settings format for ${key}`);
@@ -435,26 +434,15 @@ function cloneSettings(settings: PropertyOrderSettings): PropertyOrderSettings {
   };
 }
 
-function getPersistedSettingKeys(): Array<Exclude<keyof PropertyOrderSettings, "schemaVersion">> {
-  return [
-    "language",
-    "enablePropertyValueDrag",
-    "listWritebackFormat",
-    "enableCrossPropertyDrag",
-    "enableNativeKeySuggestionOrder",
-    "keySuggestionSortMode",
-    "groupKeySuggestionsByType",
-    "pinnedPropertyKeys",
-    "bottomPropertyKeys",
-    "hiddenPropertyKeyPatterns",
-    "enableNativeValueSuggestionOrder",
-    "valueSuggestionDefaultBehavior",
-    "valueSuggestionPropertyAssignments",
-    "valueSuggestionCustomOrders",
-    "valueSuggestionKeyDisplayOrder",
-    "valueSuggestionLegacyRules",
-    "showDiagnostics",
-  ];
+export type PersistedSettingKey = Exclude<keyof PropertyOrderSettings, "schemaVersion">;
+
+export function getChangedSettingKeys(
+  previous: PropertyOrderSettings,
+  current: PropertyOrderSettings,
+): PersistedSettingKey[] {
+  const keys = Object.keys(DEFAULT_SETTINGS) as Array<keyof PropertyOrderSettings>;
+  return keys.filter((key): key is PersistedSettingKey =>
+    key !== "schemaVersion" && !areSettingValuesEqual(previous[key], current[key]));
 }
 
 function areSettingValuesEqual(

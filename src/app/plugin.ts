@@ -6,11 +6,13 @@ import { ValueSuggestionOrderController } from "../features/value-suggestions/va
 import { getResolvedLocaleCode, t } from "../shared/i18n";
 import {
   createDefaultSettings,
+  getChangedSettingKeys,
   hasFutureSettingsSchema,
   normalizeSettings,
   prepareSettingsForStorage,
 } from "../shared/settings";
 import type { PropertyOrderSettings } from "../shared/types";
+import { SETTINGS_PANEL } from "./settings-control-contract";
 import { PropertyOrderSettingTab } from "./settings-tab";
 import { KeyboardValueOrderModal } from "./keyboard-value-order-modal";
 
@@ -101,29 +103,8 @@ export default class PropertyOrderPlugin extends Plugin {
         "runtime",
       ),
     );
-    const keySuggestionsChanged = !areKeySuggestionSettingsEqual(
-      previousSettings,
-      mergedSettings,
-    );
-    const valueSuggestionsChanged = !areValueSuggestionSettingsEqual(
-      previousSettings,
-      mergedSettings,
-    );
-    this.propertyOrderSettings = mergedSettings;
     this.persistedSettingsBaseline = externalBaseline;
-    this.syncRuntimeSettings();
-
-    if (keySuggestionsChanged) {
-      this.refreshKeySuggestionsSafely();
-    }
-
-    if (valueSuggestionsChanged) {
-      this.refreshValueSuggestionsSafely();
-    }
-
-    this.settingTab?.refreshAfterExternalSettingsChange(valueSuggestionsChanged ||
-      previousSettings.language !== mergedSettings.language ||
-      JSON.stringify(previousSettings.valueSuggestionLegacyRules) !== JSON.stringify(mergedSettings.valueSuggestionLegacyRules));
+    this.publishMergedSettings(previousSettings, mergedSettings);
   }
 
   async loadSettings(expectedLifecycleEpoch?: number): Promise<boolean> {
@@ -443,32 +424,13 @@ export default class PropertyOrderPlugin extends Plugin {
             "runtime",
           ),
         );
-        const keySettingsChangedExternally = !areKeySuggestionSettingsEqual(
-          settingsSnapshot,
-          runtimeSettings,
-        );
-        const valueSettingsChangedExternally = !areValueSuggestionSettingsEqual(
-          settingsSnapshot,
-          runtimeSettings,
-        );
-        this.propertyOrderSettings = runtimeSettings;
         this.persistedSettingsBaseline = mergedSettings;
         this.pendingSettingsSave = false;
-        this.syncRuntimeSettings();
-
-        if (shouldRefreshKeySuggestions || keySettingsChangedExternally) {
-          this.refreshKeySuggestionsSafely();
-        }
-
-        if (shouldRefreshValueSuggestions || valueSettingsChangedExternally) {
-          this.refreshValueSuggestionsSafely();
-        }
-
-        // A save can discover a remote rule before the host sends the sync event.
-        // Keep the open editor bound to that merge before accepting another edit.
-        if (!areValueSuggestionSettingsEqual(settingsSnapshot, mergedSettings)) {
-          this.settingTab?.refreshAfterExternalSettingsChange(true);
-        }
+        // Compare the live settings with the merged result. Later edits already
+        // shown by the open panel must not trigger a second redraw.
+        this.publishMergedSettings(
+          currentSettings, runtimeSettings, shouldRefreshKeySuggestions, shouldRefreshValueSuggestions,
+        );
 
         for (const waiter of saveWaiters) {
           waiter.resolve();
@@ -488,6 +450,30 @@ export default class PropertyOrderPlugin extends Plugin {
           waiter.reject(error);
         }
       }
+    }
+  }
+
+  private publishMergedSettings(
+    previous: PropertyOrderSettings,
+    merged: PropertyOrderSettings,
+    refreshKeys = false,
+    refreshValues = false,
+  ): void {
+    const changed = getChangedSettingKeys(previous, merged);
+    this.propertyOrderSettings = merged;
+    this.syncRuntimeSettings();
+
+    if (refreshKeys || changed.some((key) => key === "language" || SETTINGS_PANEL[key] === "keyOrder")) {
+      this.refreshKeySuggestionsSafely();
+    }
+    if (refreshValues || changed.some((key) =>
+      SETTINGS_PANEL[key] === "valueSuggestions" && key !== "valueSuggestionLegacyRules")) {
+      this.refreshValueSuggestionsSafely();
+    }
+    try {
+      if (changed.length > 0) this.settingTab?.refreshAfterExternalSettingsChange(changed);
+    } catch (error) {
+      console.error("Property Order: failed to refresh the settings panel", error);
     }
   }
 
@@ -541,43 +527,6 @@ export default class PropertyOrderPlugin extends Plugin {
       this.propertyOrderSettings.enablePropertyValueDrag,
     );
   }
-}
-
-function areKeySuggestionSettingsEqual(
-  left: PropertyOrderSettings,
-  right: PropertyOrderSettings,
-): boolean {
-  return (
-    left.language === right.language &&
-    left.enableNativeKeySuggestionOrder === right.enableNativeKeySuggestionOrder &&
-    left.keySuggestionSortMode === right.keySuggestionSortMode &&
-    left.groupKeySuggestionsByType === right.groupKeySuggestionsByType &&
-    areStringListsEqual(left.pinnedPropertyKeys, right.pinnedPropertyKeys) &&
-    areStringListsEqual(left.bottomPropertyKeys, right.bottomPropertyKeys) &&
-    areStringListsEqual(left.hiddenPropertyKeyPatterns, right.hiddenPropertyKeyPatterns)
-  );
-}
-
-function areValueSuggestionSettingsEqual(
-  left: PropertyOrderSettings,
-  right: PropertyOrderSettings,
-): boolean {
-  return (
-    left.enableNativeValueSuggestionOrder === right.enableNativeValueSuggestionOrder &&
-    left.valueSuggestionDefaultBehavior === right.valueSuggestionDefaultBehavior &&
-    JSON.stringify(left.valueSuggestionPropertyAssignments) ===
-      JSON.stringify(right.valueSuggestionPropertyAssignments) &&
-    JSON.stringify(left.valueSuggestionCustomOrders) ===
-      JSON.stringify(right.valueSuggestionCustomOrders) &&
-    left.valueSuggestionKeyDisplayOrder === right.valueSuggestionKeyDisplayOrder
-  );
-}
-
-function areStringListsEqual(left: readonly string[], right: readonly string[]): boolean {
-  return (
-    left.length === right.length &&
-    left.every((value, index) => value === right[index])
-  );
 }
 
 function runSettingsStorageOperation<T>(host: object, operation: () => Promise<T>): Promise<T> {
