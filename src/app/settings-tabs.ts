@@ -240,16 +240,23 @@ function installTabOverflow(
     return button;
   }
 
-  function nextDelta(toLeft: boolean): number {
+  function distanceToEdge(tab: HTMLButtonElement, viewport: DOMRect, toLeft: boolean): number {
+    const rect = tab.getBoundingClientRect();
+    return toLeft ? viewport.left - rect.left : rect.right - viewport.right;
+  }
+
+  function firstClippedTab(toLeft: boolean): HTMLButtonElement | undefined {
     const viewport = list.getBoundingClientRect();
+    if (viewport.width <= 0) return;
     let nearest = Infinity;
+    let target: HTMLButtonElement | undefined;
     for (const tab of tabs) {
-      const rect = tab.getBoundingClientRect();
-      const distance = toLeft ? viewport.left - rect.left : rect.right - viewport.right;
-      if (distance > 1) nearest = Math.min(nearest, distance);
+      const distance = distanceToEdge(tab, viewport, toLeft);
+      if (distance <= 1 || distance >= nearest) continue;
+      nearest = distance;
+      target = tab;
     }
-    if (!Number.isFinite(nearest)) return 0;
-    return toLeft ? -nearest : nearest;
+    return target;
   }
 
   function refresh(): void {
@@ -257,8 +264,10 @@ function installTabOverflow(
     strip.classList.toggle("has-overflow", overflow);
     const rtl = isRightToLeft(list);
     const focus = strip.ownerDocument.activeElement;
-    earlier.hidden = !overflow || nextDelta(!rtl) === 0;
-    later.hidden = !overflow || nextDelta(rtl) === 0;
+    const canScrollEarlier = overflow && firstClippedTab(!rtl) !== undefined;
+    const canScrollLater = overflow && firstClippedTab(rtl) !== undefined;
+    earlier.hidden = !canScrollEarlier;
+    later.hidden = !canScrollLater;
     if ((focus === earlier && earlier.hidden) || (focus === later && later.hidden)) {
       const next = [earlier, later].find((button) => !button.hidden) ?? active;
       next.focus({ preventScroll: true });
@@ -267,8 +276,16 @@ function installTabOverflow(
 
   function scroll(event: MouseEvent): void {
     const rtl = isRightToLeft(list);
-    const toLeft = event.currentTarget === earlier ? !rtl : rtl;
-    list.scrollLeft += nextDelta(toLeft);
+    const towardEarlier = event.currentTarget === earlier;
+    const toLeft = towardEarlier ? !rtl : rtl;
+    const target = firstClippedTab(toLeft);
+    if (target === undefined) return;
+    // Reveal the same tab after reserving space for the reverse control.
+    const other = towardEarlier ? later : earlier;
+    other.hidden = false;
+    const viewport = list.getBoundingClientRect();
+    const distance = Math.max(0, Math.min(distanceToEdge(target, viewport, toLeft), viewport.width));
+    list.scrollLeft += toLeft ? -distance : distance;
     refresh();
   }
 

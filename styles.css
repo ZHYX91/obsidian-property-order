@@ -176,12 +176,8 @@ body.property-order-value-drag-enabled .metadata-property .multi-select-pill {
   --tab-scroll-size: 32px;
   container-type: inline-size;
   display: grid;
-  grid-template-columns: 0 minmax(0, 1fr) 0;
+  grid-template-columns: max-content minmax(0, 1fr) max-content;
   min-inline-size: 0;
-}
-
-.property-order-settings-tab-strip.has-overflow {
-  grid-template-columns: var(--tab-scroll-size) minmax(0, 1fr) var(--tab-scroll-size);
 }
 
 .property-order-settings-tab-strip > .property-order-settings-tabs {
@@ -203,6 +199,8 @@ body.property-order-value-drag-enabled .metadata-property .multi-select-pill {
   grid-column: 1;
   grid-row: 1;
   height: auto;
+  inline-size: var(--tab-scroll-size);
+  min-inline-size: 0;
   justify-content: center;
   padding: 0;
 }
