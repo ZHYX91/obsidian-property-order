@@ -20,6 +20,7 @@ import {
   getCachedPropertyValueUsage,
   getCachedPropertyValueVocabulary,
   invalidatePropertyValueUsage,
+  renameAffectsMarkdownUsage,
 } from "../../obsidian/metadata";
 import {
   findSuggestionContainers,
@@ -178,7 +179,9 @@ export class ValueSuggestionOrderController {
       });
       const vault = this.plugin.app.vault;
       if (vault?.on) {
-        const renameRef = vault.on("rename", () => this.invalidateUsage());
+        const renameRef = vault.on("rename", (file, oldPath) => {
+          if (renameAffectsMarkdownUsage(file, oldPath)) this.invalidateUsage();
+        });
         this.registerControllerEvent(renameRef, () => vault.offref(renameRef));
       }
     } catch (error) {

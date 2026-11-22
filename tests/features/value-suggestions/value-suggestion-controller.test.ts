@@ -6,7 +6,8 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { PropertyValueFrequencyStore } from "../../../src/features/value-suggestions/property-value-frequency-store";
 import { ValueSuggestionOrderController } from "../../../src/features/value-suggestions/value-suggestion-controller";
-import { getCachedPropertyValueUsage } from "../../../src/obsidian/metadata";
+import { KeySuggestionOrderController } from "../../../src/features/key-order/key-suggestion-controller";
+import { getCachedPropertyKeyUsage, getCachedPropertyValueUsage } from "../../../src/obsidian/metadata";
 import { createDefaultSettings, normalizeSettings } from "../../../src/shared/settings";
 import type { PropertyOrderSettings } from "../../../src/shared/types";
 
@@ -712,25 +713,55 @@ describe("ValueSuggestionOrderController", () => {
     controller.dispose();
   });
 
-  it("invalidates the warm vocabulary when a rename changes Markdown membership", () => {
+  it("keeps both usage caches warm for attachment renames and refreshes them at Markdown membership or folder changes", () => {
     const file = { path: "old.md" } as TFile;
     const files = [file];
     const app = createApp({ files, frontmatterByFile: new Map([[file, { status: "open" }]]) });
-    const handlers = new Map<string, () => void>();
-    const offref = vi.fn();
+    const handlers: Array<(file: { path: string; children?: unknown[] }, oldPath: string) => void> = [];
     Object.assign(app.vault, {
-      on: (name: string, callback: () => void) => { handlers.set(name, callback); return { name }; },
-      offref,
+      on: (_name: string, callback: (typeof handlers)[number]) => { handlers.push(callback); return {}; },
+      offref: vi.fn(),
     });
-    const controller = createController(createDefaultSettings(), app);
-    controller.initialize();
-    expect(getCachedPropertyValueUsage(app, "status")).toEqual([{ value: "open", count: 1 }]);
-    files.pop();
-    file.path = "renamed.txt";
-    handlers.get("rename")!();
-    expect(getCachedPropertyValueUsage(app, "status")).toEqual([]);
-    controller.dispose();
-    expect(offref).toHaveBeenCalledWith({ name: "rename" });
+    const rename = (file: Parameters<(typeof handlers)[number]>[0], from: string) => {
+      for (const callback of handlers) callback(file, from);
+    };
+    const settings = createDefaultSettings();
+    const values = createController(settings, app);
+    const keys = new KeySuggestionOrderController({ app, registerEvent: vi.fn() } as unknown as Plugin, () => settings);
+    keys.initialize();
+    values.initialize();
+    try {
+      const keyUsage = () => getCachedPropertyKeyUsage(app);
+      const valueUsage = () => getCachedPropertyValueUsage(app, "status");
+      const originalKeys = keyUsage();
+      const originalValues = valueUsage();
+      expect(originalValues).toEqual([{ value: "open", count: 1 }]);
+      const initialScans = vi.mocked(app.vault.getMarkdownFiles).mock.calls.length;
+      rename({ path: "new.png" }, "old.png");
+      expect(keyUsage()).toBe(originalKeys);
+      expect(valueUsage()).toBe(originalValues);
+      expect(app.vault.getMarkdownFiles).toHaveBeenCalledTimes(initialScans);
+
+      files.pop();
+      file.path = "renamed.txt";
+      rename(file, "old.md");
+      expect(keyUsage()).toEqual([]);
+      expect(valueUsage()).toEqual([]);
+      files.push(file);
+      file.path = "Docs/note.md";
+      rename(file, "renamed.txt");
+      expect(keyUsage()).toEqual(originalKeys);
+      expect(valueUsage()).toEqual(originalValues);
+      file.path = "Moved/note.md";
+      rename({ path: "Moved", children: [file] }, "Docs");
+      const scans = vi.mocked(app.vault.getMarkdownFiles).mock.calls.length;
+      expect(keyUsage()).toEqual(originalKeys);
+      expect(valueUsage()).toEqual(originalValues);
+      expect(app.vault.getMarkdownFiles).toHaveBeenCalledTimes(scans + 2);
+    } finally {
+      keys.dispose();
+      values.dispose();
+    }
   });
 
   it.each(["status\u00a0", "\u3000status"])("uses the authored key %j for its own rules and cached candidates", (spaced) => {

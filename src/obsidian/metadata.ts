@@ -1,4 +1,4 @@
-import type { App, CachedMetadata, TFile } from "obsidian";
+import type { App, CachedMetadata, TAbstractFile, TFile } from "obsidian";
 
 import { normalizePropertyKeyIdentity } from "../core/suggestions/property-names";
 import type { PropertyKeyUsage, PropertyValueUsage } from "../shared/types";
@@ -28,6 +28,11 @@ function sameFileValues(files: FileValues, file: TFile, next: string[]): boolean
 function isDetailedChange(change?: UsageChange): change is Exclude<UsageChange, "resolved"> {
   return change != null && change !== "resolved" && change.file != null &&
     change.metadata !== undefined;
+}
+
+/** Renamed folders can move cached descendant paths, even when their own name has no extension. */
+export function renameAffectsMarkdownUsage(file: TAbstractFile, oldPath: string): boolean {
+  return "children" in file || /\.md$/iu.test(oldPath) || /\.md$/iu.test(file.path);
 }
 
 export type CachedFrontmatterStorageKind = "array" | "scalar";
