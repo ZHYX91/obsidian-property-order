@@ -97,6 +97,7 @@ import {
   MOBILE_REORDER_ARM_TIMEOUT_MS,
   PropertyValueOrderController,
 } from "../../../src/features/value-order/value-drag-controller";
+import * as frontmatterBounds from "../../../src/core/frontmatter/bounds";
 import { getFrontmatterTextListPropertyValues } from "../../../src/core/frontmatter";
 import { TOUCH_LONG_PRESS_MS } from "../../../src/core/interaction/pointer-drag";
 import { createDefaultSettings } from "../../../src/shared/settings";
@@ -602,6 +603,175 @@ async function waitForDragFinish(): Promise<void> {
 }
 
 describe("PropertyValueOrderController", () => {
+  it.each(["desktop press", "mobile menu", "mobile arm"])(
+    "audit regression: cancels when the selected row changes after %s",
+    async (phase) => {
+      installRafHarness();
+      const harness = createHarness();
+      try {
+        const original = "---\nflow: [alpha, beta]\nother: [alpha, beta]\n---\n";
+        harness.editor.setContent(original);
+        harness.frontmatter.other = ["alpha", "beta"];
+        const pointerType = phase === "desktop press" ? "mouse" : "touch";
+        Platform.isMobileApp = pointerType === "touch";
+
+        if (pointerType === "mouse") {
+          dispatchPointer(harness.pill, "pointerdown", 10, pointerType);
+        } else {
+          harness.pill.dispatchEvent(new MouseEvent("contextmenu", { bubbles: true, cancelable: true }));
+          expect(menuHarness.items).toHaveLength(1);
+          if (phase === "mobile arm") menuHarness.items[0]?.click();
+        }
+
+        // The native host reuses both the row and its pill for a different YAML key.
+        const sourceRow = harness.container.closest<HTMLElement>(".metadata-property");
+        expect(sourceRow).not.toBeNull();
+        sourceRow?.setAttribute("data-property-key", "other");
+
+        if (pointerType === "touch") {
+          if (phase === "mobile menu") menuHarness.items[0]?.click();
+          dispatchPointer(harness.pill, "pointerdown", 10, pointerType);
+        }
+        dispatchPointer(document, "pointermove", 250, pointerType);
+        dispatchPointer(document, "pointerup", 250, pointerType);
+        await waitForDragFinish();
+
+        expect(harness.editor.getContent()).toBe(original);
+        expect(harness.editor.transaction).not.toHaveBeenCalled();
+        expect(harness.leaf.view.requestSave).not.toHaveBeenCalled();
+      } finally {
+        harness.cleanup();
+      }
+    },
+  );
+
+  it.each(["missing", "unsupported"])(
+    "audit regression: rejects a formerly %s destination that became a list during the drag",
+    async (initial) => {
+      installRafHarness();
+      const harness = createHarness();
+      try {
+        const source = "---\nflow: [alpha, beta]\n";
+        const initialTarget = initial === "missing" ? "" : "target: {priority: high}\n";
+        harness.editor.setContent(source + initialTarget + "---\n");
+        if (initial === "unsupported") harness.frontmatter.target = { priority: "high" };
+        dispatchPointer(harness.pill, "pointerdown", 10);
+        dispatchPointer(document, "pointermove", 250);
+        expect(document.querySelector(".property-order-drag-preview")).not.toBeNull();
+
+        // A separate edit updates the buffer and the visible Properties row together.
+        const externalEdit = source + "target: [new]\n---\n";
+        harness.editor.setContent(externalEdit);
+        harness.frontmatter.target = ["new"];
+        addScalarBackedListProperty(harness, "target", "new");
+
+        dispatchPointer(document, "pointermove", 550);
+        dispatchPointer(document, "pointerup", 550);
+        await waitForDragFinish();
+
+        expect(harness.editor.getContent()).toBe(externalEdit);
+        expect(harness.editor.transaction).not.toHaveBeenCalled();
+        expect(harness.leaf.view.requestSave).not.toHaveBeenCalled();
+      } finally {
+        harness.cleanup();
+      }
+    },
+  );
+
+  it("audit regression: cancels a pointer drag disabled after the last move and before release", async () => {
+    installRafHarness();
+    const harness = createHarness();
+    try {
+      const original = harness.editor.getContent();
+      dispatchPointer(harness.pill, "pointerdown", 10);
+      dispatchPointer(document, "pointermove", 250);
+      harness.settings.enablePropertyValueDrag = false;
+      dispatchPointer(document, "pointerup", 250);
+      await waitForDragFinish();
+
+      expect(harness.editor.getContent()).toBe(original);
+      expect(harness.editor.transaction).not.toHaveBeenCalled();
+      expect(harness.leaf.view.requestSave).not.toHaveBeenCalled();
+    } finally {
+      harness.cleanup();
+    }
+  });
+
+  it.each(["before threshold", "after threshold"])(
+    "cancels when the selected value's YAML spelling changes %s despite identical native text",
+    async (phase) => {
+      const raf = installRafHarness();
+      const harness = createHarness();
+      harness.frontmatter.source = 255;
+      const original = "---\nflow: [alpha, beta]\nsource: 0xFF\n---\n";
+      const updated = original.replace("0xFF", "255");
+      harness.editor.setContent(original);
+      const source = addListTypeMismatchProperty(harness, "source", "255");
+
+      dispatchPointer(source.input, "pointerdown", 400);
+      if (phase === "before threshold") harness.editor.setContent(updated);
+      dispatchPointer(document, "pointermove", 10);
+      raf.flush();
+      if (phase === "after threshold") harness.editor.setContent(updated);
+      dispatchPointer(document, "pointerup", 10);
+
+      await waitForDragFinish();
+      expect(harness.editor.getContent()).toBe(updated);
+      expect(harness.editor.transaction).not.toHaveBeenCalled();
+      expect(harness.leaf.view.requestSave).not.toHaveBeenCalled();
+      harness.cleanup();
+    },
+  );
+
+  it("keeps a body edit made between the initial press and the drag threshold", async () => {
+    installRafHarness();
+    const harness = createHarness();
+    dispatchPointer(harness.pill, "pointerdown", 10);
+    harness.editor.setContent(harness.editor.getContent() + "New body\n");
+    dispatchPointer(document, "pointermove", 250);
+    dispatchPointer(document, "pointerup", 250);
+
+    await waitForDragFinish();
+    expect(harness.editor.getContent()).toBe("---\nflow: [beta, alpha]\n---\nNew body\n");
+    expect(harness.editor.transaction).toHaveBeenCalledTimes(1);
+    expect(harness.leaf.view.requestSave).toHaveBeenCalledTimes(1);
+    harness.cleanup();
+  });
+
+  it("rejects a mobile menu opened before the view switched files", () => {
+    const harness = createHarness();
+    Platform.isMobileApp = true;
+    harness.pill.dispatchEvent(new MouseEvent("contextmenu", { bubbles: true }));
+    expect(menuHarness.items).toHaveLength(1);
+    harness.leaf.view.file = { path: harness.file.path } as TFile;
+    menuHarness.items[0]?.click();
+    expect(harness.pill.classList.contains("property-order-mobile-reorder-armed")).toBe(false);
+    expect(harness.editor.transaction).not.toHaveBeenCalled();
+    harness.cleanup();
+  });
+
+  it("checks cross-property dragging again after the target editor blurs", async () => {
+    installRafHarness();
+    const harness = createHarness();
+    const original = "---\nflow: [alpha, beta]\ntarget: [gamma]\n---\n";
+    harness.editor.setContent(original);
+    const target = addScalarBackedListProperty(harness, "target", "gamma");
+    dispatchPointer(harness.pill, "pointerdown", 10);
+    dispatchPointer(document, "pointermove", 550);
+    const input = document.createElement("input");
+    target.property.appendChild(input);
+    input.focus();
+    input.addEventListener("blur", () => { harness.settings.enableCrossPropertyDrag = false; }, { once: true });
+    dispatchPointer(document, "pointerup", 550);
+
+    await waitForDragFinish();
+    expect(harness.settings.enableCrossPropertyDrag).toBe(false);
+    expect(harness.editor.getContent()).toBe(original);
+    expect(harness.editor.transaction).not.toHaveBeenCalled();
+    expect(harness.leaf.view.requestSave).not.toHaveBeenCalled();
+    harness.cleanup();
+  });
+
   it.each(FLOW_ROOT_DOCUMENTS)("does not start a drag against $name", async ({ source }) => {
     const harness = createHarness();
     try {
@@ -1636,6 +1806,41 @@ describe("PropertyValueOrderController", () => {
     expect(harness.editor.transaction).not.toHaveBeenCalled();
     harness.cleanup();
   });
+
+  it.each(["hidden source", "hidden target", "ambiguous target"])(
+    "cancels pointer writeback after a blur redraw (%s)",
+    async (replacement) => {
+      const raf = installRafHarness();
+      const harness = createHarness();
+      const original = "---\nflow: [alpha, beta]\ntarget: [current]\n---\n";
+      harness.frontmatter.target = ["current"];
+      harness.editor.setContent(original);
+      const target = addScalarBackedListProperty(harness, "target", "current");
+      const row = replacement === "hidden source"
+        ? harness.container.closest<HTMLElement>(".metadata-property")!
+        : target.property;
+      const input = document.createElement("input");
+      target.property.appendChild(input);
+      const redraw = vi.fn(() => {
+        row.after(row.cloneNode(true));
+        if (replacement !== "ambiguous target") row.hidden = true;
+      });
+      input.addEventListener("blur", redraw, { once: true });
+
+      dispatchPointer(harness.pill, "pointerdown", 10);
+      dispatchPointer(document, "pointermove", 550);
+      raf.flush();
+      input.focus();
+      dispatchPointer(document, "pointerup", 550);
+      await waitForDragFinish();
+
+      expect(redraw).toHaveBeenCalledOnce();
+      expect(harness.editor.transaction).not.toHaveBeenCalled();
+      expect(harness.editor.getContent()).toBe(original);
+      expect(harness.leaf.view.requestSave).not.toHaveBeenCalled();
+      harness.cleanup();
+    },
+  );
 
   it("revalidates the frozen source order after target blur side effects", async () => {
     const raf = installRafHarness();
@@ -3100,6 +3305,43 @@ describe("PropertyValueOrderController", () => {
     harness.cleanup();
   });
 
+  it("reorders the YAML row even when the body repeats it after a mixed-line-ending delimiter", async () => {
+    const harness = createHarness();
+    try {
+      const source = "---\r\nintro: ok\r\nreal: y\nflow: [alpha, beta]\n---\nParagraph\r\nflow: [alpha, beta]\r\n---\r\nOutro";
+      harness.editor.setContent(source);
+      const draft = harness.controller.prepareKeyboardReorder(harness.leaf.containerEl);
+      expect(draft?.properties).toEqual([{ key: "flow", values: ["alpha", "beta"], canSource: true }]);
+      expect(await draft?.submit({ action: "down", sourceProperty: "flow", sourceIndex: 0 })).toBe(true);
+      expect(harness.editor.transaction).toHaveBeenCalledOnce();
+      expect(harness.editor.getContent()).toBe(source.replace("real: y\nflow: [alpha, beta]", "real: y\nflow: [beta, alpha]"));
+    } finally {
+      harness.cleanup();
+    }
+  });
+
+  it("reads one Markdown snapshot when preparing a keyboard draft with many visible rows", () => {
+    const harness = createHarness();
+    const row = harness.container.closest<HTMLElement>(".metadata-property")!;
+    const yaml = ["flow: [alpha, beta]"];
+    for (let n = 1; n < 80; n++) {
+      const copy = row.cloneNode(true) as HTMLElement;
+      copy.dataset.propertyKey = "row" + n;
+      row.after(copy);
+      yaml.push("row" + n + ": [alpha, beta]");
+    }
+    harness.editor.setContent(["---", ...yaml, "---", "body"].join("\n"));
+    const reads = vi.spyOn(frontmatterBounds, "extractFrontmatterBounds");
+    try {
+      const draft = harness.controller.prepareKeyboardReorder(harness.leaf.containerEl);
+      expect(draft?.properties).toHaveLength(80);
+      expect(reads).toHaveBeenCalledTimes(1);
+    } finally {
+      reads.mockRestore();
+      harness.cleanup();
+    }
+  });
+
   it("rejects a dragged value changed in the editor before release", async () => {
     const raf = installRafHarness();
     const harness = createHarness();
@@ -3197,6 +3439,58 @@ describe("PropertyValueOrderController", () => {
     harness.cleanup();
   });
 
+  it("rejects a keyboard move when the host reuses the selected pill in another property", async () => {
+    const harness = createHarness();
+    const other = addScalarBackedListProperty(harness, "other", "delta");
+    addEmptyListProperty(harness, "destination");
+    const original = "---\nflow: [alpha, beta]\nother: [delta]\ndestination: []\n---\n";
+    harness.editor.setContent(original);
+    const draft = harness.controller.prepareKeyboardReorder(harness.leaf.containerEl)!;
+    const selected = harness.pill;
+    selected.replaceWith(selected.cloneNode(true));
+    other.pill.replaceWith(selected);
+    selected.textContent = "delta";
+
+    expect(await draft.submit({
+      action: "move", sourceProperty: "flow", sourceIndex: 0, targetProperty: "destination",
+    })).toBe(false);
+    expect(harness.editor.getContent()).toBe(original);
+    expect(harness.editor.transaction).not.toHaveBeenCalled();
+    expect(harness.leaf.view.requestSave).not.toHaveBeenCalled();
+    harness.cleanup();
+  });
+
+  it.each(["hidden-source", "hidden-target", "ambiguous-target", "hidden-on-blur"])("rejects a keyboard draft after a row becomes %s", async (change) => {
+    const harness = createHarness();
+    const destination = addScalarBackedListProperty(harness, "target", "gamma");
+    const original = "---\nflow: [alpha, beta]\ntarget: [gamma]\n---\n";
+    harness.editor.setContent(original);
+    const draft = harness.controller.prepareKeyboardReorder(harness.leaf.containerEl)!;
+    const row = change === "hidden-source"
+      ? harness.container.closest<HTMLElement>(".metadata-property")!
+      : destination.property;
+    const redraw = () => {
+      row.after(row.cloneNode(true));
+      if (change !== "ambiguous-target") row.hidden = true;
+    };
+    if (change === "hidden-on-blur") {
+      const input = document.createElement("input");
+      row.append(input);
+      input.focus();
+      input.addEventListener("blur", redraw, { once: true });
+    } else {
+      redraw();
+    }
+
+    expect(await draft.submit({
+      action: "move", sourceProperty: "flow", sourceIndex: 0, targetProperty: "target",
+    })).toBe(false);
+    expect(harness.editor.getContent()).toBe(original);
+    expect(harness.editor.transaction).not.toHaveBeenCalled();
+    expect(harness.leaf.view.requestSave).not.toHaveBeenCalled();
+    harness.cleanup();
+  });
+
   it.each(["rename", "replacement", "vault-replacement", "editor", "content", "dom"])("rejects a stale position draft after %s", async (change) => {
     const harness = createHarness();
     const original = harness.editor.getContent();
@@ -3263,13 +3557,14 @@ describe("PropertyValueOrderController", () => {
     harness.cleanup();
   });
 
-  it.each(["hidden", "aria", "display", "duplicate", "unsupported"])("does not offer hidden or ambiguous native lists: %s", (change) => {
+  it.each(["hidden", "aria", "display", "duplicate", "duplicate-scalar", "unsupported"])("does not offer hidden or ambiguous native lists: %s", (change) => {
     const harness = createHarness();
     const property = harness.container.closest<HTMLElement>(".metadata-property");
     if (change === "hidden" && property) property.hidden = true;
     if (change === "aria") property?.setAttribute("aria-hidden", "true");
     if (change === "display" && property) property.style.display = "none";
     if (change === "duplicate" && property) property.after(property.cloneNode(true));
+    if (change === "duplicate-scalar") addScalarProperty(harness, "flow");
     if (change === "unsupported") harness.editor.setContent("---\nflow: [{nested: alpha}, beta]\n---\n");
     expect(harness.controller.prepareKeyboardReorder(harness.leaf.containerEl)).toBeNull();
     expect(harness.editor.transaction).not.toHaveBeenCalled();

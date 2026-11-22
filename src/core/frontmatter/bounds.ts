@@ -2,28 +2,16 @@ import type { FrontmatterBounds } from "./types";
 import { parseTopLevelPropertyLine } from "./property-line";
 import { splitInlineComment } from "./scalar";
 
-const FRONTMATTER_OPENING_DELIMITER_PATTERN = /^---[ \t]*$/u;
+const FRONTMATTER_OPENING_DELIMITER_PATTERN = /^\uFEFF?---[ \t]*(\r\n|\r|\n)/u;
 const FRONTMATTER_CLOSING_DELIMITER_PATTERN = /^(?:---|\.\.\.)[ \t]*$/u;
 
 export function extractFrontmatterBounds(content: string): FrontmatterBounds | null {
-  const newline = detectNewline(content);
-  const lines = splitLines(content, newline);
-  const openingLine = lines[0]?.replace(/^\uFEFF/u, "");
-
-  if (
-    lines.length < 2 ||
-    openingLine == null ||
-    !FRONTMATTER_OPENING_DELIMITER_PATTERN.test(openingLine)
-  ) {
-    return null;
-  }
-
-  const lineOffsets = getLineOffsets(lines, newline);
-  let closingLineIndex = -1;
+  const opening = FRONTMATTER_OPENING_DELIMITER_PATTERN.exec(content);
+  if (opening === null) return null;
+  const newline = opening[1];
+  const bodyStart = opening[0].length;
   let blockScalar: BlockScalarState | null = null;
-
-  for (let index = 1; index < lines.length; index += 1) {
-    const line = lines[index] ?? "";
+  for (const { text: line, start } of physicalLines(content, bodyStart)) {
     const indentation = getIndentation(line);
 
     if (blockScalar != null) {
@@ -42,26 +30,12 @@ export function extractFrontmatterBounds(content: string): FrontmatterBounds | n
     }
 
     if (FRONTMATTER_CLOSING_DELIMITER_PATTERN.test(line)) {
-      closingLineIndex = index;
-      break;
+      return { body: content.slice(bodyStart, start), bodyStart, bodyEnd: start, newline };
     }
 
     blockScalar = parseBlockScalarHeader(line);
   }
-
-  if (closingLineIndex === -1) {
-    return null;
-  }
-
-  const bodyStart = lineOffsets[1];
-  const bodyEnd = lineOffsets[closingLineIndex];
-
-  return {
-    body: content.slice(bodyStart, bodyEnd),
-    bodyStart,
-    bodyEnd,
-    newline,
-  };
+  return null;
 }
 
 interface BlockScalarState {
@@ -112,22 +86,14 @@ function getIndentation(line: string): number {
   return whitespace.replace(/\t/g, "  ").length;
 }
 
-export function detectNewline(input: string): string {
-  return /\r\n|\n|\r/.exec(input)?.[0] ?? "\n";
-}
-
-export function splitLines(input: string, newline: string): string[] {
-  return input.length === 0 ? [] : input.split(newline);
-}
-
-export function getLineOffsets(lines: string[], newline: string): number[] {
-  const offsets: number[] = [];
-  let currentOffset = 0;
-
-  for (const line of lines) {
-    offsets.push(currentOffset);
-    currentOffset += line.length + newline.length;
+/** Offsets are UTF-16 positions in the authored text, including mixed line endings. */
+export function* physicalLines(content: string, from = 0) {
+  const breaks = /\r\n|[\r\n]/gu;
+  breaks.lastIndex = from;
+  let start = from;
+  for (const match of content.matchAll(breaks)) {
+    yield { text: content.slice(start, match.index), start };
+    start = match.index + match[0].length;
   }
-
-  return offsets;
+  yield { text: content.slice(start), start };
 }

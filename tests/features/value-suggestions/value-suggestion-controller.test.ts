@@ -2101,6 +2101,33 @@ describe("ValueSuggestionOrderController", () => {
       return { controller, editor, raf, row, selected: selected! };
     }
 
+    it.each(["new draft", ""])("preserves a native input handler's replacement draft %j", (replacement) => {
+      const { editor, selected } = createPresetPopup();
+      const committed: string[] = [];
+      editor.addEventListener("input", () => { editor.value = replacement; }, { once: true });
+      editor.addEventListener("keydown", (event) => {
+        if (event.key === "Enter") committed.push(editor.value);
+      });
+      selected.click();
+      expect(committed).toEqual([]);
+      expect(editor.value).toBe(replacement);
+    });
+
+    it.each(["input", "keydown"] as const)("does not send Enter events to another field after a %s redraw", (redrawEvent) => {
+      const { editor, row, selected } = createPresetPopup();
+      const received: string[] = [];
+      const logEvent = (event: KeyboardEvent) => {
+        if (event.key === "Enter") received.push(`${event.type}:${row.dataset.propertyKey}`);
+      };
+      editor.addEventListener("keydown", logEvent);
+      editor.addEventListener("keyup", logEvent);
+      editor.addEventListener(redrawEvent, () => { row.dataset.propertyKey = "priority"; }, { once: true });
+
+      selected.click();
+
+      expect(received).toEqual(redrawEvent === "input" ? [] : ["keydown:status"]);
+    });
+
     const changes = ["another property", "same property editor", "renamed property", "query"] as const;
     const activations = ["Enter", "Tab", "click"] as const;
     const cases = changes.flatMap((change) => activations.map((activation) => ({

@@ -2,10 +2,10 @@ import type { Editor, MarkdownView } from "obsidian";
 
 import {
   diagnoseFrontmatterReorder,
-  getFrontmatterListPropertyScalars,
+  createTextListReader,
+  haveSameTextListValues,
   planFrontmatterListPropertyMove,
   planFrontmatterListPropertyReorder,
-  type FrontmatterScalar,
 } from "../../core/frontmatter";
 import type { TranslationKey } from "../../shared/i18n";
 import type { ListWritebackFormat } from "../../shared/types";
@@ -56,34 +56,21 @@ export async function writePropertyValueDrop(
 
   const expectedContent = options.expectedContent;
   const currentContent = options.editor.getValue();
-  const hasSourceConflict =
-    hasPropertyValuesChanged(
-      expectedContent,
-      currentContent,
-      options.sourceContext.propertyKey,
-      true,
-    );
-  const hasTargetConflict =
-    options.target.mode === "move" &&
-    hasPropertyValuesChanged(
-      expectedContent,
-      currentContent,
-      options.target.context.propertyKey,
-      true,
-    );
-
-  if (hasSourceConflict || hasTargetConflict || options.canWrite?.() === false) {
-    return { status: "conflict" };
+  const sourceKey = options.sourceContext.propertyKey;
+  const targetKey = options.target.context.propertyKey;
+  const readCurrent = createTextListReader(currentContent);
+  if (expectedContent !== currentContent) {
+    const readExpected = createTextListReader(expectedContent);
+    const changedKeys = options.target.mode === "move" ? [sourceKey, targetKey] : [sourceKey];
+    if (changedKeys.some((key) => !haveSameTextListValues(readExpected(key), readCurrent(key)))) {
+      return { status: "conflict" };
+    }
   }
+  if (options.canWrite?.() === false) return { status: "conflict" };
 
-  const targetSlot =
-    options.target.slot === "append"
-      ? (getFrontmatterListPropertyScalars(
-          currentContent,
-          options.target.context.propertyKey,
-          true,
-        )?.length ?? 0)
-      : options.target.slot;
+  const targetSlot = options.target.slot === "append"
+    ? (readCurrent(targetKey)?.values.length ?? 0)
+    : options.target.slot;
 
   const rewritePlan =
     options.target.mode === "reorder"
@@ -126,10 +113,6 @@ export async function writePropertyValueDrop(
       ? [options.sourceContext.propertyKey]
       : [options.sourceContext.propertyKey, options.target.context.propertyKey];
 
-  if (options.canWrite?.() === false || options.editor.getValue() !== currentContent) {
-    return { status: "conflict" };
-  }
-
   let changes: Array<{
     from: ReturnType<Editor["offsetToPos"]>;
     text: string;
@@ -148,6 +131,10 @@ export async function writePropertyValueDrop(
   } catch (error) {
     console.warn("Property Order: failed to resolve editor positions for value drag", error);
     return { status: "failed", reason: "position-resolution-threw" };
+  }
+
+  if (options.canWrite?.() === false || options.editor.getValue() !== currentContent) {
+    return { status: "conflict" };
   }
 
   const commitResult = await commitHiddenFrontmatterEditorTransaction({
@@ -216,42 +203,4 @@ function getWritebackFailureMessageKey(
 
   const targetDiagnosis = diagnoseFrontmatterReorder(content, target.context.propertyKey);
   return getDiagnosticMessageKey(targetDiagnosis) ?? "notice.unsupportedProperty";
-}
-
-function hasPropertyValuesChanged(
-  expectedContent: string,
-  currentContent: string,
-  propertyKey: string,
-  coerceScalarToList = false,
-): boolean {
-  const expectedValues = getFrontmatterListPropertyScalars(
-    expectedContent,
-    propertyKey,
-    coerceScalarToList,
-  );
-
-  if (expectedValues == null) {
-    return false;
-  }
-
-  const currentValues = getFrontmatterListPropertyScalars(
-    currentContent,
-    propertyKey,
-    coerceScalarToList,
-  );
-  return !arePropertyValuesEqual(expectedValues, currentValues);
-}
-
-function arePropertyValuesEqual(
-  expectedValues: readonly FrontmatterScalar[],
-  currentValues: readonly FrontmatterScalar[] | null,
-): boolean {
-  return (
-    currentValues != null &&
-    currentValues.length === expectedValues.length &&
-    expectedValues.every((scalar, index) => {
-      const currentScalar = currentValues[index];
-      return currentScalar?.kind === scalar.kind && currentScalar.value === scalar.value;
-    })
-  );
 }

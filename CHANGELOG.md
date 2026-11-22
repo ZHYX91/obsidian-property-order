@@ -3,6 +3,14 @@
 All notable changes to Property Order are documented in this file. Release versions and dates
 follow the repository's Git tags; entries summarize the corresponding commit history.
 
+## [Unreleased]
+
+- Keep a preset value’s Enter key from committing to another field if Properties redraws the active editor, consumes the preset, or substitutes a new draft.
+
+- Cancel a pending drag when the originally pressed value, its YAML spelling, the destination list or the applicable drag preference changes before drop.
+
+- Cancel keyboard and drag moves if Properties reuses the selected value, hides or replaces a selected row, or shows two candidate rows for the same field.
+
 ## [0.12.3]
 
 - Keep suggestions and usage counts separate for property names that differ by a non-breaking or ideographic space.

@@ -41,7 +41,8 @@ translation_status: source
 
 `src/core/frontmatter/index.ts` 只暴露稳定的公开 API，职责由以下文件承担：
 
-- `bounds.ts`：BOM、frontmatter 起止边界和 LF/CRLF/CR 换行识别。
+- `bounds.ts` 按物理行读取到第一个闭合分隔线，识别 BOM，并逐行区分 LF、CRLF 和 CR。
+- `property-reader.ts` 为一份不可变的 frontmatter 快照建立顶层属性键和 UTF-16 偏移索引。重复键没有可编辑条目。键盘排序与多行对齐检查可用同一份索引读取各个可见属性。
 - `property-line.ts`：扫描顶层属性头，安全解码带引号的键，并支持键名中的冒号。
 - `flow-list.ts`：中括号列表扫描和安全分隔。
 - `block-list.ts`：无序列表项目、注释、空行和项目样式识别。
@@ -50,7 +51,7 @@ translation_status: source
 - `rewrite.ts`：同属性排序、跨属性移动和目标格式选择。
 - `diagnostics.ts`、`types.ts`：可诊断结果与共享模型。
 
-纯写回只替换受影响的 source/target 属性片段，不对整个 YAML 文档 stringify。frontmatter 之外的正文和未受影响属性保持文本不变；`preserve` 模式还应保留受影响列表可保留的引号、注释、空行、项目样式和输入换行。真实拖拽通过 Obsidian editor 提交最小逻辑变更，以未保存正文和撤销历史为准。Obsidian 1.12.7 即使进行普通手动编辑，也会把已编辑的 CRLF/CR 笔记序列化为 LF；Property Order 不为对抗该宿主行为再追加第二次 Vault 写入。
+纯写回只替换受影响的 source/target 属性片段，不对整个 YAML 文档 stringify。frontmatter 之外的正文和未受影响属性保持文本不变；`preserve` 模式还应保留受影响列表可保留的引号、注释、空行、项目样式和各物理行原有的换行符。列表增加行时沿用所在属性的换行方式，并保留下一属性或闭合分隔线前的末尾换行。真实拖拽通过 Obsidian editor 提交最小逻辑变更，以未保存正文和撤销历史为准。Obsidian 1.12.7 即使进行普通手动编辑，也会把已编辑的 CRLF/CR 笔记序列化为 LF；Property Order 不为对抗该宿主行为再追加第二次 Vault 写入。
 
 标量解析与 Obsidian 暴露的 YAML core schema 类型保持一致：null、boolean、number（包括 infinity/NaN）和 string 必须彼此区分，Metadata/writeback 冲突快照同时比较标量类型和规范值。通用纯 YAML API 默认保留这些类型；真实拖拽已由 Obsidian 原生多值编辑器确认是文本列表，因此在成功操作中由 `text-list.ts` 把受影响属性的非字符串项目转换成字符串。转换使用原始 token：`0xFF` 变成 `"0xFF"` 而不是 `"255"`，空 block 项变成 `""`；已有字符串 token 在 `preserve` 下保持原写法。
 
@@ -73,6 +74,7 @@ translation_status: source
 `core/interaction/pointer-drag.ts` 是纯状态机。它把 mouse/touch/pen 的按下、移动、长按计时、释放和中断转换为 `start`、`cancel`、`finish` 等动作，不访问 DOM。`value-drag-controller.ts` 只编排动作和资源生命周期：
 
 1. 从发起 pill、Properties 容器和 pane 捕获 source 属性、source 索引、精确 pill 节点、文件路径以及该 leaf 的公开 `MarkdownView.editor`。编辑器文本是唯一的内容与冲突基底；可见 pill 顺序必须与 YAML 一致，source 才可参与操作。
+   按下指针或打开移动端菜单时即记录这组信息。在选择菜单操作、按下已就绪的值以及达到起拖阈值时再次核对。仅正文发生的编辑可以保留。
    松手时必须实际指向发起拖动的窗格中的可见目标。浮层挡住属性行时，即便指针仍在该行范围内，也会取消此次拖放。
 
 2. 由 `drop-targeting.ts` 在同一 pane 内解析一个明确状态：受支持列表、受支持的类型不匹配列表、已确认非列表或未知。正常列表使用 Obsidian 原生多值容器。
@@ -84,6 +86,7 @@ translation_status: source
 
 4. 在 pointer release 和原生输入失焦后，先重新验证 leaf、文件、编辑器、属性键、editor kind、精确 source/target 节点、可见值与当前 YAML，再开始规划。同属性重排生成一个精确属性 change；跨属性移动生成两个互不重叠的精确属性 change。
 
+   写入前，源和目标中各项的 YAML 类型、顺序和将要写出的文本必须与最初一致，包括非字符串值的原始写法。拖动期间新建或变得可读的目标不能接收这次移动。指针操作还会在属性输入框失焦后重新检查拖动设置。
    所有 change 都以同一份原始编辑器文本为坐标基底，并通过一次公开的 `editor.transaction()` 原子提交。`editor-transaction.ts` 把精确 origin `"set"` 隔离为 Obsidian 1.12.x 的兼容细节；功能层不得复制这个字符串，也不得依赖私有 transaction API。
 
    事务开始前必须再次核对所有权。等待一个宿主事件循环后，编辑器文本必须与完整规划结果逐字一致。如果内容已经成功应用后才失去所有权，应归类为“内容已应用但未安排持久化”，并提示用户手动保存，而不是误报为 aborted。

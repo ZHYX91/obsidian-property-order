@@ -42,7 +42,8 @@ Dependencies point inward toward the pure core:
 
 `src/core/frontmatter/index.ts` keeps the stable public API while responsibilities are split across:
 
-- `bounds.ts`: BOM, frontmatter delimiter bounds, and LF/CRLF/CR detection.
+- `bounds.ts` reads physical lines through the first closing delimiter, accounting for a BOM and each LF, CRLF or CR separator independently.
+- `property-reader.ts` indexes the top-level keys and UTF-16 offsets in one immutable frontmatter snapshot. Duplicate keys have no editable entry. Keyboard choices and multi-row alignment share the index across all visible properties.
 - `property-line.ts`: top-level property-head scanning, including safely decoded quoted keys and keys containing colons.
 - `flow-list.ts`: bracket-list scanning and safe item separation.
 - `block-list.ts`: bullet items, comments, blank lines, and item-style recognition.
@@ -51,7 +52,7 @@ Dependencies point inward toward the pure core:
 - `rewrite.ts`: same-property reorder, cross-property move, and output-format selection.
 - `diagnostics.ts` and `types.ts`: diagnosable results and shared models.
 
-The pure rewrite replaces only the affected source/target property slices; it never stringifies the whole YAML document. Body text and unaffected properties remain textually unchanged. In `preserve` mode, affected lists also retain every representable quote, comment, blank line, item style, and the input newline convention. Runtime drag writeback commits that minimal logical change through Obsidian's editor so unsaved text and undo history remain authoritative. Obsidian 1.12.7 serializes an edited CRLF/CR note as LF even for an ordinary manual edit; Property Order deliberately does not add a second Vault write to fight that host behavior.
+The pure rewrite replaces only the affected source/target property slices; it never stringifies the whole YAML document. Body text and unaffected properties remain textually unchanged. In `preserve` mode, affected lists also retain every representable quote, comment, blank line, item style, and the original physical line separators where possible. A growing block follows its local line-ending convention and keeps its final separator before the next key or closing delimiter. Runtime drag writeback commits that minimal logical change through Obsidian's editor so unsaved text and undo history remain authoritative. Obsidian 1.12.7 serializes an edited CRLF/CR note as LF even for an ordinary manual edit; Property Order deliberately does not add a second Vault write to fight that host behavior.
 
 Scalar parsing mirrors the YAML core-schema types exposed by Obsidian: null, boolean, number (including infinity and NaN), and string remain distinct, and Metadata/writeback conflict snapshots compare both kind and canonical value. The generic pure YAML API preserves these types by default. Runtime drag has already confirmed an Obsidian native multi-value text editor, so `text-list.ts` converts non-string items in every affected property into strings during a successful operation. Conversion uses original token spelling: `0xFF` becomes `"0xFF"`, not `"255"`, and an empty block item becomes `""`; existing string tokens retain their spelling under `preserve`.
 
@@ -74,6 +75,7 @@ The keyboard command captures source properties, values, the file object, and ed
 `core/interaction/pointer-drag.ts` is the pure state machine. It converts mouse/touch/pen press, movement, long-press timing, release, and interruption into actions such as `start`, `cancel`, and `finish`, without DOM access. `value-drag-controller.ts` only orchestrates actions and resource lifetimes:
 
 1. Capture the source property, source index, exact pill nodes, file path, and the leaf's public `MarkdownView.editor` from the initiating pill, Properties container, and pane. Editor text is the sole content and conflict base. Visible pill order and YAML must agree before the source can be used.
+   Capture this identity on pointer press or when the mobile menu opens. Recheck it when the menu action is selected, when the armed pill is pressed, and at the drag threshold. Changes confined to the note body can be retained.
    A drop must hit a visible target in the originating pane. An overlay covering a row cancels the drop even when the pointer is inside that row’s bounds.
 
 2. Let `drop-targeting.ts` resolve one explicit state in the same pane: supported list, supported type-mismatch list, confirmed non-list, or unknown. Normal lists use Obsidian's native multi-value container.
@@ -85,6 +87,7 @@ The keyboard command captures source properties, values, the file object, and ed
 
 4. After pointer release and native-input blur, revalidate the leaf, file, editor, property keys, editor kinds, exact source/target nodes, visible values, and current YAML before planning. Same-property reorder produces one exact property change; cross-property move produces two non-overlapping exact property changes.
 
+   Before writing, both affected fields must still have the same sequence of YAML scalar types and text to be written, including the original spelling of non-string items. A newly created or newly readable target cancels a pending move. Pointer moves also recheck the drag preferences after blur.
    Every change uses the same original editor text as its coordinate base and is committed atomically by one public `editor.transaction()` call. `editor-transaction.ts` isolates the exact origin `"set"` as an Obsidian 1.12.x compatibility detail; feature code must neither duplicate that string nor rely on a private transaction API.
 
    Ownership is checked again immediately before the transaction. After one host turn, editor text must equal the complete planned result byte-for-byte. If ownership is lost only after the exact result has already been applied, the result is classified as committed content whose persistence was not scheduled, and the user is told to save manually; it is not reported as an aborted no-op.

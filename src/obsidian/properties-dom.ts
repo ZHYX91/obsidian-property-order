@@ -43,14 +43,23 @@ const PROPERTY_KEY_SELECTORS = [
 ];
 
 export function getVisiblePropertyListContexts(pane: HTMLElement): PropertyContainerContext[] {
-  const contexts = Array.from(pane.querySelectorAll<HTMLElement>(PROPERTY_ELEMENT_SELECTOR))
-    .filter((element) => isPropertyElementExposed(element, pane))
-    .map(resolvePropertyElementListContext)
-    .filter((context): context is PropertyContainerContext => context !== null);
-  // Multiple visible native editors for one key cannot supply an unambiguous choice.
-  const counts = new Map<string, number>();
-  for (const context of contexts) counts.set(context.propertyKey, (counts.get(context.propertyKey) ?? 0) + 1);
-  return contexts.filter((context) => counts.get(context.propertyKey) === 1);
+  const contexts: PropertyContainerContext[] = [];
+  for (const element of uniqueVisiblePropertyRows(pane).values()) {
+    const context = element === null ? null : resolvePropertyElementListContext(element);
+    if (context !== null) contexts.push(context);
+  }
+  return contexts;
+}
+
+function uniqueVisiblePropertyRows(pane: HTMLElement, key?: string): Map<string, HTMLElement | null> {
+  const rows = new Map<string, HTMLElement | null>();
+  for (const element of pane.querySelectorAll<HTMLElement>(PROPERTY_ELEMENT_SELECTOR)) {
+    const context = resolvePropertyElementContext(element);
+    if (context === null || (key !== undefined && context.propertyKey !== key) ||
+      !isPropertyElementExposed(element, pane)) continue;
+    rows.set(context.propertyKey, rows.has(context.propertyKey) ? null : element);
+  }
+  return rows;
 }
 
 function isPropertyElementExposed(element: HTMLElement, pane: HTMLElement): boolean {
@@ -487,16 +496,6 @@ export function findPropertyListContextByKey(
   paneContainer: HTMLElement,
   propertyKey: string,
 ): PropertyContainerContext | null {
-  const matches = Array.from(
-    paneContainer.querySelectorAll<HTMLElement>(PROPERTY_ELEMENT_SELECTOR),
-  ).filter(
-    (propertyElement) =>
-      resolvePropertyElementContext(propertyElement)?.propertyKey === propertyKey &&
-      isPropertyElementExposed(propertyElement, paneContainer),
-  );
-
-  const [match] = matches;
-  return matches.length === 1 && match != null
-    ? resolvePropertyElementListContext(match)
-    : null;
+  const row = uniqueVisiblePropertyRows(paneContainer, propertyKey).get(propertyKey);
+  return row == null ? null : resolvePropertyElementListContext(row);
 }

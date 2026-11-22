@@ -1,4 +1,5 @@
-import type { PropertyValueSuggestionContext } from "../../obsidian/native-suggest-dom";
+import { normalizePropertyKeyIdentity } from "../../core/suggestions/property-names";
+import { getActivePropertyValueSuggestionContext, type PropertyValueSuggestionContext } from "../../obsidian/native-suggest-dom";
 
 import { renderCustomValueList } from "./custom-value-list";
 
@@ -157,7 +158,14 @@ export function commitCustomPropertyValueCandidate(
     return false;
   }
 
+  const stillEditingProperty = (): boolean => {
+    const current = getActivePropertyValueSuggestionContext(input.ownerDocument);
+    return current?.editor === context.editor && current.row === context.row &&
+      normalizePropertyKeyIdentity(current.propertyKey) === normalizePropertyKeyIdentity(context.propertyKey) &&
+      getPropertyValueInput(current) === input;
+  };
   input.focus({ preventScroll: true });
+  if (!stillEditingProperty()) return false;
   if (input.matches("input, textarea")) {
     (input as HTMLInputElement | HTMLTextAreaElement).value = value;
   } else {
@@ -169,6 +177,8 @@ export function commitCustomPropertyValueCandidate(
     inputType: "insertText",
   }));
 
+  // The host can consume this input or start another draft in the same editor.
+  if (!stillEditingProperty() || getPropertyValueInputText(input) !== value) return false;
   const keydown = new targetWindow.KeyboardEvent("keydown", {
     bubbles: true,
     cancelable: true,
@@ -177,6 +187,7 @@ export function commitCustomPropertyValueCandidate(
   });
   Reflect.set(keydown, "propertyOrderPresetCommit", true);
   input.dispatchEvent(keydown);
+  if (!stillEditingProperty()) return true;
   input.dispatchEvent(new targetWindow.KeyboardEvent("keyup", {
     bubbles: true,
     code: "Enter",
