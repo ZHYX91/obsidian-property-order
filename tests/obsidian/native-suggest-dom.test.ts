@@ -5,6 +5,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import {
   findSuggestionContainers,
+  getPropertyValueSuggestionItems,
   getSuggestionItemParent,
   getSuggestionItems,
   hasActivePropertyKeySuggestionContext,
@@ -33,7 +34,9 @@ describe("native suggestion DOM adapter", () => {
     root.className = "metadata-property-key";
     const container = document.createElement("div");
     container.className = "suggestion-container menu";
-    container.append(suggestionItem(" tags "), suggestionItem("aliases", "menu-item"));
+    const tags = suggestionItem(" tags ", "menu-item");
+    tags.classList.add("suggestion-item");
+    container.append(suggestionItem("aliases", "menu-item"), tags);
     root.appendChild(container);
     document.body.appendChild(root);
 
@@ -41,7 +44,8 @@ describe("native suggestion DOM adapter", () => {
     const items = getSuggestionItems(container);
 
     expect(containers).toEqual([container]);
-    expect(items.map((item) => item.key)).toEqual(["tags", "aliases"]);
+    expect(items.map((item) => item.key)).toEqual(["aliases", "tags"]);
+    expect(getPropertyValueSuggestionItems(container).map((item) => item.key)).toEqual(["aliases", " tags "]);
     expect(getSuggestionItemParent(items)).toBe(container);
     expect(isLikelyPropertyKeySuggestionContainer(container, items)).toBe(true);
   });
