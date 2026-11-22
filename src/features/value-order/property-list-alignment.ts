@@ -1,4 +1,4 @@
-import { getFrontmatterListPropertyScalars, createTextListReader, type FrontmatterScalar } from "../../core/frontmatter";
+import { getFrontmatterListPropertyScalars, createTextListReader, getFrontmatterTextListProperty, type FrontmatterScalar, type TextListProperty } from "../../core/frontmatter";
 import { findPropertyListContextByKey, getListTypeMismatchDisplayValue, getPropertyPillValueEvidence, type PropertyContainerContext } from "../../obsidian/properties-dom";
 import { arePropertyListValuesAligned } from "./value-alignment";
 
@@ -6,18 +6,17 @@ export function isSourceContextAlignedWithContent(
   context: PropertyContainerContext,
   content: string,
 ): boolean {
-  return readAlignedPropertyList(context, createTextListReader(content))?.canSource === true;
+  return alignPropertyList(context, getFrontmatterTextListProperty(content, context.propertyKey))?.canSource === true;
 }
 
 export function isTargetContextAlignedWithContent(
   context: PropertyContainerContext,
   content: string,
 ): boolean {
-  return readAlignedPropertyList(context, createTextListReader(content)) !== null;
+  return alignPropertyList(context, getFrontmatterTextListProperty(content, context.propertyKey)) !== null;
 }
 
-export function readAlignedPropertyList(context: PropertyContainerContext, read: ReturnType<typeof createTextListReader>) {
-  const property = read(context.propertyKey);
+export function alignPropertyList(context: PropertyContainerContext, property: TextListProperty | null) {
   if (property === null) return null;
   const { values, scalars } = property;
   if (context.editorKind === "multi-select") {
@@ -39,7 +38,7 @@ export function arePropertiesAlignedWithContent(
     const context = findPropertyListContextByKey(paneContainer, propertyKey);
     return (
       context != null &&
-      readAlignedPropertyList(context, read) !== null
+      alignPropertyList(context, read(context.propertyKey)) !== null
     );
   });
 }

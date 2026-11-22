@@ -74,6 +74,7 @@ translation_status: source
 `core/interaction/pointer-drag.ts` 是纯状态机。它把 mouse/touch/pen 的按下、移动、长按计时、释放和中断转换为 `start`、`cancel`、`finish` 等动作，不访问 DOM。`value-drag-controller.ts` 只编排动作和资源生命周期：
 
 1. 从发起 pill、Properties 容器和 pane 捕获 source 属性、source 索引、精确 pill 节点、文件路径以及该 leaf 的公开 `MarkdownView.editor`。编辑器文本是唯一的内容与冲突基底；可见 pill 顺序必须与 YAML 一致，source 才可参与操作。
+   按下指针或打开移动端菜单时即记录这组信息。在选择菜单操作、按下已就绪的值以及达到起拖阈值时再次核对。仅正文发生的编辑可以保留。
    松手时必须实际指向发起拖动的窗格中的可见目标。浮层挡住属性行时，即便指针仍在该行范围内，也会取消此次拖放。
 
 2. 由 `drop-targeting.ts` 在同一 pane 内解析一个明确状态：受支持列表、受支持的类型不匹配列表、已确认非列表或未知。正常列表使用 Obsidian 原生多值容器。
@@ -85,6 +86,7 @@ translation_status: source
 
 4. 在 pointer release 和原生输入失焦后，先重新验证 leaf、文件、编辑器、属性键、editor kind、精确 source/target 节点、可见值与当前 YAML，再开始规划。同属性重排生成一个精确属性 change；跨属性移动生成两个互不重叠的精确属性 change。
 
+   写入前，源和目标中各项的 YAML 类型、顺序和将要写出的文本必须与最初一致，包括非字符串值的原始写法。拖动期间新建或变得可读的目标不能接收这次移动。指针操作还会在属性输入框失焦后重新检查拖动设置。
    所有 change 都以同一份原始编辑器文本为坐标基底，并通过一次公开的 `editor.transaction()` 原子提交。`editor-transaction.ts` 把精确 origin `"set"` 隔离为 Obsidian 1.12.x 的兼容细节；功能层不得复制这个字符串，也不得依赖私有 transaction API。
 
    事务开始前必须再次核对所有权。等待一个宿主事件循环后，编辑器文本必须与完整规划结果逐字一致。如果内容已经成功应用后才失去所有权，应归类为“内容已应用但未安排持久化”，并提示用户手动保存，而不是误报为 aborted。

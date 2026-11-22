@@ -5,6 +5,8 @@ export {
   createTextListReader,
   getFrontmatterTextListProperty,
   getFrontmatterTextListPropertyValues,
+  haveSameTextListValues,
+  type TextListProperty,
 } from "./property-reader";
 export {
   moveFrontmatterListPropertyValue,

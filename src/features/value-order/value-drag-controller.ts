@@ -17,7 +17,9 @@ import {
 } from "../../core/interaction/pointer-drag";
 import {
   createTextListReader,
-  getFrontmatterListPropertyScalars,
+  getFrontmatterTextListProperty,
+  haveSameTextListValues,
+  type TextListProperty,
 } from "../../core/frontmatter";
 import { t, type TranslationKey } from "../../shared/i18n";
 import type { PropertyOrderSettings } from "../../shared/types";
@@ -58,9 +60,14 @@ import {
 } from "./writeback";
 import { addMobileReorderMenuItem } from "./mobile-reorder-menu";
 import { PropertyValueReconciler } from "./property-value-reconciler";
-import { isSourceContextAlignedWithContent, isTargetContextAlignedWithContent, readAlignedPropertyList } from "./property-list-alignment";
+import { isSourceContextAlignedWithContent, isTargetContextAlignedWithContent, alignPropertyList } from "./property-list-alignment";
 import type { KeyboardReorderDraft } from "./keyboard-reorder";
-import type { ValueEditSession } from "./value-edit-session";
+import type { ValueEditSession, ValueEditSource } from "./value-edit-session";
+
+interface PointerSource extends ValueEditSource {
+  property: TextListProperty | null;
+  alignedAtSelection: boolean;
+}
 
 interface DragState extends ValueEditSession {
   expectedStorageKinds: ReturnType<typeof getCachedFrontmatterStorageKinds>;
@@ -92,7 +99,7 @@ const MOBILE_REORDER_ARMED_CLASS = "property-order-mobile-reorder-armed";
 export class PropertyValueOrderController {
   private dragState: DragState | null = null;
   private interactionState: DragInteractionState = createIdleDragInteractionState();
-  private pressedPill: HTMLElement | null = null;
+  private pressedSource: PointerSource | null = null;
   private pressedPointerType: SupportedPointerType | null = null;
   private restoreNativeDragState: (() => void) | null = null;
   private dragUpdateRafId: number | null = null;
@@ -101,7 +108,7 @@ export class PropertyValueOrderController {
   private touchLongPressWindow: Window | null = null;
   private touchMoveDocument: Document | null = null;
   private trailingClickSuppression: TrailingClickSuppression | null = null;
-  private mobileArmedPill: HTMLElement | null = null;
+  private mobileArmedSource: PointerSource | null = null;
   private mobileArmTimeoutId: number | null = null;
   private mobileArmWindow: Window | null = null;
   private mobileDirectPointerId: number | null = null;
@@ -189,7 +196,7 @@ export class PropertyValueOrderController {
     if (pane === null || expectedContent === null) return null;
     const read = createTextListReader(expectedContent);
     const choices = new Map(getVisiblePropertyListContexts(pane.container).flatMap((context) => {
-      const aligned = readAlignedPropertyList(context, read);
+      const aligned = alignPropertyList(context, read(context.propertyKey));
       if (aligned === null) return [];
       const property = Object.freeze({
         key: context.propertyKey, values: Object.freeze(aligned.values), canSource: aligned.canSource,
@@ -412,8 +419,8 @@ export class PropertyValueOrderController {
   private clearInteractionForDocument(targetDocument: Document): void {
     const interactionDocument =
       this.dragState?.document ??
-      this.pressedPill?.ownerDocument ??
-      this.mobileArmedPill?.ownerDocument ??
+      this.pressedSource?.document ??
+      this.mobileArmedSource?.document ??
       null;
 
     if (interactionDocument === targetDocument) {
@@ -455,14 +462,11 @@ export class PropertyValueOrderController {
       return;
     }
 
-    const startsFromMobileMenu =
-      Platform.isMobileApp &&
-      event.pointerType !== "mouse" &&
-      this.consumeMobileArm(pill, event.pointerId);
-
-    if (Platform.isMobileApp && event.pointerType !== "mouse" && !startsFromMobileMenu) {
-      return;
-    }
+    const startsFromMobileMenu = Platform.isMobileApp && event.pointerType !== "mouse";
+    const source = startsFromMobileMenu
+      ? this.consumeMobileArm(pill, event.pointerId)
+      : this.capturePointerSource(pill);
+    if (source === null) return;
 
     const actions = this.transition({
       type: "press",
@@ -474,7 +478,7 @@ export class PropertyValueOrderController {
       startOnMove: startsFromMobileMenu,
     });
 
-    this.pressedPill = pill;
+    this.pressedSource = source;
     this.pressedPointerType = event.pointerType;
 
     if (event.pointerType === "touch") {
@@ -572,7 +576,7 @@ export class PropertyValueOrderController {
 
   private isEventFromInteractionDocument(event: Event): boolean {
     const interactionDocument =
-      this.dragState?.document ?? this.pressedPill?.ownerDocument;
+      this.dragState?.document ?? this.pressedSource?.document;
 
     return interactionDocument == null || event.currentTarget === interactionDocument;
   }
@@ -656,19 +660,12 @@ export class PropertyValueOrderController {
 
     const pill = resolveDraggablePropertyPill(event.target);
 
-    if (
-      pill == null ||
-      resolvePropertyPillContext(pill) == null ||
-      resolvePaneFileContext(this.plugin, pill) == null
-    ) {
-      return;
-    }
+    const source = pill === null ? null : this.capturePointerSource(pill);
+    if (source === null) return;
 
     addMobileReorderMenuItem({
       event,
-      onSelect: () => {
-        this.armMobileReorder(pill);
-      },
+      onSelect: () => this.armMobileReorder(source),
       title: this.t(
         this.getSettings().enableCrossPropertyDrag
           ? "menu.reorderOrMove"
@@ -677,17 +674,13 @@ export class PropertyValueOrderController {
     });
   }
 
-  private armMobileReorder(pill: HTMLElement): void {
-    if (
-      !this.initialized ||
-      !this.getSettings().enablePropertyValueDrag ||
-      !pill.isConnected ||
-      resolvePropertyPillContext(pill) == null ||
-      resolvePaneFileContext(this.plugin, pill) == null
-    ) {
+  private armMobileReorder(source: PointerSource): void {
+    if (this.pointerSourceProblem(source) !== null) {
+      this.clearMobileArmState();
       this.maybeShowDiagnostic("notice.unsupportedContext");
       return;
     }
+    const pill = source.context.pill;
 
     this.clearInteractionState();
     const targetWindow = pill.ownerDocument.defaultView;
@@ -697,7 +690,7 @@ export class PropertyValueOrderController {
       return;
     }
 
-    this.mobileArmedPill = pill;
+    this.mobileArmedSource = source;
     this.mobileArmWindow = targetWindow;
     pill.classList.add(MOBILE_REORDER_ARMED_CLASS);
     this.mobileArmTimeoutId = targetWindow.setTimeout(() => {
@@ -706,21 +699,17 @@ export class PropertyValueOrderController {
     new Notice(this.t("notice.mobileReorderArmed"));
   }
 
-  private consumeMobileArm(pill: HTMLElement, pointerId: number): boolean {
-    const armedPill = this.mobileArmedPill;
-
-    if (armedPill == null) {
-      return false;
-    }
-
-    if (pill !== armedPill || !armedPill.isConnected) {
+  private consumeMobileArm(pill: HTMLElement, pointerId: number): PointerSource | null {
+    const source = this.mobileArmedSource;
+    if (source === null) return null;
+    if (pill !== source.context.pill || this.pointerSourceProblem(source) !== null) {
       this.clearMobileArmState();
-      return false;
+      return null;
     }
 
     this.clearMobileArmTimer();
     this.mobileDirectPointerId = pointerId;
-    return true;
+    return source;
   }
 
   private clearMobileArmTimer(): void {
@@ -735,8 +724,8 @@ export class PropertyValueOrderController {
   }
 
   private clearMobileArmState(): void {
-    const armedPill = this.mobileArmedPill;
-    this.mobileArmedPill = null;
+    const armedPill = this.mobileArmedSource?.context.pill;
+    this.mobileArmedSource = null;
     this.clearMobileArmTimer();
 
     if (armedPill != null) {
@@ -851,7 +840,7 @@ export class PropertyValueOrderController {
       return;
     }
 
-    if (this.mobileArmedPill != null && this.interactionState.phase === "idle") {
+    if (this.mobileArmedSource != null && this.interactionState.phase === "idle") {
       event.preventDefault();
       this.clearMobileArmState();
       return;
@@ -867,7 +856,7 @@ export class PropertyValueOrderController {
 
   private scheduleTouchLongPressStart(pointerId: number): void {
     this.clearTouchLongPressTimer();
-    const targetWindow = this.pressedPill?.ownerDocument.defaultView;
+    const targetWindow = this.pressedSource?.document.defaultView;
 
     if (targetWindow == null) {
       this.applyActions(this.transition({ type: "abort" }));
@@ -892,51 +881,76 @@ export class PropertyValueOrderController {
     }, TOUCH_LONG_PRESS_MS);
   }
 
+  private capturePointerSource(pill: HTMLElement): PointerSource | null {
+    const context = resolvePropertyPillContext(pill);
+    const pane = resolvePaneFileContext(this.plugin, pill);
+    if (context === null || pane === null || this.editSession !== null) return null;
+    const document = pill.ownerDocument;
+    if (!this.isRowCurrent({ paneContainer: pane.container, document }, context)) return null;
+
+    const expectedContent = this.readExpectedContent(pane.editor);
+    const property = expectedContent === null
+      ? null
+      : getFrontmatterTextListProperty(expectedContent, context.propertyKey);
+    return {
+      context,
+      file: pane.file,
+      originalPath: pane.file.path,
+      paneView: pane.view,
+      paneContainer: pane.container,
+      editor: pane.editor,
+      document,
+      expectedContent,
+      generation: this.lifecycleGeneration,
+      property,
+      alignedAtSelection: alignPropertyList(context, property)?.canSource === true,
+    };
+  }
+
+  private pointerSourceProblem(source: PointerSource): TranslationKey | null {
+    if (
+      !this.initialized || this.lifecycleGeneration !== source.generation || this.editSession !== null ||
+      !this.getSettings().enablePropertyValueDrag || !this.isOriginalDocumentActive(source) ||
+      !this.isRowCurrent(source, source.context)
+    ) {
+      return "notice.unsupportedContext";
+    }
+
+    if (source.context.editorKind === "list-type-mismatch" && source.property?.values.length !== 1) {
+      return "notice.unsupportedProperty";
+    }
+    if (!source.alignedAtSelection || !alignPropertyList(source.context, source.property)?.canSource) {
+      return "notice.propertiesOutOfSync";
+    }
+    const current = this.readExpectedContent(source.editor);
+    if (current === null) return "notice.contentChanged";
+    if (current !== source.expectedContent &&
+        !haveSameTextListValues(source.property, getFrontmatterTextListProperty(current, source.context.propertyKey))) {
+      return "notice.contentChanged";
+    }
+    return null;
+  }
+
   private startDrag(pointerId: number, clientX: number, clientY: number): boolean {
     this.clearTouchLongPressTimer();
-    const pressedPill = this.pressedPill;
+    const source = this.pressedSource;
     const pressedPointerType = this.pressedPointerType;
-
-    if (pressedPill == null || pressedPointerType == null) {
+    if (source === null || pressedPointerType === null) {
+      this.clearInteractionState();
+      return false;
+    }
+    const problem = this.pointerSourceProblem(source);
+    if (problem !== null) {
+      if (problem === "notice.propertiesOutOfSync" || problem === "notice.contentChanged") {
+        new Notice(this.t(problem));
+      } else {
+        this.maybeShowDiagnostic(problem);
+      }
       this.clearInteractionState();
       return false;
     }
 
-    const context = resolvePropertyPillContext(pressedPill);
-    const paneContext = resolvePaneFileContext(this.plugin, pressedPill);
-
-    if (context == null || paneContext == null) {
-      this.maybeShowDiagnostic("notice.unsupportedContext");
-      this.clearInteractionState();
-      return false;
-    }
-
-    const expectedContent = this.readExpectedContent(paneContext.editor);
-
-    if (
-      context.editorKind === "list-type-mismatch" &&
-      (expectedContent == null ||
-        getFrontmatterListPropertyScalars(
-          expectedContent,
-          context.propertyKey,
-          true,
-        )?.length !== 1)
-    ) {
-      this.maybeShowDiagnostic("notice.unsupportedProperty");
-      this.clearInteractionState();
-      return false;
-    }
-
-    if (
-      expectedContent == null ||
-      !isSourceContextAlignedWithContent(context, expectedContent)
-    ) {
-      new Notice(this.t("notice.propertiesOutOfSync"));
-      this.clearInteractionState();
-      return false;
-    }
-
-    const targetDocument = context.pill.ownerDocument;
+    const { context, document: targetDocument } = source;
     const targetWindow = targetDocument.defaultView;
 
     if (targetWindow == null) {
@@ -959,18 +973,10 @@ export class PropertyValueOrderController {
     setDocumentDragCursorActive(targetDocument, true);
 
     this.dragState = {
-      document: targetDocument,
-      editor: paneContext.editor,
-      expectedContent,
-      file: paneContext.file,
-      originalPath: paneContext.file.path,
+      ...source,
       focusOwnerAtStart,
       focusIntentGeneration: this.userFocusIntentGeneration,
-      generation: this.lifecycleGeneration,
-      paneContainer: paneContext.container,
-      paneView: paneContext.view,
-      context,
-      expectedStorageKinds: getCachedFrontmatterStorageKinds(this.plugin.app, paneContext.file),
+      expectedStorageKinds: getCachedFrontmatterStorageKinds(this.plugin.app, source.file),
       indicatorElement,
       invalidTarget: null,
       previewElement,
@@ -980,7 +986,7 @@ export class PropertyValueOrderController {
       target: null,
     };
     this.editSession = this.dragState;
-    this.pressedPill = null;
+    this.pressedSource = null;
     this.pressedPointerType = null;
 
     this.pendingDragX = clientX;
@@ -1122,6 +1128,10 @@ export class PropertyValueOrderController {
       return;
     }
 
+    if (!this.getSettings().enablePropertyValueDrag) {
+      this.clearInteractionState();
+      return;
+    }
     const target = dragState.target;
 
     if (target == null) {
@@ -1322,7 +1332,7 @@ export class PropertyValueOrderController {
     );
   }
 
-  private isOriginalDocumentActive(dragState: ValueEditSession): boolean {
+  private isOriginalDocumentActive(dragState: ValueEditSource): boolean {
     const currentPaneContext = resolvePaneFileContext(this.plugin, dragState.paneContainer);
     return (
       currentPaneContext?.view === dragState.paneView &&
@@ -1333,6 +1343,12 @@ export class PropertyValueOrderController {
   }
 
   private isEditReadyForWrite(dragState: ValueEditSession, target: DropTarget): boolean {
+    if (this.dragState === dragState) {
+      const settings = this.getSettings();
+      if (!settings.enablePropertyValueDrag || (target.mode === "move" && !settings.enableCrossPropertyDrag)) {
+        return false;
+      }
+    }
     if (
       !this.isEditSessionActive(dragState) ||
       !this.isOriginalDocumentActive(dragState) ||
@@ -1367,7 +1383,10 @@ export class PropertyValueOrderController {
       this.isRowCurrent(dragState, source);
   }
 
-  private isRowCurrent(session: ValueEditSession, row: PropertyContainerContext): boolean {
+  private isRowCurrent(
+    session: Pick<ValueEditSource, "document" | "paneContainer">,
+    row: PropertyContainerContext,
+  ): boolean {
     if (session.paneContainer.ownerDocument !== session.document) return false;
     const current = findPropertyListContextByKey(session.paneContainer, row.propertyKey);
     return current?.propertyElement === row.propertyElement &&
@@ -1387,7 +1406,7 @@ export class PropertyValueOrderController {
     this.clearTouchMoveCapture();
     const restoreNativeDragState = this.restoreNativeDragState;
     this.restoreNativeDragState = null;
-    this.pressedPill = null;
+    this.pressedSource = null;
     this.pressedPointerType = null;
     this.mobileDirectPointerId = null;
     this.clearMobileArmState();
@@ -1420,7 +1439,7 @@ export class PropertyValueOrderController {
     this.dragState = null;
     if (this.editSession === dragState) this.editSession = null;
     this.restoreNativeDragState = null;
-    this.pressedPill = null;
+    this.pressedSource = null;
     this.pressedPointerType = null;
     this.mobileDirectPointerId = null;
     this.interactionState = createIdleDragInteractionState();

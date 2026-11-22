@@ -603,6 +603,175 @@ async function waitForDragFinish(): Promise<void> {
 }
 
 describe("PropertyValueOrderController", () => {
+  it.each(["desktop press", "mobile menu", "mobile arm"])(
+    "audit regression: cancels when the selected row changes after %s",
+    async (phase) => {
+      installRafHarness();
+      const harness = createHarness();
+      try {
+        const original = "---\nflow: [alpha, beta]\nother: [alpha, beta]\n---\n";
+        harness.editor.setContent(original);
+        harness.frontmatter.other = ["alpha", "beta"];
+        const pointerType = phase === "desktop press" ? "mouse" : "touch";
+        Platform.isMobileApp = pointerType === "touch";
+
+        if (pointerType === "mouse") {
+          dispatchPointer(harness.pill, "pointerdown", 10, pointerType);
+        } else {
+          harness.pill.dispatchEvent(new MouseEvent("contextmenu", { bubbles: true, cancelable: true }));
+          expect(menuHarness.items).toHaveLength(1);
+          if (phase === "mobile arm") menuHarness.items[0]?.click();
+        }
+
+        // The native host reuses both the row and its pill for a different YAML key.
+        const sourceRow = harness.container.closest<HTMLElement>(".metadata-property");
+        expect(sourceRow).not.toBeNull();
+        sourceRow?.setAttribute("data-property-key", "other");
+
+        if (pointerType === "touch") {
+          if (phase === "mobile menu") menuHarness.items[0]?.click();
+          dispatchPointer(harness.pill, "pointerdown", 10, pointerType);
+        }
+        dispatchPointer(document, "pointermove", 250, pointerType);
+        dispatchPointer(document, "pointerup", 250, pointerType);
+        await waitForDragFinish();
+
+        expect(harness.editor.getContent()).toBe(original);
+        expect(harness.editor.transaction).not.toHaveBeenCalled();
+        expect(harness.leaf.view.requestSave).not.toHaveBeenCalled();
+      } finally {
+        harness.cleanup();
+      }
+    },
+  );
+
+  it.each(["missing", "unsupported"])(
+    "audit regression: rejects a formerly %s destination that became a list during the drag",
+    async (initial) => {
+      installRafHarness();
+      const harness = createHarness();
+      try {
+        const source = "---\nflow: [alpha, beta]\n";
+        const initialTarget = initial === "missing" ? "" : "target: {priority: high}\n";
+        harness.editor.setContent(source + initialTarget + "---\n");
+        if (initial === "unsupported") harness.frontmatter.target = { priority: "high" };
+        dispatchPointer(harness.pill, "pointerdown", 10);
+        dispatchPointer(document, "pointermove", 250);
+        expect(document.querySelector(".property-order-drag-preview")).not.toBeNull();
+
+        // A separate edit updates the buffer and the visible Properties row together.
+        const externalEdit = source + "target: [new]\n---\n";
+        harness.editor.setContent(externalEdit);
+        harness.frontmatter.target = ["new"];
+        addScalarBackedListProperty(harness, "target", "new");
+
+        dispatchPointer(document, "pointermove", 550);
+        dispatchPointer(document, "pointerup", 550);
+        await waitForDragFinish();
+
+        expect(harness.editor.getContent()).toBe(externalEdit);
+        expect(harness.editor.transaction).not.toHaveBeenCalled();
+        expect(harness.leaf.view.requestSave).not.toHaveBeenCalled();
+      } finally {
+        harness.cleanup();
+      }
+    },
+  );
+
+  it("audit regression: cancels a pointer drag disabled after the last move and before release", async () => {
+    installRafHarness();
+    const harness = createHarness();
+    try {
+      const original = harness.editor.getContent();
+      dispatchPointer(harness.pill, "pointerdown", 10);
+      dispatchPointer(document, "pointermove", 250);
+      harness.settings.enablePropertyValueDrag = false;
+      dispatchPointer(document, "pointerup", 250);
+      await waitForDragFinish();
+
+      expect(harness.editor.getContent()).toBe(original);
+      expect(harness.editor.transaction).not.toHaveBeenCalled();
+      expect(harness.leaf.view.requestSave).not.toHaveBeenCalled();
+    } finally {
+      harness.cleanup();
+    }
+  });
+
+  it.each(["before threshold", "after threshold"])(
+    "cancels when the selected value's YAML spelling changes %s despite identical native text",
+    async (phase) => {
+      const raf = installRafHarness();
+      const harness = createHarness();
+      harness.frontmatter.source = 255;
+      const original = "---\nflow: [alpha, beta]\nsource: 0xFF\n---\n";
+      const updated = original.replace("0xFF", "255");
+      harness.editor.setContent(original);
+      const source = addListTypeMismatchProperty(harness, "source", "255");
+
+      dispatchPointer(source.input, "pointerdown", 400);
+      if (phase === "before threshold") harness.editor.setContent(updated);
+      dispatchPointer(document, "pointermove", 10);
+      raf.flush();
+      if (phase === "after threshold") harness.editor.setContent(updated);
+      dispatchPointer(document, "pointerup", 10);
+
+      await waitForDragFinish();
+      expect(harness.editor.getContent()).toBe(updated);
+      expect(harness.editor.transaction).not.toHaveBeenCalled();
+      expect(harness.leaf.view.requestSave).not.toHaveBeenCalled();
+      harness.cleanup();
+    },
+  );
+
+  it("keeps a body edit made between the initial press and the drag threshold", async () => {
+    installRafHarness();
+    const harness = createHarness();
+    dispatchPointer(harness.pill, "pointerdown", 10);
+    harness.editor.setContent(harness.editor.getContent() + "New body\n");
+    dispatchPointer(document, "pointermove", 250);
+    dispatchPointer(document, "pointerup", 250);
+
+    await waitForDragFinish();
+    expect(harness.editor.getContent()).toBe("---\nflow: [beta, alpha]\n---\nNew body\n");
+    expect(harness.editor.transaction).toHaveBeenCalledTimes(1);
+    expect(harness.leaf.view.requestSave).toHaveBeenCalledTimes(1);
+    harness.cleanup();
+  });
+
+  it("rejects a mobile menu opened before the view switched files", () => {
+    const harness = createHarness();
+    Platform.isMobileApp = true;
+    harness.pill.dispatchEvent(new MouseEvent("contextmenu", { bubbles: true }));
+    expect(menuHarness.items).toHaveLength(1);
+    harness.leaf.view.file = { path: harness.file.path } as TFile;
+    menuHarness.items[0]?.click();
+    expect(harness.pill.classList.contains("property-order-mobile-reorder-armed")).toBe(false);
+    expect(harness.editor.transaction).not.toHaveBeenCalled();
+    harness.cleanup();
+  });
+
+  it("checks cross-property dragging again after the target editor blurs", async () => {
+    installRafHarness();
+    const harness = createHarness();
+    const original = "---\nflow: [alpha, beta]\ntarget: [gamma]\n---\n";
+    harness.editor.setContent(original);
+    const target = addScalarBackedListProperty(harness, "target", "gamma");
+    dispatchPointer(harness.pill, "pointerdown", 10);
+    dispatchPointer(document, "pointermove", 550);
+    const input = document.createElement("input");
+    target.property.appendChild(input);
+    input.focus();
+    input.addEventListener("blur", () => { harness.settings.enableCrossPropertyDrag = false; }, { once: true });
+    dispatchPointer(document, "pointerup", 550);
+
+    await waitForDragFinish();
+    expect(harness.settings.enableCrossPropertyDrag).toBe(false);
+    expect(harness.editor.getContent()).toBe(original);
+    expect(harness.editor.transaction).not.toHaveBeenCalled();
+    expect(harness.leaf.view.requestSave).not.toHaveBeenCalled();
+    harness.cleanup();
+  });
+
   it.each(FLOW_ROOT_DOCUMENTS)("does not start a drag against $name", async ({ source }) => {
     const harness = createHarness();
     try {

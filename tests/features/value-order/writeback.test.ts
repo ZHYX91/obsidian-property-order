@@ -327,6 +327,33 @@ describe("writePropertyValueDrop", () => {
     },
   );
 
+  it.each([
+    { label: "source number spelling", startSource: "01", endSource: "1", startTarget: "[x]", endTarget: "[x]" },
+    { label: "source boolean spelling", startSource: "TRUE", endSource: "true", startTarget: "[x]", endTarget: "[x]" },
+    { label: "target spelling order", startSource: "[a]", endSource: "[a]", startTarget: "[01, 1]", endTarget: "[1, 01]" },
+  ])("audit regression: cancels a move after a change to $label", async ({
+    startSource, endSource, startTarget, endTarget,
+  }) => {
+    const note = (source: string, target: string) =>
+      ["---", `source: ${source}`, `target: ${target}`, "---"].join("\n");
+    const latestContent = note(endSource, endTarget);
+    const fixture = createEditorWithCurrentContent(latestContent);
+    const requestSave = vi.fn();
+
+    const result = await writeTestPropertyValueDrop({
+      editor: fixture.editor,
+      expectedContent: note(startSource, startTarget),
+      sourceContext: createContext("source", 0),
+      target: createTarget("target", "move", "append"),
+      writebackFormat: "preserve",
+    }, { requestSave });
+
+    expect(result.status).toBe("conflict");
+    expect(fixture.transactions).toHaveLength(0);
+    expect(requestSave).not.toHaveBeenCalled();
+    expect(fixture.getContent()).toBe(latestContent);
+  });
+
   it("normalizes an unchanged implicit empty list item", async () => {
     const content = ["---", "tags:", "  -", "  - other", "---"].join("\n");
     const fixture = createEditorWithCurrentContent(content);

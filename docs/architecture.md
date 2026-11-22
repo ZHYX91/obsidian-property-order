@@ -75,6 +75,7 @@ The keyboard command captures source properties, values, the file object, and ed
 `core/interaction/pointer-drag.ts` is the pure state machine. It converts mouse/touch/pen press, movement, long-press timing, release, and interruption into actions such as `start`, `cancel`, and `finish`, without DOM access. `value-drag-controller.ts` only orchestrates actions and resource lifetimes:
 
 1. Capture the source property, source index, exact pill nodes, file path, and the leaf's public `MarkdownView.editor` from the initiating pill, Properties container, and pane. Editor text is the sole content and conflict base. Visible pill order and YAML must agree before the source can be used.
+   Capture this identity on pointer press or when the mobile menu opens. Recheck it when the menu action is selected, when the armed pill is pressed, and at the drag threshold. Changes confined to the note body can be retained.
    A drop must hit a visible target in the originating pane. An overlay covering a row cancels the drop even when the pointer is inside that row’s bounds.
 
 2. Let `drop-targeting.ts` resolve one explicit state in the same pane: supported list, supported type-mismatch list, confirmed non-list, or unknown. Normal lists use Obsidian's native multi-value container.
@@ -86,6 +87,7 @@ The keyboard command captures source properties, values, the file object, and ed
 
 4. After pointer release and native-input blur, revalidate the leaf, file, editor, property keys, editor kinds, exact source/target nodes, visible values, and current YAML before planning. Same-property reorder produces one exact property change; cross-property move produces two non-overlapping exact property changes.
 
+   Before writing, both affected fields must still have the same sequence of YAML scalar types and text to be written, including the original spelling of non-string items. A newly created or newly readable target cancels a pending move. Pointer moves also recheck the drag preferences after blur.
    Every change uses the same original editor text as its coordinate base and is committed atomically by one public `editor.transaction()` call. `editor-transaction.ts` isolates the exact origin `"set"` as an Obsidian 1.12.x compatibility detail; feature code must neither duplicate that string nor rely on a private transaction API.
 
    Ownership is checked again immediately before the transaction. After one host turn, editor text must equal the complete planned result byte-for-byte. If ownership is lost only after the exact result has already been applied, the result is classified as committed content whose persistence was not scheduled, and the user is told to save manually; it is not reported as an aborted no-op.

@@ -59,6 +59,16 @@ export function getFrontmatterTextListProperty(content: string, propertyKey: str
   return createTextListReader(content)(propertyKey);
 }
 
+export type TextListProperty = NonNullable<ReturnType<typeof getFrontmatterTextListProperty>>;
+
+/** Compare the value identity a move would actually write, including non-string YAML spelling. */
+export function haveSameTextListValues(before: TextListProperty | null, after: TextListProperty | null): boolean {
+  return before !== null && after !== null && before.values.length === after.values.length &&
+    before.values.every((value, index) =>
+      value === after.values[index] && before.scalars[index]?.kind === after.scalars[index]?.kind,
+    );
+}
+
 export function getFrontmatterListPropertyValues(
   content: string,
   propertyKey: string,
