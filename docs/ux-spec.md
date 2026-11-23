@@ -33,6 +33,7 @@ This document mirrors the authoritative current interaction and presentation con
 
 ## Property-key suggestions
 
+- Filtering a property name down to one candidate still applies hidden-key rules when the menu belongs to the editor. A generic one-item popup needs either a structural connection to that editor or an explicit control relationship.
 - Enhancement reuses native menu nodes rather than rendering a look-alike replacement.
 - Pinned items come first, normal items remain in the middle, bottom items come last, and hidden items do not occupy visible navigation order.
 - Optional property-type grouping applies only to the normal section: Text, List, Number, Checkbox, Date, Date & time, Tags, and Automatic / unspecified. Name, Recently used, or Note count sorting still applies only inside each group. Group headings are display-only: keyboard and touch navigation skip them, and assistive technology does not treat them as candidates.
