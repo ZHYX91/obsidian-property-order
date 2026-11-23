@@ -30,6 +30,11 @@ describe("comparePropertyNames", () => {
     ]);
   });
 
+  it("classifies only the first non-space code point, including supplementary characters", () => {
+    const names = ["_2", "　𠀀a", " Beta", "𝟚x"];
+    expect(names.sort(comparePropertyNames)).toEqual(["𝟚x", " Beta", "　𠀀a", "_2"]);
+  });
+
   it("uses a deterministic variant and code-point tie-break", () => {
     const names = ["alpha", "Alpha", "álpha"];
     const firstPass = [...names].sort(comparePropertyNames);

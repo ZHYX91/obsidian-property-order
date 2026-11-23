@@ -5,9 +5,9 @@ const PROPERTY_NAME_GROUP = {
   other: 3,
 } as const;
 
-const NUMBER_CHARACTER = /\p{Decimal_Number}/u;
-const LATIN_CHARACTER = /\p{Script=Latin}/u;
-const HAN_CHARACTER = /\p{Script=Han}/u;
+const NUMBER_CHARACTER = /^\p{Decimal_Number}/u;
+const LATIN_CHARACTER = /^\p{Script=Latin}/u;
+const HAN_CHARACTER = /^\p{Script=Han}/u;
 
 const LATIN_COLLATOR = new Intl.Collator("en", {
   numeric: true,
@@ -68,17 +68,17 @@ export function getPropertyNameSuggestions(
 }
 
 function getPropertyNameGroup(value: string): number {
-  const firstCharacter = Array.from(value.trimStart())[0] ?? "";
+  const name = value.trimStart();
 
-  if (NUMBER_CHARACTER.test(firstCharacter)) {
+  if (NUMBER_CHARACTER.test(name)) {
     return PROPERTY_NAME_GROUP.number;
   }
 
-  if (LATIN_CHARACTER.test(firstCharacter)) {
+  if (LATIN_CHARACTER.test(name)) {
     return PROPERTY_NAME_GROUP.latin;
   }
 
-  if (HAN_CHARACTER.test(firstCharacter)) {
+  if (HAN_CHARACTER.test(name)) {
     return PROPERTY_NAME_GROUP.han;
   }
 
