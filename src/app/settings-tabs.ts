@@ -214,8 +214,8 @@ function clamp(value: number, minimum: number, maximum: number): number {
   return Math.min(Math.max(value, minimum), maximum);
 }
 
-// The two gutters appear together only when the uncropped row overflows.
-// Keeping them stable prevents the first or last tab from moving as a button hides.
+// Only a visible arrow occupies space. Keep the tab under the pointer in place
+// when scrolling reveals the control at the start of the strip.
 function installTabOverflow(
   strip: HTMLElement,
   list: HTMLElement,
