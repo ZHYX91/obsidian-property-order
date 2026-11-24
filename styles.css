@@ -317,6 +317,7 @@ body.property-order-value-drag-enabled .metadata-property .multi-select-pill {
 }
 
 .property-order-settings-panel {
+  container: property-order-settings-panel / inline-size;
   margin-block-start: var(--size-4-5);
   min-width: 0;
 }
@@ -450,6 +451,7 @@ body.property-order-value-drag-enabled .metadata-property .multi-select-pill {
 }
 
 .property-order-custom-value-editor > h4 {
+  overflow-wrap: anywhere;
   margin-block-start: 0;
 }
 
@@ -459,6 +461,12 @@ body.property-order-value-drag-enabled .metadata-property .multi-select-pill {
   margin-block-end: var(--size-4-3);
   min-height: 4rem;
   padding: var(--size-4-3);
+}
+
+.property-order-custom-value-section .setting-item-control,
+.property-order-custom-value-section select {
+  min-inline-size: 0;
+  max-inline-size: 100%;
 }
 
 .property-order-custom-value-section-title {
@@ -531,13 +539,22 @@ body.property-order-value-drag-enabled .metadata-property .multi-select-pill {
 }
 
 .property-order-custom-value-add {
+  flex-wrap: wrap;
   align-items: center;
   display: flex;
   gap: var(--size-2-2);
   margin-block-start: var(--size-2-2);
 }
 
+.property-order-custom-value-add button {
+  max-inline-size: 100%;
+  white-space: normal;
+  block-size: auto;
+  min-block-size: var(--input-height);
+}
+
 .property-order-custom-value-add input {
+  max-inline-size: 100%;
   flex: 1 1 auto;
   min-width: 0;
 }
@@ -575,9 +592,9 @@ body.property-order-value-drag-enabled .metadata-property .multi-select-pill {
   }
 }
 
-@media (max-width: 480px) {
+@container property-order-settings-panel (max-width: 480px) {
   .property-order-custom-value-layout {
-    grid-template-columns: 1fr;
+    grid-template-columns: minmax(0, 1fr);
   }
 
   .property-order-custom-value-keys {
@@ -591,6 +608,11 @@ body.property-order-value-drag-enabled .metadata-property .multi-select-pill {
 
   .property-order-custom-value-key {
     flex: 0 0 auto;
+  }
+
+  .property-order-custom-value-section .setting-item {
+    align-items: stretch;
+    flex-direction: column;
   }
 
   .property-order-custom-value-add {
