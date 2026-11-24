@@ -239,6 +239,36 @@ describe("renderCustomValueSuggestionEditor", () => {
     expect(rows().length).toBeLessThanOrEqual(32);
   });
 
+  it("keeps keyboard focus in a preset section when its focused row disappears", () => {
+    const container = document.body.createDiv();
+    let order: PropertyValueCustomOrder = {
+      propertyKey: "status", middleSortMode: "native",
+      pinnedValues: ["one", "two", "three"], bottomValues: [], middleValues: [],
+    };
+    const render = () => preserveSettingsView(container, () => {
+      const staging = document.createElement("div");
+      renderCustomValueSuggestionEditor({
+        app: createApp(), assignments: customAssignments(), containerEl: staging,
+        customOrders: [order], displayOrder: "name", getFrequency: () => [],
+        onCustomOrdersChange: async (orders) => { order = orders[0]; },
+        rerender: render, selectedPropertyKey: "status", t: (key) => key,
+      });
+      container.replaceChildren(...Array.from(staging.childNodes));
+    });
+    render();
+    const remove = (value: string) => {
+      const button = container.querySelector<HTMLButtonElement>(`[data-settings-focus="candidate:${value}:×"]`)!;
+      button.focus();
+      button.click();
+    };
+    remove("two");
+    expect(document.activeElement?.getAttribute("data-settings-focus")).toBe("candidate:three:×");
+    remove("three");
+    expect(document.activeElement?.getAttribute("data-settings-focus")).toBe("candidate:one:×");
+    remove("one");
+    expect(document.activeElement).toBe(container.querySelector(".is-pinned .property-order-custom-value-add input"));
+  });
+
   it("persists button moves, preset removal, manual additions, and middle sort changes", async () => {
     const container = document.createElement("div");
     const changes: PropertyValueCustomOrder[][] = [];
