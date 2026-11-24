@@ -43,6 +43,9 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      - name: Check native settings row layout in Chrome
+        run: npm run test:settings-layout
+
       - name: Type-check, test, build, and verify release assets
         run: npm run check
 

@@ -814,6 +814,23 @@ body.property-order-value-drag-enabled .metadata-property .multi-select-pill {
   }
 }
 
+/* Keep the host's intrinsic-width probe outside the scrollable inline end. */
+.property-order-settings-panel select.dropdown.is-measuring {
+  inset-inline-start: auto;
+  inset-inline-end: 100%;
+  inset-block-start: 0;
+}
+.property-order-value-behavior-add > :is(select, button) {
+  min-inline-size: 0;
+  max-inline-size: 100%;
+}
+.property-order-value-behavior-add > button {
+  block-size: auto;
+  min-block-size: var(--input-height);
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+
 .property-order-named-toggle:has(input:focus-visible) {
   outline: 2px solid var(--background-modifier-border-focus);
   outline-offset: 2px;
