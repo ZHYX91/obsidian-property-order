@@ -283,11 +283,21 @@ body.property-order-value-drag-enabled .metadata-property .multi-select-pill {
   font-family: inherit !important;
   font-size: var(--font-ui-small) !important;
   font-weight: inherit;
-  margin: 0 0 -1px !important;
+  margin: 0 !important;
   block-size: auto;
   min-block-size: 34px;
   padding: 7px 12px !important;
   white-space: nowrap;
+}
+
+@media (forced-colors: active) {
+  .property-order-settings-tabs {
+    --interactive-accent: Highlight;
+  }
+
+  .property-order-settings-tabs > button.property-order-settings-tab[aria-selected="false"] {
+    border-block-end-color: Canvas !important;
+  }
 }
 
 .property-order-settings-tabs > button.property-order-settings-tab:focus-visible {
