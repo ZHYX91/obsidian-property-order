@@ -71,15 +71,23 @@ export function renderCustomValueList(
     input.setAttribute("aria-activedescendant", `${id}-${selected}`);
   };
 
+  const selectedBounds = (): { top: number; height: number } => {
+    if (windowed) return { top: list.offsetTop + selected * rowHeight, height: rowHeight };
+    const row = rows.get(selected)!;
+    return { top: row.offsetTop, height: row.offsetHeight };
+  };
+
   const revealSelection = (): void => {
-    const offset = list.offsetTop + selected * rowHeight;
+    const { top: offset, height: itemHeight } = selectedBounds();
     const height = container.clientHeight || rowHeight;
     if (offset < container.scrollTop) container.scrollTop = offset;
-    else if (offset + rowHeight > container.scrollTop + height) {
-      container.scrollTop = offset + rowHeight - height;
+    else if (offset + itemHeight > container.scrollTop + height) {
+      container.scrollTop = offset + itemHeight - height;
     }
-    firstRendered = -1;
-    renderWindow();
+    if (windowed) {
+      firstRendered = -1;
+      renderWindow();
+    }
   };
 
   const resize = (): void => {
@@ -116,22 +124,20 @@ export function renderCustomValueList(
 
   return {
     preparePosition(): boolean {
-      if (!windowed) return false;
-      const top = list.offsetTop + selected * rowHeight;
+      const { top, height } = selectedBounds();
       const wasVisible = lastViewportHeight == null ||
-        (top >= container.scrollTop && top + rowHeight <= container.scrollTop + lastViewportHeight);
+        (top >= container.scrollTop && top + height <= container.scrollTop + lastViewportHeight);
       resize();
       return wasVisible;
     },
     finishPosition(reveal: boolean): void {
-      if (!windowed) return;
       lastViewportHeight = container.clientHeight;
       if (reveal) revealSelection();
     },
     observeSize(position: () => void): () => void {
-      if (!fontProbe || !view.ResizeObserver) return () => undefined;
+      if (!view.ResizeObserver) return () => undefined;
       const observer = new view.ResizeObserver(position);
-      observer.observe(fontProbe);
+      if (fontProbe) observer.observe(fontProbe);
       observer.observe(container);
       return () => observer.disconnect();
     },
@@ -142,12 +148,9 @@ export function renderCustomValueList(
       old?.setAttribute("aria-selected", "false");
       old?.classList.remove("is-selected");
       selected = target(selected, values.length, pageSize);
-      if (windowed) revealSelection();
+      revealSelection();
       const active = rows.get(selected)!;
-      if (!windowed) {
-        active.scrollIntoView?.({ block: "nearest" });
-        input.setAttribute("aria-activedescendant", active.id);
-      }
+      input.setAttribute("aria-activedescendant", active.id);
       active.setAttribute("aria-selected", "true");
       active.classList.add("is-selected");
       return true;

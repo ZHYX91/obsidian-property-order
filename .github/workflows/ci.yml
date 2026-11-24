@@ -46,6 +46,9 @@ jobs:
       - name: Type-check, test, build, and verify release assets
         run: npm run check
 
+      - name: Verify fallback suggestions in Chrome
+        run: npm run test:fallback-layout
+
       - name: Run suggestion usage regression benchmark
         run: npm run bench:usage
 

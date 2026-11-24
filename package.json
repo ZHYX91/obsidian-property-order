@@ -33,7 +33,8 @@
     "prelint": "node scripts/check-shared-tools.mjs && node scripts/prepare-lint-dependencies.mjs && node scripts/check-lint-dependencies.mjs",
     "check:tools": "node scripts/check-shared-tools.mjs",
     "test:tools": "vitest run tests/scripts/shared-maintenance-tools.test.ts",
-    "prebuild": "node scripts/check-runtime.mjs --build"
+    "prebuild": "node scripts/check-runtime.mjs --build",
+    "test:fallback-layout": "node scripts/test-fallback-popup.mjs"
   },
   "keywords": [
     "obsidian",
@@ -90,6 +91,7 @@
     "eslint-plugin-obsidianmd": "0.4.2",
     "happy-dom": "21.0.4",
     "obsidian": "1.14.4",
+    "playwright-core": "1.62.0",
     "typescript": "6.0.3",
     "typescript-eslint": "8.70.1",
     "vitest": "4.1.12",
