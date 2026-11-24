@@ -158,6 +158,7 @@ export function renderCustomValueSuggestionEditor(
       const row = list.createDiv({
         cls: "property-order-custom-value-item",
       });
+      row.dataset.candidateIndex = String(index);
       row.draggable = true;
       row.addEventListener("dragstart", (event) => {
         draggedValue = item.value;

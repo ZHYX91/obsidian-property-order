@@ -261,12 +261,25 @@ describe("renderCustomValueSuggestionEditor", () => {
       button.focus();
       button.click();
     };
+    const lastPage = () => {
+      const page = container.querySelector<HTMLInputElement>(".is-pinned input[type=number]")!;
+      page.value = page.max;
+      page.dispatchEvent(new Event("change"));
+    };
     remove("two");
     expect(document.activeElement?.getAttribute("data-settings-focus")).toBe("candidate:three:×");
     remove("three");
     expect(document.activeElement?.getAttribute("data-settings-focus")).toBe("candidate:one:×");
     remove("one");
     expect(document.activeElement).toBe(container.querySelector(".is-pinned .property-order-custom-value-add input"));
+    // Deleting a page with a single row also changes the visible page.
+    for (const count of [33, 65]) {
+      order = { ...order, pinnedValues: Array.from({ length: count }, (_, i) => String(i + 1)) };
+      render();
+      lastPage();
+      remove(String(count));
+      expect(document.activeElement?.getAttribute("data-settings-focus")).toBe(`candidate:${count - 1}:×`);
+    }
   });
 
   it("persists button moves, preset removal, manual additions, and middle sort changes", async () => {
