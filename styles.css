@@ -814,11 +814,11 @@ body.property-order-value-drag-enabled .metadata-property .multi-select-pill {
   }
 }
 
-/* Keep the host's intrinsic-width probe outside the scrollable inline end. */
+/* Keep the host's intrinsic-width probe out of its settings scrollport even
+   when Obsidian and the plugin use opposite reading directions. */
 .property-order-settings-panel select.dropdown.is-measuring {
-  inset-inline-start: auto;
-  inset-inline-end: 100%;
-  inset-block-start: 0;
+  position: fixed;
+  inset: 0 auto auto 0;
 }
 .property-order-value-behavior-add > :is(select, button) {
   min-inline-size: 0;
