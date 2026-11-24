@@ -1,9 +1,10 @@
+import { AccessibleSetting as Setting } from "./accessible-setting";
+import type { Setting as NativeSetting } from "obsidian";
 import {
   Notice,
   Platform,
   Plugin,
   PluginSettingTab,
-  Setting,
   type App,
   type SettingDefinitionItem,
 } from "obsidian";
@@ -134,7 +135,7 @@ export class PropertyOrderSettingTab extends PluginSettingTab {
     };
   }
 
-  private addClearRecentPropertyKeysButton(setting: Setting): void {
+  private addClearRecentPropertyKeysButton(setting: NativeSetting): void {
     setting.addButton((button) => {
       button
         .setButtonText(this.t("settings.keyOrder.recentHistory.clear"))
@@ -565,7 +566,7 @@ export class PropertyOrderSettingTab extends PluginSettingTab {
     return label === mode ? rule : `${rule} (${label})`;
   }
 
-  private configureRuleDiagnosticSetting(setting: Setting): SettingsCleanup {
+  private configureRuleDiagnosticSetting(setting: NativeSetting): SettingsCleanup {
     let input: HTMLInputElement | undefined;
     const resultEl = setting.descEl.createDiv({
       cls: "property-order-rule-diagnostic-result",
@@ -830,7 +831,7 @@ function addInactiveHint(containerEl: HTMLElement, text: string): HTMLElement {
 }
 
 function configureKeyListSetting(
-  setting: Setting,
+  setting: NativeSetting,
   key: "pinnedPropertyKeys" | "bottomPropertyKeys" | "hiddenPropertyKeyPatterns",
   values: string[],
   onChange: (values: string[]) => Promise<void>,
@@ -871,6 +872,7 @@ function configureKeyListSetting(
         .setValue("");
       text.inputEl.addClass("property-order-property-name-input");
       text.inputEl.dataset.settingsFocus = `add-key:${key}`;
+      text.inputEl.setAttribute("aria-label", placeholder);
 
       propertyNameSuggest = new PropertyNameSuggest(app, text.inputEl, {
         availableNames,

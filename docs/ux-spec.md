@@ -64,6 +64,8 @@ This document mirrors the authoritative current interaction and presentation con
 
 ## Settings UI
 
+Native settings fields use their visible names and descriptions. Each toggle has one keyboard stop and exposes its current checked and disabled states.
+
 - General, Value order, Key suggestions, and Value suggestions are the same four settings groups across host versions. Control values, conditional visibility, immediate application, persistence failure, and Retry behavior stay consistent.
 - **Interface language** lists 12 languages under their native names, plus **Follow Obsidian** to use the host interface language; an explicit plugin language takes precedence. The complete README is available in the same 12 languages, while engineering documents remain in Simplified Chinese and English.
 - Arabic makes only the Property Order settings content right-to-left. Switching to English or another supported language restores left-to-right content. Left/Right tab navigation follows the local direction; Home/End still select the first and last tabs. Changing language or closing settings leaves the language and direction of the Obsidian host settings container, other settings pages, and workspace unchanged.

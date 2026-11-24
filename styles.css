@@ -813,3 +813,8 @@ body.property-order-value-drag-enabled .metadata-property .multi-select-pill {
     margin-inline-start: 8px;
   }
 }
+
+.property-order-named-toggle:has(input:focus-visible) {
+  outline: 2px solid var(--background-modifier-border-focus);
+  outline-offset: 2px;
+}
