@@ -1,6 +1,7 @@
 import { Modal, type App } from "obsidian";
 import type { KeyboardReorderDraft, KeyboardReorderRequest } from "../features/value-order/keyboard-reorder";
 import type { TranslationKey } from "../shared/i18n";
+import type { ResolvedPluginLocale } from "../shared/locale-catalog";
 
 /** Native controls provide the same value edit without depending on pill focusability. */
 export class KeyboardValueOrderModal extends Modal {
@@ -14,7 +15,7 @@ export class KeyboardValueOrderModal extends Modal {
     app: App,
     private readonly draft: KeyboardReorderDraft,
     private readonly t: (key: TranslationKey) => string,
-    private readonly direction: "ltr" | "rtl" = "ltr",
+    private readonly locale: ResolvedPluginLocale = "en",
   ) {
     super(app);
     // Capture the command invoker before Obsidian moves focus into the modal.
@@ -27,9 +28,12 @@ export class KeyboardValueOrderModal extends Modal {
   override onOpen(): void {
     if (this.disposed) return;
     this.setTitle(this.t("keyboard.command"));
-    this.titleEl.dir = this.direction;
     const root = this.contentEl;
-    root.dir = this.direction;
+    const direction = this.locale === "ar" ? "rtl" : "ltr";
+    for (const element of [this.titleEl, root]) {
+      element.lang = this.locale;
+      element.dir = direction;
+    }
     root.classList.add("property-order-keyboard-reorder");
     root.createEl("p", { text: this.t("keyboard.description") });
     const addSelect = (key: TranslationKey): HTMLSelectElement => {
@@ -44,7 +48,7 @@ export class KeyboardValueOrderModal extends Modal {
     const position = positionLabel.createEl("input", { attr: { type: "number", min: "1", step: "1" } });
     const target = addSelect("keyboard.target");
     const sourceProperties = this.draft.properties.filter((property) => property.canSource && property.values.length > 0);
-    for (const property of sourceProperties) source.createEl("option", { text: property.key, attr: { value: property.key } });
+    for (const property of sourceProperties) source.createEl("option", { text: property.key, attr: { value: property.key, lang: "", dir: "auto" } });
     const actions = root.createDiv({ cls: "property-order-keyboard-actions" });
     const up = actions.createEl("button", { text: this.t("keyboard.up") });
     const down = actions.createEl("button", { text: this.t("keyboard.down") });
@@ -82,10 +86,10 @@ export class KeyboardValueOrderModal extends Modal {
     const updateSource = (): void => {
       value.replaceChildren();
       const values = sourceProperties.find((property) => property.key === source.value)?.values ?? [];
-      values.forEach((text, index) => value.createEl("option", { text: `${index + 1}. ${text}`, attr: { value: String(index) } }));
+      values.forEach((text, index) => value.createEl("option", { text: `${index + 1}. ${text}`, attr: { value: String(index), lang: "", dir: "auto" } }));
       target.replaceChildren();
       for (const property of this.draft.properties) {
-        if (property.key !== source.value) target.createEl("option", { text: property.key, attr: { value: property.key } });
+        if (property.key !== source.value) target.createEl("option", { text: property.key, attr: { value: property.key, lang: "", dir: "auto" } });
       }
       updateValue();
     };

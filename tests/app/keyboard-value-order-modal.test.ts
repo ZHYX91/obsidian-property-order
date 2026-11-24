@@ -33,6 +33,30 @@ function button(modal: KeyboardValueOrderModal, text: string): HTMLButtonElement
 beforeEach(() => { document.body.replaceChildren(); });
 
 describe("keyboard value order dialog", () => {
+  it("declares the dialog language while keeping note data independent of that language", () => {
+    const draft = createDraft();
+    const shell = document.createElement("div");
+    shell.lang = "en";
+    const modal = new KeyboardValueOrderModal({} as never, draft, (key) => getTranslation("ar", key), "ar");
+    modal.open();
+    shell.append(modal.titleEl, modal.contentEl);
+    try {
+      expect(modal.titleEl.lang).toBe("ar");
+      expect(modal.titleEl.dir).toBe("rtl");
+      expect(modal.contentEl.querySelector("button")?.closest("[lang]")?.getAttribute("lang")).toBe("ar");
+      expect(modal.titleEl.textContent).toBe(getTranslation("ar", "keyboard.command"));
+      const options = [...modal.contentEl.querySelectorAll("option")];
+      expect(options.length).toBeGreaterThan(0);
+      for (const option of options) {
+        expect(option.getAttribute("lang")).toBe("");
+        expect(option.dir).toBe("auto");
+      }
+      expect(shell.lang).toBe("en");
+    } finally {
+      modal.close();
+    }
+  });
+
   it("labels every select, focuses the source and disables only boundary moves", () => {
     const draft = createDraft();
     const modal = new KeyboardValueOrderModal({} as never, draft, t);
@@ -253,7 +277,7 @@ describe("keyboard value order dialog", () => {
 
   it("supports RTL and disables cross-property moves when no target exists", () => {
     const draft = createDraft();
-    const modal = new KeyboardValueOrderModal({} as never, { ...draft, properties: draft.properties.slice(0, 1) }, t, "rtl");
+    const modal = new KeyboardValueOrderModal({} as never, { ...draft, properties: draft.properties.slice(0, 1) }, t, "ar");
     modal.open();
     expect(modal.contentEl.dir).toBe("rtl");
     expect(modal.titleEl.dir).toBe("rtl");
@@ -264,7 +288,7 @@ describe("keyboard value order dialog", () => {
 
   it.each(SUPPORTED_LOCALES)("labels direct destination controls in $id", ({ id }) => {
     const translate = (key: TranslationKey) => getTranslation(id, key);
-    const modal = new KeyboardValueOrderModal({} as never, createDraft(), translate, id === "ar" ? "rtl" : "ltr");
+    const modal = new KeyboardValueOrderModal({} as never, createDraft(), translate, id);
     modal.open();
     expect(modal.contentEl.querySelector("input")?.closest("label")?.textContent).toBe(translate("keyboard.position"));
     for (const key of ["keyboard.atPosition", "keyboard.first", "keyboard.last"] as const) {
