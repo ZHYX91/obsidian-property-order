@@ -31,5 +31,8 @@ This specification is for maintainers of Number Suite, Property Order, Folder No
 | Fine and coarse pointers, LTR and RTL | Exercise long and short translations. Measure the hit rectangles. Use keyboard events to check focus, selection, paging and reopening. |
 | Themes and accessibility display modes | Check active and focused states in light, dark and forced colors. Inspect the painted result where clipping or paint order matters. |
 | Editing, refreshing and failure | Check input, focus, target and retry results through partial edits, row additions and removals, target changes and failed saves or reads. |
+| A setting or dialog in another Obsidian window | Resolve focus and label references in the document that owns the control. In the accessibility tree, a button with visible text includes that wording in its name after a redraw or language change. Explanations and disabled reasons remain available. |
+| Delete a focused row at a page boundary | Continue from an enabled action on the logical neighbor, including when the last page disappears. If the section empties, focus its add or editing control when available. Preserve focus elsewhere if the user already left. |
+| Dismiss feedback while a write is pending | Dismissing a notification closes that notification. Test any separately offered cancellation before and after the write commits. During a pending write, repeated activation must not submit twice. After failure, make clear whether it is safe to retry or the result already exists. |
 
 Use a real browser for geometry, scrolling and painting. Use each plugin's disposable Vault procedure for host interaction and writes. Record browser touch emulation, Obsidian desktop and physical mobile results separately.
