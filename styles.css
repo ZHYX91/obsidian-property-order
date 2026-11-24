@@ -525,6 +525,17 @@ body.property-order-value-drag-enabled .metadata-property .multi-select-pill {
   cursor: var(--cursor, default);
 }
 
+.property-order-settings-panel .setting-item-info {
+  max-inline-size: 100%;
+  overflow-wrap: anywhere;
+}
+
+.property-order-settings-support a {
+  min-inline-size: 0;
+  max-inline-size: 100%;
+  overflow-wrap: anywhere;
+}
+
 .property-order-settings-support .setting-item-control {
   flex-wrap: wrap;
   gap: var(--size-4-3);
@@ -820,10 +831,12 @@ body.property-order-value-drag-enabled .metadata-property .multi-select-pill {
   position: fixed;
   inset: 0 auto auto 0;
 }
+.property-order-settings-panel .setting-item-control > button,
 .property-order-value-behavior-add > :is(select, button) {
   min-inline-size: 0;
   max-inline-size: 100%;
 }
+.property-order-settings-panel .setting-item-control > button,
 .property-order-value-behavior-add > button {
   block-size: auto;
   min-block-size: var(--input-height);

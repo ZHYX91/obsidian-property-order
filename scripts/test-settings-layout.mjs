@@ -10,6 +10,11 @@ try {
   await page.setContent(`<style>
     main { box-sizing:border-box; height:400px; padding-inline:32px; overflow-y:auto; container-type:inline-size; font:20px system-ui }
     .setting-item { position:relative; display:flex; gap:8px }
+    .setting-item-info { align-self:flex-start }
+    .setting-item-name,.setting-item-description { overflow:hidden }
+    .setting-item-control .external-link { padding-inline-end:.9em }
+    .setting-item-control button { font:inherit; height:28px }
+    .support { flex-direction:column; padding-inline:16px }
     .setting-item-control { display:flex; justify-content:flex-end; width:100% }
     .dropdown.is-measuring { position:absolute; visibility:hidden; width:max-content!important; max-width:none!important }
     button { white-space:nowrap }
@@ -18,7 +23,11 @@ try {
     <div class="setting-item-control"><select class="dropdown"><option>Aktuell</option></select>
     <select aria-hidden="true" tabindex="-1" class="dropdown is-measuring">
       <option>Nummern nach bekannten Schematiteln und benutzerdefinierten Nummerierungen erkennen</option>
-    </select></div></div><div class="property-order-value-behavior-add"><button>Ajouter une très longue règle de classement</button></div></section></div></main>`);
+    </select></div></div><div class="setting-item support property-order-settings-support">
+    <div class="setting-item-info"><div class="setting-item-name">Eigenschaftswertvorschläge</div>
+    <div class="setting-item-description">Eigenschaftswertvorschläge anpassen</div></div>
+    <div class="setting-item-control"><a class="external-link" href="#guide">Benutzerhandbuch</a></div>
+    <div class="setting-item-control"><button>Effacer les compteurs</button></div></div><div class="property-order-value-behavior-add"><button>Ajouter une très longue règle de classement</button></div></section></div></main>`);
   await page.addStyleTag({ path: "styles.css" });
   for (const hostDirection of ["ltr", "rtl"]) {
     for (const pluginDirection of ["ltr", "rtl"]) {
@@ -35,11 +44,16 @@ try {
             hostOverflow: main.scrollWidth - main.clientWidth,
             panelOverflow: panel.scrollWidth - panel.clientWidth,
             measured: probe.offsetWidth,
+            contentFits: Array.from(panel.querySelectorAll(".support .setting-item-name,.support .setting-item-description,.support a,.support button")).every((element) =>
+              element.scrollWidth <= element.clientWidth + 1 && element.scrollHeight <= element.clientHeight + 1 &&
+              element.getBoundingClientRect().width <= element.parentElement.getBoundingClientRect().width + 1),
+
           };
         }, { hostDirection, pluginDirection, width });
         const description = `host ${hostDirection}, plugin ${pluginDirection}, ${width}px`;
         assert.ok(result.hostOverflow <= 1, `${description}: settings scroller overflowed by ${result.hostOverflow}px`);
         assert.ok(result.panelOverflow <= 1, `${description}: panel overflowed by ${result.panelOverflow}px`);
+        assert.ok(result.contentFits, `${description}: a translated label, guide link or action is clipped`);
         assert.ok(result.measured > 320, "Host dropdown must still measure natural width");
       }
     }
