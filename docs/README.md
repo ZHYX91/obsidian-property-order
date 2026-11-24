@@ -6,6 +6,7 @@ Start with the [project README](../README.md) for installation and everyday use.
 | --- | --- | --- |
 | Product requirements | [Read](product-requirements.md) | [阅读](product-requirements.zh-CN.md) |
 | User experience | [Read](ux-spec.md) | [阅读](ux-spec.zh-CN.md) |
+| Shared plugin interface | [Read](shared-ui.md) | [阅读](shared-ui.zh-CN.md) |
 | Architecture | [Read](architecture.md) | [阅读](architecture.zh-CN.md) |
 | Testing strategy | [Read](testing-strategy.md) | [阅读](testing-strategy.zh-CN.md) |
 

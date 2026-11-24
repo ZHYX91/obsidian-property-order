@@ -8,6 +8,8 @@ translation_status: synced
 
 This document mirrors the authoritative current interaction and presentation contract for Property Order.
 
+See also the [shared plugin interface](shared-ui.md).
+
 ## Property-value order
 
 - Without a pointer, open value reordering from the command palette, select a source property and value, then move it up, down, to a specific position (starting at 1), to the first/last position, or to the end of another property. The position must be an integer within the current list; the current position and invalid input cannot be submitted. The command has no default shortcut and remains available when dragging or cross-property dragging is disabled.
