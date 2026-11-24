@@ -88,7 +88,6 @@ export function createSettingsTabLayout(
   panelEl.tabIndex = 0;
 
   const activeTabEl = buttons[activeIndex];
-  const targetWindow = containerEl.ownerDocument.defaultView;
   const revealActiveTab = (): void => {
     if (!tabBarEl.isConnected || !activeTabEl.isConnected) {
       return;
@@ -105,22 +104,8 @@ export function createSettingsTabLayout(
       tabOffsetWidth: activeTabRect.width,
     });
   };
-  const cleanupOverflow = installTabOverflow(strip, tabBarEl, buttons, activeTabEl, scrollLabels);
-  revealActiveTab();
-  const animationFrameId = targetWindow?.requestAnimationFrame(revealActiveTab) ?? null;
-  targetWindow?.addEventListener("resize", revealActiveTab);
-
-  return {
-    activeTabEl,
-    cleanup: () => {
-      cleanupOverflow();
-      if (animationFrameId != null) {
-        targetWindow?.cancelAnimationFrame(animationFrameId);
-      }
-      targetWindow?.removeEventListener("resize", revealActiveTab);
-    },
-    panelEl,
-  };
+  const cleanup = installTabOverflow(strip, tabBarEl, buttons, activeTabEl, scrollLabels, revealActiveTab);
+  return { activeTabEl, cleanup, panelEl };
 }
 
 export function getSettingsTabScrollLeft(layout: SettingsTabScrollLayout): number {
@@ -222,6 +207,7 @@ function installTabOverflow(
   tabs: readonly HTMLButtonElement[],
   active: HTMLButtonElement,
   labels: { readonly earlier: string; readonly later: string },
+  revealActiveTab: () => void,
 ): () => void {
   const view = list.ownerDocument.defaultView;
   const earlier = scrollButton("earlier");
@@ -295,19 +281,43 @@ function installTabOverflow(
     refresh();
   }
 
+  let followSelectedTab = true;
+  function onScroll(): void {
+    refresh();
+    const viewport = list.getBoundingClientRect();
+    const selected = active.getBoundingClientRect();
+    if (!viewport.width) return;
+    // Keep following a visible selection on resize. Preserve a different page
+    // when the user has scrolled the selection out of view.
+    const visible = Math.min(selected.right, viewport.right) - Math.max(selected.left, viewport.left);
+    followSelectedTab = visible >= Math.min(selected.width, viewport.width) - 1;
+  }
+
+  function measure(): void {
+    refresh();
+    if (!list.clientWidth) return;
+    if (list.scrollWidth <= list.clientWidth) {
+      followSelectedTab = true;
+      return;
+    }
+    if (!followSelectedTab) return;
+    revealActiveTab();
+    refresh();
+  }
+
   earlier.addEventListener("click", scroll);
   later.addEventListener("click", scroll);
-  list.addEventListener("scroll", refresh, { passive: true });
-  view?.addEventListener("resize", refresh);
-  const observer = view?.ResizeObserver && new view.ResizeObserver(refresh);
+  list.addEventListener("scroll", onScroll, { passive: true });
+  view?.addEventListener("resize", measure);
+  const observer = view?.ResizeObserver && new view.ResizeObserver(measure);
   observer?.observe(strip);
   for (const tab of tabs) observer?.observe(tab);
-  refresh();
+  measure();
   return () => {
     earlier.removeEventListener("click", scroll);
     later.removeEventListener("click", scroll);
-    list.removeEventListener("scroll", refresh);
-    view?.removeEventListener("resize", refresh);
+    list.removeEventListener("scroll", onScroll);
+    view?.removeEventListener("resize", measure);
     observer?.disconnect();
   };
 }

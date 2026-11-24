@@ -636,6 +636,7 @@ body.property-order-value-drag-enabled .metadata-property .multi-select-pill {
 
 @media (pointer: coarse) {
   .property-order-settings-tabs > button.property-order-settings-tab {
+    min-inline-size: 44px;
     min-block-size: 44px;
   }
 

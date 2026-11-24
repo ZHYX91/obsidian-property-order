@@ -23,6 +23,39 @@ describe("createSettingsTabLayout", () => {
     document.body.replaceChildren();
   });
 
+  it("keeps a visible selection in view through narrowing and preserves manual paging", () => {
+    const container = document.createElement("div");
+    document.body.append(container);
+    const layout = createSettingsTabLayout(container, tabs, "valueSuggestions", "Settings", scrollLabels, vi.fn());
+    const list = container.querySelector<HTMLElement>('[role="tablist"]')!;
+    const active = list.querySelector<HTMLElement>('[aria-selected="true"]')!;
+    const strip = list.parentElement!;
+    let width = 0;
+    Object.defineProperty(strip, "clientWidth", { get: () => width });
+    Object.defineProperty(list, "clientWidth", { get: () => width });
+    Object.defineProperty(list, "scrollWidth", { get: () => 400 });
+    vi.spyOn(list, "getBoundingClientRect").mockImplementation(() => new DOMRect(0, 0, width, 34));
+    vi.spyOn(active, "getBoundingClientRect").mockImplementation(() => new DOMRect(320 - list.scrollLeft, 0, 80, 34));
+    try {
+      width = 300;
+      window.dispatchEvent(new Event("resize"));
+      expect(list.scrollLeft).toBe(100);
+      width = 200;
+      window.dispatchEvent(new Event("resize"));
+      expect(list.scrollLeft).toBe(200);
+
+      list.scrollLeft = 0;
+      list.dispatchEvent(new Event("scroll"));
+      width = 180;
+      window.dispatchEvent(new Event("resize"));
+      expect(list.scrollLeft).toBe(0);
+      expect(active.getAttribute("aria-selected")).toBe("true");
+    } finally {
+      layout.cleanup();
+      container.remove();
+    }
+  });
+
   it("builds the tablist, tabs, and linked tabpanel semantics", () => {
     const container = document.createElement("div");
     document.body.appendChild(container);
