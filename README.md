@@ -91,7 +91,7 @@ The interface and README support English, Simplified Chinese, Traditional Chines
 
 - Value dragging supports ordinary top-level YAML property lines that Obsidian displays as text lists. Whole-document `{ ... }` mappings, object lists, nested lists, multiline flow sequences, source-mode line dragging, and cross-file moves are not supported.
 - Empty or scalar values can participate when Obsidian identifies their property as a list. Some type-mismatch rows also work when individual values are clear. Ambiguous mixed-value rows are handled conservatively and may only accept an appended value.
-- The keyboard command needs a visible, supported Properties panel in the active Markdown pane. If the file or values change while the dialog is open, reopen the command.
+- The keyboard command needs a visible, supported Properties panel in the active Markdown pane. If the file or values change while the dialog is open, reopen the command. If Properties and the note are out of sync, reopen the note before moving another value.
 - Preset candidates appear only while editing values in Properties. If no native suggestion popup is available, the plugin may show presets beside the input. If it cannot identify the editor or native suggestion UI safely, normal typing or native suggestions remain available.
 - Value ordering checks the YAML before asking Obsidian to save. Unsupported or conflicting content is left unchanged. Selecting or editing a property in Obsidian can change the note; configuring suggestions alone does not.
 

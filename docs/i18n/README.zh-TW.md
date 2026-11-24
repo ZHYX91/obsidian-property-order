@@ -28,7 +28,7 @@
 
 ![置頂 status 和 owner 並隱藏 legacy_code 後的屬性名稱候選](../assets/property-order-key-suggestions-after.png)
 
-最近使用依已確認新增的先後排序，懸停與瀏覽不計入。依名稱與最近使用排序不會掃描 Vault；依筆記數排序使用快取中繼資料，統計包含各屬性的 Markdown 筆記數。
+最近使用依已確認新增的先後排序，懸停與瀏覽不計入。依名稱與最近使用排序不會掃描儲存庫；依筆記數排序使用快取中繼資料，統計包含各屬性的 Markdown 筆記數。
 
 ## 屬性值候選
 
@@ -91,7 +91,7 @@
 
 - 屬性值拖曳支援 Obsidian 顯示為文字清單的一般頂層 YAML 屬性行。不支援整份文件寫成 `{ ... }` 映射、物件清單、巢狀清單、多行中括號清單、原始碼模式行拖曳或跨檔案移動。
 - Obsidian 將屬性辨識為清單時，空值或單一值也可參與。某些型別不符的列，如果各個值清楚可辨，也能使用；含糊的混合值列會保守處理，可能只允許附加值。
-- 鍵盤命令要求目前 Markdown 窗格中有可見且受支援的屬性面板。對話框開啟後，若檔案或值發生變化，請重新開啟命令。
+- 鍵盤命令要求目前 Markdown 窗格中有可見且受支援的屬性面板。對話框開啟後，若檔案或值發生變化，請重新開啟命令。若屬性面板與筆記內容不同步，請重新開啟筆記，再移動屬性值。
 - 自訂預設候選只在屬性面板中編輯值時顯示。若沒有原生候選快顯視窗，外掛可在輸入欄旁顯示預設值。如果無法安全辨識編輯器或原生候選介面，仍可正常輸入或使用原生候選。
 - 屬性值排序會在請求 Obsidian 儲存前檢查 YAML。不支援或有衝突的內容保持不變。在 Obsidian 中選擇或編輯屬性可能修改筆記；僅設定候選規則不會。
 
@@ -99,7 +99,7 @@
 
 Property Order 僅在本機運作，不要求帳號、不上傳筆記內容，也不呼叫遠端服務。重排或移動值只修改本次涉及的屬性。
 
-筆記數使用快取的 frontmatter 中繼資料，不會逐篇讀取筆記本文。屬性名稱最近記錄（最多 100 個名稱）與已確認的屬性值選擇次數僅儲存在目前裝置、目前 Vault 的本機儲存空間，與 `data.json` 分開、不會同步，並可從設定中清除。懸停、瀏覽、取消與未確認的編輯都不會更新記錄或計數。
+筆記數使用快取的 frontmatter 中繼資料，不會逐篇讀取筆記本文。屬性名稱最近記錄（最多 100 個名稱）與已確認的屬性值選擇次數僅儲存在目前裝置、目前儲存庫 的本機儲存空間，與 `data.json` 分開、不會同步，並可從設定中清除。懸停、瀏覽、取消與未確認的編輯都不會更新記錄或計數。
 
 ## 開發與支援
 
@@ -115,7 +115,7 @@ npm run check
 - 討論：[Q&A](https://github.com/ZHYX91/obsidian-property-order/discussions/categories/q-a)、[Ideas](https://github.com/ZHYX91/obsidian-property-order/discussions/categories/ideas)與[Show and tell](https://github.com/ZHYX91/obsidian-property-order/discussions/categories/show-and-tell)。
 - 可重現的錯誤與具體功能建議請使用結構化的 [GitHub Issue 表單](https://github.com/ZHYX91/obsidian-property-order/issues/new/choose)。安全漏洞請依[安全政策](https://github.com/ZHYX91/obsidian-property-order/security/policy)私下回報。
 
-公開發文前，請移除私人 Vault 路徑、筆記內容、YAML 屬性值與憑證。
+公開發文前，請移除私人儲存庫路徑、筆記內容、YAML 屬性值與憑證。
 
 ## 授權條款
 

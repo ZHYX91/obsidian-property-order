@@ -28,7 +28,7 @@
 
 ![置顶 status 和 owner 并隐藏 legacy_code 后的属性名候选](../assets/property-order-key-suggestions-after.png)
 
-最近使用按已确认添加的先后排序，悬停和浏览不计入。按名称和最近使用排序不会扫描 Vault；按笔记数排序使用缓存元数据，统计包含各属性的 Markdown 笔记数。
+最近使用按已确认添加的先后排序，悬停和浏览不计入。按名称和最近使用排序不会扫描仓库；按笔记数排序使用缓存元数据，统计包含各属性的 Markdown 笔记数。
 
 ## 属性值候选
 
@@ -91,7 +91,7 @@
 
 - 属性值拖拽支持 Obsidian 显示为文本列表的普通顶层 YAML 属性行。不支持整段文档写成 `{ ... }` 映射、对象列表、嵌套列表、多行中括号列表、源码模式行拖拽或跨文件移动。
 - Obsidian 将属性识别为列表时，空值或单个值也可参与。某些类型不匹配的行，如果各个值清楚可辨，也能使用；含混的混合值行会保守处理，可能只允许追加值。
-- 键盘命令要求当前 Markdown 窗格中有可见且受支持的属性面板。对话框打开后，如果文件或值发生变化，请重新打开命令。
+- 键盘命令要求当前 Markdown 窗格中有可见且受支持的属性面板。对话框打开后，如果文件或值发生变化，请重新打开命令。如果属性面板与笔记内容不同步，请重新打开笔记，再移动属性值。
 - 自定义预设候选只在属性面板中编辑值时显示。如果没有原生候选弹窗，插件可在输入框旁显示预设值。如果无法安全识别编辑器或原生候选界面，仍可正常输入或使用原生候选。
 - 属性值排序会在请求 Obsidian 保存前检查 YAML。不支持或存在冲突的内容保持不变。在 Obsidian 中选择或编辑属性可能修改笔记；仅配置候选规则不会。
 
@@ -99,7 +99,7 @@
 
 Property Order 只在本地工作，不要求账号、不上传笔记内容，也不调用远程服务。重排或移动值只修改本次涉及的属性。
 
-按笔记数排序使用缓存的 frontmatter 元数据，不会逐篇读取笔记正文。属性名最近记录（最多 100 个名称）和已确认的属性值选择次数只保存在当前设备、当前 Vault 的本地存储中，与 `data.json` 分离，不会同步，并可从设置中清除。悬停、浏览、取消和未确认编辑都不会更新记录或计数。
+按笔记数排序使用缓存的 frontmatter 元数据，不会逐篇读取笔记正文。属性名最近记录（最多 100 个名称）和已确认的属性值选择次数只保存在当前设备、当前仓库 的本地存储中，与 `data.json` 分离，不会同步，并可从设置中清除。悬停、浏览、取消和未确认编辑都不会更新记录或计数。
 
 ## 开发与支持
 
@@ -115,7 +115,7 @@ npm run check
 - 讨论：[Q&A](https://github.com/ZHYX91/obsidian-property-order/discussions/categories/q-a)、[Ideas](https://github.com/ZHYX91/obsidian-property-order/discussions/categories/ideas)和[Show and tell](https://github.com/ZHYX91/obsidian-property-order/discussions/categories/show-and-tell)。
 - 可复现缺陷和明确的功能建议请使用结构化的 [GitHub Issue 表单](https://github.com/ZHYX91/obsidian-property-order/issues/new/choose)。安全漏洞请按照[安全策略](https://github.com/ZHYX91/obsidian-property-order/security/policy)私密报告。
 
-公开发布前请移除私人 Vault 路径、笔记内容、YAML 属性值和凭据。
+公开发布前请移除私人仓库路径、笔记内容、YAML 属性值和凭据。
 
 ## 许可证
 

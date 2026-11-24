@@ -1642,7 +1642,7 @@ describe("PropertyValueOrderController", () => {
 
     expect(harness.editor.transaction).not.toHaveBeenCalled();
     expect(noticeSpy).toHaveBeenCalledWith(
-      "Property Order: Properties is out of sync with the note. Reopen the note before dragging again.",
+      "Property Order: Properties is out of sync with the note. Reopen the note before moving values again.",
     );
     expect(document.querySelector(".property-order-drag-preview")).toBeNull();
     harness.cleanup();
@@ -1660,7 +1660,7 @@ describe("PropertyValueOrderController", () => {
 
     expect(harness.editor.transaction).not.toHaveBeenCalled();
     expect(noticeSpy).toHaveBeenCalledWith(
-      "Property Order: Properties is out of sync with the note. Reopen the note before dragging again.",
+      "Property Order: Properties is out of sync with the note. Reopen the note before moving values again.",
     );
     expect(document.querySelector(".property-order-drag-preview")).toBeNull();
     harness.cleanup();
@@ -1781,7 +1781,7 @@ describe("PropertyValueOrderController", () => {
 
     await vi.waitFor(() => expect(noticeSpy).toHaveBeenCalledTimes(1));
     expect(noticeSpy).toHaveBeenCalledWith(
-      "Property Order: Properties is out of sync with the note. Reopen the note before dragging again.",
+      "Property Order: Properties is out of sync with the note. Reopen the note before moving values again.",
     );
     expect(harness.editor.transaction).not.toHaveBeenCalled();
     harness.cleanup();
@@ -1801,7 +1801,7 @@ describe("PropertyValueOrderController", () => {
 
     await vi.waitFor(() => expect(noticeSpy).toHaveBeenCalledTimes(1));
     expect(noticeSpy).toHaveBeenCalledWith(
-      "Property Order: Properties is out of sync with the note. Reopen the note before dragging again.",
+      "Property Order: Properties is out of sync with the note. Reopen the note before moving values again.",
     );
     expect(harness.editor.transaction).not.toHaveBeenCalled();
     harness.cleanup();
@@ -1860,7 +1860,7 @@ describe("PropertyValueOrderController", () => {
 
     await vi.waitFor(() => expect(noticeSpy).toHaveBeenCalledTimes(1));
     expect(noticeSpy).toHaveBeenCalledWith(
-      "Property Order: content changed while dragging. Try again.",
+      "Property Order: the note changed before the move was applied. Try again.",
     );
     expect(harness.editor.transaction).not.toHaveBeenCalled();
     expect(harness.editor.getContent()).toBe(
@@ -2426,7 +2426,7 @@ describe("PropertyValueOrderController", () => {
     refreshButton?.click();
     await vi.waitFor(() =>
       expect(noticeElement?.textContent).toBe(
-        "Property Order: Properties still could not refresh. Reopen the note before dragging again.",
+        "Property Order: Properties still could not refresh. Reopen the note before moving values again.",
       ),
     );
     expect(harness.leaf.view.setViewData).toHaveBeenCalledTimes(2);
@@ -2861,7 +2861,7 @@ describe("PropertyValueOrderController", () => {
 
     await vi.waitFor(() => expect(noticeSpy).toHaveBeenCalledTimes(1));
     expect(noticeSpy).toHaveBeenCalledWith(
-      "Property Order: Properties is out of sync with the note. Reopen the note before dragging again.",
+      "Property Order: Properties is out of sync with the note. Reopen the note before moving values again.",
     );
     expect(harness.editor.transaction).not.toHaveBeenCalled();
     harness.cleanup();
@@ -2902,7 +2902,7 @@ describe("PropertyValueOrderController", () => {
 
     await vi.waitFor(() => expect(noticeSpy).toHaveBeenCalledTimes(1));
     expect(noticeSpy).toHaveBeenCalledWith(
-      "Property Order: Properties is out of sync with the note. Reopen the note before dragging again.",
+      "Property Order: Properties is out of sync with the note. Reopen the note before moving values again.",
     );
     expect(harness.editor.transaction).not.toHaveBeenCalled();
     harness.cleanup();
@@ -2923,7 +2923,7 @@ describe("PropertyValueOrderController", () => {
 
     await vi.waitFor(() => expect(noticeSpy).toHaveBeenCalledTimes(1));
     expect(noticeSpy).toHaveBeenCalledWith(
-      "Property Order: Properties is out of sync with the note. Reopen the note before dragging again.",
+      "Property Order: Properties is out of sync with the note. Reopen the note before moving values again.",
     );
     expect(harness.editor.transaction).not.toHaveBeenCalled();
     harness.cleanup();
@@ -2945,7 +2945,7 @@ describe("PropertyValueOrderController", () => {
 
     await vi.waitFor(() => expect(noticeSpy).toHaveBeenCalledTimes(1));
     expect(noticeSpy).toHaveBeenCalledWith(
-      "Property Order: Properties is out of sync with the note. Reopen the note before dragging again.",
+      "Property Order: Properties is out of sync with the note. Reopen the note before moving values again.",
     );
     expect(harness.editor.transaction).not.toHaveBeenCalled();
     harness.cleanup();
@@ -3077,7 +3077,7 @@ describe("PropertyValueOrderController", () => {
 
     expect(harness.editor.transaction).not.toHaveBeenCalled();
     expect(noticeSpy).toHaveBeenCalledWith(
-      "Property Order: Properties is out of sync with the note. Reopen the note before dragging again.",
+      "Property Order: Properties is out of sync with the note. Reopen the note before moving values again.",
     );
     expect(document.querySelector(".property-order-drag-preview")).toBeNull();
     harness.cleanup();
@@ -3356,7 +3356,7 @@ describe("PropertyValueOrderController", () => {
     expect(harness.editor.transaction).not.toHaveBeenCalled();
     expect(harness.editor.getContent()).toBe("---\nflow: [external-alpha, beta]\n---\n");
     expect(noticeSpy).toHaveBeenCalledWith(
-      "Property Order: Properties is out of sync with the note. Reopen the note before dragging again.",
+      "Property Order: Properties is out of sync with the note. Reopen the note before moving values again.",
     );
     harness.cleanup();
   });
@@ -3502,6 +3502,9 @@ describe("PropertyValueOrderController", () => {
     if (change === "content") harness.editor.setContent(`${original}new body\n`);
     if (change === "dom") harness.container.remove();
     expect(await draft?.submit({ action: "position", sourceProperty: "flow", sourceIndex: 0, targetIndex: 1 })).toBe(false);
+    if (change === "content") {
+      expect(noticeSpy).toHaveBeenCalledWith("Property Order: the note changed before the move was applied. Try again.");
+    }
     expect(harness.editor.transaction).not.toHaveBeenCalled();
     expect(harness.leaf.view.requestSave).not.toHaveBeenCalled();
     harness.cleanup();
