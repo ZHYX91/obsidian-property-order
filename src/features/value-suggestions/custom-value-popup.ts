@@ -42,6 +42,7 @@ export function mountCustomValuePopup(
   });
   container.dataset.propertyOrderValueEnhanced = "true";
   container.setAttribute("role", "listbox");
+  container.setAttribute("aria-label", context.propertyKey);
 
   const selectedIndex = Math.max(0, visibleValues.indexOf(selectedValue ?? ""));
   const list = renderCustomValueList(container, input, visibleValues, selectedIndex, onCommit);
@@ -142,7 +143,9 @@ function positionCustomValuePopup(
   const popupTop = placeBelow ? editorRect.bottom : editorRect.top - popupHeight;
 
   container.style.maxHeight = `${Math.min(320, height / 2, availableHeight)}px`;
-  container.style.left = `${Math.min(Math.max(left, editorRect.left), Math.max(left, right - popupRect.width))}px`;
+  container.dir = targetWindow.getComputedStyle(editor).direction === "rtl" ? "rtl" : "ltr";
+  const anchor = container.dir === "rtl" ? editorRect.right - popupRect.width : editorRect.left;
+  container.style.left = `${Math.min(Math.max(left, anchor), Math.max(left, right - popupRect.width))}px`;
   container.style.top = `${Math.min(Math.max(top, popupTop), bottom - popupHeight)}px`;
 }
 
