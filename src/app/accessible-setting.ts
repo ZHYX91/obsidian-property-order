@@ -4,8 +4,16 @@ let nextField = 0;
 
 /** Link native setting fields to the visible copy, including rebuilt or localized rows. */
 export class AccessibleSetting extends Setting {
+  private focusKey?: string;
+
+  setFocusKey(key: string): this {
+    this.focusKey = key;
+    return this;
+  }
+
   private describe(field: HTMLElement | undefined): void {
     if (!field || !this.nameEl?.textContent?.trim()) return;
+    if (this.focusKey) field.dataset.settingsFocus = this.focusKey;
     if (!this.nameEl.id) this.nameEl.id = `property-order-field-${++nextField}`;
     if (!field.hasAttribute("aria-label") && !field.hasAttribute("aria-labelledby")) {
       field.setAttribute("aria-labelledby", this.nameEl.id);

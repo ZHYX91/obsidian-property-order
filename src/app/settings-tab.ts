@@ -204,6 +204,7 @@ export class PropertyOrderSettingTab extends PluginSettingTab {
 
   private displayGeneralSettings(containerEl: HTMLElement): void {
     new Setting(containerEl)
+      .setFocusKey("language")
       .setName(this.t("settings.language.name"))
       .setDesc(this.t("settings.language.desc"))
       .addDropdown((dropdown) => {
@@ -250,6 +251,7 @@ export class PropertyOrderSettingTab extends PluginSettingTab {
     }
 
     new Setting(containerEl)
+      .setFocusKey("enablePropertyValueDrag")
       .setName(this.t("settings.valueDrag.enable.name"))
       .setDesc(this.t("settings.valueDrag.enable.desc"))
       .addToggle((toggle) => {
@@ -303,6 +305,7 @@ export class PropertyOrderSettingTab extends PluginSettingTab {
     const availableNames = getAvailablePropertyNames(this.app);
 
     new Setting(containerEl)
+      .setFocusKey("enableNativeKeySuggestionOrder")
       .setName(this.t("settings.keyOrder.enable.name"))
       .setDesc(this.t("settings.keyOrder.enable.desc"))
       .addToggle((toggle) => {

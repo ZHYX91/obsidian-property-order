@@ -1,6 +1,7 @@
 // @vitest-environment happy-dom
 import { describe, expect, it, vi } from "vitest";
 import { AccessibleSetting } from "../../src/app/accessible-setting";
+import { preserveSettingsView } from "../../src/app/settings-view-state";
 
 vi.mock("obsidian", () => ({
   Setting: class {
@@ -29,6 +30,25 @@ vi.mock("obsidian", () => ({
 }));
 
 describe("native setting accessibility", () => {
+  it("restores focus to a stable native setting after the row changes language", () => {
+    const host = document.createElement("div");
+    document.body.append(host);
+    try {
+      const render = (name: string): HTMLInputElement => {
+        host.replaceChildren();
+        const row = new AccessibleSetting(host).setFocusKey("enablePropertyValueDrag");
+        row.nameEl.textContent = name;
+        row.addToggle(() => undefined);
+        return host.querySelector("input")!;
+      };
+      const original = render("Enable dragging");
+      original.focus();
+      preserveSettingsView(host, () => { render("拖动属性值"); });
+      expect(original.isConnected).toBe(false);
+      expect(document.activeElement).toBe(host.querySelector("input"));
+    } finally { host.remove(); }
+  });
+
   it("links the displayed name and description while preserving a field-specific name", () => {
     const host = document.createElement("div");
     const row = new AccessibleSetting(host);
