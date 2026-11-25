@@ -57,13 +57,13 @@ export function isLikelyPropertyKeySuggestionContainer(
   container: HTMLElement,
   items = getSuggestionItems(container),
 ): boolean {
-  if (items.length < 2) {
+  if (items.length === 0) {
     return false;
   }
 
   const focusedEditor = container.ownerDocument.activeElement?.closest<HTMLElement>(PROPERTY_KEY_EDITOR_SELECTOR);
   return focusedEditor != null
-    ? findOwnedNativePopup(focusedEditor, "key") === container
+    ? findOwnedNativePopup(focusedEditor, "key", items.length > 1) === container
     : container.closest(PROPERTY_KEY_EDITOR_SELECTOR) != null;
 }
 
@@ -190,7 +190,9 @@ export function findNativeValuePopups(targetDocument: Document): HTMLElement[] {
 
 // Obsidian portals popups to the window body. Use explicit control relationships
 // or structural ownership first. An unlabelled portal is usable only on its own.
-function findOwnedNativePopup(editor: HTMLElement, kind: "key" | "value"): HTMLElement | null {
+function findOwnedNativePopup(
+  editor: HTMLElement, kind: "key" | "value", allowUnlabelledPortal = true,
+): HTMLElement | null {
   const doc = editor.ownerDocument;
   const active = doc.activeElement;
   const candidates = kind === "value" ? findNativeValuePopups(doc) :
@@ -238,7 +240,7 @@ function findOwnedNativePopup(editor: HTMLElement, kind: "key" | "value"): HTMLE
     if (containingEditor != null && containingEditor !== editor) continue;
     if (expectsPopup && !linked.has(popup)) continue;
     if (containingEditor === editor) nested.push(popup);
-    else portals.push(popup);
+    else if (expectsPopup || allowUnlabelledPortal) portals.push(popup);
   }
   const matches = !expectsPopup && nested.length ? nested : [...nested, ...portals];
   return matches.length === 1 ? matches[0] : null;

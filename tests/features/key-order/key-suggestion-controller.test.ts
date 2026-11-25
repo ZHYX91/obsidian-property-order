@@ -384,6 +384,31 @@ describe("KeySuggestionOrderController", () => {
     cleanup();
   });
 
+  it.each(["nested", "linked", "unclaimed"] as const)(
+    "applies hidden rules to one remaining candidate only with an identified editor (%s)",
+    async (ownership) => {
+      const settings = createDefaultSettings();
+      settings.hiddenPropertyKeyPatterns = ["TQ_*"];
+      const menu = createMenu(["visible", "TQ_internal"], ownership === "nested" ? "key" : "none");
+      const input = document.createElement("input");
+      if (ownership !== "nested") input.className = "metadata-property-key";
+      if (ownership === "nested") menu.parentElement!.append(input);
+      else document.body.append(input);
+      menu.id = "key-options";
+      if (ownership === "linked") input.setAttribute("aria-controls", menu.id);
+      input.focus();
+      const raf = installRafHarness();
+      const cleanup = createController(settings).initialize();
+      raf.flush();
+      replaceMenuItems(menu, ["TQ_internal"]);
+      await settleMutations();
+      raf.flush();
+      expect(visibleKeys(menu)).toEqual(ownership === "unclaimed" ? ["TQ_internal"] : []);
+      cleanup();
+      expect(visibleKeys(menu)).toEqual(["TQ_internal"]);
+    },
+  );
+
   it("reuses the same nodes, hides duplicates safely, and restores native order", () => {
     const settings = createDefaultSettings();
     settings.pinnedPropertyKeys = ["tags"];
