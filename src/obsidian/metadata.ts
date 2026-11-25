@@ -106,11 +106,21 @@ export function invalidatePropertyKeyUsage(app: App, change?: UsageChange): bool
   return true;
 }
 
-function valuesForKey(metadata: CachedMetadata | null, key: string): string[] {
+function valuesForKey(
+  metadata: CachedMetadata | null,
+  key: string,
+  matchingNames: Map<string, boolean>,
+): string[] {
+  const frontmatter = metadata?.frontmatter;
+  if (frontmatter == null) return [];
   const values = new Set<string>();
-  for (const [name, raw] of Object.entries(metadata?.frontmatter ?? {})) {
-    if (normalizePropertyKeyIdentity(name) !== key) continue;
-    for (const value of getPrimitiveFrontmatterValues(raw)) values.add(value);
+  for (const name of Object.keys(frontmatter)) {
+    let matches = matchingNames.get(name);
+    if (matches === undefined) {
+      matches = normalizePropertyKeyIdentity(name) === key;
+      matchingNames.set(name, matches);
+    }
+    if (matches) addPrimitiveFrontmatterValues(values, frontmatter[name]);
   }
   return [...values];
 }
@@ -118,12 +128,14 @@ function valuesForKey(metadata: CachedMetadata | null, key: string): string[] {
 function scanPropertyValueUsage(app: App, key: string): UsageSnapshot<PropertyValueUsage> {
   const files: FileValues = new Map();
   const counts = new Map<string, number>();
+  // Authored spellings repeat across notes. Resolve each once for this scan.
+  const matchingNames = new Map<string, boolean>();
   let incomplete = false;
   if (key.length) {
     for (const file of app.vault.getMarkdownFiles()) {
       const cache = app.metadataCache.getFileCache(file);
       if (cache == null) incomplete = true;
-      const values = valuesForKey(cache, key);
+      const values = valuesForKey(cache, key, matchingNames);
       if (values.length) files.set(fileIdentity(file), values);
       for (const value of values) counts.set(value, (counts.get(value) ?? 0) + 1);
     }
@@ -168,7 +180,7 @@ export function invalidatePropertyValueUsage(app: App, change?: UsageChange): bo
       const key = normalizePropertyKeyIdentity(name);
       if (!cache.has(key)) continue;
       const values = nextValues.get(key) ?? new Set<string>();
-      for (const value of getPrimitiveFrontmatterValues(raw)) values.add(value);
+      addPrimitiveFrontmatterValues(values, raw);
       nextValues.set(key, values);
     }
     let changed = false;
@@ -195,9 +207,8 @@ export function invalidatePropertyValueUsage(app: App, change?: UsageChange): bo
   return true;
 }
 
-function getPrimitiveFrontmatterValues(value: unknown): string[] {
+function addPrimitiveFrontmatterValues(target: Set<string>, value: unknown): void {
   const values = Array.isArray(value) ? value : [value];
-  const result: string[] = [];
 
   for (const item of values) {
     if (
@@ -211,9 +222,7 @@ function getPrimitiveFrontmatterValues(value: unknown): string[] {
     const normalizedValue = String(item);
 
     if (normalizedValue.length > 0) {
-      result.push(normalizedValue);
+      target.add(normalizedValue);
     }
   }
-
-  return result;
 }
