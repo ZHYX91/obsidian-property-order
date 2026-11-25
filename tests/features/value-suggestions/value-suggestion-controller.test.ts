@@ -4,6 +4,7 @@ import { Window as HappyDomWindow } from "happy-dom";
 import { MarkdownView, Platform, type App, type Plugin, type TFile, type WorkspaceLeaf } from "obsidian";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
+import { installRafHarness } from "../../helpers/animation-frame";
 import { bindTestPropertyKeySource } from "../../helpers/property-key-source";
 import { PropertyValueFrequencyStore } from "../../../src/features/value-suggestions/property-value-frequency-store";
 import { ValueSuggestionOrderController } from "../../../src/features/value-suggestions/value-suggestion-controller";
@@ -11,11 +12,6 @@ import { KeySuggestionOrderController } from "../../../src/features/key-order/ke
 import { getCachedPropertyKeyUsage, getCachedPropertyValueUsage } from "../../../src/obsidian/metadata";
 import { createDefaultSettings, normalizeSettings } from "../../../src/shared/settings";
 import type { PropertyOrderSettings } from "../../../src/shared/types";
-
-interface RafHarness {
-  flush(): void;
-  pending(): number;
-}
 
 const liveControllers = new Set<ValueSuggestionOrderController>();
 const listenerCleanups = new Set<() => void>();
@@ -34,32 +30,6 @@ interface TestableValueController {
     targetDocument: Document,
     mutations: readonly MutationRecord[],
   ): boolean;
-}
-
-function installRafHarness(targetWindow: Window = window): RafHarness {
-  let nextId = 1;
-  const callbacks = new Map<number, FrameRequestCallback>();
-
-  vi.spyOn(targetWindow, "requestAnimationFrame").mockImplementation((callback) => {
-    const id = nextId;
-    nextId += 1;
-    callbacks.set(id, callback);
-    return id;
-  });
-  vi.spyOn(targetWindow, "cancelAnimationFrame").mockImplementation((id) => {
-    callbacks.delete(id);
-  });
-
-  return {
-    flush() {
-      const queued = Array.from(callbacks.values());
-      callbacks.clear();
-      for (const callback of queued) {
-        callback(targetWindow.performance.now());
-      }
-    },
-    pending: () => callbacks.size,
-  };
 }
 
 function createApp(options: {

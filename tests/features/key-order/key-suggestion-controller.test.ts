@@ -4,43 +4,12 @@ import { Window as HappyDomWindow } from "happy-dom";
 import { Platform, type App, type Keymap, type Plugin, type TFile } from "obsidian";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
+import { installRafHarness } from "../../helpers/animation-frame";
 import { KeySuggestionOrderController } from "../../../src/features/key-order/key-suggestion-controller";
 import { RecentPropertyKeyTracker } from "../../../src/features/key-order/recent-property-key-tracker";
 import { t } from "../../../src/shared/i18n";
 import { createDefaultSettings } from "../../../src/shared/settings";
 import type { PropertyOrderSettings } from "../../../src/shared/types";
-
-interface RafHarness {
-  flush(): void;
-  pending(): number;
-}
-
-function installRafHarness(targetWindow: Window = window): RafHarness {
-  let nextId = 1;
-  const callbacks = new Map<number, FrameRequestCallback>();
-
-  vi.spyOn(targetWindow, "requestAnimationFrame").mockImplementation((callback) => {
-    const id = nextId;
-    nextId += 1;
-    callbacks.set(id, callback);
-    return id;
-  });
-  vi.spyOn(targetWindow, "cancelAnimationFrame").mockImplementation((id) => {
-    callbacks.delete(id);
-  });
-
-  return {
-    flush() {
-      const queued = Array.from(callbacks.entries());
-      callbacks.clear();
-
-      for (const [, callback] of queued) {
-        callback(targetWindow.performance.now());
-      }
-    },
-    pending: () => callbacks.size,
-  };
-}
 
 function createController(
   settings: PropertyOrderSettings,

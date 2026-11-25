@@ -12,6 +12,7 @@ import {
 } from "obsidian";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
+import { installRafHarness } from "../../helpers/animation-frame";
 const noticeSpy = vi.hoisted(() => vi.fn());
 const noticeElements = vi.hoisted(() => [] as HTMLElement[]);
 const menuHarness = vi.hoisted(() => ({
@@ -130,36 +131,6 @@ interface ControllerHarness {
   pill: HTMLElement;
   plugin: Plugin;
   settings: PropertyOrderSettings;
-}
-
-interface RafHarness {
-  flush(): void;
-}
-
-function installRafHarness(): RafHarness {
-  let nextId = 1;
-  const callbacks = new Map<number, FrameRequestCallback>();
-
-  vi.spyOn(window, "requestAnimationFrame").mockImplementation((callback) => {
-    const id = nextId;
-    nextId += 1;
-    callbacks.set(id, callback);
-    return id;
-  });
-  vi.spyOn(window, "cancelAnimationFrame").mockImplementation((id) => {
-    callbacks.delete(id);
-  });
-
-  return {
-    flush() {
-      const queued = Array.from(callbacks.values());
-      callbacks.clear();
-
-      for (const callback of queued) {
-        callback(performance.now());
-      }
-    },
-  };
 }
 
 function createRect(left: number, right: number): DOMRect {
