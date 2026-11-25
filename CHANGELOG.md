@@ -3,6 +3,15 @@
 All notable changes to Property Order are documented in this file. Release versions and dates
 follow the repository's Git tags; entries summarize the corresponding commit history.
 
+## [0.12.5]
+
+- Add scroll arrows for clipped settings tabs and keep the active tab visible when the settings panel resizes.
+- Fit custom candidate editors and translated controls in narrow settings. Keep keyboard focus on a useful action when deleting a preset, and expose the names and current states of native settings controls.
+- Keep keyboard selections in the displayed order of native suggestions. Continue hiding a property name when it is the only match in its editor's suggestion menu.
+- Keep a restored property-value choice visible in the fallback list and align its popup with right-to-left editors.
+- Reduce the work needed to scan and sort property suggestions when opening them in large vaults.
+- Clarify recovery after a note changes or the Properties panel needs to be reopened, for both keyboard and pointer moves in all twelve languages.
+
 ## [0.12.4]
 
 - Cancel dragging and keyboard moves when the selected property or its YAML changes, and cancel pending drags when the destination list or drag setting changes.
