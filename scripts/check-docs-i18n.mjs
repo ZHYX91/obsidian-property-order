@@ -6,6 +6,12 @@ const defaultProjectRoot = path.resolve(path.dirname(fileURLToPath(import.meta.u
 
 export const stableDocumentPairs = [
   {
+    requiredTokens: ["tablist", "tabpanel"],
+    semanticPhrases: [{ source: "44 CSS px", translation: "44 CSS px" }],
+    source: "docs/shared-ui.zh-CN.md",
+    translation: "docs/shared-ui.md",
+  },
+  {
     requiredTokens: ["preserve", "flow", "block", "[]"],
     semanticPhrases: [
       { source: "schema 8", translation: "schema 8" },
