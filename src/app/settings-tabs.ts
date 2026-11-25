@@ -282,8 +282,13 @@ function installTabOverflow(
   }
 
   let followSelectedTab = true;
+  let automaticScrollPosition: number | null = null;
   function onScroll(): void {
+    const automatic = automaticScrollPosition !== null && Math.abs(list.scrollLeft - automaticScrollPosition) <= 1;
+    automaticScrollPosition = null;
     refresh();
+    // Panel content can narrow the strip before the earlier reveal event arrives.
+    if (automatic) return;
     const viewport = list.getBoundingClientRect();
     const selected = active.getBoundingClientRect();
     if (!viewport.width) return;
@@ -294,15 +299,16 @@ function installTabOverflow(
   }
 
   function measure(): void {
+    const positionBeforeMeasure = list.scrollLeft;
     refresh();
     if (!list.clientWidth) return;
     if (list.scrollWidth <= list.clientWidth) {
       followSelectedTab = true;
-      return;
+    } else if (followSelectedTab) {
+      revealActiveTab();
+      refresh();
     }
-    if (!followSelectedTab) return;
-    revealActiveTab();
-    refresh();
+    if (list.scrollLeft !== positionBeforeMeasure) automaticScrollPosition = list.scrollLeft;
   }
 
   earlier.addEventListener("click", scroll);
