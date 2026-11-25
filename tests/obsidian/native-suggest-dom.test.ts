@@ -1,10 +1,11 @@
 // @vitest-environment happy-dom
 
 import { Window as HappyDomWindow } from "happy-dom";
-import { beforeEach, describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import {
   findSuggestionContainers,
+  getPropertyValueSuggestionItems,
   getSuggestionItemParent,
   getSuggestionItems,
   hasActivePropertyKeySuggestionContext,
@@ -33,7 +34,9 @@ describe("native suggestion DOM adapter", () => {
     root.className = "metadata-property-key";
     const container = document.createElement("div");
     container.className = "suggestion-container menu";
-    container.append(suggestionItem(" tags "), suggestionItem("aliases", "menu-item"));
+    const tags = suggestionItem(" tags ", "menu-item");
+    tags.classList.add("suggestion-item");
+    container.append(suggestionItem("aliases", "menu-item"), tags);
     root.appendChild(container);
     document.body.appendChild(root);
 
@@ -41,7 +44,8 @@ describe("native suggestion DOM adapter", () => {
     const items = getSuggestionItems(container);
 
     expect(containers).toEqual([container]);
-    expect(items.map((item) => item.key)).toEqual(["tags", "aliases"]);
+    expect(items.map((item) => item.key)).toEqual(["aliases", "tags"]);
+    expect(getPropertyValueSuggestionItems(container).map((item) => item.key)).toEqual(["aliases", " tags "]);
     expect(getSuggestionItemParent(items)).toBe(container);
     expect(isLikelyPropertyKeySuggestionContainer(container, items)).toBe(true);
   });
@@ -119,6 +123,33 @@ describe("native suggestion DOM adapter", () => {
     second.input.removeAttribute("aria-owns");
     expect(isPropertyKeySuggestionContainer(first.container)).toBe(false);
     expect(isPropertyKeySuggestionContainer(second.container)).toBe(false);
+  });
+
+  it("resolves a property popup without looking up every unrelated workspace control target", () => {
+    const input = document.createElement("input");
+    input.className = "metadata-property-key";
+    const popup = document.createElement("div");
+    popup.className = "suggestion-container";
+    popup.id = "native-properties";
+    popup.append(suggestionItem("tags"), suggestionItem("aliases"));
+    input.setAttribute("aria-controls", popup.id);
+    document.body.append(input, popup);
+    for (let index = 0; index < 200; index += 1) {
+      const tab = document.createElement("button");
+      const panel = document.createElement("section");
+      panel.id = `workspace-panel-${index}`;
+      tab.setAttribute("aria-controls", panel.id);
+      document.body.append(tab, panel);
+    }
+    input.focus();
+    const queries = vi.spyOn(document, "querySelectorAll");
+    try {
+      expect(hasActivePropertyKeySuggestionContext(popup)).toBe(true);
+      expect(queries.mock.calls.filter(([selector]) =>
+        selector.startsWith("#workspace-panel-"))).toHaveLength(0);
+    } finally {
+      queries.mockRestore();
+    }
   });
 
   it("rejects value suggestions even inside a Properties row", () => {

@@ -129,32 +129,32 @@ function replaceMenuItems(container: HTMLElement, keys: string[]): HTMLElement[]
 }
 
 function installNativeSelectionBehavior(container: HTMLElement): void {
-  container.querySelector<HTMLElement>(".suggestion-item")?.classList.add("is-selected");
+  container.querySelector<HTMLElement>(".suggestion-item, .menu-item")?.classList.add("is-selected");
   container.addEventListener("mousemove", (event) => {
     const target = event.target;
     const item =
       target instanceof Element
-        ? target.closest<HTMLElement>(".suggestion-item")
+        ? target.closest<HTMLElement>(".suggestion-item, .menu-item")
         : null;
 
     if (item == null || !container.contains(item)) {
       return;
     }
 
-    for (const candidate of container.querySelectorAll<HTMLElement>(".suggestion-item")) {
+    for (const candidate of container.querySelectorAll<HTMLElement>(".suggestion-item, .menu-item")) {
       candidate.classList.toggle("is-selected", candidate === item);
     }
   });
 }
 
 function allKeys(container: HTMLElement): string[] {
-  return Array.from(container.querySelectorAll<HTMLElement>(".suggestion-item")).map(
+  return Array.from(container.querySelectorAll<HTMLElement>(".suggestion-item, .menu-item")).map(
     (item) => item.textContent?.trim() ?? "",
   );
 }
 
 function visibleKeys(container: HTMLElement): string[] {
-  return Array.from(container.querySelectorAll<HTMLElement>(".suggestion-item:not([hidden])")).map(
+  return Array.from(container.querySelectorAll<HTMLElement>(".suggestion-item:not([hidden]), .menu-item:not([hidden])")).map(
     (item) => item.textContent?.trim() ?? "",
   );
 }
@@ -1360,7 +1360,7 @@ describe("KeySuggestionOrderController", () => {
     expect(scope).toBeNull();
   });
 
-  it("bridges native keyboard selection onto the visible DOM order", () => {
+  it.each(["suggestions", "mixed items"])("bridges the native keyboard selection onto visible %s", (variant) => {
     const settings = createDefaultSettings();
     settings.pinnedPropertyKeys = ["tags"];
     settings.bottomPropertyKeys = ["zeta"];
@@ -1370,6 +1370,11 @@ describe("KeySuggestionOrderController", () => {
     const nativeElements = Array.from(
       menu.querySelectorAll<HTMLElement>(".suggestion-item"),
     );
+    if (variant === "mixed items") {
+      // The pinned row has the other supported host class. Arrow keys must
+      // still follow the order in which the user sees the rows on screen.
+      nativeElements[2]!.className = "menu-item";
+    }
     const editor = menu.closest<HTMLElement>(".metadata-property-key")!;
     editor.tabIndex = 0;
     editor.focus();

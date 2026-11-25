@@ -13,16 +13,8 @@ export interface PropertyValueSuggestionContext {
   row: HTMLElement;
 }
 
-const SUGGESTION_CONTAINER_SELECTORS = [
-  ".suggestion-container",
-  ".suggestion",
-  ".menu",
-];
-
-const SUGGESTION_ITEM_SELECTORS = [
-  ".suggestion-item",
-  ".menu-item",
-];
+const SUGGESTION_CONTAINER_SELECTOR = ".suggestion-container, .suggestion, .menu";
+const SUGGESTION_ITEM_SELECTOR = ".suggestion-item, .menu-item";
 
 const PROPERTY_KEY_EDITOR_SELECTOR = ".metadata-property-key";
 const PROPERTY_VALUE_EDITOR_SELECTOR = ".metadata-property-value";
@@ -32,20 +24,13 @@ const PROPERTY_KEY_SUGGESTION_SELECTOR =
 const PROPERTY_ORDER_CUSTOM_VALUE_POPUP_SELECTOR =
   ".property-order-custom-value-popup";
 
-const SUGGESTION_CONTAINER_SELECTOR = SUGGESTION_CONTAINER_SELECTORS.join(", ");
-
 export function findSuggestionContainers(root: ParentNode = document): HTMLElement[] {
   const rootElement = asHtmlElement(root);
   const closestContainer = asHtmlElement(
     rootElement?.closest(SUGGESTION_CONTAINER_SELECTOR),
   );
-  const descendants = SUGGESTION_CONTAINER_SELECTORS.flatMap((selector) =>
-    Array.from(root.querySelectorAll<HTMLElement>(selector)),
-  );
-
-  return [...(closestContainer == null ? [] : [closestContainer]), ...descendants].filter(
-    (container, index, containers) => containers.indexOf(container) === index,
-  );
+  const descendants = Array.from(root.querySelectorAll<HTMLElement>(SUGGESTION_CONTAINER_SELECTOR));
+  return closestContainer == null ? descendants : [closestContainer, ...descendants];
 }
 
 export function getSuggestionItems(container: HTMLElement): SuggestionItem[] {
@@ -199,7 +184,7 @@ export function findNativeValuePopups(targetDocument: Document): HTMLElement[] {
   return Array.from(targetDocument.querySelectorAll<HTMLElement>(".suggestion-container")).filter(
     (popup) => resolvePropertyValueSuggestionContainer(popup) === popup &&
       !popup.matches(PROPERTY_KEY_SUGGESTION_SELECTOR) && popup.closest(PROPERTY_KEY_EDITOR_SELECTOR) == null &&
-      popup.querySelector(".suggestion-item, .menu-item") != null,
+      popup.querySelector(SUGGESTION_ITEM_SELECTOR) != null,
   );
 }
 
@@ -213,10 +198,17 @@ function findOwnedNativePopup(editor: HTMLElement, kind: "key" | "value"): HTMLE
       .filter((popup): popup is HTMLElement => popup != null &&
         popup.closest(PROPERTY_ORDER_CUSTOM_VALUE_POPUP_SELECTOR) == null &&
         popup.closest(PROPERTY_VALUE_EDITOR_SELECTOR) == null &&
-        popup.querySelector(".suggestion-item, .menu-item") != null);
+        popup.querySelector(SUGGESTION_ITEM_SELECTOR) != null);
   const viable = new Set(candidates.filter(isSuggestionElementVisible));
   if (!viable.size) return null;
 
+  // Other controls can claim only IDs inside a candidate popup. Do not resolve
+  // every unrelated tab/panel relationship in the workspace on the input path.
+  const candidateIds = new Set<string>();
+  for (const popup of candidates) {
+    if (popup.id) candidateIds.add(popup.id);
+    for (const target of popup.querySelectorAll<HTMLElement>("[id]")) candidateIds.add(target.id);
+  }
   const linked = new Set<HTMLElement>();
   let expectsPopup = false;
   for (const control of Array.from(doc.querySelectorAll<HTMLElement>("[aria-controls], [aria-owns]"))) {
@@ -224,6 +216,7 @@ function findOwnedNativePopup(editor: HTMLElement, kind: "key" | "value"): HTMLE
       (control.matches('[role="combobox"]') && control.contains(editor)));
     const ids = [control.getAttribute("aria-controls"), control.getAttribute("aria-owns")].join(" ");
     for (const id of ids.split(/[ \t\r\n\f]+/).filter(Boolean)) {
+      if (!ownControl && !candidateIds.has(id)) continue;
       const targets = doc.querySelectorAll<HTMLElement>("#" + CSS.escape(id));
       if (targets.length === 1 && targets[0].closest(PROPERTY_ORDER_CUSTOM_VALUE_POPUP_SELECTOR)) continue;
       if (ownControl) {
@@ -255,11 +248,7 @@ function getSuggestionItemsWithExtractor(
   container: HTMLElement,
   extractKey: (element: HTMLElement) => string,
 ): SuggestionItem[] {
-  const itemElements = SUGGESTION_ITEM_SELECTORS.flatMap((selector) =>
-    Array.from(container.querySelectorAll<HTMLElement>(selector)),
-  ).filter((element, index, elements) => elements.indexOf(element) === index);
-
-  return itemElements
+  return Array.from(container.querySelectorAll<HTMLElement>(SUGGESTION_ITEM_SELECTOR))
     .map((element) => ({ element, key: extractKey(element) }))
     .filter((item) => item.key.length > 0);
 }
