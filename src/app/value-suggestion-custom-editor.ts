@@ -261,6 +261,7 @@ export function renderCustomValueSuggestionEditor(
     if (placement === "middle") {
       new Setting(section)
         .setName(options.t("settings.valueSuggestions.custom.middleSort"))
+        .setFocusKey(`custom-middle-sort:${selectedPropertyKey}`)
         .addDropdown((dropdown) => {
           dropdown
             .addOption("native", options.t("settings.valueSuggestions.sortMode.native"))

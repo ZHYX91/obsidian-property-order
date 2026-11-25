@@ -21,26 +21,40 @@ beforeEach(() => {
   document.body.replaceChildren();
   dropdowns.length = 0;
 
-  Reflect.set(Setting.prototype, "setName", function (this: Setting) {
+  Reflect.set(Setting.prototype, "setName", function (this: Setting, name: string) {
+    const nameEl = this.settingEl.ownerDocument.createElement("div");
+    nameEl.textContent = name;
+    this.settingEl.prepend(nameEl);
+    Reflect.set(this, "nameEl", nameEl);
     return this;
   });
   Reflect.set(Setting.prototype, "addDropdown", function (
     this: Setting,
     configure: (dropdown: {
+      selectEl: HTMLSelectElement;
       addOption(value: string, label: string): unknown;
       onChange(callback: (value: string) => void): unknown;
       setValue(value: string): unknown;
     }) => void,
   ) {
     const harness: DropdownHarness = {};
+    const selectEl = this.controlEl.appendChild(document.createElement("select"));
     const dropdown = {
-      addOption: () => dropdown,
+      selectEl,
+      addOption(value: string, label: string) {
+        const option = selectEl.appendChild(document.createElement("option"));
+        option.value = value;
+        option.textContent = label;
+        return dropdown;
+      },
       onChange(callback: (value: string) => void) {
         harness.onChange = callback;
+        selectEl.addEventListener("change", () => callback(selectEl.value));
         return dropdown;
       },
       setValue(value: string) {
         harness.value = value;
+        selectEl.value = value;
         return dropdown;
       },
     };
@@ -280,6 +294,29 @@ describe("renderCustomValueSuggestionEditor", () => {
       remove(String(count));
       expect(document.activeElement?.getAttribute("data-settings-focus")).toBe(`candidate:${count - 1}:×`);
     }
+  });
+
+  it("returns keyboard focus to the normal-candidate sort control after it changes", () => {
+    const container = document.body.createDiv();
+    let orders = customOrders();
+    const render = () => preserveSettingsView(container, () => {
+      container.replaceChildren();
+      renderCustomValueSuggestionEditor({
+        app: createApp(), assignments: customAssignments(), containerEl: container,
+        customOrders: orders, displayOrder: "name", getFrequency: () => [],
+        onCustomOrdersChange: async (next) => { orders = next; },
+        rerender: render, selectedPropertyKey: "status", t: (key) => key,
+      });
+    });
+    render();
+    const previous = container.querySelector<HTMLSelectElement>(".is-middle select")!;
+    previous.focus();
+    previous.value = "frequency";
+    previous.dispatchEvent(new Event("change", { bubbles: true }));
+    const current = container.querySelector<HTMLSelectElement>(".is-middle select")!;
+    expect(previous.isConnected).toBe(false);
+    expect(current.value).toBe("frequency");
+    expect(document.activeElement).toBe(current);
   });
 
   it("persists button moves, preset removal, manual additions, and middle sort changes", async () => {

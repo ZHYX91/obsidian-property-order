@@ -6,7 +6,7 @@ follow the repository's Git tags; entries summarize the corresponding commit his
 ## [0.12.5]
 
 - Add scroll arrows for clipped settings tabs and keep the active tab visible when the settings panel resizes.
-- Fit custom candidate editors and translated controls in narrow settings. Keep keyboard focus on a useful action when deleting a preset, and expose the names and current states of native settings controls.
+- Fit custom candidate editors and translated controls in narrow settings. Keep keyboard focus when changing candidate sorting or deleting a preset, and expose the names and current states of native settings controls.
 - Keep keyboard selections in the displayed order of native suggestions. Continue hiding a property name when it is the only match in its editor's suggestion menu.
 - Keep a restored property-value choice visible in the fallback list and align its popup with right-to-left editors.
 - Reduce the work needed to scan and sort property suggestions when opening them in large vaults.
