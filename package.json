@@ -15,6 +15,7 @@
     "format:check": "node scripts/check-format.mjs",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
+    "test:settings-layout": "node scripts/test-settings-layout.mjs",
     "test:coverage": "vitest run --coverage",
     "check:docs-i18n": "node scripts/check-docs-i18n.mjs",
     "check:readme-i18n": "node scripts/check-readme-i18n.mjs",

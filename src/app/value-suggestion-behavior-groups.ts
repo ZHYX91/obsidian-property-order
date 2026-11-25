@@ -1,4 +1,5 @@
-import { Setting, type App } from "obsidian";
+import { AccessibleSetting as Setting } from "./accessible-setting";
+import { type App } from "obsidian";
 
 import {
   getPropertyValueBehavior,

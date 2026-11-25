@@ -1,6 +1,7 @@
+import { AccessibleSetting as Setting } from "./accessible-setting";
 import { renderCandidatePages } from "./candidate-pages";
 import { normalizePropertyKeyIdentity } from "../core/suggestions/property-names";
-import { Setting, type App } from "obsidian";
+import { type App } from "obsidian";
 
 import {
   getPropertyValueCustomOrder,

@@ -256,7 +256,7 @@ export default class PropertyOrderPlugin extends Plugin {
           if (draft !== null) {
             keyboardModal = new KeyboardValueOrderModal(
               this.app, draft, (key) => t(key, this.propertyOrderSettings.language),
-              getResolvedLocaleCode(this.propertyOrderSettings.language) === "ar" ? "rtl" : "ltr",
+              getResolvedLocaleCode(this.propertyOrderSettings.language),
             );
             keyboardModal.open();
           }

@@ -13,6 +13,7 @@ See also the [shared plugin interface](shared-ui.md).
 ## Property-value order
 
 - Without a pointer, open value reordering from the command palette, select a source property and value, then move it up, down, to a specific position (starting at 1), to the first/last position, or to the end of another property. The position must be an integer within the current list; the current position and invalid input cannot be submitted. The command has no default shortcut and remains available when dragging or cross-property dragging is disabled.
+- Dialog headings, controls, and status messages use the selected plugin language. Property keys and values keep their original spelling and use automatic text direction.
 - Source and target choices come from visible, verifiable native Properties in the current Markdown pane. Before submission, Escape or Cancel closes selection without writing. During updating, closure waits for completion. The dialog closes after success or a committed change whose save scheduling failed. Refusal or failure leaves the explanation visible and disables another execution until the user checks the note, closes the dialog, and reopens the command. If the file or values change during selection, ask the user to reopen the command instead of applying the old choice. Success shares the pointer path's undo, save, and Properties-recovery feedback.
 - The before/after example beside **List format after reordering** uses one shared input. Expanding it shows the production rewrite results for `preserve`, `flow`, and `block` together and explains non-text values becoming strings and comments or blank lines that flow syntax cannot retain. `preserve` remains the default.
 
@@ -68,6 +69,8 @@ See also the [shared plugin interface](shared-ui.md).
 - Older value rules remain available in a read-only archive. A localized explanation says that equivalent settings were imported and the archived rules no longer apply. Current grouped controls remain accessible below the archive so users can configure replacements without a migration-mode switch.
 
 ## Settings UI
+
+Native settings fields use their visible names and descriptions. Each toggle has one keyboard stop and exposes its current checked and disabled states.
 
 - General, Value order, Key suggestions, and Value suggestions are the same four settings groups across host versions. Control values, conditional visibility, immediate application, persistence failure, and Retry behavior stay consistent.
 - **Interface language** lists 12 languages under their native names, plus **Follow Obsidian** to use the host interface language; an explicit plugin language takes precedence. The complete README is available in the same 12 languages, while engineering documents remain in Simplified Chinese and English.
