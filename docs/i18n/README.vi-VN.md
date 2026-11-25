@@ -93,7 +93,7 @@ Giao diện và README hỗ trợ tiếng Anh, Trung giản thể, Trung phồn 
 
 - Kéo giá trị hỗ trợ các dòng thuộc tính YAML cấp cao nhất thông thường được Obsidian hiển thị dưới dạng danh sách văn bản. Không hỗ trợ ánh xạ toàn tài liệu trong `{ ... }`, danh sách đối tượng, danh sách lồng nhau, danh sách trong ngoặc trải trên nhiều dòng, kéo dòng ở chế độ nguồn hoặc chuyển giữa các tệp.
 - Giá trị rỗng hay đơn có thể tham gia nếu Obsidian nhận diện thuộc tính là danh sách. Một số hàng không khớp kiểu cũng hoạt động nếu từng giá trị được phân biệt rõ. Hàng chứa giá trị hỗn hợp mơ hồ được xử lý thận trọng và có thể chỉ nhận giá trị thêm vào cuối.
-- Lệnh bàn phím cần bảng Thuộc tính hiển thị và được hỗ trợ trong ngăn Markdown đang hoạt động. Nếu tệp hay giá trị thay đổi khi hộp thoại đang mở, hãy mở lại lệnh.
+- Lệnh bàn phím cần bảng Thuộc tính hiển thị và được hỗ trợ trong ngăn Markdown đang hoạt động. Nếu tệp hay giá trị thay đổi khi hộp thoại đang mở, hãy mở lại lệnh. Nếu bảng Thuộc tính không còn khớp với nội dung ghi chú, hãy mở lại ghi chú trước khi di chuyển giá trị khác. Nếu giá trị đã được ghi nhưng bảng Thuộc tính chưa cập nhật, trước tiên hãy dùng nút làm mới trong thông báo.
 - Giá trị định sẵn chỉ xuất hiện khi chỉnh sửa giá trị trong bảng Thuộc tính. Nếu không có cửa sổ gợi ý gốc, plugin có thể hiển thị chúng cạnh ô nhập. Nếu không nhận diện an toàn được trình soạn thảo hay giao diện gợi ý gốc, bạn vẫn có thể nhập bình thường hoặc dùng gợi ý gốc.
 - Tính năng đổi thứ tự kiểm tra YAML trước khi yêu cầu Obsidian lưu. Nội dung không được hỗ trợ hoặc có xung đột được giữ nguyên. Chọn hay chỉnh sửa thuộc tính trong Obsidian có thể thay đổi ghi chú; chỉ cấu hình gợi ý thì không.
 
