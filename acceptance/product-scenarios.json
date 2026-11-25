@@ -102,6 +102,7 @@
         "Open Value Suggestions.md and enable value suggestion management in the four-tab settings surface",
         "Use the acceptance provider to prepare grouped behaviors: status uses Custom candidates with planned/draft pinned and archived/deferred bottom, while priority uses Selection frequency",
         "Verify the Value suggestions page shows mutually exclusive behavior groups, supports property-key choices without eager duplicate membership, and shows the Custom status editor with pinned, normal, and bottom sections",
+        "On desktop, keep the window at least 1000 CSS px wide and size the settings content to 300 CSS px. In English and Arabic, inspect a pinned preset and a long property name without spaces. Read the full name, reach every candidate action, and type in the Add value input. Expand the content to 640 CSS px and repeat",
         "Open status candidates and verify planned and deferred remain selectable even though no fixture note previously contains them; select one through the visible candidate UI and verify the committed YAML",
         "Select priority candidates in a controlled order, wait for Metadata Cache confirmation, and verify Selection frequency changes only after confirmed commits while Note count remains a different ordering source",
         "Check that ordinary context menus retain their actions and disabling enhancement restores native behavior",
@@ -114,6 +115,7 @@
       ],
       "expected": [
         "General, Value order, Key suggestions and Value suggestions remain accessible at desktop and mobile widths",
+        "At 300 CSS px the custom property list sits above the editor, long headings wrap, and labels, actions and input fit without scrolling the settings page horizontally. At 640 CSS px the property list and editor are side by side in reading order",
         "Each exact property key has at most one active behavior; moving a key changes its group rather than duplicating it",
         "Custom status candidates use pinned + normal + bottom ordering and explicit preset-only values can be selected without first appearing in another note",
         "A selected preset commits through the Properties editor and only a Metadata Cache-confirmed selection advances device-local Selection frequency",

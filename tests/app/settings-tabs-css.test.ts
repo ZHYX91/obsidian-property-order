@@ -50,12 +50,17 @@ describe("settings tab layout CSS", () => {
     );
   });
 
-  it("stacks property-name rule controls on narrow screens", () => {
-    expect(styles).toMatch(
-      /@media \(max-width:\s*480px\)[\s\S]*?\.property-order-key-list-setting \.setting-item-control,\s*\.property-order-rule-diagnostic-setting \.setting-item-control\s*\{[^}]*align-items:\s*stretch;[^}]*flex-direction:\s*column;[^}]*width:\s*100%;/s,
+  it("stacks candidate and property-name controls inside a narrow settings panel", () => {
+    const scoped = styles.match(/@container [\w-]+ \(max-width:\s*480px\)\s*\{(.*?)^\}/ms)?.[1];
+    expect(scoped).toBeDefined();
+    expect(scoped).toMatch(
+      /\.property-order-custom-value-layout\s*\{[^}]*grid-template-columns:\s*(?:minmax\(0, 1fr\)|1fr);/s,
     );
-    expect(styles).toMatch(
-      /@media \(max-width:\s*480px\)[\s\S]*?\.property-order-key-list-input,[\s\S]*?\.property-order-property-name-input,[\s\S]*?\.property-order-rule-diagnostic-input\s*\{[^}]*box-sizing:\s*border-box;[^}]*min-width:\s*0;[^}]*width:\s*100%;/s,
+    expect(scoped).toMatch(
+      /\.property-order-key-list-setting \.setting-item-control,\s*\.property-order-rule-diagnostic-setting \.setting-item-control\s*\{[^}]*align-items:\s*stretch;[^}]*flex-direction:\s*column;[^}]*width:\s*100%;/s,
+    );
+    expect(scoped).toMatch(
+      /\.property-order-key-list-input,[\s\S]*?\.property-order-property-name-input,[\s\S]*?\.property-order-rule-diagnostic-input\s*\{[^}]*box-sizing:\s*border-box;[^}]*min-width:\s*0;[^}]*width:\s*100%;/s,
     );
   });
 

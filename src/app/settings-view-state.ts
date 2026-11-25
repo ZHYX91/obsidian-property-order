@@ -11,6 +11,9 @@ export function preserveSettingsView(container: HTMLElement, update: () => void)
   const focused = container.contains(active) ? active : null;
   const focusId = focused?.getAttribute("data-settings-focus");
   const focusGroup = focused?.getAttribute("data-settings-focus-group") ?? undefined;
+  const row = focused?.closest<HTMLElement>(".property-order-custom-value-item");
+  const sectionId = row?.closest<HTMLElement>("[data-candidate-section]")?.dataset.candidateSection;
+  const rowIndex = Number(row?.dataset.candidateIndex);
   const restorePages = captureCandidatePages(container);
   update();
   restorePages();
@@ -18,8 +21,17 @@ export function preserveSettingsView(container: HTMLElement, update: () => void)
     const controls = Array.from(container.querySelectorAll<HTMLElement>("[data-settings-focus]:not(:disabled)"))
       .filter((element) => element.dataset.settingsFocusGroup === focusGroup);
     // A move can remove its own action. Continue from the moved item's first enabled control.
-    const target = controls.find((element) => element.dataset.settingsFocus === focusId)
+    let target = controls.find((element) => element.dataset.settingsFocus === focusId)
       ?? (focusGroup === undefined ? undefined : controls[0]);
+    if (!target && sectionId && rowIndex >= 0) {
+      const section = Array.from(container.querySelectorAll<HTMLElement>("[data-candidate-section]"))
+        .find((candidate) => candidate.dataset.candidateSection === sectionId);
+      const rows = Array.from(section?.querySelectorAll<HTMLElement>("[data-candidate-index]") ?? []);
+      const neighbor = rows.find((item) => Number(item.dataset.candidateIndex) >= rowIndex) ?? rows[rows.length - 1];
+      const actions = Array.from(neighbor?.querySelectorAll<HTMLButtonElement>("button:not(:disabled)") ?? []);
+      target = actions.find((button) => button.textContent === focused?.textContent) ?? actions[0]
+        ?? section?.querySelector<HTMLElement>(".property-order-custom-value-add input, select:not(:disabled)") ?? undefined;
+    }
     target?.focus({ preventScroll: true });
   }
   for (const { element, top, left } of positions) {

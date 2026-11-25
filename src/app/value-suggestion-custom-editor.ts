@@ -124,6 +124,7 @@ export function renderCustomValueSuggestionEditor(
     const section = editor.createDiv({
       cls: `property-order-custom-value-section is-${placement}`,
     });
+    section.dataset.candidateSection = JSON.stringify([selectedPropertyKey, placement]);
     const title = section.createDiv({
       cls: "property-order-custom-value-section-title",
     });
@@ -157,6 +158,7 @@ export function renderCustomValueSuggestionEditor(
       const row = list.createDiv({
         cls: "property-order-custom-value-item",
       });
+      row.dataset.candidateIndex = String(index);
       row.draggable = true;
       row.addEventListener("dragstart", (event) => {
         draggedValue = item.value;
@@ -282,6 +284,7 @@ export function renderCustomValueSuggestionEditor(
       input.type = "text";
       input.dataset.settingsFocus = `custom-add:${placement}:${selectedPropertyKey.toLocaleLowerCase()}`;
       input.placeholder = options.t("settings.valueSuggestions.custom.valuePlaceholder");
+      input.setAttribute("aria-label", `${title.textContent} · ${input.placeholder}`);
       const button = addRow.createEl("button");
       button.type = "button";
       button.textContent = options.t("settings.valueSuggestions.custom.addValue");
