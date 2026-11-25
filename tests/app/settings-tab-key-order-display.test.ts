@@ -33,6 +33,29 @@ afterEach(() => {
 });
 
 describe("Property Order settings tabs", () => {
+  it("opens every settings tab directly on a labeled control", () => {
+    const tab = mountSettingsTab(createDefaultSettings(), vi.fn(async () => undefined));
+    tab.display();
+    try {
+      const controls = [
+        ["general", "Interface language", "select"],
+        ["valueDrag", "Enable property value drag", "input"],
+        ["keyOrder", "Customize property name suggestions", "input"],
+        ["valueSuggestions", "Customize property value suggestions", "input"],
+      ] as const;
+      for (const [id, name, control] of controls) {
+        tab.containerEl.querySelector<HTMLButtonElement>(`[role="tab"][data-tab-id="${id}"]`)!.click();
+        const first = tab.containerEl.querySelector<HTMLElement>(
+          '[role="tabpanel"] :is(.setting-item, h1, h2, h3, h4, h5, h6, [role="heading"])',
+        );
+        expect(first?.dataset.settingName).toBe(name);
+        expect(first?.querySelector(control)).toBeTruthy();
+      }
+    } finally {
+      tab.hide();
+    }
+  });
+
   it("keeps help open while switching tabs and ignores events from a closed session", () => {
     const tab = mountSettingsTab(createDefaultSettings(), vi.fn(async () => undefined));
     expect(tab.getSettingDefinitions()).toEqual([]);

@@ -178,6 +178,7 @@ export class PropertyOrderSettingTab extends PluginSettingTab {
       tabs,
       this.activeTab,
       this.t("settings.tabsLabel"),
+      { earlier: this.t("settings.tabs.earlier"), later: this.t("settings.tabs.later") },
       (tabId) => {
         this.activeTab = tabId;
         this.render(tabId);

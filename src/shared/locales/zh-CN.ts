@@ -27,6 +27,8 @@ const translations = {
   "settings.support.guide": "使用指南",
   "settings.support.issue": "报告问题",
   "settings.tabsLabel": "Property Order 设置分类",
+  "settings.tabs.earlier": "显示前面的选项卡",
+  "settings.tabs.later": "显示后面的选项卡",
   "settings.tab.general": "常规",
   "settings.tab.valueDrag": "属性值拖拽",
   "settings.tab.keyOrder": "属性名称候选",

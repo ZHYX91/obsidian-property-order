@@ -27,6 +27,8 @@ const translations = {
   "settings.support.guide": "Руководство пользователя",
   "settings.support.issue": "Сообщить о проблеме",
   "settings.tabsLabel": "Разделы настроек Property Order",
+  "settings.tabs.earlier": "Показать предыдущие вкладки",
+  "settings.tabs.later": "Показать следующие вкладки",
   "settings.tab.general": "Общие",
   "settings.tab.valueDrag": "Перетаскивание значений",
   "settings.tab.keyOrder": "Подсказки имён свойств",

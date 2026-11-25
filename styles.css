@@ -172,6 +172,87 @@ body.property-order-value-drag-enabled .metadata-property .multi-select-pill {
   display: none !important;
 }
 
+.property-order-settings-tab-strip {
+  --tab-scroll-size: 32px;
+  container-type: inline-size;
+  display: grid;
+  grid-template-columns: max-content minmax(0, 1fr) max-content;
+  min-inline-size: 0;
+}
+
+.property-order-settings-tab-strip > .property-order-settings-tabs {
+  grid-column: 2;
+  grid-row: 1;
+  min-inline-size: 0;
+}
+
+.property-order-settings-tab-strip > button.property-order-settings-tab-scroll {
+  align-items: center;
+  align-self: stretch;
+  appearance: none;
+  background: transparent;
+  border: 0;
+  box-shadow: none;
+  color: var(--text-accent);
+  cursor: var(--cursor, default);
+  display: flex;
+  grid-column: 1;
+  grid-row: 1;
+  height: auto;
+  inline-size: var(--tab-scroll-size);
+  min-inline-size: 0;
+  justify-content: center;
+  padding: 0;
+}
+
+.property-order-settings-tab-strip > button.property-order-settings-tab-scroll:hover {
+  background: var(--background-modifier-hover);
+}
+
+.property-order-settings-tab-strip > button.property-order-settings-tab-scroll[data-direction="later"] {
+  grid-column: 3;
+}
+
+.property-order-settings-tab-strip > button.property-order-settings-tab-scroll[hidden] {
+  display: none;
+}
+
+.property-order-settings-tab-scroll::before {
+  border-right: 2px solid currentColor;
+  border-top: 2px solid currentColor;
+  content: "";
+  box-sizing: border-box;
+  height: 8px;
+  transform: rotate(-135deg);
+  width: 8px;
+}
+
+.property-order-settings-tab-scroll[data-direction="later"]::before,
+.property-order-settings-tab-scroll[data-direction="earlier"]:dir(rtl)::before {
+  transform: rotate(45deg);
+}
+
+.property-order-settings-tab-scroll[data-direction="later"]:dir(rtl)::before {
+  transform: rotate(-135deg);
+}
+
+.property-order-settings-tab-scroll:focus-visible {
+  outline: 2px solid var(--interactive-accent);
+  outline-offset: -2px;
+}
+
+@container (max-width: 600px) {
+  .property-order-settings-tab-strip > .property-order-settings-tabs > button.property-order-settings-tab {
+    padding-inline: 8px !important;
+  }
+}
+
+@media (pointer: coarse) {
+  .property-order-settings-tab-strip {
+    --tab-scroll-size: 44px;
+  }
+}
+
 .property-order-settings-tabs {
   align-items: stretch;
   display: flex;
@@ -202,11 +283,21 @@ body.property-order-value-drag-enabled .metadata-property .multi-select-pill {
   font-family: inherit !important;
   font-size: var(--font-ui-small) !important;
   font-weight: inherit;
-  margin: 0 0 -1px !important;
+  margin: 0 !important;
   block-size: auto;
   min-block-size: 34px;
   padding: 7px 12px !important;
   white-space: nowrap;
+}
+
+@media (forced-colors: active) {
+  .property-order-settings-tabs {
+    --interactive-accent: Highlight;
+  }
+
+  .property-order-settings-tabs > button.property-order-settings-tab[aria-selected="false"] {
+    border-block-end-color: Canvas !important;
+  }
 }
 
 .property-order-settings-tabs > button.property-order-settings-tab:focus-visible {
@@ -555,6 +646,7 @@ body.property-order-value-drag-enabled .metadata-property .multi-select-pill {
 
 @media (pointer: coarse) {
   .property-order-settings-tabs > button.property-order-settings-tab {
+    min-inline-size: 44px;
     min-block-size: 44px;
   }
 

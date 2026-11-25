@@ -16,9 +16,44 @@ const tabs: SettingsTabDefinition[] = [
   { id: "keyOrder", label: "Key order" },
 ];
 
+const scrollLabels = { earlier: "Show earlier tabs", later: "Show later tabs" };
+
 describe("createSettingsTabLayout", () => {
   beforeEach(() => {
     document.body.replaceChildren();
+  });
+
+  it("keeps a visible selection in view through narrowing and preserves manual paging", () => {
+    const container = document.createElement("div");
+    document.body.append(container);
+    const layout = createSettingsTabLayout(container, tabs, "valueSuggestions", "Settings", scrollLabels, vi.fn());
+    const list = container.querySelector<HTMLElement>('[role="tablist"]')!;
+    const active = list.querySelector<HTMLElement>('[aria-selected="true"]')!;
+    const strip = list.parentElement!;
+    let width = 0;
+    Object.defineProperty(strip, "clientWidth", { get: () => width });
+    Object.defineProperty(list, "clientWidth", { get: () => width });
+    Object.defineProperty(list, "scrollWidth", { get: () => 400 });
+    vi.spyOn(list, "getBoundingClientRect").mockImplementation(() => new DOMRect(0, 0, width, 34));
+    vi.spyOn(active, "getBoundingClientRect").mockImplementation(() => new DOMRect(320 - list.scrollLeft, 0, 80, 34));
+    try {
+      width = 300;
+      window.dispatchEvent(new Event("resize"));
+      expect(list.scrollLeft).toBe(100);
+      width = 200;
+      window.dispatchEvent(new Event("resize"));
+      expect(list.scrollLeft).toBe(200);
+
+      list.scrollLeft = 0;
+      list.dispatchEvent(new Event("scroll"));
+      width = 180;
+      window.dispatchEvent(new Event("resize"));
+      expect(list.scrollLeft).toBe(0);
+      expect(active.getAttribute("aria-selected")).toBe("true");
+    } finally {
+      layout.cleanup();
+      container.remove();
+    }
   });
 
   it("builds the tablist, tabs, and linked tabpanel semantics", () => {
@@ -29,6 +64,7 @@ describe("createSettingsTabLayout", () => {
       tabs,
       "valueDrag",
       "Property Order settings categories",
+      scrollLabels,
       vi.fn(),
     );
     const tabList = container.querySelector<HTMLElement>("[role=tablist]");
@@ -49,12 +85,78 @@ describe("createSettingsTabLayout", () => {
     }
     const second = document.createElement("div");
     document.body.append(second);
-    const other = createSettingsTabLayout(second, tabs, "general", "Settings", vi.fn());
+    const other = createSettingsTabLayout(second, tabs, "general", "Settings", scrollLabels, vi.fn());
     other.cleanup();
     layout.cleanup();
     expect(other.panelEl.id).not.toBe(layout.panelEl.id);
     expect(document.getElementById(other.panelEl.getAttribute("aria-labelledby")!)).toBe(other.activeTabEl);
     expect(layout.panelEl.getAttribute("aria-labelledby")).toBe(layout.activeTabEl.id);
+  });
+
+  it.each(["ltr", "rtl"])("reveals the next clipped tab without selecting it (%s)", (direction) => {
+    const container = document.createElement("div");
+    container.dir = direction;
+    document.body.append(container);
+    const select = vi.fn();
+    const layout = createSettingsTabLayout(container, tabs, "general", "Sections", scrollLabels, select);
+    const list = container.querySelector<HTMLElement>("[role=tablist]")!;
+    const strip = list.parentElement!;
+    const earlier = strip.querySelector<HTMLButtonElement>('[data-direction="earlier"]')!;
+    const later = strip.querySelector<HTMLButtonElement>('[data-direction="later"]')!;
+    const buttons = Array.from(list.querySelectorAll<HTMLElement>("[role=tab]"));
+    const rtl = direction === "rtl";
+    const tabWidth = 80;
+    const arrowWidth = 32;
+    let available = 164;
+    Object.defineProperty(strip, "clientWidth", { get: () => available });
+    Object.defineProperty(list, "scrollWidth", { get: () => buttons.length * tabWidth });
+    // Visible arrows occupy space at opposite physical edges in LTR and RTL.
+    vi.spyOn(list, "getBoundingClientRect").mockImplementation(() => {
+      const left = (rtl ? later : earlier).hidden ? 0 : arrowWidth;
+      const right = available - ((rtl ? earlier : later).hidden ? 0 : arrowWidth);
+      return { left, right, width: right - left } as DOMRect;
+    });
+    for (const [index, button] of buttons.entries()) {
+      vi.spyOn(button, "getBoundingClientRect").mockImplementation(() => {
+        const viewport = list.getBoundingClientRect();
+        const start = rtl ? viewport.right - (index + 1) * tabWidth : viewport.left + index * tabWidth;
+        const left = start - list.scrollLeft;
+        return { left, right: left + tabWidth, width: tabWidth } as DOMRect;
+      });
+    }
+    // Mimic the scroll event fired after native wheel or touch interaction.
+    list.dispatchEvent(new Event("scroll"));
+    expect(earlier.hidden).toBe(true);
+    expect(later.hidden).toBe(false);
+    expect(later.getAttribute("aria-label")).toBe(scrollLabels.later);
+    // When touch or wheel scrolling reveals the opposite arrow, the tab under
+    // the pointer should not jump sideways to make space for the new control.
+    list.scrollLeft = rtl ? -20 : 20;
+    const anchor = buttons[1]!;
+    const before = anchor.getBoundingClientRect().left;
+    list.dispatchEvent(new Event("scroll"));
+    expect(earlier.hidden).toBe(false);
+    expect(anchor.getBoundingClientRect().left).toBe(before);
+
+    later.click();
+    const revealed = anchor.getBoundingClientRect();
+    const viewport = list.getBoundingClientRect();
+    expect(revealed.left).toBeGreaterThanOrEqual(viewport.left);
+    expect(revealed.right).toBeLessThanOrEqual(viewport.right);
+    expect(earlier.hidden).toBe(false);
+    expect(later.hidden).toBe(false);
+    for (let index = 2; index < buttons.length; index++) later.click();
+    expect(later.hidden).toBe(true);
+    expect(earlier.hidden).toBe(false);
+    expect(buttons[0]?.getAttribute("aria-selected")).toBe("true");
+    expect(select).not.toHaveBeenCalled();
+
+    available = buttons.length * tabWidth;
+    list.dispatchEvent(new Event("scroll"));
+    expect(strip.classList.contains("has-overflow")).toBe(false);
+    expect(earlier.hidden).toBe(true);
+    expect(later.hidden).toBe(true);
+    layout.cleanup();
   });
 
   it.each([
@@ -73,6 +175,7 @@ describe("createSettingsTabLayout", () => {
         tabs,
         initialTab,
         "Property Order settings categories",
+        scrollLabels,
         onSelect,
       );
       const activeTab = container.querySelector<HTMLElement>("[role=tab][aria-selected=true]");
@@ -92,6 +195,7 @@ describe("createSettingsTabLayout", () => {
       tabs,
       "general",
       "Property Order settings categories",
+      scrollLabels,
       onSelect,
     );
     const activeTab = container.querySelector<HTMLElement>("[role=tab][aria-selected=true]");
@@ -114,6 +218,7 @@ describe("createSettingsTabLayout", () => {
         tabs,
         activeTab,
         "Property Order settings categories",
+        scrollLabels,
         (tabId) => {
           activeTab = tabId;
           render(true);
@@ -144,6 +249,7 @@ describe("createSettingsTabLayout", () => {
       tabs,
       "keyOrder",
       "Property Order settings categories",
+      scrollLabels,
       vi.fn(),
     );
 
@@ -170,6 +276,7 @@ describe("createSettingsTabLayout", () => {
       tabs,
       "keyOrder",
       "Property Order settings categories",
+      scrollLabels,
       vi.fn(),
     );
     const tabBar = container.querySelector<HTMLElement>("[role=tablist]");

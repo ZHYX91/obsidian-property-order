@@ -27,6 +27,8 @@ const translations = {
   "settings.support.guide": "Guia de uso",
   "settings.support.issue": "Relatar um problema",
   "settings.tabsLabel": "Categorias das configurações do Property Order",
+  "settings.tabs.earlier": "Mostrar abas anteriores",
+  "settings.tabs.later": "Mostrar abas seguintes",
   "settings.tab.general": "Geral",
   "settings.tab.valueDrag": "Arrastar valores",
   "settings.tab.keyOrder": "Sugestões de nomes de propriedades",

@@ -27,6 +27,8 @@ const translations = {
   "settings.support.guide": "Guía de uso",
   "settings.support.issue": "Informar de un problema",
   "settings.tabsLabel": "Categorías de ajustes de Property Order",
+  "settings.tabs.earlier": "Mostrar las pestañas anteriores",
+  "settings.tabs.later": "Mostrar las pestañas siguientes",
   "settings.tab.general": "General",
   "settings.tab.valueDrag": "Arrastrar valores",
   "settings.tab.keyOrder": "Sugerencias de nombres de propiedades",

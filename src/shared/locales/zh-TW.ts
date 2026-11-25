@@ -27,6 +27,8 @@ const translations = {
   "settings.support.guide": "使用指南",
   "settings.support.issue": "回報問題",
   "settings.tabsLabel": "Property Order 設定分類",
+  "settings.tabs.earlier": "顯示前面的分頁",
+  "settings.tabs.later": "顯示後面的分頁",
   "settings.tab.general": "一般",
   "settings.tab.valueDrag": "屬性值拖曳",
   "settings.tab.keyOrder": "屬性名稱候選",

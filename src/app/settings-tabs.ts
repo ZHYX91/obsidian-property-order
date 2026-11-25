@@ -27,16 +27,19 @@ export function createSettingsTabLayout(
   tabs: SettingsTabDefinition[],
   activeTab: SettingsTabId,
   ariaLabel: string,
+  scrollLabels: { readonly earlier: string; readonly later: string },
   onSelect: (tabId: SettingsTabId) => void,
 ): SettingsTabLayout {
   const layoutId = `property-order-settings-${++nextLayoutId}`;
   const panelId = `${layoutId}-panel`;
-  const tabBarEl = containerEl.createDiv();
+  const strip = containerEl.createDiv();
+  strip.className = "property-order-settings-tab-strip";
+  const tabBarEl = strip.createDiv();
   tabBarEl.className = "property-order-settings-tabs";
   tabBarEl.setAttribute("role", "tablist");
   tabBarEl.setAttribute("aria-label", ariaLabel);
   tabBarEl.setAttribute("aria-orientation", "horizontal");
-  containerEl.appendChild(tabBarEl);
+
 
   const activeIndex = Math.max(
     tabs.findIndex((tab) => tab.id === activeTab),
@@ -85,7 +88,6 @@ export function createSettingsTabLayout(
   panelEl.tabIndex = 0;
 
   const activeTabEl = buttons[activeIndex];
-  const targetWindow = containerEl.ownerDocument.defaultView;
   const revealActiveTab = (): void => {
     if (!tabBarEl.isConnected || !activeTabEl.isConnected) {
       return;
@@ -102,20 +104,8 @@ export function createSettingsTabLayout(
       tabOffsetWidth: activeTabRect.width,
     });
   };
-  revealActiveTab();
-  const animationFrameId = targetWindow?.requestAnimationFrame(revealActiveTab) ?? null;
-  targetWindow?.addEventListener("resize", revealActiveTab);
-
-  return {
-    activeTabEl,
-    cleanup: () => {
-      if (animationFrameId != null) {
-        targetWindow?.cancelAnimationFrame(animationFrameId);
-      }
-      targetWindow?.removeEventListener("resize", revealActiveTab);
-    },
-    panelEl,
-  };
+  const cleanup = installTabOverflow(strip, tabBarEl, buttons, activeTabEl, scrollLabels, revealActiveTab);
+  return { activeTabEl, cleanup, panelEl };
 }
 
 export function getSettingsTabScrollLeft(layout: SettingsTabScrollLayout): number {
@@ -207,4 +197,133 @@ function finiteNonNegative(value: number): number {
 
 function clamp(value: number, minimum: number, maximum: number): number {
   return Math.min(Math.max(value, minimum), maximum);
+}
+
+// Only a visible arrow occupies space. Keep the tab under the pointer in place
+// when scrolling reveals the control at the start of the strip.
+function installTabOverflow(
+  strip: HTMLElement,
+  list: HTMLElement,
+  tabs: readonly HTMLButtonElement[],
+  active: HTMLButtonElement,
+  labels: { readonly earlier: string; readonly later: string },
+  revealActiveTab: () => void,
+): () => void {
+  const view = list.ownerDocument.defaultView;
+  const earlier = scrollButton("earlier");
+  const later = scrollButton("later");
+  strip.prepend(earlier);
+  strip.append(later);
+
+  function scrollButton(direction: "earlier" | "later"): HTMLButtonElement {
+    const button = strip.createEl("button");
+    button.type = "button";
+    button.className = "property-order-settings-tab-scroll";
+    button.dataset.direction = direction;
+    button.hidden = true;
+    button.title = labels[direction];
+    button.setAttribute("aria-label", labels[direction]);
+    return button;
+  }
+
+  function distanceToEdge(tab: HTMLButtonElement, viewport: DOMRect, toLeft: boolean): number {
+    const rect = tab.getBoundingClientRect();
+    return toLeft ? viewport.left - rect.left : rect.right - viewport.right;
+  }
+
+  function firstClippedTab(toLeft: boolean): HTMLButtonElement | undefined {
+    const viewport = list.getBoundingClientRect();
+    if (viewport.width <= 0) return;
+    let nearest = Infinity;
+    let target: HTMLButtonElement | undefined;
+    for (const tab of tabs) {
+      const distance = distanceToEdge(tab, viewport, toLeft);
+      if (distance <= 1 || distance >= nearest) continue;
+      nearest = distance;
+      target = tab;
+    }
+    return target;
+  }
+
+  function refresh(): void {
+    const overflow = strip.clientWidth > 0 && list.scrollWidth > strip.clientWidth;
+    strip.classList.toggle("has-overflow", overflow);
+    const rtl = isRightToLeft(list);
+    const focus = strip.ownerDocument.activeElement;
+    const canScrollEarlier = overflow && firstClippedTab(!rtl) !== undefined;
+    const canScrollLater = overflow && firstClippedTab(rtl) !== undefined;
+    const viewport = canScrollEarlier && earlier.hidden ? list.getBoundingClientRect() : undefined;
+    earlier.hidden = !canScrollEarlier;
+    later.hidden = !canScrollLater;
+    // Keep the same content in view when a scroll reveals the start control.
+    if (viewport !== undefined) {
+      const resized = list.getBoundingClientRect();
+      list.scrollLeft += rtl ? resized.right - viewport.right : resized.left - viewport.left;
+    }
+    if ((focus === earlier && earlier.hidden) || (focus === later && later.hidden)) {
+      const next = [earlier, later].find((button) => !button.hidden) ?? active;
+      next.focus({ preventScroll: true });
+    }
+  }
+
+  function scroll(event: MouseEvent): void {
+    const rtl = isRightToLeft(list);
+    const towardEarlier = event.currentTarget === earlier;
+    const toLeft = towardEarlier ? !rtl : rtl;
+    const target = firstClippedTab(toLeft);
+    if (target === undefined) return;
+    // Reveal the same tab after reserving space for the reverse control.
+    const other = towardEarlier ? later : earlier;
+    other.hidden = false;
+    const viewport = list.getBoundingClientRect();
+    const distance = Math.max(0, Math.min(distanceToEdge(target, viewport, toLeft), viewport.width));
+    list.scrollLeft += toLeft ? -distance : distance;
+    refresh();
+  }
+
+  let followSelectedTab = true;
+  let automaticScrollPosition: number | null = null;
+  function onScroll(): void {
+    const automatic = automaticScrollPosition !== null && Math.abs(list.scrollLeft - automaticScrollPosition) <= 1;
+    automaticScrollPosition = null;
+    refresh();
+    // Panel content can narrow the strip before the earlier reveal event arrives.
+    if (automatic) return;
+    const viewport = list.getBoundingClientRect();
+    const selected = active.getBoundingClientRect();
+    if (!viewport.width) return;
+    // Keep following a visible selection on resize. Preserve a different page
+    // when the user has scrolled the selection out of view.
+    const visible = Math.min(selected.right, viewport.right) - Math.max(selected.left, viewport.left);
+    followSelectedTab = visible >= Math.min(selected.width, viewport.width) - 1;
+  }
+
+  function measure(): void {
+    const positionBeforeMeasure = list.scrollLeft;
+    refresh();
+    if (!list.clientWidth) return;
+    if (list.scrollWidth <= list.clientWidth) {
+      followSelectedTab = true;
+    } else if (followSelectedTab) {
+      revealActiveTab();
+      refresh();
+    }
+    if (list.scrollLeft !== positionBeforeMeasure) automaticScrollPosition = list.scrollLeft;
+  }
+
+  earlier.addEventListener("click", scroll);
+  later.addEventListener("click", scroll);
+  list.addEventListener("scroll", onScroll, { passive: true });
+  view?.addEventListener("resize", measure);
+  const observer = view?.ResizeObserver && new view.ResizeObserver(measure);
+  observer?.observe(strip);
+  for (const tab of tabs) observer?.observe(tab);
+  measure();
+  return () => {
+    earlier.removeEventListener("click", scroll);
+    later.removeEventListener("click", scroll);
+    list.removeEventListener("scroll", onScroll);
+    view?.removeEventListener("resize", measure);
+    observer?.disconnect();
+  };
 }
