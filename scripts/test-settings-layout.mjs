@@ -58,6 +58,40 @@ try {
       }
     }
   }
+  // Paging controls must meet the shared 44 × 44 CSS-pixel target on touch.
+  const touchPage = await browser.newPage({
+    viewport: { width: 390, height: 844 },
+    deviceScaleFactor: 1,
+    isMobile: true,
+    hasTouch: true,
+  });
+  try {
+    await touchPage.setContent(`<div class="property-order-settings-tab-strip">
+      <button class="property-order-settings-tab-scroll" data-direction="earlier" aria-label="Previous tabs"></button>
+      <div class="property-order-settings-tabs">
+        <button class="property-order-settings-tab is-active">General</button>
+        <button class="property-order-settings-tab">Value order</button>
+      </div>
+      <button class="property-order-settings-tab-scroll" data-direction="later" aria-label="Next tabs"></button>
+    </div>`);
+    await touchPage.addStyleTag({ path: "styles.css" });
+    const geometry = await touchPage.locator(".property-order-settings-tab-scroll").evaluateAll((buttons) => ({
+      coarse: window.matchMedia("(pointer: coarse)").matches,
+      bounds: buttons.map((button) => {
+        const rect = button.getBoundingClientRect();
+        return { width: rect.width, height: rect.height };
+      }),
+    }));
+    assert.equal(geometry.coarse, true, "touch fixture must expose a coarse primary pointer");
+    assert.equal(geometry.bounds.length, 2);
+    for (const [index, rect] of geometry.bounds.entries()) {
+      assert.ok(rect.width >= 44, `settings tab arrow ${index} is only ${rect.width}px wide`);
+      assert.ok(rect.height >= 44, `settings tab arrow ${index} is only ${rect.height}px high`);
+    }
+  } finally {
+    await touchPage.close();
+  }
+
   console.log("The host scroller and settings panel fit in all four host/plugin direction combinations.");
 } finally {
   await browser.close();

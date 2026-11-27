@@ -251,6 +251,10 @@ body.property-order-value-drag-enabled .metadata-property .multi-select-pill {
   .property-order-settings-tab-strip {
     --tab-scroll-size: 44px;
   }
+
+  .property-order-settings-tab-strip > button.property-order-settings-tab-scroll {
+    min-block-size: 44px;
+  }
 }
 
 .property-order-settings-tabs {
