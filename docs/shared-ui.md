@@ -10,6 +10,8 @@ This specification is for maintainers of Number Suite, Property Order, Folder No
 
 ## Settings tabs and appearance
 
+On Obsidian 1.13 and later, global settings search can open a plugin by name. Individual settings are indexed from `getSettingDefinitions()`. A nonempty list also makes Obsidian render the page and skip `display()`. Keep definitions empty or absent while the plugin renders its own top tabs. [Obsidian migration guide](https://docs.obsidian.md/plugins/guides/migrate-declarative-settings)
+
 - Keep top-level tabs on one line. Use a 2px theme-accent underline and semibold text for selection. Use Obsidian theme variables for ordinary labels, hover, borders, group spacing and card radii. Use the theme colors for normal text, warnings and actions according to their meaning.
 - Compare the labels' natural span with the whole row. Each arrow takes up space only while content remains in that direction. Paging scrolls the labels and preserves the active panel. When a focused arrow reaches an end, move focus to the remaining arrow, or to the selected tab when everything fits. Integer scroll offsets and fractional label bounds can differ by 1 CSS px.
 - Each group has one tab stop. Left and Right follow the interface direction. Home and End reach the ends. Up and Down retain native page scrolling. Accessible names and the tab, `tablist` and `tabpanel` relationships follow the displayed state. Reopening settings reveals the active label. Activating the selected tab again keeps its mounted panel, drafts and scroll position. Passive refresh preserves external focus.
