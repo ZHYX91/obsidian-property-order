@@ -12,7 +12,7 @@ describe("settings tab layout CSS", () => {
 
   it("uses compact tab padding when the settings strip is at most 600px wide", () => {
     expect(styles).toMatch(
-      /@container \(max-width:\s*600px\)\s*\{\s*\.property-order-settings-tab-strip > \.property-order-settings-tabs > button\.property-order-settings-tab\s*\{[^}]*padding-inline:\s*8px/s,
+      /@container \(max-width:\s*600px\)\s*\{\s*\.property-order-settings-content \.property-order-settings-tab-strip > \.property-order-settings-tabs > button\.property-order-settings-tab\s*\{[^}]*padding-inline:\s*8px/s,
     );
   });
 
@@ -24,19 +24,19 @@ describe("settings tab layout CSS", () => {
 
   it("resets theme button chrome and uses only an active underline", () => {
     expect(styles).toMatch(
-      /> button\.property-order-settings-tab\s*\{[^}]*appearance:\s*none !important;[^}]*background:\s*transparent !important;[^}]*border:\s*0 !important;[^}]*border-block-end:\s*2px solid transparent !important;[^}]*border-radius:\s*0 !important;/s,
+      /> button\.property-order-settings-tab\s*\{[^}]*appearance:\s*none;[^}]*background:\s*transparent;[^}]*border:\s*0;[^}]*border-block-end:\s*2px solid transparent;[^}]*border-radius:\s*0;/s,
     );
     expect(styles).toMatch(
-      /> button\.property-order-settings-tab\.is-active,[\s\S]*?border-block-end-color:\s*var\(--interactive-accent\) !important;/s,
+      /> button\.property-order-settings-tab\.is-active,[\s\S]*?border-block-end-color:\s*var\(--interactive-accent\);/s,
     );
     expect(styles).toMatch(
-      /> button\.property-order-settings-tab\.is-active,[\s\S]*?font-weight:\s*var\(--font-semibold\) !important;/s,
+      /> button\.property-order-settings-tab\.is-active,[\s\S]*?font-weight:\s*var\(--font-semibold\);/s,
     );
   });
 
   it("scales with UI text and preserves a 44px coarse-pointer target", () => {
     expect(styles).toMatch(
-      /> button\.property-order-settings-tab\s*\{[^}]*block-size:\s*auto;[^}]*min-block-size:\s*34px;[^}]*padding:\s*7px 12px !important;/s,
+      /> button\.property-order-settings-tab\s*\{[^}]*block-size:\s*auto;[^}]*min-block-size:\s*34px;[^}]*padding:\s*7px 12px;/s,
     );
     expect(styles).not.toMatch(/\.property-order-settings-tab[^}]*\bheight:\s*34px/s);
     expect(styles).toMatch(
